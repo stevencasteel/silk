@@ -6,7 +6,10 @@ export class WeaverSweepingState implements IWeaverState {
   public readonly name = "SWEEPING CEILING";
   public readonly hue = "#ef4444";
 
+  private shootTimer = 0.0;
+
   public enter(ctx: AIContext): void {
+    this.shootTimer = 0.0;
     ctx.ai.timeInState = 0;
     
     const health = ctx.healths.get(ctx.weaverId);
@@ -26,6 +29,21 @@ export class WeaverSweepingState implements IWeaverState {
 
   public update(ctx: AIContext, dt: number): WeaverStateType | null {
     ctx.ai.timeInState += dt;
+    this.shootTimer += dt;
+
+    if (this.shootTimer >= 2.4) {
+      this.shootTimer = 0.0;
+      const playerTrans = ctx.transforms.get(ctx.playerId);
+      const wTrans = ctx.transforms.get(ctx.weaverId);
+      if (playerTrans && wTrans) {
+        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+          x: wTrans.x,
+          y: wTrans.y - 1.8,
+          tx: playerTrans.x,
+          ty: playerTrans.y
+        });
+      }
+    }
     return null;
   }
 }

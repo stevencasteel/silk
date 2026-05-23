@@ -14,7 +14,8 @@ export enum GameEvent {
   CAMERA_SHAKE_TRIGGERED    = "CAMERA_SHAKE_TRIGGERED",
   GAME_OVER                 = "GAME_OVER",
   GAME_WIN                  = "GAME_WIN",
-  GAME_RESET                = "GAME_RESET"
+  GAME_RESET                = "GAME_RESET",
+  WEAVER_SHOOT              = "WEAVER_SHOOT"
 }
 
 export interface GameEventMap {
@@ -34,4 +35,5 @@ export interface GameEventMap {
   [GameEvent.GAME_OVER]:               void;
   [GameEvent.GAME_WIN]:                void;
   [GameEvent.GAME_RESET]:              void;
+  [GameEvent.WEAVER_SHOOT]:              { x: number; y: number; tx: number; ty: number };
 }

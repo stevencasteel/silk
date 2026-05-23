@@ -36,12 +36,33 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
     
     if (scene) {
       try {
-        const havokInstance = await HavokPhysics();
+        // Point locator directly to official CDN to bypass Vite local binary asset resolution
+        const havokInstance = await HavokPhysics({
+            locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+        });
+        
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
         scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
-        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
+        console.log("[HavokPhysicsSystem] Havok initialized successfully from CDN.");
+
+        // --- SAFE HAVOK STATIC PHYSICAL COLLIDERS ---
+        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: 34, height: 1.0, depth: 6 }, scene);
+        physFloor.position.set(0, 0.5, 0); 
+        physFloor.isVisible = false;
+        new BABYLON.PhysicsAggregate(physFloor, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8, restitution: 0.2 }, scene);
+
+        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: 1.0, height: 40, depth: 6 }, scene);
+        physLeft.position.set(-15.5, 14, 0);
+        physLeft.isVisible = false;
+        new BABYLON.PhysicsAggregate(physLeft, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
+
+        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: 1.0, height: 40, depth: 6 }, scene);
+        physRight.position.set(15.5, 14, 0);
+        physRight.isVisible = false;
+        new BABYLON.PhysicsAggregate(physRight, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
+
       } catch (err) {
-        console.error("Failed to load Havok Physics:", err);
+        console.warn("[HavokPhysicsSystem] Failed to load Havok WASM. Standing by with visual physics fallback.", err);
       }
     }
   }
@@ -73,13 +94,11 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
   public update(_dt: number): void {
     this.commands.flush();
 
-    // Preserve previous transforms for interpolation syncing
     for (const [, curr] of this.transforms.entries()) {
       curr.prevX = curr.x; curr.prevY = curr.y; curr.prevZ = curr.z;
       curr.prevQx = curr.qx; curr.prevQy = curr.qy; curr.prevQz = curr.qz; curr.prevQw = curr.qw;
     }
 
-    // Apply manual kinematic translations
     const pTarget = this.targets.get(this.refs.player);
     const pTrans = this.transforms.get(this.refs.player);
     if (pTrans && pTarget && pTarget.active) { 

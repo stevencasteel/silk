@@ -13,6 +13,12 @@ interface PooledParticle {
   active: boolean;
 }
 
+interface PhysicalDebris {
+  mesh: BABYLON.Mesh;
+  aggregate: BABYLON.PhysicsAggregate;
+  lifeRemaining: number;
+}
+
 export class JuiceSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   
@@ -21,6 +27,9 @@ export class JuiceSystem implements ISystem {
   private nextPoolIndex = 0;
   private parentNode: BABYLON.TransformNode | null = null;
   private unsubscribes: (() => void)[] = [];
+
+  private physicalDebrisList: PhysicalDebris[] = [];
+  private debrisMat: BABYLON.PBRMaterial | null = null;
 
   constructor(
     private broker: EventBroker,
@@ -32,6 +41,13 @@ export class JuiceSystem implements ISystem {
     if (!scene) return;
 
     this.parentNode = new BABYLON.TransformNode("juiceParticleRoot", scene);
+
+    this.debrisMat = new BABYLON.PBRMaterial("debrisMat", scene);
+    this.debrisMat.albedoColor = new BABYLON.Color3(0.1, 0.1, 0.15);
+    this.debrisMat.emissiveColor = new BABYLON.Color3(0.9, 0.1, 0.1); 
+    this.debrisMat.emissiveIntensity = 3.5;
+    this.debrisMat.metallic = 0.8;
+    this.debrisMat.roughness = 0.4;
 
     for (let i = 0; i < this.poolSize; i++) {
       const box = BABYLON.MeshBuilder.CreateBox("juiceParticle_" + i, { size: 0.15 }, scene);
@@ -72,6 +88,23 @@ export class JuiceSystem implements ISystem {
         }
       })
     );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
+        const weaverMesh = scene.getMeshByName("weaverVisual");
+        if (weaverMesh) {
+          this.spawnDeathDebris(weaverMesh.position, scene);
+        }
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.clearDebris();
+      })
+    );
   }
 
   private spawnBurst(position: BABYLON.Vector3, color: BABYLON.Color3, count: number): void {
@@ -99,6 +132,41 @@ export class JuiceSystem implements ISystem {
     }
   }
 
+  private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
+    if (!this.debrisMat) return;
+
+    // CRASH PROTECTION FALLBACK: If Havok failed to load, spawn a massive visual red particle shower
+    if (!scene.isPhysicsEnabled()) {
+        this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
+        return;
+    }
+
+    const count = 25;
+    for (let i = 0; i < count; i++) {
+      const size = 0.3 + Math.random() * 0.5;
+      const cube = BABYLON.MeshBuilder.CreateBox("debris_" + Date.now() + "_" + i, { size: size }, scene);
+      cube.position.copyFrom(pos);
+      cube.position.x += (Math.random() - 0.5) * 0.5;
+      cube.position.y += (Math.random() - 0.5) * 0.5;
+      cube.material = this.debrisMat;
+
+      const agg = new BABYLON.PhysicsAggregate(cube, BABYLON.PhysicsShapeType.BOX, { mass: 1.0, friction: 0.6, restitution: 0.4 }, scene);
+      
+      const vx = (Math.random() - 0.5) * 14.0;
+      const vy = 4.0 + Math.random() * 12.0;
+      const vz = (Math.random() - 0.5) * 6.0;
+      
+      agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+      agg.body.setAngularVelocity(new BABYLON.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10));
+
+      this.physicalDebrisList.push({
+        mesh: cube,
+        aggregate: agg,
+        lifeRemaining: 6.0 
+      });
+    }
+  }
+
   public update(dt: number): void {
     const gravity = -18.0;
     for (let i = 0; i < this.poolSize; i++) {
@@ -120,14 +188,32 @@ export class JuiceSystem implements ISystem {
       const ratio = p.lifeRemaining / p.maxLife;
       p.mesh.scaling.set(ratio, ratio, ratio);
     }
+
+    for (let i = this.physicalDebrisList.length - 1; i >= 0; i--) {
+      const d = this.physicalDebrisList[i];
+      d.lifeRemaining -= dt;
+      
+      if (d.lifeRemaining <= 0) {
+        d.aggregate.dispose();
+        d.mesh.dispose();
+        this.physicalDebrisList.splice(i, 1);
+      }
+    }
+  }
+
+  private clearDebris(): void {
+    for (const d of this.physicalDebrisList) {
+      d.aggregate.dispose();
+      d.mesh.dispose();
+    }
+    this.physicalDebrisList = [];
   }
 
   public dispose(): void {
     this.unsubscribes.forEach(unsub => unsub());
     this.unsubscribes = [];
-    if (this.parentNode) {
-      this.parentNode.dispose();
-    }
+    this.clearDebris();
+    if (this.parentNode) this.parentNode.dispose();
     this.particlePool.forEach(p => {
       p.mesh.dispose();
       if (p.mesh.material) p.mesh.material.dispose();

@@ -22,6 +22,7 @@ import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
 import { CombatSystem } from "../gameplay/systems/CombatSystem";
 import { GameDirectorSystem } from "../gameplay/systems/GameDirectorSystem";
+import { ProjectileSystem } from "../gameplay/systems/ProjectileSystem";
 import { JuiceSystem } from "../babylon/particles/JuiceSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
 import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
@@ -68,6 +69,7 @@ export class CompositionRoot {
         const combatSystem = new CombatSystem(refs, transforms, healths, weaverAIs, silks, iframes, traversal, broker, commands);
         const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, silks, weaverAIs, velocities, iframes, targets, traversal);
         
+        const projectileSystem = new ProjectileSystem(broker, refs, transforms, healths, iframes, renderSystem);
         const audioSystem = new AudioDirectorSystem(broker);
         const juiceSystem = new JuiceSystem(broker, renderSystem);
         const hudSystem = new DomHudSystem(broker);
@@ -85,6 +87,7 @@ export class CompositionRoot {
         systemManager.register(silkVisualizer);
         systemManager.register(cameraSystem);
         systemManager.register(combatSystem);
+        systemManager.register(projectileSystem);
         systemManager.register(juiceSystem);
         systemManager.register(gameDirector);
         systemManager.register(audioSystem);

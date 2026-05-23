@@ -26,10 +26,10 @@ export class PlayerKinematicsSystem implements ISystem {
     private readonly WALL_SLIDE_SPEED    = -3.0;
     private readonly DRAG_DAMPING        = 0.99;
 
-    private readonly TENSION_CHARGE_RATE = 0.65;
+    private readonly TENSION_CHARGE_RATE = 0.38; // Upgraded: charges slower
     private readonly MIN_FLING_TENSION   = 0.06;
 
-    private readonly FLING_IMPULSE       = 58.0; 
+    private readonly FLING_IMPULSE       = 76.0; // Upgraded: launches with massive speed
     private readonly LAUNCH_DURATION     = 0.70;
     private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
@@ -136,7 +136,6 @@ export class PlayerKinematicsSystem implements ISystem {
             silk.dynamicVelX = 0;
             silk.dynamicVelY = Math.max(silk.dynamicVelY, this.WALL_SLIDE_SPEED);
 
-            // Distance ONLY gained by wall sliding
             silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
             const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
             silk.maxLength = this.BASE_SILK_LENGTH + silk.tension * maxStretch;
@@ -178,7 +177,11 @@ export class PlayerKinematicsSystem implements ISystem {
             return;
         }
 
-        trav.state   = "AIRBORNE";
+        // --- FIXED FALLBACK PROTECTION ---
+        // Only fall back to AIRBORNE if we are not actively in the middle of a LAUNCH
+        if (trav.state !== "LAUNCHING") {
+            trav.state = "AIRBORNE";
+        }
         trav.wallDir = 0;
         silk.tension = Math.max(0, silk.tension - 4.0 * dt);
         target.x = nextX;
@@ -213,8 +216,6 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.launchPower = storedTension;
         trav.wallDir     = 0;
 
-        // Note: We NO LONGER grant artificial slack here.
-        // maxLength remains exactly what it stretched to on the wall.
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.25 + storedTension * 0.35,
             duration: 0.2
@@ -226,22 +227,17 @@ export class PlayerKinematicsSystem implements ISystem {
         const dy = target.y - silk.anchorY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-        // INSTANT REEL IN: Distance can only be gained by sliding.
-        // If we swing or fling closer than maxLength, instantly shrink maxLength to match.
         if (dist < silk.maxLength) {
             silk.maxLength = Math.max(this.BASE_SILK_LENGTH, dist);
         }
 
-        // ABSOLUTE CONSTRAINT: Never let dist exceed the current maxLength.
         if (dist > silk.maxLength) {
             const nx = dx / dist;
             const ny = dy / dist;
 
-            // Lock position strictly to the end of the allowed radius
             target.x = silk.anchorX + nx * silk.maxLength;
             target.y = silk.anchorY + ny * silk.maxLength;
 
-            // Project velocity onto the circle tangent (true pendulum arc)
             const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
             if (dot > 0) {
                 silk.dynamicVelX -= dot * nx;

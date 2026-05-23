@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 5:10:37 PM
+ [SYSTEM] Generated: 5/23/2026, 5:31:50 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -86,6 +86,7 @@
 │   │       ├── EntitySpawnerSystem.ts
 │   │       ├── GameDirectorSystem.ts
 │   │       ├── PlayerInputSystem.ts
+│   │       ├── ProjectileSystem.ts
 │   │       ├── SilkVisualizerSystem.ts
 │   │       ├── WeaverBrainSystem.ts
 │   │       └── WeaverTraversalSystem.ts
@@ -281,8 +282,8 @@ protocol based on scope:
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.0 (Feature Complete Baseline)
-Target Stack: React + TypeScript + Vite + Babylon.js + Rapier 3D + Tone.js
+Version: 1.1 (Refined Havok & PBR Spec)
+Target Stack: React + TypeScript + Vite + Babylon.js + Havok Physics + Tone.js
 Architecture: Strict Custom ECS (Entity Component System)
 ===============================================================================
 
@@ -298,7 +299,7 @@ SILK starts in the vertical portrait arena immediately without title screens.
 1. REALIZED PLAY AREA & ALIGNMENT SPECIFICATIONS
 ===============================================================================
 - Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [1.0, 27.5]
-- Vertical Boundaries: Flat solid walls at X = -15.0 and X = 15.0. Measurement 
+- Vertical Boundaries: Flat solid PBR walls at X = -15.0 and X = 15.0. Measurement 
   unit ticks scroll downwards continuously, creating the endless vertical 
   ascension illusion.
 - Static Camera Lock: Fixed perspective camera at (0, 14, -38) looking at 
@@ -309,24 +310,34 @@ SILK starts in the vertical portrait arena immediately without title screens.
 2. REALIZED CORE TRAVERSAL & PHYSICS SKELETON
 ===============================================================================
 - SPIDER CEILING SWEEP (WEAVER ANCHOR): 
-  Spawned as a giant mechanical sphere (radius = 2.4) patrolling autonomously. 
+  Spawned as an autonomous metallic sphere patrolling along the ceiling line. 
   The top end of the silk string (tether anchor coordinate) locks dynamically 
   to the Weaver's real-time position.
 
-- PENDULUM SWING & STEERING:
-  The player capsule (radius 0.4, height 1.8) is suspended below the Weaver.
-  Left/Right input directly steers the pendulum to build momentum in mid-air.
+- THE TETHER AS A ONE-WAY RATCHET:
+  The tether acts as a strict, one-way ratchet. 
+  1. Elongation: The maximum length of the rope (maxLength) can *only* increase 
+     while the player is in the "WALL_SLIDING" state. Sliding down walls builds 
+     tension, stretching the silk up to a maximum limit (MAX_SILK_LENGTH).
+  2. Instant Reeling: In all other dynamic states ("AIRBORNE", "LAUNCHING"), any 
+     vertical or horizontal movement that brings the player closer to the Weaver 
+     instantly reels in the slack. The maxLength is immediately updated to match 
+     the new shorter distance, down to a rigid clamp (BASE_SILK_LENGTH).
+  3. Strict Fall Clamp: The silk can never stretch during dynamic flight. If 
+     the player falls, they are instantly arrested the moment they hit the 
+     ratcheted maxLength, converting vertical fall momentum cleanly into a arc.
 
-- WALL SLIDE FRICTION & ELONGATION:
-  Steering into a wall locks the player's horizontal coordinate. Friction slides 
-  the player down, dynamically stretching the base length of the tether up to 
-  a maximum breaking point.
+- TRUE PENDULUM SWING (TANGENT PROJECTION):
+  When the player reaches the tether constraint boundary, position is snapped to 
+  the circle edge and dynamic velocity is projected onto the circle's tangent vector. 
+  This creates mathematically accurate circular swing arcs while mid-air steering 
+  impulses allow the player to build momentum.
 
 - TENSION & FLINGING:
-  Releasing the wall while under tension flings the player across the screen 
+  Releasing a wall-slide under tension flings the player across the screen 
   (launch power based on accumulated tension). Remaining on the wall at critical 
   tension accumulates strain. If critical strain persists for over 2.6s, the 
-  silk snaps, causing a Game Over.
+  silk snaps, causing an immediate Game Over.
 
 ===============================================================================
 3. COMBAT & WEAVER AI STATE MACHINE
@@ -345,7 +356,7 @@ Combat resolves strictly through physics impacts and traversal states.
   1. SWEEPING (Red): Dormant patrol. Moves along the ceiling at a fixed velocity.
   2. DASHING (Orange/Red/Cyan): Triggered by taking damage. Enters a Prep phase 
      (0.6s), a high-velocity Thrust phase towards the player's coordinates, and 
-     a Recovery phase (0.5s). Loops 2 times.
+     a Recovery phase (0.5s). Loops 2 times (3 times when Berserk).
   3. RETURNING (Gray): Ascends vertically back to the ceiling patrol line.
   4. DEFEATED (Dark): Triggers at 0 HP. Game Win state.
 
@@ -355,6 +366,17 @@ Combat resolves strictly through physics impacts and traversal states.
 ===============================================================================
 4. AUDIO-VISUAL JUICE & SPECTACLE
 ===============================================================================
+- HIGH-CONTRAST LIGHTING PIPELINE:
+  - Stark Spotlight Staging: Ambient hemispheric wash is minimized. A powerful 
+    directional light is cast diagonally to produce deep, dramatic 3D shadows and 
+    bring volume to the player capsule and Weaver sphere.
+  - Physically Based Rendering (PBR): Standard materials are upgraded to PBR 
+    to calculate physical roughness and metallic properties correctly under direct light.
+  - Default Rendering Pipeline (Post-Processing): Enables screen-space Bloom, 
+    making highly emissive colors (the silk and scrolling ticks) glow with an 
+    arcade aesthetic. Applies vignette framing and subtle chromatic aberration 
+    edges to simulate retro CRT lens distortion.
+
 - PROCEDURAL AUDIO (Tone.js):
   - Tension Synthesizer: FM Oscillator paired with a Lowpass Filter and LFO. 
     Frequency, harmonicity, and gain scale dynamically in real-time based on 
@@ -370,17 +392,20 @@ Combat resolves strictly through physics impacts and traversal states.
   - Procedural Particles: Object-pooled geometric bursts tracking velocity vectors 
     with linear gravity decay, color-coded by event source (Green = Player, 
     Red = Weaver).
-  - Emissive Shifting: The player's mesh emissive lighting pulses and shifts 
-    from green to red/orange based on active silk tension loads.
 
 ===============================================================================
 5. DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
 ===============================================================================
 These items remain slated for future development phases:
-1. USER MENU & CONFIGURATION:
-   - Title screen, classic cabinet focus indicators.
+1. WEAVER PROJECTILES (HAVOK DRIVEN):
+   - Weaver spawns Havok physics-based projectiles targeted at player coordinates, 
+     which bounce and stick to walls.
+2. PHYSICAL DEBRIS SIMULATION:
+   - On Weaver defeat, spawning 20-30 physical Havok chunks that tumble, bounce, 
+     and settle on the arena floor.
+3. USER MENU & CONFIGURATION:
    - Volume sliders mapped to native Tone.js Destination gain channels.
-2. PERSISTENCE MATRIX: 
+4. PERSISTENCE MATRIX: 
    - LocalStorage save slots with schema validation check passes for Win/Loss 
      tallies and custom key-rebinds.
 
@@ -822,6 +847,7 @@ import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
 import { CombatSystem } from "../gameplay/systems/CombatSystem";
 import { GameDirectorSystem } from "../gameplay/systems/GameDirectorSystem";
+import { ProjectileSystem } from "../gameplay/systems/ProjectileSystem";
 import { JuiceSystem } from "../babylon/particles/JuiceSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
 import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
@@ -868,6 +894,7 @@ export class CompositionRoot {
         const combatSystem = new CombatSystem(refs, transforms, healths, weaverAIs, silks, iframes, traversal, broker, commands);
         const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, silks, weaverAIs, velocities, iframes, targets, traversal);
         
+        const projectileSystem = new ProjectileSystem(broker, refs, transforms, healths, iframes, renderSystem);
         const audioSystem = new AudioDirectorSystem(broker);
         const juiceSystem = new JuiceSystem(broker, renderSystem);
         const hudSystem = new DomHudSystem(broker);
@@ -885,6 +912,7 @@ export class CompositionRoot {
         systemManager.register(silkVisualizer);
         systemManager.register(cameraSystem);
         systemManager.register(combatSystem);
+        systemManager.register(projectileSystem);
         systemManager.register(juiceSystem);
         systemManager.register(gameDirector);
         systemManager.register(audioSystem);
@@ -1242,7 +1270,7 @@ export class ArenaGeometry {
         const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
         wallMaterial.albedoColor = new BABYLON.Color3(0.07, 0.08, 0.11);
         wallMaterial.metallic = 0.2;
-        wallMaterial.roughness = 0.8; // Matte, rubbery look
+        wallMaterial.roughness = 0.8; 
 
         const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 40, depth: 4 }, this.scene);
         leftWall.position.set(-16, 14, 0);
@@ -1255,7 +1283,7 @@ export class ArenaGeometry {
         const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
         tickMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
         tickMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.7);
-        tickMat.emissiveIntensity = 2.0; // Pushed into Bloom threshold
+        tickMat.emissiveIntensity = 2.0; 
         tickMat.disableLighting = true;
 
         const tickCount = 18;
@@ -1292,6 +1320,12 @@ interface PooledParticle {
   active: boolean;
 }
 
+interface PhysicalDebris {
+  mesh: BABYLON.Mesh;
+  aggregate: BABYLON.PhysicsAggregate;
+  lifeRemaining: number;
+}
+
 export class JuiceSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   
@@ -1300,6 +1334,9 @@ export class JuiceSystem implements ISystem {
   private nextPoolIndex = 0;
   private parentNode: BABYLON.TransformNode | null = null;
   private unsubscribes: (() => void)[] = [];
+
+  private physicalDebrisList: PhysicalDebris[] = [];
+  private debrisMat: BABYLON.PBRMaterial | null = null;
 
   constructor(
     private broker: EventBroker,
@@ -1311,6 +1348,13 @@ export class JuiceSystem implements ISystem {
     if (!scene) return;
 
     this.parentNode = new BABYLON.TransformNode("juiceParticleRoot", scene);
+
+    this.debrisMat = new BABYLON.PBRMaterial("debrisMat", scene);
+    this.debrisMat.albedoColor = new BABYLON.Color3(0.1, 0.1, 0.15);
+    this.debrisMat.emissiveColor = new BABYLON.Color3(0.9, 0.1, 0.1); 
+    this.debrisMat.emissiveIntensity = 3.5;
+    this.debrisMat.metallic = 0.8;
+    this.debrisMat.roughness = 0.4;
 
     for (let i = 0; i < this.poolSize; i++) {
       const box = BABYLON.MeshBuilder.CreateBox("juiceParticle_" + i, { size: 0.15 }, scene);
@@ -1351,6 +1395,23 @@ export class JuiceSystem implements ISystem {
         }
       })
     );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
+        const weaverMesh = scene.getMeshByName("weaverVisual");
+        if (weaverMesh) {
+          this.spawnDeathDebris(weaverMesh.position, scene);
+        }
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.clearDebris();
+      })
+    );
   }
 
   private spawnBurst(position: BABYLON.Vector3, color: BABYLON.Color3, count: number): void {
@@ -1378,6 +1439,41 @@ export class JuiceSystem implements ISystem {
     }
   }
 
+  private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
+    if (!this.debrisMat) return;
+
+    // CRASH PROTECTION FALLBACK: If Havok failed to load, spawn a massive visual red particle shower
+    if (!scene.isPhysicsEnabled()) {
+        this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
+        return;
+    }
+
+    const count = 25;
+    for (let i = 0; i < count; i++) {
+      const size = 0.3 + Math.random() * 0.5;
+      const cube = BABYLON.MeshBuilder.CreateBox("debris_" + Date.now() + "_" + i, { size: size }, scene);
+      cube.position.copyFrom(pos);
+      cube.position.x += (Math.random() - 0.5) * 0.5;
+      cube.position.y += (Math.random() - 0.5) * 0.5;
+      cube.material = this.debrisMat;
+
+      const agg = new BABYLON.PhysicsAggregate(cube, BABYLON.PhysicsShapeType.BOX, { mass: 1.0, friction: 0.6, restitution: 0.4 }, scene);
+      
+      const vx = (Math.random() - 0.5) * 14.0;
+      const vy = 4.0 + Math.random() * 12.0;
+      const vz = (Math.random() - 0.5) * 6.0;
+      
+      agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+      agg.body.setAngularVelocity(new BABYLON.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10));
+
+      this.physicalDebrisList.push({
+        mesh: cube,
+        aggregate: agg,
+        lifeRemaining: 6.0 
+      });
+    }
+  }
+
   public update(dt: number): void {
     const gravity = -18.0;
     for (let i = 0; i < this.poolSize; i++) {
@@ -1399,14 +1495,32 @@ export class JuiceSystem implements ISystem {
       const ratio = p.lifeRemaining / p.maxLife;
       p.mesh.scaling.set(ratio, ratio, ratio);
     }
+
+    for (let i = this.physicalDebrisList.length - 1; i >= 0; i--) {
+      const d = this.physicalDebrisList[i];
+      d.lifeRemaining -= dt;
+      
+      if (d.lifeRemaining <= 0) {
+        d.aggregate.dispose();
+        d.mesh.dispose();
+        this.physicalDebrisList.splice(i, 1);
+      }
+    }
+  }
+
+  private clearDebris(): void {
+    for (const d of this.physicalDebrisList) {
+      d.aggregate.dispose();
+      d.mesh.dispose();
+    }
+    this.physicalDebrisList = [];
   }
 
   public dispose(): void {
     this.unsubscribes.forEach(unsub => unsub());
     this.unsubscribes = [];
-    if (this.parentNode) {
-      this.parentNode.dispose();
-    }
+    this.clearDebris();
+    if (this.parentNode) this.parentNode.dispose();
     this.particlePool.forEach(p => {
       p.mesh.dispose();
       if (p.mesh.material) p.mesh.material.dispose();
@@ -1442,38 +1556,41 @@ export class RenderSystem implements ISystem, IVisualRegistry {
   public async init(): Promise<void> {
     this.engine = new BABYLON.Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
     this.scene = new BABYLON.Scene(this.engine);
-    this.scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.03, 1.0);
+    
+    // 1. True deep black void to prevent milky wash-out
+    this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.015, 1.0);
     
     const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -38), this.scene);
     camera.setTarget(new BABYLON.Vector3(0, 14, 0));
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
     
-    // Switch to a softer hemispheric light suitable for PBR
-    const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, -0.5), this.scene);
-    light.intensity = 0.6;
-    light.diffuse = new BABYLON.Color3(0.8, 0.8, 0.9);
-    light.specular = new BABYLON.Color3(0.1, 0.1, 0.1);
+    // 2. STARK LIGHTING: Very dim ambient, strong directional spotlight
+    const ambientLight = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
+    ambientLight.intensity = 0.2; // Keep shadows incredibly dark
+    
+    const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.4, -0.6, 0.8), this.scene);
+    dirLight.intensity = 2.5; // Strong rim/key light
+    dirLight.specular = new BABYLON.Color3(1, 0.9, 0.8);
 
-    // Setup Default Rendering Pipeline (Post-Processing)
+    // 3. Post-Processing: Fix exposure and contrast
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [camera]);
-    pipeline.samples = 4; // Anti-aliasing
+    pipeline.samples = 4;
     pipeline.fxaaEnabled = true;
     
     pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.6;
-    pipeline.bloomWeight = 0.8;
-    pipeline.bloomScale = 0.5;
+    pipeline.bloomThreshold = 0.8; // Only let the brightest neon parts glow
+    pipeline.bloomWeight = 0.6;
 
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
-    pipeline.imageProcessing.vignetteWeight = 1.8;
+    pipeline.imageProcessing.vignetteWeight = 2.0;
     pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
-    pipeline.imageProcessing.contrast = 1.1;
-    pipeline.imageProcessing.exposure = 1.2;
+    
+    pipeline.imageProcessing.exposure = 1.0; // Restored from 1.2 to prevent wash-out
+    pipeline.imageProcessing.contrast = 1.2; // Bumped contrast to make the lighting punchy
 
     pipeline.chromaticAberrationEnabled = true;
-    pipeline.chromaticAberration.aberrationAmount = 2.5;
-    pipeline.chromaticAberration.radialIntensity = 1.5;
+    pipeline.chromaticAberration.aberrationAmount = 2.0;
 
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
@@ -1481,41 +1598,21 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     window.addEventListener("resize", this.handleResize);
   }
 
-  public update(_dt: number): void {
-  }
+  public update(_dt: number): void { }
   
   public render(_alpha: number): void { 
-    if (this.scene) {
-      this.scene.render();
-    }
+    if (this.scene) this.scene.render();
   }
 
-  public getScene(): BABYLON.Scene | null { 
-    return this.scene; 
-  }
-  
-  public getTransformNode(id: EntityId): BABYLON.TransformNode | null { 
-    return this.visualNodes.get(id) || null; 
-  }
-  
-  public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { 
-    this.visualNodes.set(id, node); 
-  }
-  
+  public getScene(): BABYLON.Scene | null { return this.scene; }
+  public getTransformNode(id: EntityId): BABYLON.TransformNode | null { return this.visualNodes.get(id) || null; }
+  public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { this.visualNodes.set(id, node); }
   public unregisterTransformNode(id: EntityId): void { 
     const node = this.visualNodes.get(id); 
-    if (node) { 
-      node.dispose(); 
-      this.visualNodes.delete(id); 
-    } 
+    if (node) { node.dispose(); this.visualNodes.delete(id); } 
   }
 
-  private handleResize = () => { 
-    if (this.engine) {
-      this.engine.resize();
-    }
-  };
-
+  private handleResize = () => { if (this.engine) this.engine.resize(); };
   public dispose(): void { 
     window.removeEventListener("resize", this.handleResize); 
     if (this.scene) this.scene.dispose(); 
@@ -2082,7 +2179,8 @@ export enum GameEvent {
   CAMERA_SHAKE_TRIGGERED    = "CAMERA_SHAKE_TRIGGERED",
   GAME_OVER                 = "GAME_OVER",
   GAME_WIN                  = "GAME_WIN",
-  GAME_RESET                = "GAME_RESET"
+  GAME_RESET                = "GAME_RESET",
+  WEAVER_SHOOT              = "WEAVER_SHOOT"
 }
 
 export interface GameEventMap {
@@ -2102,6 +2200,7 @@ export interface GameEventMap {
   [GameEvent.GAME_OVER]:               void;
   [GameEvent.GAME_WIN]:                void;
   [GameEvent.GAME_RESET]:              void;
+  [GameEvent.WEAVER_SHOOT]:              { x: number; y: number; tx: number; ty: number };
 }
 
 
@@ -2347,7 +2446,10 @@ export class WeaverSweepingState implements IWeaverState {
   public readonly name = "SWEEPING CEILING";
   public readonly hue = "#ef4444";
 
+  private shootTimer = 0.0;
+
   public enter(ctx: AIContext): void {
+    this.shootTimer = 0.0;
     ctx.ai.timeInState = 0;
     
     const health = ctx.healths.get(ctx.weaverId);
@@ -2367,6 +2469,21 @@ export class WeaverSweepingState implements IWeaverState {
 
   public update(ctx: AIContext, dt: number): WeaverStateType | null {
     ctx.ai.timeInState += dt;
+    this.shootTimer += dt;
+
+    if (this.shootTimer >= 2.4) {
+      this.shootTimer = 0.0;
+      const playerTrans = ctx.transforms.get(ctx.playerId);
+      const wTrans = ctx.transforms.get(ctx.weaverId);
+      if (playerTrans && wTrans) {
+        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+          x: wTrans.x,
+          y: wTrans.y - 1.8,
+          tx: playerTrans.x,
+          ty: playerTrans.y
+        });
+      }
+    }
     return null;
   }
 }
@@ -2765,8 +2882,8 @@ export class EntitySpawnerSystem implements ISystem {
         wMat.albedoColor = new BABYLON.Color3(0.95, 0.1, 0.1);
         wMat.emissiveColor = new BABYLON.Color3(0.8, 0.04, 0.04);
         wMat.emissiveIntensity = 2.5;
-        wMat.metallic = 0.85;
-        wMat.roughness = 0.3;
+        wMat.metallic = 0.3;
+        wMat.roughness = 0.6;
         wMesh.material = wMat;
         this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
@@ -2796,8 +2913,8 @@ export class EntitySpawnerSystem implements ISystem {
         pMat.albedoColor = new BABYLON.Color3(0.13, 0.77, 0.36);
         pMat.emissiveColor = new BABYLON.Color3(0.02, 0.16, 0.02);
         pMat.emissiveIntensity = 2.0;
-        pMat.metallic = 0.1;
-        pMat.roughness = 0.2;
+        pMat.metallic = 0.0;
+        pMat.roughness = 0.5;
         pMesh.material = pMat;
         this.visualRegistry.registerTransformNode(playerId, pMesh);
     }
@@ -2984,6 +3101,181 @@ export class PlayerInputSystem implements ISystem {
     private handleKeyUp = (e: KeyboardEvent): void => {
         this.keysPressed.delete(e.key.toLowerCase());
     };
+}
+
+
+
+● ./src/gameplay/systems/ProjectileSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
+import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { TransformComponent, HealthComponent, InvulnerabilityComponent } from "../../core/ecs/Components";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
+import * as BABYLON from "@babylonjs/core";
+
+interface ActiveProjectile {
+    mesh: BABYLON.Mesh;
+    aggregate: BABYLON.PhysicsAggregate | null;
+    isStuck: boolean;
+    lifeTime: number;
+    fallbackVelocity?: BABYLON.Vector3;
+}
+
+export class ProjectileSystem implements ISystem {
+    readonly phase = SystemPhase.Gameplay;
+    
+    private projectiles: ActiveProjectile[] = [];
+    private projMat: BABYLON.PBRMaterial | null = null;
+    private unsubShoot: (() => void) | null = null;
+    private unsubReset: (() => void) | null = null;
+
+    constructor(
+        private broker: EventBroker,
+        private refs: EntityRefs,
+        private transforms: ComponentStore<TransformComponent>,
+        private healths: ComponentStore<HealthComponent>,
+        private iframes: ComponentStore<InvulnerabilityComponent>,
+        private visualRegistry: IVisualRegistry
+    ) {}
+
+    public init(): void {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
+
+        this.projMat = new BABYLON.PBRMaterial("projectileMat", scene);
+        this.projMat.albedoColor = new BABYLON.Color3(0, 0, 0);
+        this.projMat.emissiveColor = new BABYLON.Color3(1.0, 0.4, 0.1); 
+        this.projMat.emissiveIntensity = 4.0;
+        this.projMat.metallic = 0.1;
+        this.projMat.roughness = 0.5;
+
+        this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+            this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
+        });
+
+        this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
+            this.clearAll();
+        });
+    }
+
+    private spawnProjectile(x: number, y: number, tx: number, ty: number): void {
+        const scene = this.visualRegistry.getScene();
+        if (!scene || !this.projMat) return;
+
+        const sphere = BABYLON.MeshBuilder.CreateSphere("proj_" + Date.now(), { diameter: 0.65 }, scene);
+        sphere.position.set(x, y, 0);
+        sphere.material = this.projMat;
+
+        const dx = tx - x;
+        const dy = ty - y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const speed = 15.0;
+        const vx = (dx / dist) * speed;
+        const vy = (dy / dist) * speed;
+
+        let agg: BABYLON.PhysicsAggregate | null = null;
+        let fallbackVel: BABYLON.Vector3 | undefined;
+
+        // CRASH PROTECTION: Only use physics body if Havok is successfully active on the scene
+        if (scene.isPhysicsEnabled()) {
+            agg = new BABYLON.PhysicsAggregate(sphere, BABYLON.PhysicsShapeType.SPHERE, { mass: 1.0, friction: 0.2, restitution: 0.1 }, scene);
+            agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, 0));
+        } else {
+            fallbackVel = new BABYLON.Vector3(vx, vy, 0);
+        }
+
+        this.projectiles.push({
+            mesh: sphere,
+            aggregate: agg,
+            isStuck: false,
+            lifeTime: 0.0,
+            fallbackVelocity: fallbackVel
+        });
+    }
+
+    public update(dt: number): void {
+        const pTrans = this.transforms.get(this.refs.player);
+        const pHealth = this.healths.get(this.refs.player);
+        const pIframe = this.iframes.get(this.refs.player);
+
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            p.lifeTime += dt;
+
+            // Manual visual updates for offline/no-WASM fallback
+            if (!p.isStuck && p.fallbackVelocity) {
+                p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
+            }
+
+            const pos = p.mesh.position;
+            const wallLimit = 14.05;
+            const floorLimit = 1.05;
+
+            // Wall Adhesion
+            if (!p.isStuck && (Math.abs(pos.x) >= wallLimit || pos.y <= floorLimit)) {
+                p.isStuck = true;
+                
+                if (p.aggregate) {
+                    p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
+                    p.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
+                    p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.STATIC);
+                } else {
+                    p.fallbackVelocity = new BABYLON.Vector3(0, 0, 0);
+                }
+            }
+
+            // Player Damage Overlaps
+            if (!p.isStuck && pTrans && pHealth && pIframe) {
+                const dx = pos.x - pTrans.x;
+                const dy = pos.y - pTrans.y;
+                const distSq = dx * dx + dy * dy;
+                const hitDist = 1.1;
+
+                if (distSq < hitDist * hitDist && pIframe.timeRemaining <= 0) {
+                    pHealth.current = Math.max(0, pHealth.current - 1);
+                    pIframe.timeRemaining = 1.2;
+
+                    this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 1, source: "PROJECTILE" });
+                    this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
+                    this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.6, duration: 0.35 });
+
+                    if (pHealth.current <= 0) {
+                        this.broker.publish(GameEvent.PLAYER_DIED, undefined);
+                    }
+
+                    this.removeProjectile(i);
+                    continue;
+                }
+            }
+
+            if (p.lifeTime > 5.0) {
+                this.removeProjectile(i);
+            }
+        }
+    }
+
+    private removeProjectile(index: number): void {
+        const p = this.projectiles[index];
+        if (p.aggregate) p.aggregate.dispose();
+        p.mesh.dispose();
+        this.projectiles.splice(index, 1);
+    }
+
+    private clearAll(): void {
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            this.removeProjectile(i);
+        }
+    }
+
+    public dispose(): void {
+        if (this.unsubShoot) this.unsubShoot();
+        if (this.unsubReset) this.unsubReset();
+        this.clearAll();
+    }
 }
 
 
@@ -3581,18 +3873,20 @@ export class PlayerKinematicsSystem implements ISystem {
     readonly phase = SystemPhase.Kinematics;
 
     private readonly GRAVITY             = -24.0;
-    private readonly SWING_STEER_FORCE   = 32.0;
-    private readonly LAUNCH_STEER_FORCE   = 16.0;
-    private readonly BASE_SILK_LENGTH    = 12.0;
+    private readonly SWING_STEER_FORCE   = 36.0; 
+    private readonly LAUNCH_STEER_FORCE  = 16.0;
+    
+    private readonly BASE_SILK_LENGTH    = 10.0;
     private readonly MAX_SILK_LENGTH     = 24.0;
+
     private readonly WALL_LIMIT_X        = 14.2;
     private readonly WALL_SLIDE_SPEED    = -3.0;
     private readonly DRAG_DAMPING        = 0.99;
 
-    private readonly TENSION_CHARGE_RATE = 0.65;
+    private readonly TENSION_CHARGE_RATE = 0.38;
     private readonly MIN_FLING_TENSION   = 0.06;
 
-    private readonly FLING_IMPULSE       = 54.0;
+    private readonly FLING_IMPULSE       = 76.0; 
     private readonly LAUNCH_DURATION     = 0.70;
     private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
@@ -3621,19 +3915,44 @@ export class PlayerKinematicsSystem implements ISystem {
         silk.anchorY = wTrans.y;
         silk.anchorZ = wTrans.z;
 
+        let nextX = target.x;
+        let nextY = target.y;
+
         if (trav.state === "LAUNCHING") {
-            this.stepLaunching(dt, silk, target, trav, input);
+            trav.launchTimer -= dt;
+            silk.dynamicVelX += input.x * this.LAUNCH_STEER_FORCE * dt;
+            silk.dynamicVelY += this.GRAVITY * this.LAUNCH_GRAVITY_MULT * dt;
+
+            const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
+            silk.dynamicVelX *= damp;
+            silk.dynamicVelY *= damp;
+
+            nextX += silk.dynamicVelX * dt;
+            nextY += silk.dynamicVelY * dt;
+
+            if (trav.launchTimer <= 0) {
+                trav.state = "AIRBORNE";
+                trav.wallDir = 0;
+            }
         } else {
-            this.stepPhysics(dt, silk, trav, input);
-
-            const nextX = target.x + silk.dynamicVelX * dt;
-            const nextY = target.y + silk.dynamicVelY * dt;
-
-            this.resolveWallContact(nextX, nextY, dt, target, silk, trav, input);
+            silk.dynamicVelY += this.GRAVITY * dt;
 
             if (trav.state === "AIRBORNE") {
-                this.enforceSilkConstraint(target, silk);
+                silk.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
             }
+
+            const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
+            silk.dynamicVelX *= damp;
+            silk.dynamicVelY *= damp;
+
+            nextX += silk.dynamicVelX * dt;
+            nextY += silk.dynamicVelY * dt;
+        }
+
+        this.resolveWallContact(nextX, nextY, dt, target, silk, trav, input);
+
+        if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
+            this.enforcePendulumConstraint(target, silk);
         }
 
         const dx = target.x - silk.anchorX;
@@ -3645,53 +3964,6 @@ export class PlayerKinematicsSystem implements ISystem {
         if (trav.state !== this.lastTraversalState) {
             this.lastTraversalState = trav.state;
             this.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
-        }
-    }
-
-    private stepPhysics(
-        dt: number,
-        silk: SilkComponent,
-        trav: TraversalStateComponent,
-        input: InputIntentComponent
-    ): void {
-        silk.dynamicVelY += this.GRAVITY * dt;
-
-        if (trav.state === "AIRBORNE") {
-            silk.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
-        }
-
-        const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
-        silk.dynamicVelX *= damp;
-        silk.dynamicVelY *= damp;
-    }
-
-    private stepLaunching(
-        dt: number,
-        silk: SilkComponent,
-        target: KinematicTargetComponent,
-        trav: TraversalStateComponent,
-        input: InputIntentComponent
-    ): void {
-        trav.launchTimer -= dt;
-
-        silk.dynamicVelX += input.x * this.LAUNCH_STEER_FORCE * dt;
-        silk.dynamicVelY += this.GRAVITY * this.LAUNCH_GRAVITY_MULT * dt;
-
-        const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
-        silk.dynamicVelX *= damp;
-        silk.dynamicVelY *= damp;
-
-        target.x += silk.dynamicVelX * dt;
-        target.y += silk.dynamicVelY * dt;
-
-        if (trav.launchTimer <= 0) {
-            trav.state = "AIRBORNE";
-            trav.wallDir = 0;
-
-            const dx = target.x - silk.anchorX;
-            const dy = target.y - silk.anchorY;
-            const distNow = Math.sqrt(dx * dx + dy * dy) || this.BASE_SILK_LENGTH;
-            silk.maxLength = Math.max(this.BASE_SILK_LENGTH, distNow);
         }
     }
 
@@ -3713,8 +3985,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
             if (!stillPressingIn) {
                 this.triggerFling(silk, target, trav);
-                target.x = nextX;
-                target.y = nextY;
                 return;
             }
 
@@ -3723,8 +3993,8 @@ export class PlayerKinematicsSystem implements ISystem {
             silk.dynamicVelX = 0;
             silk.dynamicVelY = Math.max(silk.dynamicVelY, this.WALL_SLIDE_SPEED);
 
+            // Distance ONLY gained by wall sliding
             silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
-
             const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
             silk.maxLength = this.BASE_SILK_LENGTH + silk.tension * maxStretch;
 
@@ -3732,7 +4002,6 @@ export class PlayerKinematicsSystem implements ISystem {
                 this.triggerFling(silk, target, trav);
                 input.jump = false;
             }
-
             return;
         }
 
@@ -3757,7 +4026,7 @@ export class PlayerKinematicsSystem implements ISystem {
                 target.x = wallDir * this.WALL_LIMIT_X;
                 target.y = nextY;
                 if (Math.sign(silk.dynamicVelX) === wallDir) {
-                    silk.dynamicVelX *= -0.2;
+                    silk.dynamicVelX *= -0.2; 
                 }
                 trav.state   = "AIRBORNE";
                 trav.wallDir = 0;
@@ -3780,7 +4049,6 @@ export class PlayerKinematicsSystem implements ISystem {
     ): void {
         const storedTension = silk.tension;
         silk.tension  = 0.0;
-        silk.maxLength = this.BASE_SILK_LENGTH;
 
         if (storedTension < this.MIN_FLING_TENSION) {
             trav.state      = "AIRBORNE";
@@ -3802,29 +4070,35 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.launchPower = storedTension;
         trav.wallDir     = 0;
 
-        silk.maxLength = this.MAX_SILK_LENGTH * 2.5;
-
+        // Note: We NO LONGER grant artificial slack here.
+        // maxLength remains exactly what it stretched to on the wall.
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.25 + storedTension * 0.35,
             duration: 0.2
         });
     }
 
-    private enforceSilkConstraint(
-        target: KinematicTargetComponent,
-        silk: SilkComponent
-    ): void {
-        const dx   = target.x - silk.anchorX;
-        const dy   = target.y - silk.anchorY;
+    private enforcePendulumConstraint(target: KinematicTargetComponent, silk: SilkComponent): void {
+        const dx = target.x - silk.anchorX;
+        const dy = target.y - silk.anchorY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
+        // INSTANT REEL IN: Distance can only be gained by sliding.
+        // If we swing or fling closer than maxLength, instantly shrink maxLength to match.
+        if (dist < silk.maxLength) {
+            silk.maxLength = Math.max(this.BASE_SILK_LENGTH, dist);
+        }
+
+        // ABSOLUTE CONSTRAINT: Never let dist exceed the current maxLength.
         if (dist > silk.maxLength) {
             const nx = dx / dist;
             const ny = dy / dist;
 
+            // Lock position strictly to the end of the allowed radius
             target.x = silk.anchorX + nx * silk.maxLength;
             target.y = silk.anchorY + ny * silk.maxLength;
 
+            // Project velocity onto the circle tangent (true pendulum arc)
             const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
             if (dot > 0) {
                 silk.dynamicVelX -= dot * nx;
@@ -3876,12 +4150,33 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
     
     if (scene) {
       try {
-        const havokInstance = await HavokPhysics();
+        // Point locator directly to official CDN to bypass Vite local binary asset resolution
+        const havokInstance = await HavokPhysics({
+            locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+        });
+        
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
         scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
-        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
+        console.log("[HavokPhysicsSystem] Havok initialized successfully from CDN.");
+
+        // --- SAFE HAVOK STATIC PHYSICAL COLLIDERS ---
+        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: 34, height: 1.0, depth: 6 }, scene);
+        physFloor.position.set(0, 0.5, 0); 
+        physFloor.isVisible = false;
+        new BABYLON.PhysicsAggregate(physFloor, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8, restitution: 0.2 }, scene);
+
+        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: 1.0, height: 40, depth: 6 }, scene);
+        physLeft.position.set(-15.5, 14, 0);
+        physLeft.isVisible = false;
+        new BABYLON.PhysicsAggregate(physLeft, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
+
+        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: 1.0, height: 40, depth: 6 }, scene);
+        physRight.position.set(15.5, 14, 0);
+        physRight.isVisible = false;
+        new BABYLON.PhysicsAggregate(physRight, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
+
       } catch (err) {
-        console.error("Failed to load Havok Physics:", err);
+        console.warn("[HavokPhysicsSystem] Failed to load Havok WASM. Standing by with visual physics fallback.", err);
       }
     }
   }
@@ -3913,13 +4208,11 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
   public update(_dt: number): void {
     this.commands.flush();
 
-    // Preserve previous transforms for interpolation syncing
     for (const [, curr] of this.transforms.entries()) {
       curr.prevX = curr.x; curr.prevY = curr.y; curr.prevZ = curr.z;
       curr.prevQx = curr.qx; curr.prevQy = curr.qy; curr.prevQz = curr.qz; curr.prevQw = curr.qw;
     }
 
-    // Apply manual kinematic translations
     const pTarget = this.targets.get(this.refs.player);
     const pTrans = this.transforms.get(this.refs.player);
     if (pTrans && pTarget && pTarget.active) { 
