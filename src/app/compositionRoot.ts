@@ -67,7 +67,7 @@ export class CompositionRoot {
         const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
         const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
         
-        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, renderSystem);
+        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem);
         const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
         const lightingSystem = new LightingSystem(broker, renderSystem);
         const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);

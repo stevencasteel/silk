@@ -89,7 +89,7 @@ export class GameDirectorSystem implements ISystem {
             pTrav.state = "AIRBORNE";
             pTrav.wallNormalX = 0;
             pTrav.wallNormalY = 0;
-            pTrav.charge = 0;
+            pTrav.wallDir = 0;
             pTrav.launchTimer = 0;
             pTrav.launchPower = 0;
         }

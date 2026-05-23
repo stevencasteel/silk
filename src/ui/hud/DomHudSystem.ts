@@ -3,108 +3,215 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
+// ---------------------------------------------------------------------------
+// DomHudSystem
+// Bridges the EventBroker to DOM elements rendered by HudOverlay.tsx.
+// Drives: tension meter, player HP, warden HP, warden state label,
+//         traversal hint text, and game-state overlay.
+// ---------------------------------------------------------------------------
+
+type HintLevel = "none" | "charging" | "ready" | "maxout";
+
 export class DomHudSystem implements ISystem {
-  readonly phase = SystemPhase.RenderSync;
-  private unsubscribes: (() => void)[] = [];
-  private tensionBar: HTMLElement | null = null;
-  private tensionText: HTMLElement | null = null;
-  private hpText: HTMLElement | null = null;
-  private hpValue: HTMLElement | null = null;
-  private bossStateText: HTMLElement | null = null;
-  private overlay: HTMLElement | null = null;
-  private overlayTitle: HTMLElement | null = null;
+    readonly phase = SystemPhase.RenderSync;
 
-  constructor(private broker: EventBroker) {}
+    private unsubscribes: (() => void)[] = [];
 
-  public init(): void {
-    this.cacheDomElements();
-    this.registerSubscribers();
-  }
+    // Cached DOM refs
+    private tensionBar     : HTMLElement | null = null;
+    private tensionText    : HTMLElement | null = null;
+    private playerHpBar    : HTMLElement | null = null;
+    private playerHpValue  : HTMLElement | null = null;
+    private wardenHpBar    : HTMLElement | null = null;
+    private wardenHpValue  : HTMLElement | null = null;
+    private bossStateText  : HTMLElement | null = null;
+    private traversalHint  : HTMLElement | null = null;
+    private overlay        : HTMLElement | null = null;
+    private overlayTitle   : HTMLElement | null = null;
 
-  public update(_dt: number): void {
-    void _dt;
-  }
+    private lastHintLevel : HintLevel = "none";
+    private currentState  : string = "AIRBORNE";
 
-  private cacheDomElements(): void {
-    if (typeof document === "undefined") return;
-    this.tensionBar = document.getElementById("tension-meter-bar");
-    this.tensionText = document.getElementById("tension-meter-text");
-    this.hpText = document.getElementById("player-hp-bar");
-    this.hpValue = document.getElementById("player-hp-value");
-    this.bossStateText = document.getElementById("boss-state-text");
-    this.overlay = document.getElementById("game-state-overlay");
-    this.overlayTitle = document.getElementById("game-state-title");
-  }
+    constructor(private broker: EventBroker) {}
 
-  private registerSubscribers(): void {
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => this.updateTensionDisplay(payload.tension))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => this.updateHealthDisplay(payload.hp, payload.maxHp))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => this.updateWardenStateDisplay(payload.state, payload.hue))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("TETHER SNAPPED", "#ef4444"))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => this.hideOverlay())
-    );
-  }
-
-  private updateTensionDisplay(value: number): void {
-    const clamped = Math.max(0, Math.min(1.5, value));
-    const percentage = Math.min(100, clamped * 100).toFixed(1) + "%";
-    if (this.tensionBar) {
-      this.tensionBar.style.width = percentage;
-      if (clamped > 1.1) {
-        this.tensionBar.style.backgroundColor = "#ef4444";
-      } else if (clamped > 0.9) {
-        this.tensionBar.style.backgroundColor = "#eab308";
-      } else {
-        this.tensionBar.style.backgroundColor = "#22c55e";
-      }
+    public init(): void {
+        this.cacheDomElements();
+        this.registerSubscriptions();
     }
-    if (this.tensionText) {
-      this.tensionText.textContent = `TETHER LOAD: ${percentage}`;
-    }
-  }
 
-  private updateHealthDisplay(hp: number, maxHp: number): void {
-    if (this.hpValue) {
-      this.hpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+    public update(_dt: number): void {
+        void _dt;
     }
-    if (this.hpText) {
-      const hpPct = ((hp / maxHp) * 100).toFixed(0) + "%";
-      this.hpText.style.width = hpPct;
-      this.hpText.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
+
+    // -----------------------------------------------------------------------
+    private cacheDomElements(): void {
+        if (typeof document === "undefined") return;
+        this.tensionBar    = document.getElementById("tension-meter-bar");
+        this.tensionText   = document.getElementById("tension-meter-text");
+        this.playerHpBar   = document.getElementById("player-hp-bar");
+        this.playerHpValue = document.getElementById("player-hp-value");
+        this.wardenHpBar   = document.getElementById("warden-hp-bar");
+        this.wardenHpValue = document.getElementById("warden-hp-value");
+        this.bossStateText = document.getElementById("boss-state-text");
+        this.traversalHint = document.getElementById("traversal-hint");
+        this.overlay       = document.getElementById("game-state-overlay");
+        this.overlayTitle  = document.getElementById("game-state-title");
     }
-  }
 
-  private updateWardenStateDisplay(state: string, hue: string): void {
-    if (this.bossStateText) {
-      this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
-      this.bossStateText.style.color = hue;
+    private registerSubscriptions(): void {
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, ({ tension }) => {
+                this.updateTensionBar(tension);
+                this.updateHint(tension);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
+                this.currentState = state;
+                if (state !== "WALL_SLIDING") {
+                    this.setHint("none");
+                }
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
+                this.updatePlayerHp(hp, maxHp);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, ({ hp, maxHp }) => {
+                this.updateWardenHp(hp, maxHp);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, ({ state, hue }) => {
+                this.updateWardenStateLabel(state, hue);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.GAME_OVER, () => {
+                this.showOverlay("TETHER SNAPPED", "#ef4444");
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.GAME_RESET, () => {
+                this.hideOverlay();
+                this.setHint("none");
+            })
+        );
     }
-  }
 
-  private showOverlay(title: string, color: string): void {
-    if (this.overlay) this.overlay.style.display = "flex";
-    if (this.overlayTitle) {
-      this.overlayTitle.textContent = title;
-      this.overlayTitle.style.color = color;
-      this.overlayTitle.style.textShadow = `0 0 20px ${color}80`;
+    // -----------------------------------------------------------------------
+    private updateTensionBar(tension: number): void {
+        const clamped = Math.max(0, Math.min(1, tension));
+        const pct     = (clamped * 100).toFixed(1) + "%";
+
+        if (this.tensionBar) {
+            this.tensionBar.style.width = pct;
+            if (clamped >= 0.98) {
+                this.tensionBar.style.backgroundColor = "#ff4500";
+                this.tensionBar.classList.add("tension-pulse");
+            } else if (clamped >= 0.75) {
+                this.tensionBar.style.backgroundColor = "#f59e0b";
+                this.tensionBar.classList.remove("tension-pulse");
+            } else if (clamped >= 0.40) {
+                this.tensionBar.style.backgroundColor = "#eab308";
+                this.tensionBar.classList.remove("tension-pulse");
+            } else {
+                this.tensionBar.style.backgroundColor = "#22c55e";
+                this.tensionBar.classList.remove("tension-pulse");
+            }
+        }
+        if (this.tensionText) {
+            this.tensionText.textContent = (clamped * 100).toFixed(0) + "%";
+            this.tensionText.style.color = clamped >= 0.9 ? "#fbbf24" : "#94a3b8";
+        }
     }
-  }
 
-  private hideOverlay(): void {
-    if (this.overlay) this.overlay.style.display = "none";
-  }
+    private updateHint(tension: number): void {
+        if (this.currentState !== "WALL_SLIDING") return;
 
-  public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
-  }
+        if (tension >= 0.98) {
+            this.setHint("maxout");
+        } else if (tension >= 0.88) {
+            this.setHint("ready");
+        } else if (tension > 0.02) {
+            this.setHint("charging");
+        } else {
+            this.setHint("none");
+        }
+    }
+
+    private setHint(level: HintLevel): void {
+        if (!this.traversalHint || level === this.lastHintLevel) return;
+        this.lastHintLevel = level;
+
+        switch (level) {
+            case "none":
+                this.traversalHint.style.opacity = "0";
+                this.traversalHint.textContent   = "";
+                break;
+            case "charging":
+                this.traversalHint.style.opacity = "1";
+                this.traversalHint.style.color   = "#94a3b8";
+                this.traversalHint.textContent   = "HOLD — CHARGING SILK";
+                break;
+            case "ready":
+                this.traversalHint.style.opacity = "1";
+                this.traversalHint.style.color   = "#fbbf24";
+                this.traversalHint.textContent   = "RELEASE TO FLING";
+                break;
+            case "maxout":
+                this.traversalHint.style.opacity = "1";
+                this.traversalHint.style.color   = "#ff4500";
+                this.traversalHint.textContent   = "MAX TENSION — FLING NOW";
+                break;
+        }
+    }
+
+    private updatePlayerHp(hp: number, maxHp: number): void {
+        if (this.playerHpValue) {
+            this.playerHpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+        }
+        if (this.playerHpBar) {
+            this.playerHpBar.style.width           = ((hp / maxHp) * 100).toFixed(0) + "%";
+            this.playerHpBar.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
+        }
+    }
+
+    private updateWardenHp(hp: number, maxHp: number): void {
+        if (this.wardenHpValue) {
+            this.wardenHpValue.textContent = `${hp} / ${maxHp}`;
+        }
+        if (this.wardenHpBar) {
+            const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
+            this.wardenHpBar.style.width = pct;
+            this.wardenHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
+        }
+    }
+
+    private updateWardenStateLabel(state: string, hue: string): void {
+        if (this.bossStateText) {
+            this.bossStateText.textContent = state.toUpperCase();
+            this.bossStateText.style.color  = hue;
+        }
+    }
+
+    private showOverlay(title: string, color: string): void {
+        if (this.overlay) this.overlay.style.display = "flex";
+        if (this.overlayTitle) {
+            this.overlayTitle.textContent              = title;
+            this.overlayTitle.style.color              = color;
+            this.overlayTitle.style.textShadow         = `0 0 24px ${color}80`;
+        }
+    }
+
+    private hideOverlay(): void {
+        if (this.overlay) this.overlay.style.display = "none";
+    }
+
+    public dispose(): void {
+        this.unsubscribes.forEach(u => u());
+        this.unsubscribes = [];
+    }
 }

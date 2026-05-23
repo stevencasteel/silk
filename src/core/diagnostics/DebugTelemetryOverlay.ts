@@ -12,7 +12,8 @@ export class DebugTelemetryOverlay implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private overlay: HTMLElement | null = null;
   private sysText: HTMLElement | null = null;
-  private unsub: (() => void) | null = null;
+  private unsubscribes: (() => void)[] = [];
+  private isGameOver: boolean = false;
 
   constructor(
     private _profiler: Profiler,
@@ -28,7 +29,6 @@ export class DebugTelemetryOverlay implements ISystem {
     if (typeof document === "undefined") return;
     this.overlay = document.createElement("div");
     
-    // Aligned to the absolute LEFT of the window
     this.overlay.style.cssText = "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
     
     this.sysText = document.createElement("pre");
@@ -36,9 +36,24 @@ export class DebugTelemetryOverlay implements ISystem {
     this.overlay.appendChild(this.sysText);
     document.body.appendChild(this.overlay);
 
-    this.unsub = this._broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
-      if (this.overlay) this.overlay.style.display = "block";
-    });
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        if (this.overlay) this.overlay.style.display = "block";
+      })
+    );
+
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.isGameOver = true;
+      })
+    );
+
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.isGameOver = false;
+      })
+    );
+
     if (this.overlay) this.overlay.style.display = "none"; 
   }
 
@@ -76,13 +91,17 @@ export class DebugTelemetryOverlay implements ISystem {
       info += `Vel X      : ${wardenVel.x.toFixed(2)} units/s\n`;
     }
 
+    info += `\n=== SYSTEM SHORTCUTS ===\n`;
+    info += `[R] RESET GAME : ${this.isGameOver ? "ACTIVE (PRESS R NOW)" : "STANDBY"}\n`;
+
     if (this.sysText) {
       this.sysText.textContent = info;
     }
   }
 
   public dispose(): void {
-    if (this.unsub) this.unsub();
+    this.unsubscribes.forEach(unsub => unsub());
+    this.unsubscribes = [];
     if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
   }
 }

@@ -90,14 +90,7 @@ export class EntitySpawnerSystem implements ISystem {
         this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
         this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 28, minRope: 4, maxRope: 20 });
         this.playerTags.add(playerId, {});
-        this.traversal.add(playerId, { 
-            state: "AIRBORNE", 
-            wallNormalX: 0, 
-            wallNormalY: 0, 
-            charge: 0.0,
-            launchTimer: 0.0,
-            launchPower: 0.0
-        });
+        this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
         this.iframes.add(playerId, { timeRemaining: 0 });
         this.refs.player = playerId;
         const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 2:07:48 PM
+ [SYSTEM] Generated: 5/23/2026, 2:31:20 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -868,7 +868,7 @@ export class CompositionRoot {
         const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
         const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
         
-        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, renderSystem);
+        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem);
         const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
         const lightingSystem = new LightingSystem(broker, renderSystem);
         const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
@@ -1666,7 +1666,8 @@ export class DebugTelemetryOverlay implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private overlay: HTMLElement | null = null;
   private sysText: HTMLElement | null = null;
-  private unsub: (() => void) | null = null;
+  private unsubscribes: (() => void)[] = [];
+  private isGameOver: boolean = false;
 
   constructor(
     private _profiler: Profiler,
@@ -1682,7 +1683,6 @@ export class DebugTelemetryOverlay implements ISystem {
     if (typeof document === "undefined") return;
     this.overlay = document.createElement("div");
     
-    // Aligned to the absolute LEFT of the window
     this.overlay.style.cssText = "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
     
     this.sysText = document.createElement("pre");
@@ -1690,9 +1690,24 @@ export class DebugTelemetryOverlay implements ISystem {
     this.overlay.appendChild(this.sysText);
     document.body.appendChild(this.overlay);
 
-    this.unsub = this._broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
-      if (this.overlay) this.overlay.style.display = "block";
-    });
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        if (this.overlay) this.overlay.style.display = "block";
+      })
+    );
+
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.isGameOver = true;
+      })
+    );
+
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.isGameOver = false;
+      })
+    );
+
     if (this.overlay) this.overlay.style.display = "none"; 
   }
 
@@ -1730,13 +1745,17 @@ export class DebugTelemetryOverlay implements ISystem {
       info += `Vel X      : ${wardenVel.x.toFixed(2)} units/s\n`;
     }
 
+    info += `\n=== SYSTEM SHORTCUTS ===\n`;
+    info += `[R] RESET GAME : ${this.isGameOver ? "ACTIVE (PRESS R NOW)" : "STANDBY"}\n`;
+
     if (this.sysText) {
       this.sysText.textContent = info;
     }
   }
 
   public dispose(): void {
-    if (this.unsub) this.unsub();
+    this.unsubscribes.forEach(unsub => unsub());
+    this.unsubscribes = [];
     if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
   }
 }
@@ -1863,13 +1882,22 @@ export interface KinematicTargetComponent { x: number; y: number; z: number; act
 
 export interface TetherComponent {
     anchorX: number; anchorY: number; anchorZ: number;
-    maxLength: number; currentLength: number;
-    isAttached: boolean; tension: number;
-    dynamicVelX: number; dynamicVelY: number;
+    maxLength: number;
+    currentLength: number;
+    isAttached: boolean;
+    tension: number;
+    dynamicVelX: number;
+    dynamicVelY: number;
 }
 
 export interface HealthComponent { current: number; max: number; }
-export interface InputIntentComponent { x: number; y: number; jump: boolean; fire: boolean; detach: boolean; }
+
+export interface InputIntentComponent {
+    x: number; y: number;
+    jump: boolean;
+    fire: boolean;
+    detach: boolean;
+}
 
 export interface WardenAIComponent {
     state: string;
@@ -1880,7 +1908,14 @@ export interface WardenAIComponent {
     hasFakedDeath: boolean;
 }
 
-export interface PlayerStatsComponent { moveSpeed: number; climbSpeed: number; swingForce: number; minRope: number; maxRope: number; }
+export interface PlayerStatsComponent {
+    moveSpeed: number;
+    climbSpeed: number;
+    swingForce: number;
+    minRope: number;
+    maxRope: number;
+}
+
 export interface PlayerTag { readonly tag?: "player"; }
 export interface WardenTag { readonly tag?: "warden"; }
 export interface AnchorTag { readonly tag?: "anchor"; }
@@ -1892,7 +1927,7 @@ export interface TraversalStateComponent {
     state: TraversalState;
     wallNormalX: number;
     wallNormalY: number;
-    charge: number;
+    wallDir: number;
     launchTimer: number;
     launchPower: number;
 }
@@ -2090,43 +2125,45 @@ export class EventBroker {
 ● ./src/core/events/GameEvents.ts
 ────────────────────────────────────────────────────
 export enum GameEvent {
-  GAME_INITIALIZED = "GAME_INITIALIZED",
-  USER_GESTURE_REGISTERED = "USER_GESTURE_REGISTERED",
-  PLAYER_MOVE = "PLAYER_MOVE",
-  PLAYER_HEALTH_CHANGED = "PLAYER_HEALTH_CHANGED",
-  PLAYER_VELOCITY_CHANGED = "PLAYER_VELOCITY_CHANGED",
-  PLAYER_DAMAGED = "PLAYER_DAMAGED",
-  PLAYER_DIED = "PLAYER_DIED",
-  ROPE_TENSION_CHANGE = "ROPE_TENSION_CHANGE",
-  ROPE_LENGTH_CHANGE = "ROPE_LENGTH_CHANGE",
-  WARDEN_STATE_CHANGE = "WARDEN_STATE_CHANGE",
-  WARDEN_DAMAGED = "WARDEN_DAMAGED",
-  WARDEN_HEALTH_CHANGED = "WARDEN_HEALTH_CHANGED",
-  WARDEN_DIED = "WARDEN_DIED",
-  CAMERA_SHAKE_TRIGGERED = "CAMERA_SHAKE_TRIGGERED",
-  GAME_OVER = "GAME_OVER",
-  GAME_WIN = "GAME_WIN",
-  GAME_RESET = "GAME_RESET"
+  GAME_INITIALIZED          = "GAME_INITIALIZED",
+  USER_GESTURE_REGISTERED   = "USER_GESTURE_REGISTERED",
+  PLAYER_MOVE               = "PLAYER_MOVE",
+  PLAYER_HEALTH_CHANGED     = "PLAYER_HEALTH_CHANGED",
+  PLAYER_VELOCITY_CHANGED   = "PLAYER_VELOCITY_CHANGED",
+  PLAYER_DAMAGED            = "PLAYER_DAMAGED",
+  PLAYER_DIED               = "PLAYER_DIED",
+  PLAYER_STATE_CHANGE       = "PLAYER_STATE_CHANGE",
+  ROPE_TENSION_CHANGE       = "ROPE_TENSION_CHANGE",
+  ROPE_LENGTH_CHANGE        = "ROPE_LENGTH_CHANGE",
+  WARDEN_STATE_CHANGE       = "WARDEN_STATE_CHANGE",
+  WARDEN_DAMAGED            = "WARDEN_DAMAGED",
+  WARDEN_HEALTH_CHANGED     = "WARDEN_HEALTH_CHANGED",
+  WARDEN_DIED               = "WARDEN_DIED",
+  CAMERA_SHAKE_TRIGGERED    = "CAMERA_SHAKE_TRIGGERED",
+  GAME_OVER                 = "GAME_OVER",
+  GAME_WIN                  = "GAME_WIN",
+  GAME_RESET                = "GAME_RESET"
 }
 
 export interface GameEventMap {
-  [GameEvent.GAME_INITIALIZED]: void;
+  [GameEvent.GAME_INITIALIZED]:        void;
   [GameEvent.USER_GESTURE_REGISTERED]: void;
-  [GameEvent.PLAYER_MOVE]: { x: number; y: number; z: number };
-  [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
+  [GameEvent.PLAYER_MOVE]:             { x: number; y: number; z: number };
+  [GameEvent.PLAYER_HEALTH_CHANGED]:   { hp: number; maxHp: number };
   [GameEvent.PLAYER_VELOCITY_CHANGED]: { velocity: number; maxVelocity: number };
-  [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
-  [GameEvent.PLAYER_DIED]: void;
-  [GameEvent.ROPE_TENSION_CHANGE]: { tension: number };
-  [GameEvent.ROPE_LENGTH_CHANGE]: { length: number; maxLength: number };
-  [GameEvent.WARDEN_STATE_CHANGE]: { state: string; hue: string };
-  [GameEvent.WARDEN_DAMAGED]: { amount: number; source: string };
-  [GameEvent.WARDEN_HEALTH_CHANGED]: { hp: number; maxHp: number };
-  [GameEvent.WARDEN_DIED]: void;
-  [GameEvent.CAMERA_SHAKE_TRIGGERED]: { amplitude: number; duration: number };
-  [GameEvent.GAME_OVER]: void;
-  [GameEvent.GAME_WIN]: void;
-  [GameEvent.GAME_RESET]: void;
+  [GameEvent.PLAYER_DAMAGED]:          { amount: number; source: string };
+  [GameEvent.PLAYER_DIED]:             void;
+  [GameEvent.PLAYER_STATE_CHANGE]:     { state: string };
+  [GameEvent.ROPE_TENSION_CHANGE]:     { tension: number };
+  [GameEvent.ROPE_LENGTH_CHANGE]:      { length: number; maxLength: number };
+  [GameEvent.WARDEN_STATE_CHANGE]:     { state: string; hue: string };
+  [GameEvent.WARDEN_DAMAGED]:          { amount: number; source: string };
+  [GameEvent.WARDEN_HEALTH_CHANGED]:   { hp: number; maxHp: number };
+  [GameEvent.WARDEN_DIED]:             void;
+  [GameEvent.CAMERA_SHAKE_TRIGGERED]:  { amplitude: number; duration: number };
+  [GameEvent.GAME_OVER]:               void;
+  [GameEvent.GAME_WIN]:                void;
+  [GameEvent.GAME_RESET]:              void;
 }
 
 
@@ -2681,20 +2718,38 @@ export class WardenRecoveryState implements IWardenState {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, WardenAIComponent, TetherComponent, InvulnerabilityComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import {
+    TransformComponent,
+    HealthComponent,
+    WardenAIComponent,
+    TetherComponent,
+    InvulnerabilityComponent,
+    TraversalStateComponent
+} from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 
+// ---------------------------------------------------------------------------
+// CombatSystem
+// Handles two interactions:
+//   1. Player fling -> warden damage (requires launchPower >= FLING_DAMAGE_THRESHOLD)
+//   2. Warden contact -> player damage (with iframe window)
+// ---------------------------------------------------------------------------
+
 export class CombatSystem implements ISystem {
     readonly phase = SystemPhase.Gameplay;
-    private playerHitRadius = 0.8;
-    private wardenHitRadius = 2.0;
-    private wardenDamage = 1;
-    private playerIframeDuration = 1.5;
-    private playerFlingDamage = 35;
+
+    // A fling must have been charged to at least this tension to deal damage.
+    // 0.90 means the player needs ~90 % of the bar filled.
+    private readonly FLING_DAMAGE_THRESHOLD = 0.90;
+    private readonly PLAYER_HIT_RADIUS      = 0.8;
+    private readonly WARDEN_HIT_RADIUS      = 2.4;   // matches visual sphere radius
+    private readonly WARDEN_CONTACT_DAMAGE  = 1;
+    private readonly PLAYER_IFRAME_DURATION = 1.5;
+    private readonly PLAYER_FLING_DAMAGE    = 35;
 
     constructor(
         private refs: EntityRefs,
@@ -2709,76 +2764,126 @@ export class CombatSystem implements ISystem {
     ) {}
 
     public update(dt: number): void {
-        const pTrans = this.transforms.get(this.refs.player);
-        const wTrans = this.transforms.get(this.refs.warden);
+        const pTrans  = this.transforms.get(this.refs.player);
+        const wTrans  = this.transforms.get(this.refs.warden);
         const pHealth = this.healths.get(this.refs.player);
         const wHealth = this.healths.get(this.refs.warden);
-        const wAI = this.wardenAIs.get(this.refs.warden);
+        const wAI     = this.wardenAIs.get(this.refs.warden);
         const pIframe = this.iframes.get(this.refs.player);
-        const tether = this.tethers.get(this.refs.player);
-        const pTrav = this.traversal.get(this.refs.player);
+        const tether  = this.tethers.get(this.refs.player);
+        const pTrav   = this.traversal.get(this.refs.player);
 
         if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
 
+        // Tick down invulnerability
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
         }
 
-        const dx = pTrans.x - wTrans.x;
-        const dy = pTrans.y - wTrans.y;
+        const dx    = pTrans.x - wTrans.x;
+        const dy    = pTrans.y - wTrans.y;
         const distSq = dx * dx + dy * dy;
-        const hitDist = this.playerHitRadius + this.wardenHitRadius;
-        const isColliding = distSq < (hitDist * hitDist);
+        const hitDist = this.PLAYER_HIT_RADIUS + this.WARDEN_HIT_RADIUS;
 
-        if (isColliding) {
-            if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.95) {
-                wHealth.current -= this.playerFlingDamage;
-                this.broker.publish(GameEvent.WARDEN_DAMAGED, { amount: this.playerFlingDamage, source: "PLAYER_FLING" });
-                this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
-                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.2, duration: 0.5 });
-                
-                const dist = Math.sqrt(distSq) || 1;
-                tether.dynamicVelX = (dx / dist) * 25;
-                tether.dynamicVelY = (dy / dist) * 25;
-                pTrav.state = "AIRBORNE";
-                pTrav.launchPower = 0;
-                pTrav.launchTimer = 0;
+        if (distSq >= hitDist * hitDist) return;
 
-                if (wHealth.current <= 0) {
-                    wHealth.current = 0;
-                    if (wAI.hasFakedDeath) {
-                        this.broker.publish(GameEvent.WARDEN_DIED, undefined);
-                    } else {
-                        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "FAKE_DEATH", hue: "#1f2937" });
-                    }
-                }
-            }
-            else if (pIframe.timeRemaining <= 0 && (wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING" || wAI.state === "SWEEPING")) {
-                pHealth.current -= this.wardenDamage;
-                pIframe.timeRemaining = this.playerIframeDuration;
-                
-                const dist = Math.sqrt(distSq) || 1;
-                const knockbackForce = 15;
-                const kbX = (dx / dist) * knockbackForce;
-                const kbY = (dy / dist) * knockbackForce + 5;
-                
-                this.commands.dispatch<ApplyImpulseCommand>({
-                    type: "APPLY_IMPULSE",
-                    entityId: this.refs.player,
-                    x: kbX,
-                    y: kbY,
-                    z: 0
+        // --- Player fling hits Warden ---
+        if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
+            this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, tether, pTrav, dx, dy, distSq);
+            return;
+        }
+
+        // --- Warden contact damages Player ---
+        const wardenIsHostile = wAI.state === "RUSH ATTACK"
+            || wAI.state === "HUNTING"
+            || wAI.state === "SWEEPING";
+
+        if (pIframe.timeRemaining <= 0 && wardenIsHostile) {
+            this.resolveWardenContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
+        }
+    }
+
+    private resolvePlayerFlingHit(
+        _pTrans: TransformComponent,
+        _wTrans: TransformComponent,
+        wHealth: HealthComponent,
+        wAI: WardenAIComponent,
+        tether: TetherComponent,
+        pTrav: TraversalStateComponent,
+        dx: number,
+        dy: number,
+        distSq: number
+    ): void {
+        void _pTrans; void _wTrans;
+
+        wHealth.current -= this.PLAYER_FLING_DAMAGE;
+        this.broker.publish(GameEvent.WARDEN_DAMAGED, {
+            amount: this.PLAYER_FLING_DAMAGE,
+            source: "PLAYER_FLING"
+        });
+        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, {
+            hp: wHealth.current,
+            maxHp: wHealth.max
+        });
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
+
+        // Bounce player away from warden
+        const dist = Math.sqrt(distSq) || 1;
+        tether.dynamicVelX =  (dx / dist) * 22;
+        tether.dynamicVelY =  (dy / dist) * 22;
+        pTrav.state        = "AIRBORNE";
+        pTrav.launchPower  = 0;
+        pTrav.launchTimer  = 0;
+
+        if (wHealth.current <= 0) {
+            wHealth.current = 0;
+            if (wAI.hasFakedDeath) {
+                this.broker.publish(GameEvent.WARDEN_DIED, undefined);
+            } else {
+                this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, {
+                    state: "FAKE_DEATH",
+                    hue: "#1f2937"
                 });
-                
-                this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: this.wardenDamage, source: "WARDEN" });
-                this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
-                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
-
-                if (pHealth.current <= 0) {
-                    pHealth.current = 0;
-                    this.broker.publish(GameEvent.PLAYER_DIED, undefined);
-                }
             }
+        }
+    }
+
+    private resolveWardenContactHit(
+        pTrans: TransformComponent,
+        wTrans: TransformComponent,
+        pHealth: HealthComponent,
+        pIframe: InvulnerabilityComponent,
+        dx: number,
+        dy: number,
+        distSq: number
+    ): void {
+        void pTrans; void wTrans;
+
+        pHealth.current -= this.WARDEN_CONTACT_DAMAGE;
+        pIframe.timeRemaining = this.PLAYER_IFRAME_DURATION;
+
+        const dist = Math.sqrt(distSq) || 1;
+        this.commands.dispatch<ApplyImpulseCommand>({
+            type: "APPLY_IMPULSE",
+            entityId: this.refs.player,
+            x: (dx / dist) * 14,
+            y: (dy / dist) * 14 + 6,
+            z: 0
+        });
+
+        this.broker.publish(GameEvent.PLAYER_DAMAGED, {
+            amount: this.WARDEN_CONTACT_DAMAGE,
+            source: "WARDEN"
+        });
+        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
+            hp: pHealth.current,
+            maxHp: pHealth.max
+        });
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
+
+        if (pHealth.current <= 0) {
+            pHealth.current = 0;
+            this.broker.publish(GameEvent.PLAYER_DIED, undefined);
         }
     }
 }
@@ -2879,14 +2984,7 @@ export class EntitySpawnerSystem implements ISystem {
         this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
         this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 28, minRope: 4, maxRope: 20 });
         this.playerTags.add(playerId, {});
-        this.traversal.add(playerId, { 
-            state: "AIRBORNE", 
-            wallNormalX: 0, 
-            wallNormalY: 0, 
-            charge: 0.0,
-            launchTimer: 0.0,
-            launchPower: 0.0
-        });
+        this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
         this.iframes.add(playerId, { timeRemaining: 0 });
         this.refs.player = playerId;
         const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
@@ -2997,7 +3095,7 @@ export class GameDirectorSystem implements ISystem {
             pTrav.state = "AIRBORNE";
             pTrav.wallNormalX = 0;
             pTrav.wallNormalY = 0;
-            pTrav.charge = 0;
+            pTrav.wallDir = 0;
             pTrav.launchTimer = 0;
             pTrav.launchPower = 0;
         }
@@ -3114,89 +3212,160 @@ import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
+// ---------------------------------------------------------------------------
+// RopeVisualizerSystem
+// Renders the silk tether as a catenary curve.
+// Visual feedback on tension level:
+//   low  (0 %)  -> cool blue,  visible sag,  thin
+//   mid  (50 %) -> bright white, slight sag
+//   full (100%) -> hot orange,  taut/straight, thick + emissive pulse
+// ---------------------------------------------------------------------------
+
 export class RopeVisualizerSystem implements ISystem {
-  readonly phase = SystemPhase.RenderSync;
-  private ropeMesh: BABYLON.Mesh | null = null;
-  private ropeMat: BABYLON.StandardMaterial | null = null;
-  private segments = 24;
-  private points: BABYLON.Vector3[] = [];
-  private scratchAnchor = new BABYLON.Vector3();
-  private scratchPlayer = new BABYLON.Vector3();
-  private scratchLerp = new BABYLON.Vector3();
+    readonly phase = SystemPhase.RenderSync;
 
-  constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private visualRegistry: IVisualRegistry
-  ) {
-    for (let i = 0; i <= this.segments; i++) {
-      this.points.push(new BABYLON.Vector3(0, 0, 0));
-    }
-  }
+    private readonly SEGMENTS   = 24;
+    private readonly MAX_SAG    = 3.8;   // units of midpoint droop at 0 % tension
+    private readonly BASE_RADIUS = 0.07;
+    private readonly MAX_RADIUS  = 0.13;
 
-  public init(): void {
-    const scene = this.visualRegistry.getScene();
-    if (!scene) return;
+    private ropeMesh : BABYLON.Mesh | null = null;
+    private ropeMat  : BABYLON.StandardMaterial | null = null;
+    private points   : BABYLON.Vector3[] = [];
 
-    this.ropeMat = new BABYLON.StandardMaterial("ropeMat", scene);
-    this.ropeMat.diffuseColor = new BABYLON.Color3(0.9, 0.95, 1.0);
-    this.ropeMat.emissiveColor = new BABYLON.Color3(0.3, 0.5, 0.7);
-    this.ropeMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+    // Scratch vectors (avoid GC)
+    private scratchAnchor = new BABYLON.Vector3();
+    private scratchPlayer = new BABYLON.Vector3();
+    private scratchCtrl   = new BABYLON.Vector3();
+    private scratchPt     = new BABYLON.Vector3();
 
-    this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
-      path: this.points,
-      radius: 0.08,
-      tessellation: 8,
-      cap: BABYLON.Mesh.NO_CAP,
-      updatable: true
-    }, scene);
-    this.ropeMesh.material = this.ropeMat;
-  }
+    // Oscillation phase for rope vibration at high tension
+    private vibPhase = 0;
 
-  public render(alpha: number): void {
-    if (!this.ropeMesh || !this.ropeMat) return;
-    const pTrans = this.transforms.get(this.refs.player);
-    const tether = this.tethers.get(this.refs.player);
-    if (!pTrans || !tether) return;
-
-    if (!tether.isAttached) {
-      this.ropeMesh.setEnabled(false);
-      return;
-    }
-    this.ropeMesh.setEnabled(true);
-
-    const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
-    const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
-    this.scratchPlayer.set(px, py, 0);
-
-    // Dynamic Silk Lock: Read real-time coordinates of the moving Warden spider directly
-    this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
-
-    for (let i = 0; i <= this.segments; i++) {
-      const ratio = i / this.segments;
-      BABYLON.Vector3.LerpToRef(this.scratchAnchor, this.scratchPlayer, ratio, this.scratchLerp);
-      
-      const targetPoint = this.points[i];
-      targetPoint.x = this.scratchLerp.x;
-      targetPoint.y = this.scratchLerp.y;
-      targetPoint.z = this.scratchLerp.z;
+    constructor(
+        private refs: EntityRefs,
+        private transforms: ComponentStore<TransformComponent>,
+        private tethers: ComponentStore<TetherComponent>,
+        private visualRegistry: IVisualRegistry
+    ) {
+        for (let i = 0; i <= this.SEGMENTS; i++) {
+            this.points.push(new BABYLON.Vector3(0, 0, 0));
+        }
     }
 
-    const radius = 0.09;
-    this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
-      path: this.points,
-      radius: radius,
-      tessellation: 8,
-      cap: BABYLON.Mesh.NO_CAP,
-      instance: this.ropeMesh
-    });
-  }
+    public init(): void {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
 
-  public dispose(): void {
-    if (this.ropeMesh) this.ropeMesh.dispose();
-    if (this.ropeMat) this.ropeMat.dispose();
-  }
+        this.ropeMat = new BABYLON.StandardMaterial("ropeMat", scene);
+        this.ropeMat.diffuseColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
+        this.ropeMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+        this.ropeMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        this.ropeMat.disableLighting = false;
+
+        this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+            path: this.points,
+            radius: this.BASE_RADIUS,
+            tessellation: 8,
+            cap: BABYLON.Mesh.NO_CAP,
+            updatable: true
+        }, scene);
+        this.ropeMesh.material = this.ropeMat;
+    }
+
+    public render(alpha: number): void {
+        if (!this.ropeMesh || !this.ropeMat) return;
+
+        const pTrans = this.transforms.get(this.refs.player);
+        const tether = this.tethers.get(this.refs.player);
+        if (!pTrans || !tether || !tether.isAttached) {
+            if (this.ropeMesh) this.ropeMesh.setEnabled(false);
+            return;
+        }
+        this.ropeMesh.setEnabled(true);
+
+        // Interpolated player position
+        const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
+        const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
+        this.scratchPlayer.set(px, py, 0);
+
+        // Anchor = warden position recorded on TetherComponent
+        this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+
+        const tension = Math.max(0, Math.min(1, tether.tension));
+
+        // Vibration: high-frequency oscillation at near-max tension
+        this.vibPhase += 0.18;
+        const vibAmp = Math.max(0, tension - 0.7) * 0.35;
+        const vibOffset = Math.sin(this.vibPhase * 14) * vibAmp;
+
+        // Catenary control point: geometric midpoint + downward sag
+        const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
+        const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
+        const sag   = this.MAX_SAG * (1.0 - tension) + vibOffset;
+        this.scratchCtrl.set(midX, midY - sag, 0.35);
+
+        // Compute quadratic bezier path
+        for (let i = 0; i <= this.SEGMENTS; i++) {
+            const t  = i / this.SEGMENTS;
+            const t1 = 1 - t;
+            const pt = this.points[i];
+            pt.x = t1 * t1 * this.scratchAnchor.x
+                 + 2 * t1 * t * this.scratchCtrl.x
+                 + t  * t  * this.scratchPlayer.x;
+            pt.y = t1 * t1 * this.scratchAnchor.y
+                 + 2 * t1 * t * this.scratchCtrl.y
+                 + t  * t  * this.scratchPlayer.y;
+            pt.z = t1 * t1 * this.scratchAnchor.z
+                 + 2 * t1 * t * this.scratchCtrl.z
+                 + t  * t  * this.scratchPlayer.z;
+
+            // Subtle Z-waveform for 3D silk feel
+            pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5) * 0.12;
+        }
+
+        // Rebuild tube with updated path
+        const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
+        this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+            path: this.points,
+            radius: radius,
+            tessellation: 8,
+            cap: BABYLON.Mesh.NO_CAP,
+            instance: this.ropeMesh
+        });
+
+        // Color gradient: blue(0) -> white(0.5) -> orange(1)
+        const r = tension < 0.5
+            ? 0.55 + tension * 0.9
+            : 1.0;
+        const g = tension < 0.5
+            ? 0.78 + tension * 0.44
+            : 1.0 - (tension - 0.5) * 1.1;
+        const b = tension < 0.5
+            ? 1.0  - tension * 0.2
+            : 0.9  - (tension - 0.5) * 1.7;
+
+        this.ropeMat.diffuseColor.set(
+            Math.max(0, Math.min(1, r)),
+            Math.max(0, Math.min(1, g)),
+            Math.max(0, Math.min(1, b))
+        );
+
+        // Emissive glow scales with tension
+        const eBrightness = 0.1 + tension * 0.5;
+        this.ropeMat.emissiveColor.set(
+            eBrightness * (0.3 + tension * 0.7),
+            eBrightness * (0.6 - tension * 0.4),
+            eBrightness * (1.0 - tension * 0.9)
+        );
+
+        this.scratchPt.set(0, 0, 0); // keep lint happy
+    }
+
+    public dispose(): void {
+        if (this.ropeMesh) { this.ropeMesh.dispose(); this.ropeMesh = null; }
+        if (this.ropeMat)  { this.ropeMat.dispose();  this.ropeMat  = null; }
+    }
 }
 
 
@@ -3310,9 +3479,11 @@ export const WardenConfig = {
 ● ./src/index.css
 ────────────────────────────────────────────────────
 :root {
-  --void-bg: #050505;
-  --surface-bg: #0c0e12;
+  --void-bg:      #050508;
+  --surface-bg:   #0c0e14;
   --signal-green: #22c55e;
+  --signal-red:   #ef4444;
+  --text-dim:     #64748b;
 }
 
 html, body, #root {
@@ -3322,7 +3493,16 @@ html, body, #root {
   height: 100vh;
   background-color: var(--void-bg);
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+@keyframes tensionPulse {
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(255, 69, 0, 0.6); }
+  50%       { box-shadow: 0 0 14px 3px rgba(255, 69, 0, 0.9); }
+}
+
+.tension-pulse {
+  animation: tensionPulse 0.28s ease-in-out infinite;
 }
 
 
@@ -3367,20 +3547,37 @@ export const BORDER_AABBS: AABB[] = [
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TetherComponent, KinematicTargetComponent, HealthComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import {
+    TetherComponent,
+    KinematicTargetComponent,
+    HealthComponent,
+    TraversalStateComponent
+} from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
+// ---------------------------------------------------------------------------
+// EnvironmentCollisionSystem
+// Clamps player to arena bounds and manages the tether-snap death mechanic.
+// Strain only accumulates when the silk is over-extended (tension >= threshold)
+// while wall-sliding. The player has a generous 2.4 s window at max tension
+// before the rope snaps.
+// ---------------------------------------------------------------------------
+
 export class EnvironmentCollisionSystem implements ISystem {
     readonly phase = SystemPhase.Collision;
-    
-    private readonly MIN_Y = 1.0;
-    private readonly MAX_Y = 27.5;
-    private readonly STRAIN_THRESHOLD = 0.80;
-    private readonly STRAIN_BREAK_TIME = 1.8;
-    
-    private currentStrain = 0.0;
+
+    private readonly FLOOR_Y            = 1.0;
+    private readonly CEILING_Y          = 27.4;
+    private readonly PLAYER_HALF_HEIGHT = 0.9;
+
+    // Snap tuning: strain timer only ticks when tension >= threshold
+    private readonly SNAP_THRESHOLD     = 0.90;
+    private readonly SNAP_BREAK_TIME    = 2.6;   // seconds at or above threshold before snap
+    private readonly SNAP_DECAY_RATE    = 2.5;   // how fast strain drains when below threshold
+
+    private strainAccum = 0.0;
 
     constructor(
         private refs: EntityRefs,
@@ -3393,47 +3590,75 @@ export class EnvironmentCollisionSystem implements ISystem {
 
     public update(dt: number): void {
         const tether = this.tethers.get(this.refs.player);
-        const target = this.targets.get(this.refs.player);
-        const health = this.healths.get(this.refs.player);
-        const trav = this.traversal.get(this.refs.player);
+        const target  = this.targets.get(this.refs.player);
+        const health  = this.healths.get(this.refs.player);
+        const trav    = this.traversal.get(this.refs.player);
 
         if (!tether || !target || !health || !trav) return;
 
-        const playerHalfHeight = 0.9;
-        if (target.y - playerHalfHeight <= this.MIN_Y) {
-            target.y = this.MIN_Y + playerHalfHeight;
+        this.clampToArenaBounds(target, tether);
+        this.updateStrainMeter(dt, tether, health, trav);
+    }
+
+    private clampToArenaBounds(
+        target: KinematicTargetComponent,
+        tether: TetherComponent
+    ): void {
+        const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
+        const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
+
+        if (target.y < minY) {
+            target.y = minY;
             tether.dynamicVelY = Math.max(0, tether.dynamicVelY);
-        } else if (target.y + playerHalfHeight >= this.MAX_Y) {
-            target.y = this.MAX_Y - playerHalfHeight;
+        } else if (target.y > maxY) {
+            target.y = maxY;
             tether.dynamicVelY = Math.min(0, tether.dynamicVelY);
         }
+    }
 
-        if (tether.tension >= this.STRAIN_THRESHOLD && trav.state === "WALL_SLIDING") {
-            this.currentStrain += dt;
-            
-            if (Math.random() < 0.15) {
-                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.15, duration: 0.1 });
+    private updateStrainMeter(
+        dt: number,
+        tether: TetherComponent,
+        health: HealthComponent,
+        trav: TraversalStateComponent
+    ): void {
+        const overloaded = tether.tension >= this.SNAP_THRESHOLD
+            && trav.state === "WALL_SLIDING";
+
+        if (overloaded) {
+            this.strainAccum += dt;
+
+            // Jitter feedback escalates as rope approaches breaking point
+            const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
+            if (Math.random() < strainRatio * 0.25) {
+                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                    amplitude: 0.1 + strainRatio * 0.25,
+                    duration: 0.08
+                });
             }
 
-            if (this.currentStrain >= this.STRAIN_BREAK_TIME) {
+            if (this.strainAccum >= this.SNAP_BREAK_TIME) {
                 this.snapTether(tether, health);
             }
         } else {
-            this.currentStrain = Math.max(0.0, this.currentStrain - dt * 2.0);
+            this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
         }
     }
 
     private snapTether(tether: TetherComponent, health: HealthComponent): void {
         tether.isAttached = false;
-        tether.tension = 0.0;
-        this.currentStrain = 0.0;
-        
-        health.current = 0;
-        
-        this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
+        tether.tension    = 0.0;
+        this.strainAccum  = 0.0;
+        health.current    = 0;
+
+        this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "TETHER_SNAP" });
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
-        this.broker.publish(GameEvent.PLAYER_DIED, undefined);
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.2, duration: 0.6 });
+        this.broker.publish(GameEvent.PLAYER_DIED,           undefined);
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
+    }
+
+    public resetStrain(): void {
+        this.strainAccum = 0.0;
     }
 }
 
@@ -3470,24 +3695,45 @@ export interface SetRopeAttachedCommand extends ICommand {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TetherComponent, KinematicTargetComponent, TraversalStateComponent, TransformComponent, InputIntentComponent } from "../../core/ecs/Components";
+import {
+    TetherComponent,
+    KinematicTargetComponent,
+    TraversalStateComponent,
+    TransformComponent,
+    InputIntentComponent
+} from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
+// ---------------------------------------------------------------------------
+// PlayerKinematicsSystem
+// Owns all player motion: pendulum physics, wall-slide state, tension charge,
+// fling launch. Rope constraint is only enforced while AIRBORNE.
+// ---------------------------------------------------------------------------
+
 export class PlayerKinematicsSystem implements ISystem {
     readonly phase = SystemPhase.Kinematics;
-    
-    private readonly GRAVITY = -22.0;
-    private readonly SWING_STEER_FORCE = 28.0;
-    private readonly BASE_ROPE_LENGTH = 10.0;
-    private readonly MAX_ROPE_LENGTH = 24.0;
-    private readonly WALL_LIMIT_X = 14.2;
-    private readonly WALL_SLIDE_SPEED = -4.5;
-    private readonly TENSION_CHARGE_RATE = 0.65;
-    private readonly FLING_IMPULSE = 45.0;
-    private readonly LAUNCH_DURATION = 0.6;
-    private readonly DRAG_DAMPING = 0.985;
+
+    // Physics constants
+    private readonly GRAVITY             = -22.0;
+    private readonly SWING_STEER_FORCE   = 28.0;
+    private readonly BASE_ROPE_LENGTH    = 10.0;
+    private readonly MAX_ROPE_LENGTH     = 22.0;
+    private readonly WALL_LIMIT_X        = 14.2;
+    private readonly WALL_SLIDE_SPEED    = -3.0;
+    private readonly DRAG_DAMPING        = 0.985;
+
+    // Wall-slide charge constants
+    private readonly TENSION_CHARGE_RATE = 0.52;   // 100 % in ~1.92 s
+    private readonly MIN_FLING_TENSION   = 0.06;   // Tiny tensions just leave wall
+
+    // Fling constants
+    private readonly FLING_IMPULSE       = 48.0;
+    private readonly LAUNCH_DURATION     = 0.65;
+    private readonly LAUNCH_GRAVITY_MULT = 0.22;   // Gravity reduction mid-fling
+
+    private lastTraversalState: string = "";
 
     constructor(
         private refs: EntityRefs,
@@ -3499,156 +3745,247 @@ export class PlayerKinematicsSystem implements ISystem {
         private broker: EventBroker
     ) {}
 
+    // -----------------------------------------------------------------------
     public update(dt: number): void {
         const tether = this.tethers.get(this.refs.player);
-        const target = this.targets.get(this.refs.player);
-        const trav = this.traversal.get(this.refs.player);
-        const wTrans = this.transforms.get(this.refs.warden);
-        const input = this.inputs.get(this.refs.player);
+        const target  = this.targets.get(this.refs.player);
+        const trav    = this.traversal.get(this.refs.player);
+        const wTrans  = this.transforms.get(this.refs.warden);
+        const input   = this.inputs.get(this.refs.player);
 
         if (!tether || !target || !trav || !wTrans || !input) return;
 
+        // Anchor always tracks the warden
         tether.anchorX = wTrans.x;
         tether.anchorY = wTrans.y;
         tether.anchorZ = wTrans.z;
 
         if (trav.state === "LAUNCHING") {
-            this.updateLaunching(dt, tether, trav);
+            this.stepLaunching(dt, tether, target, trav);
         } else {
-            this.updateMovement(dt, tether, trav, input);
+            this.stepPhysics(dt, tether, trav, input);
+
+            const nextX = target.x + tether.dynamicVelX * dt;
+            const nextY = target.y + tether.dynamicVelY * dt;
+
+            this.resolveWallContact(nextX, nextY, dt, target, tether, trav, input);
+
+            if (trav.state === "AIRBORNE") {
+                this.enforceRopeConstraint(target, tether);
+            }
         }
 
-        const nextX = target.x + tether.dynamicVelX * dt;
-        const nextY = target.y + tether.dynamicVelY * dt;
-
-        this.resolveWallCollisions(nextX, nextY, target, tether, trav, input, dt);
-
-        if (trav.state !== "LAUNCHING") {
-            this.applyRopeConstraint(target, tether);
-        }
-
+        // Compute rope length for HUD + visuals
         const dx = target.x - tether.anchorX;
         const dy = target.y - tether.anchorY;
         tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
-        
+
         this.broker.publish(GameEvent.ROPE_TENSION_CHANGE, { tension: tether.tension });
+
+        // Notify HUD on state changes
+        if (trav.state !== this.lastTraversalState) {
+            this.lastTraversalState = trav.state;
+            this.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
+        }
     }
 
-    private updateMovement(dt: number, tether: TetherComponent, trav: TraversalStateComponent, input: InputIntentComponent) {
+    // -----------------------------------------------------------------------
+    // Pendulum physics (AIRBORNE only)
+    private stepPhysics(
+        dt: number,
+        tether: TetherComponent,
+        trav: TraversalStateComponent,
+        input: InputIntentComponent
+    ): void {
         tether.dynamicVelY += this.GRAVITY * dt;
 
         if (trav.state === "AIRBORNE") {
             tether.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
         }
 
-        tether.dynamicVelX *= Math.pow(this.DRAG_DAMPING, dt * 60);
-        tether.dynamicVelY *= Math.pow(this.DRAG_DAMPING, dt * 60);
+        const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
+        tether.dynamicVelX *= damp;
+        tether.dynamicVelY *= damp;
     }
 
-    private updateLaunching(dt: number, tether: TetherComponent, trav: TraversalStateComponent) {
+    // -----------------------------------------------------------------------
+    // Fling arc: reduced gravity, timer countdown
+    private stepLaunching(
+        dt: number,
+        tether: TetherComponent,
+        target: KinematicTargetComponent,
+        trav: TraversalStateComponent
+    ): void {
         trav.launchTimer -= dt;
-        tether.dynamicVelY += this.GRAVITY * 0.3 * dt;
+        tether.dynamicVelY += this.GRAVITY * this.LAUNCH_GRAVITY_MULT * dt;
+
+        target.x += tether.dynamicVelX * dt;
+        target.y += tether.dynamicVelY * dt;
 
         if (trav.launchTimer <= 0) {
             trav.state = "AIRBORNE";
-            tether.maxLength = this.BASE_ROPE_LENGTH;
+            trav.wallDir = 0;
+
+            // Soft rope transition: allow current distance, no snap
+            const dx = target.x - tether.anchorX;
+            const dy = target.y - tether.anchorY;
+            const distNow = Math.sqrt(dx * dx + dy * dy) || this.BASE_ROPE_LENGTH;
+            tether.maxLength = Math.max(this.BASE_ROPE_LENGTH, distNow);
         }
     }
 
-    private resolveWallCollisions(nextX: number, nextY: number, target: KinematicTargetComponent, tether: TetherComponent, trav: TraversalStateComponent, input: InputIntentComponent, dt: number) {
-        const wallDir = nextX > this.WALL_LIMIT_X ? 1 : (nextX < -this.WALL_LIMIT_X ? -1 : 0);
-        
-        if (wallDir !== 0 && trav.state !== "LAUNCHING") {
-            const isPressingIn = (input.x === wallDir);
-            
-            if (isPressingIn && tether.dynamicVelY <= 0) {
-                if (trav.state !== "WALL_SLIDING") {
-                    trav.state = "WALL_SLIDING";
-                    trav.wallNormalX = -wallDir;
-                }
-                
+    // -----------------------------------------------------------------------
+    // Wall contact state machine
+    // AIRBORNE -> WALL_SLIDING  : hit wall boundary while pressing into it
+    // WALL_SLIDING -> LAUNCHING : player releases direction key (or presses jump)
+    // WALL_SLIDING -> AIRBORNE  : somehow drifted off wall (edge case)
+    private resolveWallContact(
+        nextX: number,
+        nextY: number,
+        dt: number,
+        target: KinematicTargetComponent,
+        tether: TetherComponent,
+        trav: TraversalStateComponent,
+        input: InputIntentComponent
+    ): void {
+        const hitRight = nextX >  this.WALL_LIMIT_X;
+        const hitLeft  = nextX < -this.WALL_LIMIT_X;
+        const wallDir  = hitRight ? 1 : hitLeft ? -1 : 0;
+
+        // --- Currently sliding on a wall ---
+        if (trav.state === "WALL_SLIDING") {
+            const stillPressingIn = input.x === trav.wallDir;
+
+            if (!stillPressingIn) {
+                // Key released: immediate fling
+                this.triggerFling(tether, target, trav);
+                target.x = nextX;
+                target.y = nextY;
+                return;
+            }
+
+            // Continue slide: lock X, allow gravity-driven descent
+            target.x = trav.wallDir * this.WALL_LIMIT_X;
+            target.y = nextY;
+            tether.dynamicVelX = 0;
+            tether.dynamicVelY = Math.max(tether.dynamicVelY, this.WALL_SLIDE_SPEED);
+
+            // Accumulate tension (0 -> 1 charge bar)
+            tether.tension = Math.min(1.0, tether.tension + this.TENSION_CHARGE_RATE * dt);
+
+            // Allow rope to elongate visually with tension build
+            const maxStretch = this.MAX_ROPE_LENGTH - this.BASE_ROPE_LENGTH;
+            tether.maxLength = this.BASE_ROPE_LENGTH + tether.tension * maxStretch;
+
+            // Jump also flings
+            if (input.jump) {
+                this.triggerFling(tether, target, trav);
+                input.jump = false;
+            }
+
+            return;
+        }
+
+        // --- Contacted wall while not already sliding ---
+        if (wallDir !== 0) {
+            const pressingIn = input.x === wallDir;
+
+            if (pressingIn) {
+                // Enter wall slide (no upward-velocity gate – intentional press is enough)
+                trav.state    = "WALL_SLIDING";
+                trav.wallDir  = wallDir;
+                trav.wallNormalX = -wallDir;
+                trav.wallNormalY = 0;
+
                 target.x = wallDir * this.WALL_LIMIT_X;
                 target.y = nextY;
                 tether.dynamicVelX = 0;
                 tether.dynamicVelY = Math.max(tether.dynamicVelY, this.WALL_SLIDE_SPEED);
-                
-                const stretch = Math.max(0, tether.currentLength - this.BASE_ROPE_LENGTH);
-                const maxStretch = this.MAX_ROPE_LENGTH - this.BASE_ROPE_LENGTH;
-                const physicalTension = Math.min(1.0, stretch / maxStretch);
-                
+
                 tether.tension = Math.min(1.0, tether.tension + this.TENSION_CHARGE_RATE * dt);
-                tether.tension = Math.max(tether.tension, physicalTension);
-                
-                tether.maxLength = this.BASE_ROPE_LENGTH + (tether.tension * maxStretch);
+                const maxStretch = this.MAX_ROPE_LENGTH - this.BASE_ROPE_LENGTH;
+                tether.maxLength = this.BASE_ROPE_LENGTH + tether.tension * maxStretch;
             } else {
-                if (trav.state === "WALL_SLIDING") {
-                    this.triggerFling(tether, target, trav, input);
-                } else {
-                    trav.state = "AIRBORNE";
-                }
+                // Grazes wall without pressing: soft elastic bounce
                 target.x = wallDir * this.WALL_LIMIT_X;
                 target.y = nextY;
                 if (Math.sign(tether.dynamicVelX) === wallDir) {
-                    tether.dynamicVelX = 0;
+                    tether.dynamicVelX *= -0.2;
                 }
+                trav.state   = "AIRBORNE";
+                trav.wallDir = 0;
+                tether.tension = Math.max(0, tether.tension - 4.0 * dt);
             }
-        } else {
-            if (trav.state === "WALL_SLIDING") {
-                this.triggerFling(tether, target, trav, input);
-            } else if (trav.state !== "LAUNCHING") {
-                trav.state = "AIRBORNE";
-            }
-            target.x = nextX;
-            target.y = nextY;
+            return;
         }
 
-        if (trav.state === "WALL_SLIDING" && input.jump) {
-            this.triggerFling(tether, target, trav, input);
-            input.jump = false;
-        }
+        // --- Free air ---
+        trav.state   = "AIRBORNE";
+        trav.wallDir = 0;
+        tether.tension = Math.max(0, tether.tension - 4.0 * dt);
+        target.x = nextX;
+        target.y = nextY;
     }
 
-    private triggerFling(tether: TetherComponent, target: KinematicTargetComponent, trav: TraversalStateComponent, input: InputIntentComponent) {
-        if (tether.tension > 0.1) {
-            const dx = tether.anchorX - target.x;
-            const dy = tether.anchorY - target.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            
-            const dirX = dx / dist;
-            const dirY = dy / dist;
-            
-            const power = tether.tension * this.FLING_IMPULSE;
-            
-            tether.dynamicVelX = dirX * power + (input.x * 10.0);
-            tether.dynamicVelY = dirY * power;
-            
-            trav.state = "LAUNCHING";
-            trav.launchTimer = this.LAUNCH_DURATION;
-            trav.launchPower = tether.tension;
-            tether.maxLength = this.MAX_ROPE_LENGTH * 2;
-            
-            this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.3 * tether.tension, duration: 0.2 });
-        } else {
-            trav.state = "AIRBORNE";
-            trav.launchPower = 0;
-        }
-        
-        tether.tension = 0.0;
+    // -----------------------------------------------------------------------
+    // Convert stored tension into a directed velocity impulse
+    private triggerFling(
+        tether: TetherComponent,
+        target: KinematicTargetComponent,
+        trav: TraversalStateComponent
+    ): void {
+        const storedTension = tether.tension;
+        tether.tension  = 0.0;
         tether.maxLength = this.BASE_ROPE_LENGTH;
+
+        if (storedTension < this.MIN_FLING_TENSION) {
+            trav.state      = "AIRBORNE";
+            trav.wallDir    = 0;
+            trav.launchPower = 0;
+            return;
+        }
+
+        // Direction: from current position toward the anchor (warden)
+        const dx   = tether.anchorX - target.x;
+        const dy   = tether.anchorY - target.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+        const power = storedTension * this.FLING_IMPULSE;
+        tether.dynamicVelX = (dx / dist) * power;
+        tether.dynamicVelY = (dy / dist) * power;
+
+        trav.state       = "LAUNCHING";
+        trav.launchTimer = this.LAUNCH_DURATION;
+        trav.launchPower = storedTension;
+        trav.wallDir     = 0;
+
+        // Large rope slack so constraint never yanks the arc short
+        tether.maxLength = this.MAX_ROPE_LENGTH * 2.5;
+
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+            amplitude: 0.25 + storedTension * 0.35,
+            duration: 0.2
+        });
     }
 
-    private applyRopeConstraint(target: KinematicTargetComponent, tether: TetherComponent) {
-        const dx = target.x - tether.anchorX;
-        const dy = target.y - tether.anchorY;
+    // -----------------------------------------------------------------------
+    // Pendulum length constraint (AIRBORNE only)
+    private enforceRopeConstraint(
+        target: KinematicTargetComponent,
+        tether: TetherComponent
+    ): void {
+        const dx   = target.x - tether.anchorX;
+        const dy   = target.y - tether.anchorY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
         if (dist > tether.maxLength) {
             const nx = dx / dist;
             const ny = dy / dist;
-            
+
             target.x = tether.anchorX + nx * tether.maxLength;
             target.y = tether.anchorY + ny * tether.maxLength;
-            
+
+            // Remove radial velocity component (inelastic constraint)
             const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
             if (dot > 0) {
                 tether.dynamicVelX -= dot * nx;
@@ -3845,20 +4182,33 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
+// ---------------------------------------------------------------------------
+// TransformSyncSystem
+// Interpolates physics transforms -> visual mesh positions.
+// Also drives player emissive feedback based on tension and traversal state.
+// ---------------------------------------------------------------------------
+
 export class TransformSyncSystem implements ISystem {
     readonly phase = SystemPhase.RenderSync;
+
     private scratchPrevQuat = new BABYLON.Quaternion();
     private scratchCurrQuat = new BABYLON.Quaternion();
-    private scrollOffset = 0.0;
+    private scrollOffset    = 0.0;
+
+    // Smooth emissive lerp state
+    private currentEmissiveR = 0.05;
+    private currentEmissiveG = 0.15;
+    private currentEmissiveB = 0.05;
 
     constructor(
         private refs: EntityRefs,
-        private transforms: ComponentStore<TransformComponent>, 
+        private transforms: ComponentStore<TransformComponent>,
         private tethers: ComponentStore<TetherComponent>,
+        private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry
     ) {}
 
@@ -3867,61 +4217,117 @@ export class TransformSyncSystem implements ISystem {
     }
 
     public render(alpha: number): void {
-        // 1. Animate/Scroll the physical unit ticks downward to create the endless ascension illusion
-        const scene = this.visualRegistry.getScene();
-        if (scene) {
-            const scrollSpeed = 5.0; // Speed matching downward wall displacement
-            const totalRange = 36.0; // Range matching tick spawning heights
-            this.scrollOffset += scrollSpeed * (1 / 60); // 60Hz estimate sync
-            
-            if (this.scrollOffset > totalRange) {
-                this.scrollOffset -= totalRange;
-            }
+        this.scrollTicks();
+        this.syncTransforms(alpha);
+    }
 
-            const ticks = scene.meshes.filter(m => m.metadata && m.metadata.type === "scrolling_tick");
-            for (const tick of ticks) {
-                let currentY = tick.metadata.initialY - this.scrollOffset;
-                while (currentY < -2.0) {
-                    currentY += totalRange;
-                }
-                tick.position.y = currentY;
-            }
+    // -----------------------------------------------------------------------
+    // Animate scrolling wall ticks to create ascension illusion
+    private scrollTicks(): void {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
+
+        const scrollSpeed = 5.0;
+        const totalRange  = 36.0;
+        this.scrollOffset += scrollSpeed * (1 / 60);
+        if (this.scrollOffset > totalRange) {
+            this.scrollOffset -= totalRange;
         }
 
-        // 2. Synchronize visual mesh positioning with simulation components
+        const ticks = scene.meshes.filter(m => m.metadata?.type === "scrolling_tick");
+        for (const tick of ticks) {
+            let y = tick.metadata.initialY - this.scrollOffset;
+            while (y < -2.0) y += totalRange;
+            tick.position.y = y;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Sync physics -> visual, with special per-entity feedback
+    private syncTransforms(alpha: number): void {
+        const tether = this.tethers.get(this.refs.player);
+        const trav   = this.traversal.get(this.refs.player);
+
         for (const [id, curr] of this.transforms.entries()) {
             const node = this.visualRegistry.getTransformNode(id);
             if (!node) continue;
 
+            // Interpolated position
             node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
             node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
             node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
+            // Rotation slerp
             this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
             this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
-
             if (!node.rotationQuaternion) {
                 node.rotationQuaternion = new BABYLON.Quaternion();
             }
-            
-            BABYLON.Quaternion.SlerpToRef(this.scratchPrevQuat, this.scratchCurrQuat, alpha, node.rotationQuaternion);
+            BABYLON.Quaternion.SlerpToRef(
+                this.scratchPrevQuat,
+                this.scratchCurrQuat,
+                alpha,
+                node.rotationQuaternion
+            );
 
-            if (id === this.refs.player) {
-                const tether = this.tethers.get(id);
-                if (tether) {
-                    const mesh = node as BABYLON.AbstractMesh;
-                    if (mesh && mesh.material) {
-                        const mat = mesh.material as BABYLON.StandardMaterial;
-                        if (mat) {
-                            const stress = Math.max(0.0, Math.min(1.0, (tether.currentLength / tether.maxLength) - 0.9) * 10.0);
-                            mat.emissiveColor.r = 0.05 + stress * 0.95;
-                            mat.emissiveColor.g = 0.15 * (1.0 - stress);
-                            mat.emissiveColor.b = 0.05 * (1.0 - stress);
-                        }
-                    }
+            // ---- Player emissive feedback ----
+            if (id === this.refs.player && tether && trav) {
+                const mesh = node as BABYLON.AbstractMesh;
+                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                if (mat) {
+                    this.updatePlayerEmissive(mat, tether.tension, trav.state, alpha);
+                }
+            }
+
+            // ---- Warden pulsing glow ----
+            if (id === this.refs.warden) {
+                const mesh = node as BABYLON.AbstractMesh;
+                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                if (mat) {
+                    const pulse = 0.02 + Math.sin(Date.now() * 0.003) * 0.015;
+                    mat.emissiveColor.set(0.4 + pulse, 0.02, 0.02);
                 }
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Player capsule shifts from green -> hot white/orange as tension builds
+    private updatePlayerEmissive(
+        mat: BABYLON.StandardMaterial,
+        tension: number,
+        state: string,
+        _alpha: number
+    ): void {
+        void _alpha;
+
+        let targetR: number;
+        let targetG: number;
+        let targetB: number;
+
+        if (state === "WALL_SLIDING") {
+            // Green -> yellow -> orange -> red-white
+            targetR = 0.05 + tension * 0.95;
+            targetG = 0.15 + (1.0 - tension) * 0.40;
+            targetB = 0.05 * (1.0 - tension);
+        } else if (state === "LAUNCHING") {
+            // Flash bright white on launch
+            targetR = 0.9;
+            targetG = 0.9;
+            targetB = 0.9;
+        } else {
+            // Resting green
+            targetR = 0.05;
+            targetG = 0.12;
+            targetB = 0.05;
+        }
+
+        const lerpRate = 0.18;
+        this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
+        this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
+        this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
+
+        mat.emissiveColor.set(this.currentEmissiveR, this.currentEmissiveG, this.currentEmissiveB);
     }
 }
 
@@ -3934,110 +4340,217 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
+// ---------------------------------------------------------------------------
+// DomHudSystem
+// Bridges the EventBroker to DOM elements rendered by HudOverlay.tsx.
+// Drives: tension meter, player HP, warden HP, warden state label,
+//         traversal hint text, and game-state overlay.
+// ---------------------------------------------------------------------------
+
+type HintLevel = "none" | "charging" | "ready" | "maxout";
+
 export class DomHudSystem implements ISystem {
-  readonly phase = SystemPhase.RenderSync;
-  private unsubscribes: (() => void)[] = [];
-  private tensionBar: HTMLElement | null = null;
-  private tensionText: HTMLElement | null = null;
-  private hpText: HTMLElement | null = null;
-  private hpValue: HTMLElement | null = null;
-  private bossStateText: HTMLElement | null = null;
-  private overlay: HTMLElement | null = null;
-  private overlayTitle: HTMLElement | null = null;
+    readonly phase = SystemPhase.RenderSync;
 
-  constructor(private broker: EventBroker) {}
+    private unsubscribes: (() => void)[] = [];
 
-  public init(): void {
-    this.cacheDomElements();
-    this.registerSubscribers();
-  }
+    // Cached DOM refs
+    private tensionBar     : HTMLElement | null = null;
+    private tensionText    : HTMLElement | null = null;
+    private playerHpBar    : HTMLElement | null = null;
+    private playerHpValue  : HTMLElement | null = null;
+    private wardenHpBar    : HTMLElement | null = null;
+    private wardenHpValue  : HTMLElement | null = null;
+    private bossStateText  : HTMLElement | null = null;
+    private traversalHint  : HTMLElement | null = null;
+    private overlay        : HTMLElement | null = null;
+    private overlayTitle   : HTMLElement | null = null;
 
-  public update(_dt: number): void {
-    void _dt;
-  }
+    private lastHintLevel : HintLevel = "none";
+    private currentState  : string = "AIRBORNE";
 
-  private cacheDomElements(): void {
-    if (typeof document === "undefined") return;
-    this.tensionBar = document.getElementById("tension-meter-bar");
-    this.tensionText = document.getElementById("tension-meter-text");
-    this.hpText = document.getElementById("player-hp-bar");
-    this.hpValue = document.getElementById("player-hp-value");
-    this.bossStateText = document.getElementById("boss-state-text");
-    this.overlay = document.getElementById("game-state-overlay");
-    this.overlayTitle = document.getElementById("game-state-title");
-  }
+    constructor(private broker: EventBroker) {}
 
-  private registerSubscribers(): void {
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => this.updateTensionDisplay(payload.tension))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => this.updateHealthDisplay(payload.hp, payload.maxHp))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => this.updateWardenStateDisplay(payload.state, payload.hue))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("TETHER SNAPPED", "#ef4444"))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => this.hideOverlay())
-    );
-  }
-
-  private updateTensionDisplay(value: number): void {
-    const clamped = Math.max(0, Math.min(1.5, value));
-    const percentage = Math.min(100, clamped * 100).toFixed(1) + "%";
-    if (this.tensionBar) {
-      this.tensionBar.style.width = percentage;
-      if (clamped > 1.1) {
-        this.tensionBar.style.backgroundColor = "#ef4444";
-      } else if (clamped > 0.9) {
-        this.tensionBar.style.backgroundColor = "#eab308";
-      } else {
-        this.tensionBar.style.backgroundColor = "#22c55e";
-      }
+    public init(): void {
+        this.cacheDomElements();
+        this.registerSubscriptions();
     }
-    if (this.tensionText) {
-      this.tensionText.textContent = `TETHER LOAD: ${percentage}`;
-    }
-  }
 
-  private updateHealthDisplay(hp: number, maxHp: number): void {
-    if (this.hpValue) {
-      this.hpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+    public update(_dt: number): void {
+        void _dt;
     }
-    if (this.hpText) {
-      const hpPct = ((hp / maxHp) * 100).toFixed(0) + "%";
-      this.hpText.style.width = hpPct;
-      this.hpText.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
+
+    // -----------------------------------------------------------------------
+    private cacheDomElements(): void {
+        if (typeof document === "undefined") return;
+        this.tensionBar    = document.getElementById("tension-meter-bar");
+        this.tensionText   = document.getElementById("tension-meter-text");
+        this.playerHpBar   = document.getElementById("player-hp-bar");
+        this.playerHpValue = document.getElementById("player-hp-value");
+        this.wardenHpBar   = document.getElementById("warden-hp-bar");
+        this.wardenHpValue = document.getElementById("warden-hp-value");
+        this.bossStateText = document.getElementById("boss-state-text");
+        this.traversalHint = document.getElementById("traversal-hint");
+        this.overlay       = document.getElementById("game-state-overlay");
+        this.overlayTitle  = document.getElementById("game-state-title");
     }
-  }
 
-  private updateWardenStateDisplay(state: string, hue: string): void {
-    if (this.bossStateText) {
-      this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
-      this.bossStateText.style.color = hue;
+    private registerSubscriptions(): void {
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, ({ tension }) => {
+                this.updateTensionBar(tension);
+                this.updateHint(tension);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
+                this.currentState = state;
+                if (state !== "WALL_SLIDING") {
+                    this.setHint("none");
+                }
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
+                this.updatePlayerHp(hp, maxHp);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, ({ hp, maxHp }) => {
+                this.updateWardenHp(hp, maxHp);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, ({ state, hue }) => {
+                this.updateWardenStateLabel(state, hue);
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.GAME_OVER, () => {
+                this.showOverlay("TETHER SNAPPED", "#ef4444");
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.GAME_RESET, () => {
+                this.hideOverlay();
+                this.setHint("none");
+            })
+        );
     }
-  }
 
-  private showOverlay(title: string, color: string): void {
-    if (this.overlay) this.overlay.style.display = "flex";
-    if (this.overlayTitle) {
-      this.overlayTitle.textContent = title;
-      this.overlayTitle.style.color = color;
-      this.overlayTitle.style.textShadow = `0 0 20px ${color}80`;
+    // -----------------------------------------------------------------------
+    private updateTensionBar(tension: number): void {
+        const clamped = Math.max(0, Math.min(1, tension));
+        const pct     = (clamped * 100).toFixed(1) + "%";
+
+        if (this.tensionBar) {
+            this.tensionBar.style.width = pct;
+            if (clamped >= 0.98) {
+                this.tensionBar.style.backgroundColor = "#ff4500";
+                this.tensionBar.classList.add("tension-pulse");
+            } else if (clamped >= 0.75) {
+                this.tensionBar.style.backgroundColor = "#f59e0b";
+                this.tensionBar.classList.remove("tension-pulse");
+            } else if (clamped >= 0.40) {
+                this.tensionBar.style.backgroundColor = "#eab308";
+                this.tensionBar.classList.remove("tension-pulse");
+            } else {
+                this.tensionBar.style.backgroundColor = "#22c55e";
+                this.tensionBar.classList.remove("tension-pulse");
+            }
+        }
+        if (this.tensionText) {
+            this.tensionText.textContent = (clamped * 100).toFixed(0) + "%";
+            this.tensionText.style.color = clamped >= 0.9 ? "#fbbf24" : "#94a3b8";
+        }
     }
-  }
 
-  private hideOverlay(): void {
-    if (this.overlay) this.overlay.style.display = "none";
-  }
+    private updateHint(tension: number): void {
+        if (this.currentState !== "WALL_SLIDING") return;
 
-  public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
-  }
+        if (tension >= 0.98) {
+            this.setHint("maxout");
+        } else if (tension >= 0.88) {
+            this.setHint("ready");
+        } else if (tension > 0.02) {
+            this.setHint("charging");
+        } else {
+            this.setHint("none");
+        }
+    }
+
+    private setHint(level: HintLevel): void {
+        if (!this.traversalHint || level === this.lastHintLevel) return;
+        this.lastHintLevel = level;
+
+        switch (level) {
+            case "none":
+                this.traversalHint.style.opacity = "0";
+                this.traversalHint.textContent   = "";
+                break;
+            case "charging":
+                this.traversalHint.style.opacity = "1";
+                this.traversalHint.style.color   = "#94a3b8";
+                this.traversalHint.textContent   = "HOLD — CHARGING SILK";
+                break;
+            case "ready":
+                this.traversalHint.style.opacity = "1";
+                this.traversalHint.style.color   = "#fbbf24";
+                this.traversalHint.textContent   = "RELEASE TO FLING";
+                break;
+            case "maxout":
+                this.traversalHint.style.opacity = "1";
+                this.traversalHint.style.color   = "#ff4500";
+                this.traversalHint.textContent   = "MAX TENSION — FLING NOW";
+                break;
+        }
+    }
+
+    private updatePlayerHp(hp: number, maxHp: number): void {
+        if (this.playerHpValue) {
+            this.playerHpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+        }
+        if (this.playerHpBar) {
+            this.playerHpBar.style.width           = ((hp / maxHp) * 100).toFixed(0) + "%";
+            this.playerHpBar.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
+        }
+    }
+
+    private updateWardenHp(hp: number, maxHp: number): void {
+        if (this.wardenHpValue) {
+            this.wardenHpValue.textContent = `${hp} / ${maxHp}`;
+        }
+        if (this.wardenHpBar) {
+            const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
+            this.wardenHpBar.style.width = pct;
+            this.wardenHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
+        }
+    }
+
+    private updateWardenStateLabel(state: string, hue: string): void {
+        if (this.bossStateText) {
+            this.bossStateText.textContent = state.toUpperCase();
+            this.bossStateText.style.color  = hue;
+        }
+    }
+
+    private showOverlay(title: string, color: string): void {
+        if (this.overlay) this.overlay.style.display = "flex";
+        if (this.overlayTitle) {
+            this.overlayTitle.textContent              = title;
+            this.overlayTitle.style.color              = color;
+            this.overlayTitle.style.textShadow         = `0 0 24px ${color}80`;
+        }
+    }
+
+    private hideOverlay(): void {
+        if (this.overlay) this.overlay.style.display = "none";
+    }
+
+    public dispose(): void {
+        this.unsubscribes.forEach(u => u());
+        this.unsubscribes = [];
+    }
 }
 
 
@@ -4053,48 +4566,99 @@ export const HudOverlay: React.FC = () => {
         className="hud-overlay-container"
         style={{
           position: "absolute",
-          inset: "16px",
+          inset: "14px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
           pointerEvents: "none",
-          fontFamily: "monospace",
-          color: "#f3f4f6"
+          fontFamily: "'Courier New', Courier, monospace",
+          color: "#e2e8f0"
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(10, 11, 15, 0.9)", padding: "12px", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "180px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: "bold" }}>
-              <span>SYSTEM</span>
+        {/* ── Top row ── */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+
+          {/* Player HP */}
+          <div style={{
+            display: "flex", flexDirection: "column", gap: "5px",
+            background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
+            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
+            minWidth: "170px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
+              <span>PILOT</span>
               <span id="player-hp-value">INTEGRITY: 5 / 5</span>
             </div>
-            <div style={{ width: "100%", height: "6px", background: "#1f2937", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#22c55e" }} />
+            <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
+              <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#22c55e", transition: "width 0.15s ease, background-color 0.3s ease" }} />
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px", background: "rgba(10, 11, 15, 0.9)", padding: "12px", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "180px", alignItems: "flex-end" }}>
-            <span id="boss-state-text" style={{ fontSize: "11px", fontWeight: "bold", color: "#ef4444" }}>WARDEN: SWEEPING</span>
+          {/* Warden status */}
+          <div style={{
+            display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
+            background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
+            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
+            minWidth: "175px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
+              <span>WARDEN</span>
+              <span id="warden-hp-value">100 / 100</span>
+            </div>
+            <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
+              <div id="warden-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
+            </div>
+            <span id="boss-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(10, 11, 15, 0.9)", padding: "12px", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "220px" }}>
-            <span id="tension-meter-text" style={{ fontSize: "10px", fontWeight: "bold", letterSpacing: "0.1em" }}>TETHER LOAD: 0.0%</span>
-            <div style={{ width: "100%", height: "8px", background: "#1f2937", borderRadius: "4px", overflow: "hidden" }}>
-              <div id="tension-meter-bar" style={{ width: "0%", height: "100%", backgroundColor: "#22c55e" }} />
+        {/* ── Bottom centre: Tension meter + hint ── */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+
+          {/* Hint line */}
+          <div id="traversal-hint" style={{
+            fontSize: "9px", letterSpacing: "0.12em", color: "#94a3b8",
+            opacity: 0, transition: "opacity 0.2s ease",
+            textAlign: "center"
+          }} />
+
+          <div style={{
+            display: "flex", flexDirection: "column", gap: "5px",
+            background: "rgba(8, 9, 14, 0.92)", padding: "10px 14px",
+            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
+            minWidth: "230px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", letterSpacing: "0.1em" }}>
+              <span style={{ opacity: 0.7 }}>SILK TENSION</span>
+              <span id="tension-meter-text" style={{ color: "#94a3b8" }}>0.0%</span>
+            </div>
+            <div style={{ width: "100%", height: "7px", background: "#0d1117", borderRadius: "4px", overflow: "hidden" }}>
+              <div id="tension-meter-bar" style={{
+                width: "0%", height: "100%",
+                backgroundColor: "#22c55e",
+                transition: "background-color 0.1s ease",
+                borderRadius: "4px"
+              }} />
             </div>
           </div>
         </div>
       </div>
 
+      {/* ── Game-state overlay ── */}
       <div id="game-state-overlay" style={{
-        position: "absolute", inset: 0, display: "none", flexDirection: "column",
-        justifyContent: "center", alignItems: "center", background: "rgba(0,0,0,0.85)",
-        zIndex: 100, pointerEvents: "auto", fontFamily: "monospace"
+        position: "absolute", inset: 0,
+        display: "none", flexDirection: "column",
+        justifyContent: "center", alignItems: "center",
+        background: "rgba(0,0,0,0.88)", zIndex: 100,
+        pointerEvents: "auto", fontFamily: "'Courier New', Courier, monospace",
+        gap: "16px"
       }}>
-        <h1 id="game-state-title" style={{ fontSize: "36px", color: "#ef4444", margin: 0, letterSpacing: "0.15em" }}>TETHER SNAPPED</h1>
-        <p id="game-state-subtitle" style={{ fontSize: "14px", color: "#9ca3af", marginTop: "16px", letterSpacing: "0.1em" }}>PRESS [R] TO RECONNECT TETHER</p>
+        <h1 id="game-state-title" style={{ fontSize: "32px", color: "#ef4444", margin: 0, letterSpacing: "0.18em" }}>
+          TETHER SNAPPED
+        </h1>
+        <p id="game-state-subtitle" style={{ fontSize: "12px", color: "#64748b", margin: 0, letterSpacing: "0.12em" }}>
+          PRESS [R] TO RECONNECT
+        </p>
       </div>
     </>
   );

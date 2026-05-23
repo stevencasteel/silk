@@ -2,20 +2,33 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
+// ---------------------------------------------------------------------------
+// TransformSyncSystem
+// Interpolates physics transforms -> visual mesh positions.
+// Also drives player emissive feedback based on tension and traversal state.
+// ---------------------------------------------------------------------------
+
 export class TransformSyncSystem implements ISystem {
     readonly phase = SystemPhase.RenderSync;
+
     private scratchPrevQuat = new BABYLON.Quaternion();
     private scratchCurrQuat = new BABYLON.Quaternion();
-    private scrollOffset = 0.0;
+    private scrollOffset    = 0.0;
+
+    // Smooth emissive lerp state
+    private currentEmissiveR = 0.05;
+    private currentEmissiveG = 0.15;
+    private currentEmissiveB = 0.05;
 
     constructor(
         private refs: EntityRefs,
-        private transforms: ComponentStore<TransformComponent>, 
+        private transforms: ComponentStore<TransformComponent>,
         private tethers: ComponentStore<TetherComponent>,
+        private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry
     ) {}
 
@@ -24,60 +37,116 @@ export class TransformSyncSystem implements ISystem {
     }
 
     public render(alpha: number): void {
-        // 1. Animate/Scroll the physical unit ticks downward to create the endless ascension illusion
-        const scene = this.visualRegistry.getScene();
-        if (scene) {
-            const scrollSpeed = 5.0; // Speed matching downward wall displacement
-            const totalRange = 36.0; // Range matching tick spawning heights
-            this.scrollOffset += scrollSpeed * (1 / 60); // 60Hz estimate sync
-            
-            if (this.scrollOffset > totalRange) {
-                this.scrollOffset -= totalRange;
-            }
+        this.scrollTicks();
+        this.syncTransforms(alpha);
+    }
 
-            const ticks = scene.meshes.filter(m => m.metadata && m.metadata.type === "scrolling_tick");
-            for (const tick of ticks) {
-                let currentY = tick.metadata.initialY - this.scrollOffset;
-                while (currentY < -2.0) {
-                    currentY += totalRange;
-                }
-                tick.position.y = currentY;
-            }
+    // -----------------------------------------------------------------------
+    // Animate scrolling wall ticks to create ascension illusion
+    private scrollTicks(): void {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
+
+        const scrollSpeed = 5.0;
+        const totalRange  = 36.0;
+        this.scrollOffset += scrollSpeed * (1 / 60);
+        if (this.scrollOffset > totalRange) {
+            this.scrollOffset -= totalRange;
         }
 
-        // 2. Synchronize visual mesh positioning with simulation components
+        const ticks = scene.meshes.filter(m => m.metadata?.type === "scrolling_tick");
+        for (const tick of ticks) {
+            let y = tick.metadata.initialY - this.scrollOffset;
+            while (y < -2.0) y += totalRange;
+            tick.position.y = y;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Sync physics -> visual, with special per-entity feedback
+    private syncTransforms(alpha: number): void {
+        const tether = this.tethers.get(this.refs.player);
+        const trav   = this.traversal.get(this.refs.player);
+
         for (const [id, curr] of this.transforms.entries()) {
             const node = this.visualRegistry.getTransformNode(id);
             if (!node) continue;
 
+            // Interpolated position
             node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
             node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
             node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
+            // Rotation slerp
             this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
             this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
-
             if (!node.rotationQuaternion) {
                 node.rotationQuaternion = new BABYLON.Quaternion();
             }
-            
-            BABYLON.Quaternion.SlerpToRef(this.scratchPrevQuat, this.scratchCurrQuat, alpha, node.rotationQuaternion);
+            BABYLON.Quaternion.SlerpToRef(
+                this.scratchPrevQuat,
+                this.scratchCurrQuat,
+                alpha,
+                node.rotationQuaternion
+            );
 
-            if (id === this.refs.player) {
-                const tether = this.tethers.get(id);
-                if (tether) {
-                    const mesh = node as BABYLON.AbstractMesh;
-                    if (mesh && mesh.material) {
-                        const mat = mesh.material as BABYLON.StandardMaterial;
-                        if (mat) {
-                            const stress = Math.max(0.0, Math.min(1.0, (tether.currentLength / tether.maxLength) - 0.9) * 10.0);
-                            mat.emissiveColor.r = 0.05 + stress * 0.95;
-                            mat.emissiveColor.g = 0.15 * (1.0 - stress);
-                            mat.emissiveColor.b = 0.05 * (1.0 - stress);
-                        }
-                    }
+            // ---- Player emissive feedback ----
+            if (id === this.refs.player && tether && trav) {
+                const mesh = node as BABYLON.AbstractMesh;
+                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                if (mat) {
+                    this.updatePlayerEmissive(mat, tether.tension, trav.state, alpha);
+                }
+            }
+
+            // ---- Warden pulsing glow ----
+            if (id === this.refs.warden) {
+                const mesh = node as BABYLON.AbstractMesh;
+                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                if (mat) {
+                    const pulse = 0.02 + Math.sin(Date.now() * 0.003) * 0.015;
+                    mat.emissiveColor.set(0.4 + pulse, 0.02, 0.02);
                 }
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Player capsule shifts from green -> hot white/orange as tension builds
+    private updatePlayerEmissive(
+        mat: BABYLON.StandardMaterial,
+        tension: number,
+        state: string,
+        _alpha: number
+    ): void {
+        void _alpha;
+
+        let targetR: number;
+        let targetG: number;
+        let targetB: number;
+
+        if (state === "WALL_SLIDING") {
+            // Green -> yellow -> orange -> red-white
+            targetR = 0.05 + tension * 0.95;
+            targetG = 0.15 + (1.0 - tension) * 0.40;
+            targetB = 0.05 * (1.0 - tension);
+        } else if (state === "LAUNCHING") {
+            // Flash bright white on launch
+            targetR = 0.9;
+            targetG = 0.9;
+            targetB = 0.9;
+        } else {
+            // Resting green
+            targetR = 0.05;
+            targetG = 0.12;
+            targetB = 0.05;
+        }
+
+        const lerpRate = 0.18;
+        this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
+        this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
+        this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
+
+        mat.emissiveColor.set(this.currentEmissiveR, this.currentEmissiveG, this.currentEmissiveB);
     }
 }

@@ -10,13 +10,22 @@ export interface KinematicTargetComponent { x: number; y: number; z: number; act
 
 export interface TetherComponent {
     anchorX: number; anchorY: number; anchorZ: number;
-    maxLength: number; currentLength: number;
-    isAttached: boolean; tension: number;
-    dynamicVelX: number; dynamicVelY: number;
+    maxLength: number;
+    currentLength: number;
+    isAttached: boolean;
+    tension: number;
+    dynamicVelX: number;
+    dynamicVelY: number;
 }
 
 export interface HealthComponent { current: number; max: number; }
-export interface InputIntentComponent { x: number; y: number; jump: boolean; fire: boolean; detach: boolean; }
+
+export interface InputIntentComponent {
+    x: number; y: number;
+    jump: boolean;
+    fire: boolean;
+    detach: boolean;
+}
 
 export interface WardenAIComponent {
     state: string;
@@ -27,7 +36,14 @@ export interface WardenAIComponent {
     hasFakedDeath: boolean;
 }
 
-export interface PlayerStatsComponent { moveSpeed: number; climbSpeed: number; swingForce: number; minRope: number; maxRope: number; }
+export interface PlayerStatsComponent {
+    moveSpeed: number;
+    climbSpeed: number;
+    swingForce: number;
+    minRope: number;
+    maxRope: number;
+}
+
 export interface PlayerTag { readonly tag?: "player"; }
 export interface WardenTag { readonly tag?: "warden"; }
 export interface AnchorTag { readonly tag?: "anchor"; }
@@ -39,7 +55,7 @@ export interface TraversalStateComponent {
     state: TraversalState;
     wallNormalX: number;
     wallNormalY: number;
-    charge: number;
+    wallDir: number;
     launchTimer: number;
     launchPower: number;
 }

@@ -1,20 +1,38 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, WardenAIComponent, TetherComponent, InvulnerabilityComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import {
+    TransformComponent,
+    HealthComponent,
+    WardenAIComponent,
+    TetherComponent,
+    InvulnerabilityComponent,
+    TraversalStateComponent
+} from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 
+// ---------------------------------------------------------------------------
+// CombatSystem
+// Handles two interactions:
+//   1. Player fling -> warden damage (requires launchPower >= FLING_DAMAGE_THRESHOLD)
+//   2. Warden contact -> player damage (with iframe window)
+// ---------------------------------------------------------------------------
+
 export class CombatSystem implements ISystem {
     readonly phase = SystemPhase.Gameplay;
-    private playerHitRadius = 0.8;
-    private wardenHitRadius = 2.0;
-    private wardenDamage = 1;
-    private playerIframeDuration = 1.5;
-    private playerFlingDamage = 35;
+
+    // A fling must have been charged to at least this tension to deal damage.
+    // 0.90 means the player needs ~90 % of the bar filled.
+    private readonly FLING_DAMAGE_THRESHOLD = 0.90;
+    private readonly PLAYER_HIT_RADIUS      = 0.8;
+    private readonly WARDEN_HIT_RADIUS      = 2.4;   // matches visual sphere radius
+    private readonly WARDEN_CONTACT_DAMAGE  = 1;
+    private readonly PLAYER_IFRAME_DURATION = 1.5;
+    private readonly PLAYER_FLING_DAMAGE    = 35;
 
     constructor(
         private refs: EntityRefs,
@@ -29,76 +47,126 @@ export class CombatSystem implements ISystem {
     ) {}
 
     public update(dt: number): void {
-        const pTrans = this.transforms.get(this.refs.player);
-        const wTrans = this.transforms.get(this.refs.warden);
+        const pTrans  = this.transforms.get(this.refs.player);
+        const wTrans  = this.transforms.get(this.refs.warden);
         const pHealth = this.healths.get(this.refs.player);
         const wHealth = this.healths.get(this.refs.warden);
-        const wAI = this.wardenAIs.get(this.refs.warden);
+        const wAI     = this.wardenAIs.get(this.refs.warden);
         const pIframe = this.iframes.get(this.refs.player);
-        const tether = this.tethers.get(this.refs.player);
-        const pTrav = this.traversal.get(this.refs.player);
+        const tether  = this.tethers.get(this.refs.player);
+        const pTrav   = this.traversal.get(this.refs.player);
 
         if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
 
+        // Tick down invulnerability
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
         }
 
-        const dx = pTrans.x - wTrans.x;
-        const dy = pTrans.y - wTrans.y;
+        const dx    = pTrans.x - wTrans.x;
+        const dy    = pTrans.y - wTrans.y;
         const distSq = dx * dx + dy * dy;
-        const hitDist = this.playerHitRadius + this.wardenHitRadius;
-        const isColliding = distSq < (hitDist * hitDist);
+        const hitDist = this.PLAYER_HIT_RADIUS + this.WARDEN_HIT_RADIUS;
 
-        if (isColliding) {
-            if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.95) {
-                wHealth.current -= this.playerFlingDamage;
-                this.broker.publish(GameEvent.WARDEN_DAMAGED, { amount: this.playerFlingDamage, source: "PLAYER_FLING" });
-                this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
-                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.2, duration: 0.5 });
-                
-                const dist = Math.sqrt(distSq) || 1;
-                tether.dynamicVelX = (dx / dist) * 25;
-                tether.dynamicVelY = (dy / dist) * 25;
-                pTrav.state = "AIRBORNE";
-                pTrav.launchPower = 0;
-                pTrav.launchTimer = 0;
+        if (distSq >= hitDist * hitDist) return;
 
-                if (wHealth.current <= 0) {
-                    wHealth.current = 0;
-                    if (wAI.hasFakedDeath) {
-                        this.broker.publish(GameEvent.WARDEN_DIED, undefined);
-                    } else {
-                        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "FAKE_DEATH", hue: "#1f2937" });
-                    }
-                }
-            }
-            else if (pIframe.timeRemaining <= 0 && (wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING" || wAI.state === "SWEEPING")) {
-                pHealth.current -= this.wardenDamage;
-                pIframe.timeRemaining = this.playerIframeDuration;
-                
-                const dist = Math.sqrt(distSq) || 1;
-                const knockbackForce = 15;
-                const kbX = (dx / dist) * knockbackForce;
-                const kbY = (dy / dist) * knockbackForce + 5;
-                
-                this.commands.dispatch<ApplyImpulseCommand>({
-                    type: "APPLY_IMPULSE",
-                    entityId: this.refs.player,
-                    x: kbX,
-                    y: kbY,
-                    z: 0
+        // --- Player fling hits Warden ---
+        if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
+            this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, tether, pTrav, dx, dy, distSq);
+            return;
+        }
+
+        // --- Warden contact damages Player ---
+        const wardenIsHostile = wAI.state === "RUSH ATTACK"
+            || wAI.state === "HUNTING"
+            || wAI.state === "SWEEPING";
+
+        if (pIframe.timeRemaining <= 0 && wardenIsHostile) {
+            this.resolveWardenContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
+        }
+    }
+
+    private resolvePlayerFlingHit(
+        _pTrans: TransformComponent,
+        _wTrans: TransformComponent,
+        wHealth: HealthComponent,
+        wAI: WardenAIComponent,
+        tether: TetherComponent,
+        pTrav: TraversalStateComponent,
+        dx: number,
+        dy: number,
+        distSq: number
+    ): void {
+        void _pTrans; void _wTrans;
+
+        wHealth.current -= this.PLAYER_FLING_DAMAGE;
+        this.broker.publish(GameEvent.WARDEN_DAMAGED, {
+            amount: this.PLAYER_FLING_DAMAGE,
+            source: "PLAYER_FLING"
+        });
+        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, {
+            hp: wHealth.current,
+            maxHp: wHealth.max
+        });
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
+
+        // Bounce player away from warden
+        const dist = Math.sqrt(distSq) || 1;
+        tether.dynamicVelX =  (dx / dist) * 22;
+        tether.dynamicVelY =  (dy / dist) * 22;
+        pTrav.state        = "AIRBORNE";
+        pTrav.launchPower  = 0;
+        pTrav.launchTimer  = 0;
+
+        if (wHealth.current <= 0) {
+            wHealth.current = 0;
+            if (wAI.hasFakedDeath) {
+                this.broker.publish(GameEvent.WARDEN_DIED, undefined);
+            } else {
+                this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, {
+                    state: "FAKE_DEATH",
+                    hue: "#1f2937"
                 });
-                
-                this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: this.wardenDamage, source: "WARDEN" });
-                this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
-                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
-
-                if (pHealth.current <= 0) {
-                    pHealth.current = 0;
-                    this.broker.publish(GameEvent.PLAYER_DIED, undefined);
-                }
             }
+        }
+    }
+
+    private resolveWardenContactHit(
+        pTrans: TransformComponent,
+        wTrans: TransformComponent,
+        pHealth: HealthComponent,
+        pIframe: InvulnerabilityComponent,
+        dx: number,
+        dy: number,
+        distSq: number
+    ): void {
+        void pTrans; void wTrans;
+
+        pHealth.current -= this.WARDEN_CONTACT_DAMAGE;
+        pIframe.timeRemaining = this.PLAYER_IFRAME_DURATION;
+
+        const dist = Math.sqrt(distSq) || 1;
+        this.commands.dispatch<ApplyImpulseCommand>({
+            type: "APPLY_IMPULSE",
+            entityId: this.refs.player,
+            x: (dx / dist) * 14,
+            y: (dy / dist) * 14 + 6,
+            z: 0
+        });
+
+        this.broker.publish(GameEvent.PLAYER_DAMAGED, {
+            amount: this.WARDEN_CONTACT_DAMAGE,
+            source: "WARDEN"
+        });
+        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
+            hp: pHealth.current,
+            maxHp: pHealth.max
+        });
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
+
+        if (pHealth.current <= 0) {
+            pHealth.current = 0;
+            this.broker.publish(GameEvent.PLAYER_DIED, undefined);
         }
     }
 }
