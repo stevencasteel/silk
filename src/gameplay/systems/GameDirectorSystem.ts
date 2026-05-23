@@ -94,36 +94,36 @@ export class GameDirectorSystem implements ISystem {
             pTrav.launchPower = 0;
         }
 
-        const sTrans = this.transforms.get(this.refs.weaver);
-        const sHealth = this.healths.get(this.refs.weaver);
-        const sAI = this.weaverAIs.get(this.refs.weaver);
-        const sVel = this.velocities.get(this.refs.weaver);
-        const sTarget = this.targets.get(this.refs.weaver);
+        const wTrans = this.transforms.get(this.refs.weaver);
+        const wHealth = this.healths.get(this.refs.weaver);
+        const wAI = this.weaverAIs.get(this.refs.weaver);
+        const wVel = this.velocities.get(this.refs.weaver);
+        const wTarget = this.targets.get(this.refs.weaver);
 
-        if (sTrans) {
-            sTrans.x = 0; sTrans.y = 26; sTrans.z = 0;
-            sTrans.prevX = 0; sTrans.prevY = 26; sTrans.prevZ = 0;
+        if (wTrans) {
+            wTrans.x = 0; wTrans.y = 26; wTrans.z = 0;
+            wTrans.prevX = 0; wTrans.prevY = 26; wTrans.prevZ = 0;
         }
-        if (sTarget) {
-            sTarget.x = 0; sTarget.y = 26; sTarget.z = 0; sTarget.active = true;
+        if (wTarget) {
+            wTarget.x = 0; wTarget.y = 26; wTarget.z = 0; wTarget.active = true;
         }
-        if (sHealth) {
-            sHealth.current = sHealth.max;
+        if (wHealth) {
+            wHealth.current = wHealth.max;
         }
-        if (sAI) {
-            sAI.state = "SWEEPING";
-            sAI.timeInState = 0;
-            sAI.hue = "#ef4444";
-            sAI.hasFakedDeath = false;
+        if (wAI) {
+            wAI.state = "SWEEPING";
+            wAI.timeInState = 0;
+            wAI.hue = "#ef4444";
+            wAI.hasFakedDeath = false;
         }
-        if (sVel) {
-            sVel.x = 4.0; sVel.y = 0; sVel.z = 0;
+        if (wVel) {
+            wVel.x = 4.0; wVel.y = 0; wVel.z = 0;
         }
 
         this.broker.publish(GameEvent.GAME_RESET, undefined);
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
         this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
-        this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: sHealth?.max || 100, maxHp: sHealth?.max || 100 });
+        this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
     }
 
     public dispose(): void {

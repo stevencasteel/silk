@@ -27,14 +27,14 @@ REALIZED PLAY AREA & ALIGNMENT SPECIFICATIONS
 ===============================================================================
 REALIZED COREtraversal PHYSICS SKELETON
 ===============================================================================
-1. SPIDER CEILING SWEEP (ANCHOR)
+1. WEAVER CEILING SWEEP (ANCHOR)
    - Spawned as a giant mechanical sphere (radius = 2.4, 3x capsule width) 
      patrolling autonomously back and forth along Y = 26.0 between X = [-12, 12].
    - The top end of the silk string (tether anchor coordinate) locks dynamically 
-     to the Spider's real-time position.
+     to the Weaver's real-time position.
 
 2. PENDULUM SWING & STEERING
-   - The player capsule (radius 0.4, height 1.8) is suspended below the Spider.
+   - The player capsule (radius 0.4, height 1.8) is suspended below the Weaver.
    - Left/Right arrow keys directly steer the pendulum to build momentum.
 
 3. WALL SLIDE FRICTION & ELONGATION
@@ -52,11 +52,11 @@ These systems are pruned from the initial integration pass to guarantee the
 absolute stability of the core physical swing, wall-drag, and tension loops. 
 They remain documented below as direct blueprints for future development phases.
 
-1. SPIDER EMOTIONAL & ATTACK PHASES
+1. WEAVER EMOTIONAL & ATTACK PHASES
 -------------------------------------------------------------------------------
 - PHASE 1 CYCLE: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY.
 - FAKE DEATH STATE: Transition triggers at 0% HP. Emissive lights turn off, 
-  audio synthesizers scale down to low-frequency drones, and the Spider is 
+  audio synthesizers scale down to low-frequency drones, and the Weaver is 
   dazed for a 3.0s window.
 - PHASE 2 (BERSERK OVERDRIVE): Revives at 50% HP. Visuals switch to a intense
   high-emissive orange glow, movement sweep speeds double, and the audio drone 
@@ -71,7 +71,7 @@ They remain documented below as direct blueprints for future development phases.
   temporarily along horizontal coordinate offsets.
 - PROCEDURAL PARTICLES: Burst pools of geometric boxes tracking velocity vectors 
   with linear gravity decay, color-coded by event source (green for player, red 
-  for Spider).
+  for Weaver).
 
 3. EXPANDED AUDIO DIRECTOR
 -------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ They remain documented below as direct blueprints for future development phases.
 - IMPACT SYNTHS: Membrane synthesizers to deliver low-end kick thuds during player 
   damage events, and pink-noise synthesizers for high-frequency hit-flashes.
 - STATE-BASED DRONES: Tension drone modulations that scale oscillator harmonics and 
-  low-pass filter Q-factors in sync with the Spider's active state.
+  low-pass filter Q-factors in sync with the Weaver's active state.
 
 4. USER MENU & CONFIGURATION
 -------------------------------------------------------------------------------

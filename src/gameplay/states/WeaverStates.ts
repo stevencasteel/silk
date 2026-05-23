@@ -165,10 +165,10 @@ export class WeaverReturningState implements IWeaverState {
   public update(ctx: AIContext, dt: number): WeaverStateType | null {
     ctx.ai.timeInState += dt;
 
-    const sTrans = ctx.transforms.get(ctx.weaverId);
-    if (sTrans) {
+    const wTrans = ctx.transforms.get(ctx.weaverId);
+    if (wTrans) {
       const targetY = 27.2;
-      const dy = targetY - sTrans.y;
+      const dy = targetY - wTrans.y;
 
       if (Math.abs(dy) < 0.3) {
         return "SWEEPING";
