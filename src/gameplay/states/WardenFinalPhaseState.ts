@@ -19,7 +19,9 @@ export class WardenFinalPhaseState implements IWardenState {
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.0, duration: 1.2 });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(_ctx: AIContext): void {
+    void _ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;

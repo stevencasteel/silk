@@ -83,5 +83,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.visualRegistry.registerTransformNode(wardenId, wMesh);
   }
 
-  public update(_dt: number): void {}
+  public update(_dt: number): void {
+    void _dt;
+  }
 }

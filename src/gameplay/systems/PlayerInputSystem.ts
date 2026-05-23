@@ -16,6 +16,7 @@ export class PlayerInputSystem implements ISystem {
   }
 
   public update(_dt: number): void {
+    void _dt;
     const input = this.inputs.get(this.refs.player);
     if (!input) return;
 

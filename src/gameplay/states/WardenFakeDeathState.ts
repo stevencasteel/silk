@@ -19,7 +19,9 @@ export class WardenFakeDeathState implements IWardenState {
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.6, duration: 0.8 });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(_ctx: AIContext): void {
+    void _ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;

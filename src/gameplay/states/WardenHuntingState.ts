@@ -10,7 +10,9 @@ export class WardenHuntingState implements IWardenState {
     ctx.ai.timeInState = 0;
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(_ctx: AIContext): void {
+    void _ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;

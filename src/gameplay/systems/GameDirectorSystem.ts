@@ -47,6 +47,7 @@ export class GameDirectorSystem implements ISystem {
   };
 
   public update(_dt: number): void {
+    void _dt;
     if (this.resetRequested) {
       this.resetGame();
       this.resetRequested = false;

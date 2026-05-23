@@ -18,7 +18,9 @@ export class WardenChargePrepState implements IWardenState {
         });
     }
 
-    public exit(_ctx: AIContext): void {}
+    public exit(_ctx: AIContext): void {
+        void _ctx;
+    }
 
     public update(ctx: AIContext, dt: number): WardenStateType | null {
         ctx.ai.timeInState += dt;
