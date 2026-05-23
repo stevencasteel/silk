@@ -1,9 +1,7 @@
 export enum GameEvent {
   GAME_INITIALIZED          = "GAME_INITIALIZED",
   USER_GESTURE_REGISTERED   = "USER_GESTURE_REGISTERED",
-  PLAYER_MOVE               = "PLAYER_MOVE",
   PLAYER_HEALTH_CHANGED     = "PLAYER_HEALTH_CHANGED",
-  PLAYER_VELOCITY_CHANGED   = "PLAYER_VELOCITY_CHANGED",
   PLAYER_DAMAGED            = "PLAYER_DAMAGED",
   PLAYER_DIED               = "PLAYER_DIED",
   PLAYER_STATE_CHANGE       = "PLAYER_STATE_CHANGE",
@@ -22,9 +20,7 @@ export enum GameEvent {
 export interface GameEventMap {
   [GameEvent.GAME_INITIALIZED]:        void;
   [GameEvent.USER_GESTURE_REGISTERED]: void;
-  [GameEvent.PLAYER_MOVE]:             { x: number; y: number; z: number };
   [GameEvent.PLAYER_HEALTH_CHANGED]:   { hp: number; maxHp: number };
-  [GameEvent.PLAYER_VELOCITY_CHANGED]: { velocity: number; maxVelocity: number };
   [GameEvent.PLAYER_DAMAGED]:          { amount: number; source: string };
   [GameEvent.PLAYER_DIED]:             void;
   [GameEvent.PLAYER_STATE_CHANGE]:     { state: string };

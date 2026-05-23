@@ -9,7 +9,6 @@ import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponen
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntityId } from "../../core/ecs/Entity";
 import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetSilkMaxLengthCommand, SetSilkAttachedCommand } from "../commands/PhysicsCommands";
-import { PLATFORM_AABBS, BORDER_AABBS } from "../collisions/EnvironmentColliders";
 import type { World, RigidBody } from "@dimforge/rapier3d-compat";
 
 export class RapierWorldSystem implements ISystem, IReadablePhysics {
@@ -39,24 +38,6 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
         await this.RAPIER.init();
       }
       this.world = new this.RAPIER.World({ x: 0, y: -9.81, z: 0 });
-
-      const allAabbs = [...PLATFORM_AABBS, ...BORDER_AABBS];
-      for (const aabb of allAabbs) {
-        const hx = (aabb.maxX - aabb.minX) / 2;
-        const hy = (aabb.maxY - aabb.minY) / 2;
-        const hz = (aabb.maxZ - aabb.minZ) / 2;
-        const cx = aabb.minX + hx;
-        const cy = aabb.minY + hy;
-        const cz = aabb.minZ + hz;
-        
-        const body = this.world.createRigidBody(
-          this.RAPIER.RigidBodyDesc.fixed().setTranslation(cx, cy, cz)
-        );
-        this.world.createCollider(
-          this.RAPIER.ColliderDesc.cuboid(hx, hy, hz),
-          body
-        );
-      }
     } catch (err) {
       console.warn("WASM physics failed to initialize, running fallback virtual physics engine.", err);
     }
@@ -108,7 +89,6 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
   }
 
   public update(_dt: number): void {
-    void _dt;
     if (!this.deferSetUpDone) {
       this.deferSetUpRigidBodies();
     }

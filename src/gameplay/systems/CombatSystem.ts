@@ -104,16 +104,14 @@ export class CombatSystem implements ISystem {
     }
 
     private resolveWeaverContactHit(
-        pTrans: TransformComponent,
-        wTrans: TransformComponent,
+        _pTrans: TransformComponent,
+        _wTrans: TransformComponent,
         pHealth: HealthComponent,
         pIframe: InvulnerabilityComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void pTrans; void wTrans;
-
         pHealth.current -= this.WEAVER_CONTACT_DAMAGE;
         pIframe.timeRemaining = this.PLAYER_IFRAME_DURATION;
 

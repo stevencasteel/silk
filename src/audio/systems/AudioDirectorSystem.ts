@@ -54,7 +54,6 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   public update(_dt: number): void {
-    void _dt;
   }
 
   private bootAudioEngine(): void {

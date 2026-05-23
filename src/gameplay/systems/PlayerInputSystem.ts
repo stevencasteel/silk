@@ -16,7 +16,6 @@ export class PlayerInputSystem implements ISystem {
     }
 
     public update(_dt: number): void {
-        void _dt;
         const input = this.inputs.get(this.refs.player);
         if (!input) return;
 
@@ -27,8 +26,6 @@ export class PlayerInputSystem implements ISystem {
         input.x = x;
         input.y = 0;
         input.jump = this.keysPressed.has(" ") || this.keysPressed.has("w") || this.keysPressed.has("arrowup");
-        input.detach = false;
-        input.fire = false;
     }
 
     public dispose(): void {

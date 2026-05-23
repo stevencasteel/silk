@@ -41,7 +41,6 @@ export class GameDirectorSystem implements ISystem {
     };
 
     public update(_dt: number): void {
-        void _dt;
         if (this.resetRequested) {
             this.resetGame();
             this.resetRequested = false;
@@ -114,7 +113,6 @@ export class GameDirectorSystem implements ISystem {
             wAI.state = "SWEEPING";
             wAI.timeInState = 0;
             wAI.hue = "#ef4444";
-            wAI.hasFakedDeath = false;
         }
         if (wVel) {
             wVel.x = 4.0; wVel.y = 0; wVel.z = 0;

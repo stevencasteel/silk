@@ -74,7 +74,7 @@ export class EntitySpawnerSystem implements ISystem {
         });
         this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
         this.targets.add(weaverId, { x: 0, y: 27.2, z: 0, active: true });
-        this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 27.2, hue: "#ef4444", hasFakedDeath: false });
+        this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: "#ef4444" });
         this.healths.add(weaverId, { current: 100, max: 100 });
         this.weaverTags.add(weaverId, {});
         this.weaverTraversal.add(weaverId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
@@ -102,7 +102,7 @@ export class EntitySpawnerSystem implements ISystem {
             dynamicVelX: 0.0, dynamicVelY: 0.0
         });
         this.healths.add(playerId, { current: 5, max: 5 });
-        this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
+        this.inputs.add(playerId, { x: 0, y: 0, jump: false });
         this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 32, minRope: 4, maxRope: 24 });
         this.playerTags.add(playerId, {});
         this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });

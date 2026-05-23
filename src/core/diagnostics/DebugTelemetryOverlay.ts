@@ -58,7 +58,6 @@ export class DebugTelemetryOverlay implements ISystem {
   }
 
   public update(_dt: number): void {
-    void _dt;
     if (!this.overlay || this.overlay.style.display === "none") return;
     
     const fps = this._profiler.getFps();

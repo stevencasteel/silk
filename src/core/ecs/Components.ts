@@ -23,17 +23,12 @@ export interface HealthComponent { current: number; max: number; }
 export interface InputIntentComponent {
     x: number; y: number;
     jump: boolean;
-    fire: boolean;
-    detach: boolean;
 }
 
 export interface WeaverAIComponent {
     state: string;
     timeInState: number;
-    targetX: number;
-    targetY: number;
     hue: string;
-    hasFakedDeath: boolean;
 }
 
 export interface PlayerStatsComponent {

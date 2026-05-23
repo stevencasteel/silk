@@ -38,11 +38,9 @@ export class RenderSystem implements ISystem, IVisualRegistry {
   }
 
   public update(_dt: number): void {
-    void _dt;
   }
   
   public render(_alpha: number): void { 
-    void _alpha;
     if (this.scene) {
       this.scene.render();
     }
