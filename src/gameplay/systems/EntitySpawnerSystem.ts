@@ -59,11 +59,7 @@ export class EntitySpawnerSystem implements ISystem {
         });
         this.anchorTags.add(anchorId, {});
         this.refs.anchor = anchorId;
-        const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
-        const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
-        anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-        anchorMesh.material = anchorMat;
-        this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
+        // Anchor mesh removed to prevent floating visual artifact.
 
         const weaverId = this.entities.create();
         this.transforms.add(weaverId, {
