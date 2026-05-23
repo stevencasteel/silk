@@ -1,10 +1,11 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent } from "../../core/ecs/Components";
+import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { CommandBus } from "../../core/commands/CommandBus";
 
 export class WardenBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -12,11 +13,11 @@ export class WardenBrainSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private ai: ComponentStore<WardenAIComponent>,
-    _transforms: any,
-    _wardenTraversal: any,
-    _healths: any,
+    _transforms: ComponentStore<TransformComponent>,
+    _wardenTraversal: ComponentStore<WardenTraversalComponent>,
+    _healths: ComponentStore<HealthComponent>,
     private broker: EventBroker,
-    _commands: any
+    _commands: CommandBus
   ) {
     void _transforms;
     void _wardenTraversal;
@@ -35,6 +36,5 @@ export class WardenBrainSystem implements ISystem {
 
   public update(dt: number): void {
     void dt;
-    // Stubbed: autonomous horizontal sweep is fully automated inside WardenTraversalSystem.ts
   }
 }

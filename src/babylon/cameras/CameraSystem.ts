@@ -2,6 +2,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { TransformComponent, WardenAIComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -9,9 +12,9 @@ export class CameraSystem implements ISystem {
   private cameraNode: BABYLON.FreeCamera | null = null;
 
   constructor(
-    _refs: any,
-    _transforms: any,
-    _wardenAIs: any,
+    _refs: EntityRefs,
+    _transforms: ComponentStore<TransformComponent>,
+    _wardenAIs: ComponentStore<WardenAIComponent>,
     private visualRegistry: IVisualRegistry,
     _broker: EventBroker
   ) {
@@ -26,7 +29,6 @@ export class CameraSystem implements ISystem {
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
       
-      // Fixed static camera lock at depth of -38
       this.cameraNode.position.set(0, 14.0, -38.0);
       this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }

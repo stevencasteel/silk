@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 2:31:20 PM
+ [SYSTEM] Generated: 5/23/2026, 2:35:53 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1112,6 +1112,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { TransformComponent, WardenAIComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -1119,9 +1122,9 @@ export class CameraSystem implements ISystem {
   private cameraNode: BABYLON.FreeCamera | null = null;
 
   constructor(
-    _refs: any,
-    _transforms: any,
-    _wardenAIs: any,
+    _refs: EntityRefs,
+    _transforms: ComponentStore<TransformComponent>,
+    _wardenAIs: ComponentStore<WardenAIComponent>,
     private visualRegistry: IVisualRegistry,
     _broker: EventBroker
   ) {
@@ -1136,7 +1139,6 @@ export class CameraSystem implements ISystem {
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
       
-      // Fixed static camera lock at depth of -38
       this.cameraNode.position.set(0, 14.0, -38.0);
       this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }
@@ -3375,10 +3377,11 @@ export class RopeVisualizerSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent } from "../../core/ecs/Components";
+import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { CommandBus } from "../../core/commands/CommandBus";
 
 export class WardenBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -3386,11 +3389,11 @@ export class WardenBrainSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private ai: ComponentStore<WardenAIComponent>,
-    _transforms: any,
-    _wardenTraversal: any,
-    _healths: any,
+    _transforms: ComponentStore<TransformComponent>,
+    _wardenTraversal: ComponentStore<WardenTraversalComponent>,
+    _healths: ComponentStore<HealthComponent>,
     private broker: EventBroker,
-    _commands: any
+    _commands: CommandBus
   ) {
     void _transforms;
     void _wardenTraversal;
@@ -3409,7 +3412,6 @@ export class WardenBrainSystem implements ISystem {
 
   public update(dt: number): void {
     void dt;
-    // Stubbed: autonomous horizontal sweep is fully automated inside WardenTraversalSystem.ts
   }
 }
 
