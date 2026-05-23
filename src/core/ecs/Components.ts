@@ -23,9 +23,9 @@ export interface WardenAIComponent {
   hasFakedDeath: boolean;
 }
 export interface PlayerStatsComponent { moveSpeed: number; climbSpeed: number; swingForce: number; minRope: number; maxRope: number; }
-export interface PlayerTag {}
-export interface WardenTag {}
-export interface AnchorTag {}
+export interface PlayerTag { readonly tag?: "player"; }
+export interface WardenTag { readonly tag?: "warden"; }
+export interface AnchorTag { readonly tag?: "anchor"; }
 export interface InvulnerabilityComponent { timeRemaining: number; }
 export type TraversalState = "AIRBORNE" | "WALL_SLIDING" | "GROUNDED";
 export interface TraversalStateComponent { 
