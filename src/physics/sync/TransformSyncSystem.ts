@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, SilkComponent, TraversalStateComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { TransformComponent, SilkComponent, TraversalStateComponent, WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
@@ -24,7 +24,7 @@ export class TransformSyncSystem implements ISystem {
         private silks: ComponentStore<SilkComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry,
-        private spiderAIs: ComponentStore<SpiderAIComponent>,
+        private weaverAIs: ComponentStore<WeaverAIComponent>,
         private healthStore: ComponentStore<HealthComponent>
     ) {}
 
@@ -41,16 +41,16 @@ export class TransformSyncSystem implements ISystem {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
 
-        const sAI = this.spiderAIs.get(this.refs.spider);
-        const sHealth = this.healthStore.get(this.refs.spider);
+        const wAI = this.weaverAIs.get(this.refs.weaver);
+        const wHealth = this.healthStore.get(this.refs.weaver);
 
         let targetScrollSpeed = 5.0;
-        if (sHealth && sHealth.current <= 0) {
+        if (wHealth && wHealth.current <= 0) {
             targetScrollSpeed = 0.0;
-        } else if (sAI) {
-            if (sAI.state === "DASHING" || sAI.state === "RETURNING" || sAI.state === "DEFEATED") {
+        } else if (wAI) {
+            if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
                 targetScrollSpeed = 0.0;
-            } else if (sHealth && sHealth.current < sHealth.max * 0.5) {
+            } else if (wHealth && wHealth.current < wHealth.max * 0.5) {
                 targetScrollSpeed = 9.0;
             }
         }
@@ -103,7 +103,7 @@ export class TransformSyncSystem implements ISystem {
                 }
             }
 
-            if (id === this.refs.spider) {
+            if (id === this.refs.weaver) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
                 if (mat) {

@@ -10,7 +10,7 @@ export class LightingSystem implements ISystem {
   readonly initPhase = InitPhase.World;
   
   private unsub: (() => void) | null = null;
-  private spiderLight: BABYLON.PointLight | null = null;
+  private weaverLight: BABYLON.PointLight | null = null;
   private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
   private currentColor = new BABYLON.Color3(0.3, 0.3, 0.4);
 
@@ -23,25 +23,25 @@ export class LightingSystem implements ISystem {
     const scene = this.visualRegistry.getScene();
     if (!scene) return;
 
-    this.spiderLight = new BABYLON.PointLight("spiderEmotionLight", new BABYLON.Vector3(0, 5, -2), scene);
-    this.spiderLight.intensity = 1.5;
-    this.spiderLight.diffuse = this.currentColor;
-    this.spiderLight.specular = this.currentColor;
+    this.weaverLight = new BABYLON.PointLight("weaverEmotionLight", new BABYLON.Vector3(0, 5, -2), scene);
+    this.weaverLight.intensity = 1.5;
+    this.weaverLight.diffuse = this.currentColor;
+    this.weaverLight.specular = this.currentColor;
 
-    this.unsub = this.broker.subscribe(GameEvent.SPIDER_STATE_CHANGE, (payload) => {
-      this.setSpiderPhaseHue(payload.hue);
+    this.unsub = this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
+      this.setWeaverPhaseHue(payload.hue);
     });
   }
 
   public update(dt: number): void {
-    if (!this.spiderLight) return;
+    if (!this.weaverLight) return;
     
     BABYLON.Color3.LerpToRef(this.currentColor, this.targetColor, Math.min(1, dt * 4), this.currentColor);
-    this.spiderLight.diffuse.copyFrom(this.currentColor);
-    this.spiderLight.specular.copyFrom(this.currentColor);
+    this.weaverLight.diffuse.copyFrom(this.currentColor);
+    this.weaverLight.specular.copyFrom(this.currentColor);
   }
 
-  private setSpiderPhaseHue(colorHex: string): void {
+  private setWeaverPhaseHue(colorHex: string): void {
     const hex = colorHex.replace("#", "");
     const r = parseInt(hex.substring(0, 2), 16) / 255;
     const g = parseInt(hex.substring(2, 4), 16) / 255;
@@ -51,6 +51,6 @@ export class LightingSystem implements ISystem {
 
   public dispose(): void {
     if (this.unsub) this.unsub();
-    if (this.spiderLight) this.spiderLight.dispose();
+    if (this.weaverLight) this.weaverLight.dispose();
   }
 }

@@ -4,7 +4,7 @@ import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
     TransformComponent,
     HealthComponent,
-    SpiderAIComponent,
+    WeaverAIComponent,
     SilkComponent,
     InvulnerabilityComponent,
     TraversalStateComponent
@@ -20,8 +20,8 @@ export class CombatSystem implements ISystem {
 
     private readonly FLING_DAMAGE_THRESHOLD = 0.80;
     private readonly PLAYER_HIT_RADIUS      = 0.8;
-    private readonly SPIDER_HIT_RADIUS      = 2.4;
-    private readonly SPIDER_CONTACT_DAMAGE  = 1;
+    private readonly WEAVER_HIT_RADIUS      = 2.4;
+    private readonly WEAVER_CONTACT_DAMAGE  = 1;
     private readonly PLAYER_IFRAME_DURATION = 1.2;
     private readonly PLAYER_FLING_DAMAGE    = 35;
 
@@ -29,7 +29,7 @@ export class CombatSystem implements ISystem {
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
-        private spiderAIs: ComponentStore<SpiderAIComponent>,
+        private weaverAIs: ComponentStore<WeaverAIComponent>,
         private silks: ComponentStore<SilkComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
@@ -39,62 +39,62 @@ export class CombatSystem implements ISystem {
 
     public update(dt: number): void {
         const pTrans  = this.transforms.get(this.refs.player);
-        const sTrans  = this.transforms.get(this.refs.spider);
+        const wTrans  = this.transforms.get(this.refs.weaver);
         const pHealth = this.healths.get(this.refs.player);
-        const sHealth = this.healths.get(this.refs.spider);
-        const sAI     = this.spiderAIs.get(this.refs.spider);
+        const wHealth = this.healths.get(this.refs.weaver);
+        const wAI     = this.weaverAIs.get(this.refs.weaver);
         const pIframe = this.iframes.get(this.refs.player);
         const silk  = this.silks.get(this.refs.player);
         const pTrav   = this.traversal.get(this.refs.player);
 
-        if (!pTrans || !sTrans || !pHealth || !sHealth || !sAI || !pIframe || !silk || !pTrav) return;
+        if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !silk || !pTrav) return;
 
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
         }
 
-        const dx    = pTrans.x - sTrans.x;
-        const dy    = pTrans.y - sTrans.y;
+        const dx    = pTrans.x - wTrans.x;
+        const dy    = pTrans.y - wTrans.y;
         const distSq = dx * dx + dy * dy;
-        const hitDist = this.PLAYER_HIT_RADIUS + this.SPIDER_HIT_RADIUS;
+        const hitDist = this.PLAYER_HIT_RADIUS + this.WEAVER_HIT_RADIUS;
 
         if (distSq >= hitDist * hitDist) return;
 
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
-            this.resolvePlayerFlingHit(pTrans, sTrans, sHealth, sAI, silk, pTrav, dx, dy, distSq);
+            this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, silk, pTrav, dx, dy, distSq);
             return;
         }
 
-        const spiderIsHostile = sAI.state === "DASHING";
+        const weaverIsHostile = wAI.state === "DASHING";
 
-        if (pIframe.timeRemaining <= 0 && spiderIsHostile) {
-            this.resolveSpiderContactHit(pTrans, sTrans, pHealth, pIframe, dx, dy, distSq);
+        if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
+            this.resolveWeaverContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
         }
     }
 
     private resolvePlayerFlingHit(
         _pTrans: TransformComponent,
-        _sTrans: TransformComponent,
-        sHealth: HealthComponent,
-        sAI: SpiderAIComponent,
+        _wTrans: TransformComponent,
+        wHealth: HealthComponent,
+        wAI: WeaverAIComponent,
         silk: SilkComponent,
         pTrav: TraversalStateComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void _pTrans; void _sTrans; void sAI;
+        void _pTrans; void _wTrans; void wAI;
 
-        sHealth.current -= this.PLAYER_FLING_DAMAGE;
+        wHealth.current -= this.PLAYER_FLING_DAMAGE;
         
-        this.broker.publish(GameEvent.SPIDER_DAMAGED, {
+        this.broker.publish(GameEvent.WEAVER_DAMAGED, {
             amount: this.PLAYER_FLING_DAMAGE,
             source: "PLAYER_FLING"
         });
         
-        this.broker.publish(GameEvent.SPIDER_HEALTH_CHANGED, {
-            hp: Math.max(0, sHealth.current),
-            maxHp: sHealth.max
+        this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
+            hp: Math.max(0, wHealth.current),
+            maxHp: wHealth.max
         });
         
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
@@ -107,18 +107,18 @@ export class CombatSystem implements ISystem {
         pTrav.launchTimer  = 0;
     }
 
-    private resolveSpiderContactHit(
+    private resolveWeaverContactHit(
         pTrans: TransformComponent,
-        sTrans: TransformComponent,
+        wTrans: TransformComponent,
         pHealth: HealthComponent,
         pIframe: InvulnerabilityComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void pTrans; void sTrans;
+        void pTrans; void wTrans;
 
-        pHealth.current -= this.SPIDER_CONTACT_DAMAGE;
+        pHealth.current -= this.WEAVER_CONTACT_DAMAGE;
         pIframe.timeRemaining = this.PLAYER_IFRAME_DURATION;
 
         const dist = Math.sqrt(distSq) || 1;
@@ -131,8 +131,8 @@ export class CombatSystem implements ISystem {
         });
 
         this.broker.publish(GameEvent.PLAYER_DAMAGED, {
-            amount: this.SPIDER_CONTACT_DAMAGE,
-            source: "SPIDER"
+            amount: this.WEAVER_CONTACT_DAMAGE,
+            source: "WEAVER"
         });
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
             hp: pHealth.current,

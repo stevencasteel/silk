@@ -27,7 +27,7 @@ export interface InputIntentComponent {
     detach: boolean;
 }
 
-export interface SpiderAIComponent {
+export interface WeaverAIComponent {
     state: string;
     timeInState: number;
     targetX: number;
@@ -45,7 +45,7 @@ export interface PlayerStatsComponent {
 }
 
 export interface PlayerTag { readonly tag?: "player"; }
-export interface SpiderTag { readonly tag?: "spider"; }
+export interface WeaverTag { readonly tag?: "weaver"; }
 export interface AnchorTag { readonly tag?: "anchor"; }
 export interface InvulnerabilityComponent { timeRemaining: number; }
 
@@ -60,7 +60,7 @@ export interface TraversalStateComponent {
     launchPower: number;
 }
 
-export interface SpiderTraversalComponent {
+export interface WeaverTraversalComponent {
     velX: number;
     velY: number;
     isGrounded: boolean;

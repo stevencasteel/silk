@@ -3,7 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, SilkComponent, SpiderAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, HealthComponent, SilkComponent, WeaverAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
@@ -17,7 +17,7 @@ export class GameDirectorSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
         private silks: ComponentStore<SilkComponent>,
-        private spiderAIs: ComponentStore<SpiderAIComponent>,
+        private weaverAIs: ComponentStore<WeaverAIComponent>,
         private velocities: ComponentStore<KinematicVelocityComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
@@ -94,11 +94,11 @@ export class GameDirectorSystem implements ISystem {
             pTrav.launchPower = 0;
         }
 
-        const sTrans = this.transforms.get(this.refs.spider);
-        const sHealth = this.healths.get(this.refs.spider);
-        const sAI = this.spiderAIs.get(this.refs.spider);
-        const sVel = this.velocities.get(this.refs.spider);
-        const sTarget = this.targets.get(this.refs.spider);
+        const sTrans = this.transforms.get(this.refs.weaver);
+        const sHealth = this.healths.get(this.refs.weaver);
+        const sAI = this.weaverAIs.get(this.refs.weaver);
+        const sVel = this.velocities.get(this.refs.weaver);
+        const sTarget = this.targets.get(this.refs.weaver);
 
         if (sTrans) {
             sTrans.x = 0; sTrans.y = 26; sTrans.z = 0;
@@ -122,8 +122,8 @@ export class GameDirectorSystem implements ISystem {
 
         this.broker.publish(GameEvent.GAME_RESET, undefined);
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
-        this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
-        this.broker.publish(GameEvent.SPIDER_HEALTH_CHANGED, { hp: sHealth?.max || 100, maxHp: sHealth?.max || 100 });
+        this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
+        this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: sHealth?.max || 100, maxHp: sHealth?.max || 100 });
     }
 
     public dispose(): void {

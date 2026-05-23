@@ -13,7 +13,7 @@ export class AudioDirectorSystem implements ISystem {
   private initialized: boolean = false;
   private unsub: (() => void) | null = null;
   private unsubImpact: (() => void) | null = null;
-  private unsubSpiderHit: (() => void) | null = null;
+  private unsubWeaverHit: (() => void) | null = null;
   private unsubState: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
@@ -42,11 +42,11 @@ export class AudioDirectorSystem implements ISystem {
       if (this.initialized && this.noiseSynth) this.noiseSynth.triggerAttackRelease("16n");
     });
 
-    this.unsubSpiderHit = this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
+    this.unsubWeaverHit = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
       if (this.initialized && this.impactSynth) this.impactSynth.triggerAttackRelease("E3", "16n");
     });
 
-    this.unsubState = this.broker.subscribe(GameEvent.SPIDER_STATE_CHANGE, (payload) => {
+    this.unsubState = this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
       if (this.initialized && this.tensionSynth) {
         this.tensionSynth.handleStateChange(payload.state);
       }
@@ -62,7 +62,7 @@ export class AudioDirectorSystem implements ISystem {
     Tone.start().then(() => {
       this.initialized = true;
 
-      Tone.getDestination().mute = true;
+      Tone.getDestination().mute = false;
 
       this.tensionSynth = new TensionSynthesizer();
       this.tensionSynth.initialize();
@@ -87,7 +87,7 @@ export class AudioDirectorSystem implements ISystem {
   public dispose(): void {
     if (this.unsub) this.unsub();
     if (this.unsubImpact) this.unsubImpact();
-    if (this.unsubSpiderHit) this.unsubSpiderHit();
+    if (this.unsubWeaverHit) this.unsubWeaverHit();
     if (this.unsubState) this.unsubState();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();

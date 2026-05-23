@@ -1,27 +1,27 @@
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { SpiderAIComponent, TransformComponent, SpiderTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import { WeaverAIComponent, TransformComponent, WeaverTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type SpiderStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
+export type WeaverStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
 
 export interface AIContext {
-  spiderId: EntityId;
+  weaverId: EntityId;
   playerId: EntityId;
-  ai: SpiderAIComponent;
+  ai: WeaverAIComponent;
   transforms: ComponentStore<TransformComponent>;
-  spiderTraversal: ComponentStore<SpiderTraversalComponent>;
+  weaverTraversal: ComponentStore<WeaverTraversalComponent>;
   healths: ComponentStore<HealthComponent>;
   commands: CommandBus;
   broker: EventBroker;
 }
 
-export interface ISpiderState {
-  readonly type: SpiderStateType;
+export interface IWeaverState {
+  readonly type: WeaverStateType;
   readonly name: string;
   readonly hue: string;
   enter(ctx: AIContext): void;
   exit(ctx: AIContext): void;
-  update(ctx: AIContext, dt: number): SpiderStateType | null;
+  update(ctx: AIContext, dt: number): WeaverStateType | null;
 }

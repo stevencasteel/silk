@@ -60,7 +60,7 @@ export class TensionSynthesizer {
       this.fmOsc.frequency.setTargetAtTime(110, now, 0.5);
       this.lfo.frequency.setTargetAtTime(4.0, now, 0.5);
       this.fmOsc.harmonicity.setTargetAtTime(2.5, now, 0.5);
-    } else if (state === "SPIDER DEFEATED") {
+    } else if (state === "WEAVER DEFEATED") {
       this.fmOsc.frequency.setTargetAtTime(30, now, 0.5);
       this.lfo.frequency.setTargetAtTime(0.05, now, 0.5);
       this.fmOsc.harmonicity.setTargetAtTime(1.0, now, 0.5);

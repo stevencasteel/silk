@@ -47,14 +47,14 @@ export class PlayerKinematicsSystem implements ISystem {
         const silk = this.silks.get(this.refs.player);
         const target  = this.targets.get(this.refs.player);
         const trav    = this.traversal.get(this.refs.player);
-        const sTrans  = this.transforms.get(this.refs.spider);
+        const wTrans  = this.transforms.get(this.refs.weaver);
         const input   = this.inputs.get(this.refs.player);
 
-        if (!silk || !target || !trav || !sTrans || !input) return;
+        if (!silk || !target || !trav || !wTrans || !input) return;
 
-        silk.anchorX = sTrans.x;
-        silk.anchorY = sTrans.y;
-        silk.anchorZ = sTrans.z;
+        silk.anchorX = wTrans.x;
+        silk.anchorY = wTrans.y;
+        silk.anchorZ = wTrans.z;
 
         if (trav.state === "LAUNCHING") {
             this.stepLaunching(dt, silk, target, trav, input);

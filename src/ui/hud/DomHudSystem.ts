@@ -14,9 +14,9 @@ export class DomHudSystem implements ISystem {
     private tensionText    : HTMLElement | null = null;
     private playerHpBar    : HTMLElement | null = null;
     private playerHpValue  : HTMLElement | null = null;
-    private spiderHpBar    : HTMLElement | null = null;
-    private spiderHpValue  : HTMLElement | null = null;
-    private spiderStateText: HTMLElement | null = null;
+    private weaverHpBar    : HTMLElement | null = null;
+    private weaverHpValue  : HTMLElement | null = null;
+    private weaverStateText: HTMLElement | null = null;
     private traversalHint  : HTMLElement | null = null;
     private overlay        : HTMLElement | null = null;
     private overlayTitle   : HTMLElement | null = null;
@@ -41,9 +41,9 @@ export class DomHudSystem implements ISystem {
         this.tensionText    = document.getElementById("tension-meter-text");
         this.playerHpBar    = document.getElementById("player-hp-bar");
         this.playerHpValue  = document.getElementById("player-hp-value");
-        this.spiderHpBar    = document.getElementById("spider-hp-bar");
-        this.spiderHpValue  = document.getElementById("spider-hp-value");
-        this.spiderStateText = document.getElementById("spider-state-text");
+        this.weaverHpBar    = document.getElementById("weaver-hp-bar");
+        this.weaverHpValue  = document.getElementById("weaver-hp-value");
+        this.weaverStateText = document.getElementById("weaver-state-text");
         this.traversalHint  = document.getElementById("traversal-hint");
         this.overlay        = document.getElementById("game-state-overlay");
         this.overlayTitle   = document.getElementById("game-state-title");
@@ -70,13 +70,13 @@ export class DomHudSystem implements ISystem {
             })
         );
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.SPIDER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-                this.updateSpiderHp(hp, maxHp);
+            this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
+                this.updateWeaverHp(hp, maxHp);
             })
         );
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.SPIDER_STATE_CHANGE, ({ state, hue }) => {
-                this.updateSpiderStateLabel(state, hue);
+            this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
+                this.updateWeaverStateLabel(state, hue);
             })
         );
         this.unsubscribes.push(
@@ -169,21 +169,21 @@ export class DomHudSystem implements ISystem {
         }
     }
 
-    private updateSpiderHp(hp: number, maxHp: number): void {
-        if (this.spiderHpValue) {
-            this.spiderHpValue.textContent = `${hp} / ${maxHp}`;
+    private updateWeaverHp(hp: number, maxHp: number): void {
+        if (this.weaverHpValue) {
+            this.weaverHpValue.textContent = `${hp} / ${maxHp}`;
         }
-        if (this.spiderHpBar) {
+        if (this.weaverHpBar) {
             const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
-            this.spiderHpBar.style.width = pct;
-            this.spiderHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
+            this.weaverHpBar.style.width = pct;
+            this.weaverHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
         }
     }
 
-    private updateSpiderStateLabel(state: string, hue: string): void {
-        if (this.spiderStateText) {
-            this.spiderStateText.textContent = state.toUpperCase();
-            this.spiderStateText.style.color  = hue;
+    private updateWeaverStateLabel(state: string, hue: string): void {
+        if (this.weaverStateText) {
+            this.weaverStateText.textContent = state.toUpperCase();
+            this.weaverStateText.style.color  = hue;
         }
     }
 

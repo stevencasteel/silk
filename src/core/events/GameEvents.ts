@@ -9,10 +9,10 @@ export enum GameEvent {
   PLAYER_STATE_CHANGE       = "PLAYER_STATE_CHANGE",
   SILK_TENSION_CHANGE       = "SILK_TENSION_CHANGE",
   SILK_LENGTH_CHANGE        = "SILK_LENGTH_CHANGE",
-  SPIDER_STATE_CHANGE       = "SPIDER_STATE_CHANGE",
-  SPIDER_DAMAGED            = "SPIDER_DAMAGED",
-  SPIDER_HEALTH_CHANGED     = "SPIDER_HEALTH_CHANGED",
-  SPIDER_DIED               = "SPIDER_DIED",
+  WEAVER_STATE_CHANGE       = "WEAVER_STATE_CHANGE",
+  WEAVER_DAMAGED            = "WEAVER_DAMAGED",
+  WEAVER_HEALTH_CHANGED     = "WEAVER_HEALTH_CHANGED",
+  WEAVER_DIED               = "WEAVER_DIED",
   CAMERA_SHAKE_TRIGGERED    = "CAMERA_SHAKE_TRIGGERED",
   GAME_OVER                 = "GAME_OVER",
   GAME_WIN                  = "GAME_WIN",
@@ -30,10 +30,10 @@ export interface GameEventMap {
   [GameEvent.PLAYER_STATE_CHANGE]:     { state: string };
   [GameEvent.SILK_TENSION_CHANGE]:     { tension: number };
   [GameEvent.SILK_LENGTH_CHANGE]:      { length: number; maxLength: number };
-  [GameEvent.SPIDER_STATE_CHANGE]:     { state: string; hue: string };
-  [GameEvent.SPIDER_DAMAGED]:          { amount: number; source: string };
-  [GameEvent.SPIDER_HEALTH_CHANGED]:   { hp: number; maxHp: number };
-  [GameEvent.SPIDER_DIED]:             void;
+  [GameEvent.WEAVER_STATE_CHANGE]:     { state: string; hue: string };
+  [GameEvent.WEAVER_DAMAGED]:          { amount: number; source: string };
+  [GameEvent.WEAVER_HEALTH_CHANGED]:   { hp: number; maxHp: number };
+  [GameEvent.WEAVER_DIED]:             void;
   [GameEvent.CAMERA_SHAKE_TRIGGERED]:  { amplitude: number; duration: number };
   [GameEvent.GAME_OVER]:               void;
   [GameEvent.GAME_WIN]:                void;

@@ -66,7 +66,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     if (!this.world || !this.RAPIER) return;
     
     const playerEntity = this.refs.player;
-    const spiderEntity = this.refs.spider;
+    const weaverEntity = this.refs.weaver;
 
     if (playerEntity !== -1 && !this.rigidBodies.has(playerEntity)) {
       const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 16, 0));
@@ -74,10 +74,10 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
     }
 
-    if (spiderEntity !== -1 && !this.rigidBodies.has(spiderEntity)) {
-      const sBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
-      this.rigidBodies.set(spiderEntity, sBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), sBody); 
+    if (weaverEntity !== -1 && !this.rigidBodies.has(weaverEntity)) {
+      const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
+      this.rigidBodies.set(weaverEntity, wBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), wBody); 
     }
 
     this.deferSetUpDone = true;
@@ -126,10 +126,10 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       pBody.setNextKinematicTranslation({ x: pTarget.x, y: pTarget.y, z: pTarget.z });
     }
 
-    const sTarget = this.targets.get(this.refs.spider);
-    const sBody = this.rigidBodies.get(this.refs.spider);
-    if (sTarget && sTarget.active && sBody) {
-      sBody.setNextKinematicTranslation({ x: sTarget.x, y: sTarget.y, z: sTarget.z });
+    const wTarget = this.targets.get(this.refs.weaver);
+    const wBody = this.rigidBodies.get(this.refs.weaver);
+    if (wTarget && wTarget.active && wBody) {
+      wBody.setNextKinematicTranslation({ x: wTarget.x, y: wTarget.y, z: wTarget.z });
     }
 
     if (this.world) {
@@ -149,9 +149,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     if (!this.world) {
       const pTrans = this.transforms.get(this.refs.player);
       if (pTrans && pTarget) { pTrans.x = pTarget.x; pTrans.y = pTarget.y; }
-      const sTrans = this.transforms.get(this.refs.spider);
-      const sTargetFallback = this.targets.get(this.refs.spider);
-      if (sTrans && sTargetFallback) { sTrans.x = sTargetFallback.x; sTrans.y = sTargetFallback.y; }
+      const wTrans = this.transforms.get(this.refs.weaver);
+      const wTargetFallback = this.targets.get(this.refs.weaver);
+      if (wTrans && wTargetFallback) { wTrans.x = wTargetFallback.x; wTrans.y = wTargetFallback.y; }
     }
 
     const silk = this.silks.get(this.refs.player);

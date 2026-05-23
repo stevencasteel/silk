@@ -9,14 +9,14 @@ import {
     SilkComponent, 
     HealthComponent, 
     InputIntentComponent, 
-    SpiderAIComponent, 
+    WeaverAIComponent, 
     PlayerStatsComponent, 
     PlayerTag, 
-    SpiderTag, 
+    WeaverTag, 
     AnchorTag, 
     TraversalStateComponent, 
     InvulnerabilityComponent, 
-    SpiderTraversalComponent 
+    WeaverTraversalComponent 
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
@@ -35,15 +35,15 @@ export class EntitySpawnerSystem implements ISystem {
         private silks: ComponentStore<SilkComponent>,
         private healths: ComponentStore<HealthComponent>,
         private inputs: ComponentStore<InputIntentComponent>,
-        private spiderAIs: ComponentStore<SpiderAIComponent>,
+        private weaverAIs: ComponentStore<WeaverAIComponent>,
         private playerStats: ComponentStore<PlayerStatsComponent>,
         private playerTags: ComponentStore<PlayerTag>,
-        private spiderTags: ComponentStore<SpiderTag>,
+        private weaverTags: ComponentStore<WeaverTag>,
         private anchorTags: ComponentStore<AnchorTag>,
         private visualRegistry: IVisualRegistry,
         private traversal: ComponentStore<TraversalStateComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
-        private spiderTraversal: ComponentStore<SpiderTraversalComponent>
+        private weaverTraversal: ComponentStore<WeaverTraversalComponent>
     ) {}
 
     public init(): void {
@@ -65,26 +65,26 @@ export class EntitySpawnerSystem implements ISystem {
         anchorMesh.material = anchorMat;
         this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
 
-        const spiderId = this.entities.create();
-        this.transforms.add(spiderId, {
+        const weaverId = this.entities.create();
+        this.transforms.add(weaverId, {
             x: 0, y: 27.2, z: 0,
             qx: 0, qy: 0, qz: 0, qw: 1,
             prevX: 0, prevY: 27.2, prevZ: 0,
             prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
         });
-        this.velocities.add(spiderId, { x: 4.5, y: 0, z: 0 });
-        this.targets.add(spiderId, { x: 0, y: 27.2, z: 0, active: true });
-        this.spiderAIs.add(spiderId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 27.2, hue: "#ef4444", hasFakedDeath: false });
-        this.healths.add(spiderId, { current: 100, max: 100 });
-        this.spiderTags.add(spiderId, {});
-        this.spiderTraversal.add(spiderId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
-        this.refs.spider = spiderId;
-        const sMesh = BABYLON.MeshBuilder.CreateIcoSphere("spiderVisual", { radius: 2.4, subdivisions: 3 }, scene);
-        const sMat = new BABYLON.StandardMaterial("spiderMat", scene);
-        sMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
-        sMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
-        sMesh.material = sMat;
-        this.visualRegistry.registerTransformNode(spiderId, sMesh);
+        this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
+        this.targets.add(weaverId, { x: 0, y: 27.2, z: 0, active: true });
+        this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 27.2, hue: "#ef4444", hasFakedDeath: false });
+        this.healths.add(weaverId, { current: 100, max: 100 });
+        this.weaverTags.add(weaverId, {});
+        this.weaverTraversal.add(weaverId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
+        this.refs.weaver = weaverId;
+        const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("weaverVisual", { radius: 2.4, subdivisions: 3 }, scene);
+        const wMat = new BABYLON.StandardMaterial("weaverMat", scene);
+        wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
+        wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
+        wMesh.material = wMat;
+        this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
         const playerId = this.entities.create();
         this.transforms.add(playerId, {

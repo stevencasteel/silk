@@ -1,10 +1,10 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { KinematicVelocityComponent, SpiderTraversalComponent, TransformComponent, KinematicTargetComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { KinematicVelocityComponent, WeaverTraversalComponent, TransformComponent, KinematicTargetComponent, WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
-export class SpiderTraversalSystem implements ISystem {
+export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -12.0;
   private maxX = 12.0;
@@ -12,20 +12,20 @@ export class SpiderTraversalSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private velocities: ComponentStore<KinematicVelocityComponent>,
-    private traversal: ComponentStore<SpiderTraversalComponent>,
+    private traversal: ComponentStore<WeaverTraversalComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private aiStore: ComponentStore<SpiderAIComponent>,
+    private aiStore: ComponentStore<WeaverAIComponent>,
     private healths: ComponentStore<HealthComponent>
   ) {}
 
   public update(dt: number): void {
-    const vel = this.velocities.get(this.refs.spider);
-    const trav = this.traversal.get(this.refs.spider);
-    const trans = this.transforms.get(this.refs.spider);
-    const target = this.targets.get(this.refs.spider);
-    const ai = this.aiStore.get(this.refs.spider);
-    const health = this.healths.get(this.refs.spider);
+    const vel = this.velocities.get(this.refs.weaver);
+    const trav = this.traversal.get(this.refs.weaver);
+    const trans = this.transforms.get(this.refs.weaver);
+    const target = this.targets.get(this.refs.weaver);
+    const ai = this.aiStore.get(this.refs.weaver);
+    const health = this.healths.get(this.refs.weaver);
     
     if (!vel || !trav || !trans || !target) return;
 

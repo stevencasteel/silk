@@ -40,13 +40,13 @@ export const HudOverlay: React.FC = () => {
             minWidth: "175px"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
-              <span>SPIDER</span>
-              <span id="spider-hp-value">100 / 100</span>
+              <span>WEAVER</span>
+              <span id="weaver-hp-value">100 / 100</span>
             </div>
             <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="spider-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
+              <div id="weaver-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
             </div>
-            <span id="spider-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
+            <span id="weaver-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
         </div>
 
