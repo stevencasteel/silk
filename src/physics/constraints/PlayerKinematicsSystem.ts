@@ -15,20 +15,20 @@ import { GameEvent } from "../../core/events/GameEvents";
 export class PlayerKinematicsSystem implements ISystem {
     readonly phase = SystemPhase.Kinematics;
 
-    private readonly GRAVITY             = -22.0;
-    private readonly SWING_STEER_FORCE   = 28.0;
-    private readonly LAUNCH_STEER_FORCE   = 12.0;
-    private readonly BASE_ROPE_LENGTH    = 10.0;
-    private readonly MAX_ROPE_LENGTH     = 22.0;
+    private readonly GRAVITY             = -24.0;
+    private readonly SWING_STEER_FORCE   = 32.0;
+    private readonly LAUNCH_STEER_FORCE   = 16.0;
+    private readonly BASE_ROPE_LENGTH    = 12.0;
+    private readonly MAX_ROPE_LENGTH     = 24.0;
     private readonly WALL_LIMIT_X        = 14.2;
     private readonly WALL_SLIDE_SPEED    = -3.0;
-    private readonly DRAG_DAMPING        = 0.985;
+    private readonly DRAG_DAMPING        = 0.99;
 
-    private readonly TENSION_CHARGE_RATE = 0.52;
+    private readonly TENSION_CHARGE_RATE = 0.65;
     private readonly MIN_FLING_TENSION   = 0.06;
 
-    private readonly FLING_IMPULSE       = 48.0;
-    private readonly LAUNCH_DURATION     = 0.65;
+    private readonly FLING_IMPULSE       = 54.0;
+    private readonly LAUNCH_DURATION     = 0.70;
     private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
     private lastTraversalState: string = "";

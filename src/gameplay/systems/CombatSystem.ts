@@ -15,23 +15,14 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 
-// ---------------------------------------------------------------------------
-// CombatSystem
-// Handles two interactions:
-//   1. Player fling -> warden damage (requires launchPower >= FLING_DAMAGE_THRESHOLD)
-//   2. Warden contact -> player damage (with iframe window)
-// ---------------------------------------------------------------------------
-
 export class CombatSystem implements ISystem {
     readonly phase = SystemPhase.Gameplay;
 
-    // A fling must have been charged to at least this tension to deal damage.
-    // 0.90 means the player needs ~90 % of the bar filled.
-    private readonly FLING_DAMAGE_THRESHOLD = 0.90;
+    private readonly FLING_DAMAGE_THRESHOLD = 0.80;
     private readonly PLAYER_HIT_RADIUS      = 0.8;
-    private readonly WARDEN_HIT_RADIUS      = 2.4;   // matches visual sphere radius
+    private readonly WARDEN_HIT_RADIUS      = 2.4;
     private readonly WARDEN_CONTACT_DAMAGE  = 1;
-    private readonly PLAYER_IFRAME_DURATION = 1.5;
+    private readonly PLAYER_IFRAME_DURATION = 1.2;
     private readonly PLAYER_FLING_DAMAGE    = 35;
 
     constructor(
@@ -58,7 +49,6 @@ export class CombatSystem implements ISystem {
 
         if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
 
-        // Tick down invulnerability
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
         }
@@ -70,16 +60,12 @@ export class CombatSystem implements ISystem {
 
         if (distSq >= hitDist * hitDist) return;
 
-        // --- Player fling hits Warden ---
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
             this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, tether, pTrav, dx, dy, distSq);
             return;
         }
 
-        // --- Warden contact damages Player ---
-        const wardenIsHostile = wAI.state === "RUSH ATTACK"
-            || wAI.state === "HUNTING"
-            || wAI.state === "SWEEPING";
+        const wardenIsHostile = wAI.state === "DASHING";
 
         if (pIframe.timeRemaining <= 0 && wardenIsHostile) {
             this.resolveWardenContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
@@ -97,38 +83,28 @@ export class CombatSystem implements ISystem {
         dy: number,
         distSq: number
     ): void {
-        void _pTrans; void _wTrans;
+        void _pTrans; void _wTrans; void wAI;
 
         wHealth.current -= this.PLAYER_FLING_DAMAGE;
+        
         this.broker.publish(GameEvent.WARDEN_DAMAGED, {
             amount: this.PLAYER_FLING_DAMAGE,
             source: "PLAYER_FLING"
         });
+        
         this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, {
-            hp: wHealth.current,
+            hp: Math.max(0, wHealth.current),
             maxHp: wHealth.max
         });
+        
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
-        // Bounce player away from warden
         const dist = Math.sqrt(distSq) || 1;
         tether.dynamicVelX =  (dx / dist) * 22;
         tether.dynamicVelY =  (dy / dist) * 22;
         pTrav.state        = "AIRBORNE";
         pTrav.launchPower  = 0;
         pTrav.launchTimer  = 0;
-
-        if (wHealth.current <= 0) {
-            wHealth.current = 0;
-            if (wAI.hasFakedDeath) {
-                this.broker.publish(GameEvent.WARDEN_DIED, undefined);
-            } else {
-                this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, {
-                    state: "FAKE_DEATH",
-                    hue: "#1f2937"
-                });
-            }
-        }
     }
 
     private resolveWardenContactHit(
@@ -149,8 +125,8 @@ export class CombatSystem implements ISystem {
         this.commands.dispatch<ApplyImpulseCommand>({
             type: "APPLY_IMPULSE",
             entityId: this.refs.player,
-            x: (dx / dist) * 14,
-            y: (dy / dist) * 14 + 6,
+            x: (dx / dist) * 16,
+            y: (dy / dist) * 16 + 8,
             z: 0
         });
 

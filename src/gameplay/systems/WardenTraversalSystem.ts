@@ -1,14 +1,13 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent } from "../../core/ecs/Components";
+import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class WardenTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -12.0;
   private maxX = 12.0;
-  private sweepSpeed = 4.5;
 
   constructor(
     private refs: EntityRefs,
@@ -16,7 +15,8 @@ export class WardenTraversalSystem implements ISystem {
     private traversal: ComponentStore<WardenTraversalComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private aiStore: ComponentStore<WardenAIComponent>
+    private aiStore: ComponentStore<WardenAIComponent>,
+    private healths: ComponentStore<HealthComponent>
   ) {}
 
   public update(dt: number): void {
@@ -25,6 +25,7 @@ export class WardenTraversalSystem implements ISystem {
     const trans = this.transforms.get(this.refs.warden);
     const target = this.targets.get(this.refs.warden);
     const ai = this.aiStore.get(this.refs.warden);
+    const health = this.healths.get(this.refs.warden);
     
     if (!vel || !trav || !trans || !target) return;
 
@@ -32,17 +33,20 @@ export class WardenTraversalSystem implements ISystem {
 
     if (isSweeping) {
       let nextX = trans.x + vel.x * dt;
+      
+      const isBerserk = health ? (health.current < health.max * 0.5) : false;
+      const sweepSpeed = isBerserk ? 9.0 : 4.5;
 
       if (nextX >= this.maxX) {
         nextX = this.maxX;
-        vel.x = -this.sweepSpeed;
+        vel.x = -sweepSpeed;
       } else if (nextX <= this.minX) {
         nextX = this.minX;
-        vel.x = this.sweepSpeed;
+        vel.x = sweepSpeed;
       }
 
       target.x = nextX;
-      target.y = 26.0;
+      target.y = 27.2;
       target.active = true;
 
       trav.velX = vel.x;

@@ -4,7 +4,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type WardenStateType = "SWEEPING" | "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY" | "FAKE_DEATH" | "FINAL_PHASE";
+export type WardenStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
 
 export interface AIContext {
   wardenId: EntityId;

@@ -2,15 +2,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent, TraversalStateComponent, WardenAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
-
-// ---------------------------------------------------------------------------
-// TransformSyncSystem
-// Interpolates physics transforms -> visual mesh positions.
-// Also drives player emissive feedback based on tension and traversal state.
-// ---------------------------------------------------------------------------
 
 export class TransformSyncSystem implements ISystem {
     readonly phase = SystemPhase.RenderSync;
@@ -18,8 +12,8 @@ export class TransformSyncSystem implements ISystem {
     private scratchPrevQuat = new BABYLON.Quaternion();
     private scratchCurrQuat = new BABYLON.Quaternion();
     private scrollOffset    = 0.0;
+    private scrollSpeed     = 5.0;
 
-    // Smooth emissive lerp state
     private currentEmissiveR = 0.05;
     private currentEmissiveG = 0.15;
     private currentEmissiveB = 0.05;
@@ -29,7 +23,9 @@ export class TransformSyncSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private tethers: ComponentStore<TetherComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
-        private visualRegistry: IVisualRegistry
+        private visualRegistry: IVisualRegistry,
+        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private healthStore: ComponentStore<HealthComponent>
     ) {}
 
     public update(_dt: number): void {
@@ -41,15 +37,28 @@ export class TransformSyncSystem implements ISystem {
         this.syncTransforms(alpha);
     }
 
-    // -----------------------------------------------------------------------
-    // Animate scrolling wall ticks to create ascension illusion
     private scrollTicks(): void {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
 
-        const scrollSpeed = 5.0;
+        const wAI = this.wardenAIs.get(this.refs.warden);
+        const wHealth = this.healthStore.get(this.refs.warden);
+
+        let targetScrollSpeed = 5.0;
+        if (wHealth && wHealth.current <= 0) {
+            targetScrollSpeed = 0.0;
+        } else if (wAI) {
+            if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
+                targetScrollSpeed = 0.0;
+            } else if (wHealth && wHealth.current < wHealth.max * 0.5) {
+                targetScrollSpeed = 9.0;
+            }
+        }
+
+        this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.1);
+
         const totalRange  = 36.0;
-        this.scrollOffset += scrollSpeed * (1 / 60);
+        this.scrollOffset += this.scrollSpeed * (1 / 60);
         if (this.scrollOffset > totalRange) {
             this.scrollOffset -= totalRange;
         }
@@ -62,8 +71,6 @@ export class TransformSyncSystem implements ISystem {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Sync physics -> visual, with special per-entity feedback
     private syncTransforms(alpha: number): void {
         const tether = this.tethers.get(this.refs.player);
         const trav   = this.traversal.get(this.refs.player);
@@ -72,12 +79,10 @@ export class TransformSyncSystem implements ISystem {
             const node = this.visualRegistry.getTransformNode(id);
             if (!node) continue;
 
-            // Interpolated position
             node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
             node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
             node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
-            // Rotation slerp
             this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
             this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
             if (!node.rotationQuaternion) {
@@ -90,7 +95,6 @@ export class TransformSyncSystem implements ISystem {
                 node.rotationQuaternion
             );
 
-            // ---- Player emissive feedback ----
             if (id === this.refs.player && tether && trav) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
@@ -99,7 +103,6 @@ export class TransformSyncSystem implements ISystem {
                 }
             }
 
-            // ---- Warden pulsing glow ----
             if (id === this.refs.warden) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
@@ -111,8 +114,6 @@ export class TransformSyncSystem implements ISystem {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Player capsule shifts from green -> hot white/orange as tension builds
     private updatePlayerEmissive(
         mat: BABYLON.StandardMaterial,
         tension: number,
@@ -126,17 +127,14 @@ export class TransformSyncSystem implements ISystem {
         let targetB: number;
 
         if (state === "WALL_SLIDING") {
-            // Green -> yellow -> orange -> red-white
             targetR = 0.05 + tension * 0.95;
             targetG = 0.15 + (1.0 - tension) * 0.40;
             targetB = 0.05 * (1.0 - tension);
         } else if (state === "LAUNCHING") {
-            // Flash bright white on launch
             targetR = 0.9;
             targetG = 0.9;
             targetB = 0.9;
         } else {
-            // Resting green
             targetR = 0.05;
             targetG = 0.12;
             targetB = 0.05;

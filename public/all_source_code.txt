@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 2:47:40 PM
+ [SYSTEM] Generated: 5/23/2026, 3:02:14 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -85,13 +85,7 @@
 │   │   ├── rope/
 │   │   ├── states/
 │   │   │   ├── IWardenState.ts
-│   │   │   ├── WardenChargeAttackState.ts
-│   │   │   ├── WardenChargePrepState.ts
-│   │   │   ├── WardenDormantState.ts
-│   │   │   ├── WardenFakeDeathState.ts
-│   │   │   ├── WardenFinalPhaseState.ts
-│   │   │   ├── WardenHuntingState.ts
-│   │   │   └── WardenRecoveryState.ts
+│   │   │   └── WardenStates.ts
 │   │   ├── systems/
 │   │   │   ├── CombatSystem.ts
 │   │   │   ├── EntitySpawnerSystem.ts
@@ -863,12 +857,12 @@ export class CompositionRoot {
         const inputSystem = new PlayerInputSystem(refs, inputs);
         const movementSystem = new PlayerMovementSystem();
         const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
-        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets, wardenAIs);
+        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets, wardenAIs, healths);
         
         const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
         const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
         
-        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem);
+        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem, wardenAIs, healths);
         const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
         const lightingSystem = new LightingSystem(broker, renderSystem);
         const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
@@ -2420,7 +2414,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type WardenStateType = "SWEEPING" | "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY" | "FAKE_DEATH" | "FINAL_PHASE";
+export type WardenStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
 
 export interface AIContext {
   wardenId: EntityId;
@@ -2444,216 +2438,148 @@ export interface IWardenState {
 
 
 
-● ./src/gameplay/states/WardenChargeAttackState.ts
+● ./src/gameplay/states/WardenStates.ts
 ────────────────────────────────────────────────────
-import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
+import { IWardenState, AIContext, WardenStateType } from "./IWardenState";
 import { GameEvent } from "../../core/events/GameEvents";
 
-export class WardenChargeAttackState implements IWardenState {
-  public readonly type: WardenStateType = "CHARGE_ATTACK";
-  public readonly name = "RUSH ATTACK";
-  public readonly hue = "#dc2626";
-  private targetVector = { x: 0, y: 0 };
+export class WardenSweepingState implements IWardenState {
+  public readonly type: WardenStateType = "SWEEPING";
+  public readonly name = "SWEEPING CEILING";
+  public readonly hue = "#ef4444";
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
-    const p = ctx.transforms.get(ctx.playerId);
-    const w = ctx.transforms.get(ctx.wardenId);
-    if (p && w) {
-      const dx = p.x - w.x;
-      const dy = p.y - w.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) {
-        this.targetVector.x = dx / dist;
-        this.targetVector.y = dy / dist;
-      } else {
-        this.targetVector.x = 0;
-        this.targetVector.y = -1;
-      }
-    }
-  }
-
-  public exit(_ctx: AIContext): void {
-    void _ctx;
-  }
-
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
-    ctx.ai.timeInState += dt;
-    const s = 24.0;
     
-    ctx.commands.dispatch<SetKinematicVelocityCommand>({
+    const health = ctx.healths.get(ctx.wardenId);
+    const isBerserk = health ? (health.current < health.max * 0.5) : false;
+    const patrolSpeed = isBerserk ? 9.0 : 4.5;
+
+    ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.wardenId,
-      x: this.targetVector.x * s,
-      y: this.targetVector.y * s,
-      z: 0
-    });
-
-    const wTrav = ctx.wardenTraversal.get(ctx.wardenId);
-    if (wTrav && wTrav.isWallClinging) {
-      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.5 });
-      return "RECOVERY";
-    }
-
-    return ctx.ai.timeInState > 1.5 ? "RECOVERY" : null;
-  }
-}
-
-
-
-● ./src/gameplay/states/WardenChargePrepState.ts
-────────────────────────────────────────────────────
-import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
-import { GameEvent } from "../../core/events/GameEvents";
-
-export class WardenChargePrepState implements IWardenState {
-    public readonly type: WardenStateType = "CHARGE_PREP";
-    public readonly name = "PREPARING CHARGE";
-    public readonly hue = "#f59e0b";
-
-    public enter(ctx: AIContext): void {
-        ctx.ai.timeInState = 0;
-        ctx.commands.dispatch<SetKinematicVelocityCommand>({
-            type: "SET_KINEMATIC_VELOCITY",
-            entityId: ctx.wardenId,
-            x: 0,
-            y: 0,
-            z: 0
-        });
-    }
-
-    public exit(_ctx: AIContext): void {
-        void _ctx;
-    }
-
-    public update(ctx: AIContext, dt: number): WardenStateType | null {
-        ctx.ai.timeInState += dt;
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.08, duration: 0.1 });
-        return ctx.ai.timeInState > 1.5 ? "CHARGE_ATTACK" : null;
-    }
-}
-
-
-
-● ./src/gameplay/states/WardenDormantState.ts
-────────────────────────────────────────────────────
-import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
-
-export class WardenDormantState implements IWardenState {
-    public readonly type: WardenStateType = "DORMANT";
-    public readonly name = "DORMANT";
-    public readonly hue = "#4b5563";
-
-    public enter(ctx: AIContext): void {
-        ctx.ai.timeInState = 0;
-        ctx.commands.dispatch<SetKinematicVelocityCommand>({
-            type: "SET_KINEMATIC_VELOCITY",
-            entityId: ctx.wardenId,
-            x: 0,
-            y: 0,
-            z: 0
-        });
-    }
-
-    public exit(_ctx: AIContext): void {
-        void _ctx;
-    }
-
-    public update(ctx: AIContext, dt: number): WardenStateType | null {
-        ctx.ai.timeInState += dt;
-        return ctx.ai.timeInState > 3.0 ? "HUNTING" : null;
-    }
-}
-
-
-
-● ./src/gameplay/states/WardenFakeDeathState.ts
-────────────────────────────────────────────────────
-import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
-import { GameEvent } from "../../core/events/GameEvents";
-
-export class WardenFakeDeathState implements IWardenState {
-  public readonly type: WardenStateType = "FAKE_DEATH";
-  public readonly name = "DEFEATED?";
-  public readonly hue = "#1f2937";
-
-  public enter(ctx: AIContext): void {
-    ctx.ai.timeInState = 0;
-    ctx.commands.dispatch<SetKinematicVelocityCommand>({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
-      x: 0,
+      x: patrolSpeed,
       y: 0,
       z: 0
     });
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.6, duration: 0.8 });
   }
 
-  public exit(_ctx: AIContext): void {
-    void _ctx;
-  }
+  public exit(_ctx: AIContext): void {}
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
-    return ctx.ai.timeInState > 3.0 ? "FINAL_PHASE" : null;
+    return null;
   }
 }
 
+export class WardenDashingState implements IWardenState {
+  public readonly type: WardenStateType = "DASHING";
+  public readonly name = "WARDEN DASH";
+  public readonly hue = "#f59e0b";
 
-
-● ./src/gameplay/states/WardenFinalPhaseState.ts
-────────────────────────────────────────────────────
-import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
-import { GameEvent } from "../../core/events/GameEvents";
-
-export class WardenFinalPhaseState implements IWardenState {
-  public readonly type: WardenStateType = "FINAL_PHASE";
-  public readonly name = "BERSERK OVERDRIVE";
-  public readonly hue = "#f97316";
+  private dashCount = 0;
+  private maxDashes = 2;
+  private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
+  private phaseTimer = 0.0;
+  private targetPos = { x: 0, y: 0 };
+  private thrustVelocity = { x: 0, y: 0 };
 
   public enter(ctx: AIContext): void {
-    ctx.ai.timeInState = 0;
-
-    const wHealth = ctx.healths.get(ctx.wardenId);
-    if (wHealth) {
-      wHealth.current = wHealth.max * 0.5;
-      ctx.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
-    }
-
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.0, duration: 1.2 });
+    const health = ctx.healths.get(ctx.wardenId);
+    const isBerserk = health ? (health.current < health.max * 0.5) : false;
+    
+    this.dashCount = 0;
+    this.maxDashes = isBerserk ? 3 : 2;
+    this.startPrep(ctx);
   }
 
-  public exit(_ctx: AIContext): void {
-    void _ctx;
+  public exit(_ctx: AIContext): void {}
+
+  private startPrep(ctx: AIContext): void {
+    this.currentPhase = "PREP";
+    this.phaseTimer = 0.6;
+    ctx.ai.hue = "#f59e0b";
+    
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.wardenId,
+      x: 0, y: 0, z: 0
+    });
+
+    const playerTrans = ctx.transforms.get(ctx.playerId);
+    if (playerTrans) {
+      this.targetPos.x = playerTrans.x;
+      this.targetPos.y = playerTrans.y;
+    } else {
+      this.targetPos.x = 0;
+      this.targetPos.y = 14;
+    }
+  }
+
+  private startThrust(ctx: AIContext): void {
+    this.currentPhase = "THRUST";
+    this.phaseTimer = 0.8;
+    ctx.ai.hue = "#dc2626";
+
+    const wardenTrans = ctx.transforms.get(ctx.wardenId);
+    if (wardenTrans) {
+      const dx = this.targetPos.x - wardenTrans.x;
+      const dy = this.targetPos.y - wardenTrans.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+      
+      const speed = this.maxDashes === 3 ? 36.0 : 28.0;
+      this.thrustVelocity.x = (dx / dist) * speed;
+      this.thrustVelocity.y = (dy / dist) * speed;
+
+      ctx.commands.dispatch({
+        type: "SET_KINEMATIC_VELOCITY",
+        entityId: ctx.wardenId,
+        x: this.thrustVelocity.x,
+        y: this.thrustVelocity.y,
+        z: 0
+      });
+    }
+  }
+
+  private startRecover(ctx: AIContext): void {
+    this.currentPhase = "RECOVER";
+    this.phaseTimer = 0.5;
+    ctx.ai.hue = "#a5f3fc";
+
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.wardenId,
+      x: 0, y: 0, z: 0
+    });
+
+    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
   }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
-    ctx.ai.timeInState += dt;
+    this.phaseTimer -= dt;
 
-    const p = ctx.transforms.get(ctx.playerId);
-    const w = ctx.transforms.get(ctx.wardenId);
+    if (this.currentPhase === "PREP") {
+      if (Math.random() < 0.3) {
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.05, duration: 0.05 });
+      }
+      if (this.phaseTimer <= 0) {
+        this.startThrust(ctx);
+      }
+    } else if (this.currentPhase === "THRUST") {
+      const trav = ctx.wardenTraversal.get(ctx.wardenId);
+      const hitWallOrGround = trav ? (trav.isWallClinging || trav.isGrounded) : false;
 
-    if (p && w) {
-      const dx = p.x - w.x;
-      const dy = p.y - w.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-      const finalPhaseSpeed = 15.0;
-      ctx.commands.dispatch<SetKinematicVelocityCommand>({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.wardenId,
-        x: (dx / dist) * finalPhaseSpeed,
-        y: (dy / dist) * finalPhaseSpeed,
-        z: 0
-      });
-
-      if (dist < 6.0 && Math.random() < 0.2) {
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.15, duration: 0.1 });
+      if (this.phaseTimer <= 0 || hitWallOrGround) {
+        this.startRecover(ctx);
+      }
+    } else if (this.currentPhase === "RECOVER") {
+      if (this.phaseTimer <= 0) {
+        this.dashCount++;
+        if (this.dashCount >= this.maxDashes) {
+          return "RETURNING";
+        } else {
+          this.startPrep(ctx);
+        }
       }
     }
 
@@ -2661,89 +2587,67 @@ export class WardenFinalPhaseState implements IWardenState {
   }
 }
 
-
-
-● ./src/gameplay/states/WardenHuntingState.ts
-────────────────────────────────────────────────────
-import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
-
-export class WardenHuntingState implements IWardenState {
-  public readonly type: WardenStateType = "HUNTING";
-  public readonly name = "HUNTING";
-  public readonly hue = "#ef4444";
+export class WardenReturningState implements IWardenState {
+  public readonly type: WardenStateType = "RETURNING";
+  public readonly name = "RETURNING TO CEILING";
+  public readonly hue = "#4b5563";
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
   }
 
-  public exit(_ctx: AIContext): void {
-    void _ctx;
-  }
+  public exit(_ctx: AIContext): void {}
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
-    const p = ctx.transforms.get(ctx.playerId);
-    const w = ctx.transforms.get(ctx.wardenId);
-    const wTrav = ctx.wardenTraversal.get(ctx.wardenId);
 
-    if (p && w && wTrav) {
-      const dx = p.x - w.x;
-      const dy = p.y - w.y;
-      
-      let moveX = 0;
-      if (Math.abs(dx) > 2.0) {
-        moveX = Math.sign(dx) * 5.0; 
-      }
-      
-      let moveY = 0;
-      if (wTrav.isGrounded && dy > 3.0 && Math.abs(dx) < 10.0) {
-        moveY = 16.0; 
+    const wTrans = ctx.transforms.get(ctx.wardenId);
+    if (wTrans) {
+      const targetY = 27.2;
+      const dy = targetY - wTrans.y;
+
+      if (Math.abs(dy) < 0.3) {
+        return "SWEEPING";
       }
 
-      ctx.commands.dispatch<SetKinematicVelocityCommand>({
+      const speed = 12.0;
+      ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
         entityId: ctx.wardenId,
-        x: moveX,
-        y: moveY,
+        x: 0,
+        y: speed,
         z: 0
       });
     }
-    return ctx.ai.timeInState > 4.0 ? "CHARGE_PREP" : null;
+
+    return null;
   }
 }
 
+export class WardenDefeatedState implements IWardenState {
+  public readonly type: WardenStateType = "DEFEATED";
+  public readonly name = "WARDEN DEFEATED";
+  public readonly hue = "#111317";
 
+  public enter(ctx: AIContext): void {
+    ctx.ai.timeInState = 0;
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.wardenId,
+      x: 0, y: 0, z: 0
+    });
+    ctx.broker.publish(GameEvent.WARDEN_DIED, undefined);
+    ctx.broker.publish(GameEvent.GAME_WIN, undefined);
+    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
+  }
 
-● ./src/gameplay/states/WardenRecoveryState.ts
-────────────────────────────────────────────────────
-import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
+  public exit(_ctx: AIContext): void {}
 
-export class WardenRecoveryState implements IWardenState {
-    public readonly type: WardenStateType = "RECOVERY";
-    public readonly name = "DAZED RECOVERY";
-    public readonly hue = "#a5f3fc";
-
-    public enter(ctx: AIContext): void {
-        ctx.ai.timeInState = 0;
-        ctx.commands.dispatch<SetKinematicVelocityCommand>({
-            type: "SET_KINEMATIC_VELOCITY",
-            entityId: ctx.wardenId,
-            x: 0,
-            y: 0,
-            z: 0
-        });
-    }
-
-    public exit(_ctx: AIContext): void {
-        void _ctx;
-    }
-
-    public update(ctx: AIContext, dt: number): WardenStateType | null {
-        ctx.ai.timeInState += dt;
-        return ctx.ai.timeInState > 2.5 ? "DORMANT" : null;
-    }
+  public update(_ctx: AIContext, _dt: number): WardenStateType | null {
+    void _ctx;
+    void _dt;
+    return null;
+  }
 }
 
 
@@ -2767,23 +2671,14 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 
-// ---------------------------------------------------------------------------
-// CombatSystem
-// Handles two interactions:
-//   1. Player fling -> warden damage (requires launchPower >= FLING_DAMAGE_THRESHOLD)
-//   2. Warden contact -> player damage (with iframe window)
-// ---------------------------------------------------------------------------
-
 export class CombatSystem implements ISystem {
     readonly phase = SystemPhase.Gameplay;
 
-    // A fling must have been charged to at least this tension to deal damage.
-    // 0.90 means the player needs ~90 % of the bar filled.
-    private readonly FLING_DAMAGE_THRESHOLD = 0.90;
+    private readonly FLING_DAMAGE_THRESHOLD = 0.80;
     private readonly PLAYER_HIT_RADIUS      = 0.8;
-    private readonly WARDEN_HIT_RADIUS      = 2.4;   // matches visual sphere radius
+    private readonly WARDEN_HIT_RADIUS      = 2.4;
     private readonly WARDEN_CONTACT_DAMAGE  = 1;
-    private readonly PLAYER_IFRAME_DURATION = 1.5;
+    private readonly PLAYER_IFRAME_DURATION = 1.2;
     private readonly PLAYER_FLING_DAMAGE    = 35;
 
     constructor(
@@ -2810,7 +2705,6 @@ export class CombatSystem implements ISystem {
 
         if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
 
-        // Tick down invulnerability
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
         }
@@ -2822,16 +2716,12 @@ export class CombatSystem implements ISystem {
 
         if (distSq >= hitDist * hitDist) return;
 
-        // --- Player fling hits Warden ---
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
             this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, tether, pTrav, dx, dy, distSq);
             return;
         }
 
-        // --- Warden contact damages Player ---
-        const wardenIsHostile = wAI.state === "RUSH ATTACK"
-            || wAI.state === "HUNTING"
-            || wAI.state === "SWEEPING";
+        const wardenIsHostile = wAI.state === "DASHING";
 
         if (pIframe.timeRemaining <= 0 && wardenIsHostile) {
             this.resolveWardenContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
@@ -2849,38 +2739,28 @@ export class CombatSystem implements ISystem {
         dy: number,
         distSq: number
     ): void {
-        void _pTrans; void _wTrans;
+        void _pTrans; void _wTrans; void wAI;
 
         wHealth.current -= this.PLAYER_FLING_DAMAGE;
+        
         this.broker.publish(GameEvent.WARDEN_DAMAGED, {
             amount: this.PLAYER_FLING_DAMAGE,
             source: "PLAYER_FLING"
         });
+        
         this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, {
-            hp: wHealth.current,
+            hp: Math.max(0, wHealth.current),
             maxHp: wHealth.max
         });
+        
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
-        // Bounce player away from warden
         const dist = Math.sqrt(distSq) || 1;
         tether.dynamicVelX =  (dx / dist) * 22;
         tether.dynamicVelY =  (dy / dist) * 22;
         pTrav.state        = "AIRBORNE";
         pTrav.launchPower  = 0;
         pTrav.launchTimer  = 0;
-
-        if (wHealth.current <= 0) {
-            wHealth.current = 0;
-            if (wAI.hasFakedDeath) {
-                this.broker.publish(GameEvent.WARDEN_DIED, undefined);
-            } else {
-                this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, {
-                    state: "FAKE_DEATH",
-                    hue: "#1f2937"
-                });
-            }
-        }
     }
 
     private resolveWardenContactHit(
@@ -2901,8 +2781,8 @@ export class CombatSystem implements ISystem {
         this.commands.dispatch<ApplyImpulseCommand>({
             type: "APPLY_IMPULSE",
             entityId: this.refs.player,
-            x: (dx / dist) * 14,
-            y: (dy / dist) * 14 + 6,
+            x: (dx / dist) * 16,
+            y: (dy / dist) * 16 + 8,
             z: 0
         });
 
@@ -2960,80 +2840,80 @@ export class EntitySpawnerSystem implements ISystem {
         private wardenTraversal: ComponentStore<WardenTraversalComponent>
     ) {}
 
-    public init(): void {
-        const scene = this.visualRegistry.getScene();
-        if (!scene) return;
+            public init(): void {
+                const scene = this.visualRegistry.getScene();
+                if (!scene) return;
 
-        const anchorId = this.entities.create();
-        this.transforms.add(anchorId, {
-            x: 0, y: 26, z: 0,
-            qx: 0, qy: 0, qz: 0, qw: 1,
-            prevX: 0, prevY: 26, prevZ: 0,
-            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-        });
-        this.anchorTags.add(anchorId, {});
-        this.refs.anchor = anchorId;
-        const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
-        const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
-        anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-        anchorMesh.material = anchorMat;
-        this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
+                const anchorId = this.entities.create();
+                this.transforms.add(anchorId, {
+                    x: 0, y: 27.2, z: 0,
+                    qx: 0, qy: 0, qz: 0, qw: 1,
+                    prevX: 0, prevY: 27.2, prevZ: 0,
+                    prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+                });
+                this.anchorTags.add(anchorId, {});
+                this.refs.anchor = anchorId;
+                const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
+                const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
+                anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+                anchorMesh.material = anchorMat;
+                this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
 
-        const wardenId = this.entities.create();
-        this.transforms.add(wardenId, {
-            x: 0, y: 26, z: 0,
-            qx: 0, qy: 0, qz: 0, qw: 1,
-            prevX: 0, prevY: 26, prevZ: 0,
-            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-        });
-        this.velocities.add(wardenId, { x: 4.5, y: 0, z: 0 });
-        this.targets.add(wardenId, { x: 0, y: 26, z: 0, active: true });
-        this.wardenAIs.add(wardenId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 26, hue: "#ef4444", hasFakedDeath: false });
-        this.healths.add(wardenId, { current: 100, max: 100 });
-        this.wardenTags.add(wardenId, {});
-        this.wardenTraversal.add(wardenId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
-        this.refs.warden = wardenId;
-        const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("wardenVisual", { radius: 2.4, subdivisions: 3 }, scene);
-        const wMat = new BABYLON.StandardMaterial("wardenMat", scene);
-        wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
-        wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
-        wMesh.material = wMat;
-        this.visualRegistry.registerTransformNode(wardenId, wMesh);
+                const wardenId = this.entities.create();
+                this.transforms.add(wardenId, {
+                    x: 0, y: 27.2, z: 0,
+                    qx: 0, qy: 0, qz: 0, qw: 1,
+                    prevX: 0, prevY: 27.2, prevZ: 0,
+                    prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+                });
+                this.velocities.add(wardenId, { x: 4.5, y: 0, z: 0 });
+                this.targets.add(wardenId, { x: 0, y: 27.2, z: 0, active: true });
+                this.wardenAIs.add(wardenId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 27.2, hue: "#ef4444", hasFakedDeath: false });
+                this.healths.add(wardenId, { current: 100, max: 100 });
+                this.wardenTags.add(wardenId, {});
+                this.wardenTraversal.add(wardenId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
+                this.refs.warden = wardenId;
+                const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("wardenVisual", { radius: 2.4, subdivisions: 3 }, scene);
+                const wMat = new BABYLON.StandardMaterial("wardenMat", scene);
+                wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
+                wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
+                wMesh.material = wMat;
+                this.visualRegistry.registerTransformNode(wardenId, wMesh);
 
-        const playerId = this.entities.create();
-        this.transforms.add(playerId, {
-            x: 0, y: 16, z: 0,
-            qx: 0, qy: 0, qz: 0, qw: 1,
-            prevX: 0, prevY: 16, prevZ: 0,
-            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-        });
-        this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-        this.targets.add(playerId, { x: 0, y: 16, z: 0, active: true });
-        this.tethers.add(playerId, {
-            anchorX: 0, anchorY: 26, anchorZ: 0,
-            maxLength: 10.0, currentLength: 10.0,
-            isAttached: true, tension: 0.0,
-            dynamicVelX: 0.0, dynamicVelY: 0.0
-        });
-        this.healths.add(playerId, { current: 5, max: 5 });
-        this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
-        this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 28, minRope: 4, maxRope: 20 });
-        this.playerTags.add(playerId, {});
-        this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
-        this.iframes.add(playerId, { timeRemaining: 0 });
-        this.refs.player = playerId;
-        const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
-        const pMat = new BABYLON.StandardMaterial("playerMat", scene);
-        pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-        pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
-        pMesh.material = pMat;
-        this.visualRegistry.registerTransformNode(playerId, pMesh);
-    }
+                const playerId = this.entities.create();
+                this.transforms.add(playerId, {
+                    x: 0, y: 15.2, z: 0,
+                    qx: 0, qy: 0, qz: 0, qw: 1,
+                    prevX: 0, prevY: 15.2, prevZ: 0,
+                    prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+                });
+                this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
+                this.targets.add(playerId, { x: 0, y: 15.2, z: 0, active: true });
+                this.tethers.add(playerId, {
+                    anchorX: 0, anchorY: 27.2, anchorZ: 0,
+                    maxLength: 12.0, currentLength: 12.0,
+                    isAttached: true, tension: 0.0,
+                    dynamicVelX: 0.0, dynamicVelY: 0.0
+                });
+                this.healths.add(playerId, { current: 5, max: 5 });
+                this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
+                this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 32, minRope: 4, maxRope: 24 });
+                this.playerTags.add(playerId, {});
+                this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
+                this.iframes.add(playerId, { timeRemaining: 0 });
+                this.refs.player = playerId;
+                const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
+                const pMat = new BABYLON.StandardMaterial("playerMat", scene);
+                pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
+                pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
+                pMesh.material = pMat;
+                this.visualRegistry.registerTransformNode(playerId, pMesh);
+            }
 
-    public update(_dt: number): void {
-        void _dt;
-    }
-}
+            public update(_dt: number): void {
+                void _dt;
+            }
+        }
 
 
 
@@ -3416,43 +3296,14 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { IWardenState, AIContext, WardenStateType } from "../states/IWardenState";
-import { WardenDormantState } from "../states/WardenDormantState";
-import { WardenHuntingState } from "../states/WardenHuntingState";
-import { WardenChargePrepState } from "../states/WardenChargePrepState";
-import { WardenChargeAttackState } from "../states/WardenChargeAttackState";
-import { WardenRecoveryState } from "../states/WardenRecoveryState";
-import { WardenFakeDeathState } from "../states/WardenFakeDeathState";
-import { WardenFinalPhaseState } from "../states/WardenFinalPhaseState";
-
-export class WardenSweepingState implements IWardenState {
-  public readonly type: WardenStateType = "SWEEPING";
-  public readonly name = "SWEEPING CEILING";
-  public readonly hue = "#ef4444";
-
-  public enter(ctx: AIContext): void {
-    ctx.ai.timeInState = 0;
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
-      x: 4.5,
-      y: 0,
-      z: 0
-    });
-  }
-
-  public exit(_ctx: AIContext): void {}
-
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
-    ctx.ai.timeInState += dt;
-    return ctx.ai.timeInState > 4.0 ? "DORMANT" : null;
-  }
-}
+import { WardenSweepingState, WardenDashingState, WardenReturningState, WardenDefeatedState } from "../states/WardenStates";
 
 export class WardenBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   private states = new Map<WardenStateType, IWardenState>();
   private activeState: IWardenState | null = null;
   private contextCache: AIContext | null = null;
+  private unsubDamage: (() => void) | null = null;
 
   constructor(
     private refs: EntityRefs,
@@ -3464,13 +3315,9 @@ export class WardenBrainSystem implements ISystem {
     private commands: CommandBus
   ) {
     this.states.set("SWEEPING", new WardenSweepingState());
-    this.states.set("DORMANT", new WardenDormantState());
-    this.states.set("HUNTING", new WardenHuntingState());
-    this.states.set("CHARGE_PREP", new WardenChargePrepState());
-    this.states.set("CHARGE_ATTACK", new WardenChargeAttackState());
-    this.states.set("RECOVERY", new WardenRecoveryState());
-    this.states.set("FAKE_DEATH", new WardenFakeDeathState());
-    this.states.set("FINAL_PHASE", new WardenFinalPhaseState());
+    this.states.set("DASHING", new WardenDashingState());
+    this.states.set("RETURNING", new WardenReturningState());
+    this.states.set("DEFEATED", new WardenDefeatedState());
   }
 
   public init(): void {
@@ -3499,6 +3346,40 @@ export class WardenBrainSystem implements ISystem {
       this.activeState.enter(this.contextCache);
       this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
     }
+
+    this.unsubDamage = this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
+      const aiComp = this.ai.get(this.refs.warden);
+      const health = this.healths.get(this.refs.warden);
+      if (aiComp && health) {
+        if (health.current <= 0) {
+          this.transitionTo("DEFEATED");
+        } else if (aiComp.state === "SWEEPING") {
+          this.transitionTo("DASHING");
+        }
+      }
+    });
+  }
+
+  private transitionTo(nextStateKey: WardenStateType): void {
+    const aiComp = this.ai.get(this.refs.warden);
+    if (!aiComp || !this.contextCache || !this.activeState) return;
+
+    const nextStateObj = this.states.get(nextStateKey);
+    if (nextStateObj && nextStateKey !== this.activeState.type) {
+      this.activeState.exit(this.contextCache);
+      
+      aiComp.state = nextStateObj.type;
+      aiComp.hue = nextStateObj.hue;
+      aiComp.timeInState = 0;
+
+      this.activeState = nextStateObj;
+      this.activeState.enter(this.contextCache);
+
+      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { 
+        state: nextStateObj.name, 
+        hue: nextStateObj.hue 
+      });
+    }
   }
 
   public update(dt: number): void {
@@ -3521,26 +3402,13 @@ export class WardenBrainSystem implements ISystem {
     const nextStateKey = this.activeState.update(this.contextCache, dt);
 
     if (nextStateKey && nextStateKey !== this.activeState.type) {
-      const nextStateObj = this.states.get(nextStateKey);
-      if (nextStateObj) {
-        this.activeState.exit(this.contextCache);
-        
-        aiComp.state = nextStateObj.type;
-        aiComp.hue = nextStateObj.hue;
-        aiComp.timeInState = 0;
-        
-        if (nextStateKey === "FAKE_DEATH") {
-          aiComp.hasFakedDeath = true;
-        }
+      this.transitionTo(nextStateKey);
+    }
+  }
 
-        this.activeState = nextStateObj;
-        this.activeState.enter(this.contextCache);
-
-        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { 
-          state: nextStateObj.name, 
-          hue: nextStateObj.hue 
-        });
-      }
+  public dispose(): void {
+    if (this.unsubDamage) {
+      this.unsubDamage();
     }
   }
 }
@@ -3552,14 +3420,13 @@ export class WardenBrainSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent } from "../../core/ecs/Components";
+import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class WardenTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -12.0;
   private maxX = 12.0;
-  private sweepSpeed = 4.5;
 
   constructor(
     private refs: EntityRefs,
@@ -3567,7 +3434,8 @@ export class WardenTraversalSystem implements ISystem {
     private traversal: ComponentStore<WardenTraversalComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private aiStore: ComponentStore<WardenAIComponent>
+    private aiStore: ComponentStore<WardenAIComponent>,
+    private healths: ComponentStore<HealthComponent>
   ) {}
 
   public update(dt: number): void {
@@ -3576,6 +3444,7 @@ export class WardenTraversalSystem implements ISystem {
     const trans = this.transforms.get(this.refs.warden);
     const target = this.targets.get(this.refs.warden);
     const ai = this.aiStore.get(this.refs.warden);
+    const health = this.healths.get(this.refs.warden);
     
     if (!vel || !trav || !trans || !target) return;
 
@@ -3583,17 +3452,20 @@ export class WardenTraversalSystem implements ISystem {
 
     if (isSweeping) {
       let nextX = trans.x + vel.x * dt;
+      
+      const isBerserk = health ? (health.current < health.max * 0.5) : false;
+      const sweepSpeed = isBerserk ? 9.0 : 4.5;
 
       if (nextX >= this.maxX) {
         nextX = this.maxX;
-        vel.x = -this.sweepSpeed;
+        vel.x = -sweepSpeed;
       } else if (nextX <= this.minX) {
         nextX = this.minX;
-        vel.x = this.sweepSpeed;
+        vel.x = sweepSpeed;
       }
 
       target.x = nextX;
-      target.y = 26.0;
+      target.y = 27.2;
       target.active = true;
 
       trav.velX = vel.x;
@@ -3886,20 +3758,20 @@ import { GameEvent } from "../../core/events/GameEvents";
 export class PlayerKinematicsSystem implements ISystem {
     readonly phase = SystemPhase.Kinematics;
 
-    private readonly GRAVITY             = -22.0;
-    private readonly SWING_STEER_FORCE   = 28.0;
-    private readonly LAUNCH_STEER_FORCE   = 12.0;
-    private readonly BASE_ROPE_LENGTH    = 10.0;
-    private readonly MAX_ROPE_LENGTH     = 22.0;
+    private readonly GRAVITY             = -24.0;
+    private readonly SWING_STEER_FORCE   = 32.0;
+    private readonly LAUNCH_STEER_FORCE   = 16.0;
+    private readonly BASE_ROPE_LENGTH    = 12.0;
+    private readonly MAX_ROPE_LENGTH     = 24.0;
     private readonly WALL_LIMIT_X        = 14.2;
     private readonly WALL_SLIDE_SPEED    = -3.0;
-    private readonly DRAG_DAMPING        = 0.985;
+    private readonly DRAG_DAMPING        = 0.99;
 
-    private readonly TENSION_CHARGE_RATE = 0.52;
+    private readonly TENSION_CHARGE_RATE = 0.65;
     private readonly MIN_FLING_TENSION   = 0.06;
 
-    private readonly FLING_IMPULSE       = 48.0;
-    private readonly LAUNCH_DURATION     = 0.65;
+    private readonly FLING_IMPULSE       = 54.0;
+    private readonly LAUNCH_DURATION     = 0.70;
     private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
     private lastTraversalState: string = "";
@@ -4327,15 +4199,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent, TraversalStateComponent, WardenAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
-
-// ---------------------------------------------------------------------------
-// TransformSyncSystem
-// Interpolates physics transforms -> visual mesh positions.
-// Also drives player emissive feedback based on tension and traversal state.
-// ---------------------------------------------------------------------------
 
 export class TransformSyncSystem implements ISystem {
     readonly phase = SystemPhase.RenderSync;
@@ -4343,8 +4209,8 @@ export class TransformSyncSystem implements ISystem {
     private scratchPrevQuat = new BABYLON.Quaternion();
     private scratchCurrQuat = new BABYLON.Quaternion();
     private scrollOffset    = 0.0;
+    private scrollSpeed     = 5.0;
 
-    // Smooth emissive lerp state
     private currentEmissiveR = 0.05;
     private currentEmissiveG = 0.15;
     private currentEmissiveB = 0.05;
@@ -4354,7 +4220,9 @@ export class TransformSyncSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private tethers: ComponentStore<TetherComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
-        private visualRegistry: IVisualRegistry
+        private visualRegistry: IVisualRegistry,
+        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private healthStore: ComponentStore<HealthComponent>
     ) {}
 
     public update(_dt: number): void {
@@ -4366,15 +4234,28 @@ export class TransformSyncSystem implements ISystem {
         this.syncTransforms(alpha);
     }
 
-    // -----------------------------------------------------------------------
-    // Animate scrolling wall ticks to create ascension illusion
     private scrollTicks(): void {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
 
-        const scrollSpeed = 5.0;
+        const wAI = this.wardenAIs.get(this.refs.warden);
+        const wHealth = this.healthStore.get(this.refs.warden);
+
+        let targetScrollSpeed = 5.0;
+        if (wHealth && wHealth.current <= 0) {
+            targetScrollSpeed = 0.0;
+        } else if (wAI) {
+            if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
+                targetScrollSpeed = 0.0;
+            } else if (wHealth && wHealth.current < wHealth.max * 0.5) {
+                targetScrollSpeed = 9.0;
+            }
+        }
+
+        this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.1);
+
         const totalRange  = 36.0;
-        this.scrollOffset += scrollSpeed * (1 / 60);
+        this.scrollOffset += this.scrollSpeed * (1 / 60);
         if (this.scrollOffset > totalRange) {
             this.scrollOffset -= totalRange;
         }
@@ -4387,8 +4268,6 @@ export class TransformSyncSystem implements ISystem {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Sync physics -> visual, with special per-entity feedback
     private syncTransforms(alpha: number): void {
         const tether = this.tethers.get(this.refs.player);
         const trav   = this.traversal.get(this.refs.player);
@@ -4397,12 +4276,10 @@ export class TransformSyncSystem implements ISystem {
             const node = this.visualRegistry.getTransformNode(id);
             if (!node) continue;
 
-            // Interpolated position
             node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
             node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
             node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
-            // Rotation slerp
             this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
             this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
             if (!node.rotationQuaternion) {
@@ -4415,7 +4292,6 @@ export class TransformSyncSystem implements ISystem {
                 node.rotationQuaternion
             );
 
-            // ---- Player emissive feedback ----
             if (id === this.refs.player && tether && trav) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
@@ -4424,7 +4300,6 @@ export class TransformSyncSystem implements ISystem {
                 }
             }
 
-            // ---- Warden pulsing glow ----
             if (id === this.refs.warden) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
@@ -4436,8 +4311,6 @@ export class TransformSyncSystem implements ISystem {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Player capsule shifts from green -> hot white/orange as tension builds
     private updatePlayerEmissive(
         mat: BABYLON.StandardMaterial,
         tension: number,
@@ -4451,17 +4324,14 @@ export class TransformSyncSystem implements ISystem {
         let targetB: number;
 
         if (state === "WALL_SLIDING") {
-            // Green -> yellow -> orange -> red-white
             targetR = 0.05 + tension * 0.95;
             targetG = 0.15 + (1.0 - tension) * 0.40;
             targetB = 0.05 * (1.0 - tension);
         } else if (state === "LAUNCHING") {
-            // Flash bright white on launch
             targetR = 0.9;
             targetG = 0.9;
             targetB = 0.9;
         } else {
-            // Resting green
             targetR = 0.05;
             targetG = 0.12;
             targetB = 0.05;
