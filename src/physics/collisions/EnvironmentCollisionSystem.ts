@@ -101,7 +101,4 @@ export class EnvironmentCollisionSystem implements ISystem {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
     }
 
-    public resetStrain(): void {
-        this.strainAccum = 0.0;
-    }
 }

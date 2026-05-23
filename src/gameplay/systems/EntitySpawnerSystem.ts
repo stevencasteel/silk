@@ -116,7 +116,4 @@ export class EntitySpawnerSystem implements ISystem {
         this.visualRegistry.registerTransformNode(playerId, pMesh);
     }
 
-    public update(_dt: number): void {
-        void _dt;
-    }
 }

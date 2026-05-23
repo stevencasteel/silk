@@ -2,9 +2,6 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, WeaverAIComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -17,16 +14,9 @@ export class CameraSystem implements ISystem {
   private unsub: (() => void) | null = null;
 
   constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private weaverAIs: ComponentStore<WeaverAIComponent>,
     private visualRegistry: IVisualRegistry,
     private broker: EventBroker
-  ) {
-    void this.refs;
-    void this.transforms;
-    void this.weaverAIs;
-  }
+  ) {}
 
   public init(): void {
     const scene = this.visualRegistry.getScene();

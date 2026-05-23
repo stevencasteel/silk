@@ -28,10 +28,6 @@ export class TransformSyncSystem implements ISystem {
         private healthStore: ComponentStore<HealthComponent>
     ) {}
 
-    public update(_dt: number): void {
-        void _dt;
-    }
-
     public render(alpha: number): void {
         this.scrollTicks();
         this.syncTransforms(alpha);

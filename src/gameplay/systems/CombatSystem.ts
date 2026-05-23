@@ -61,7 +61,7 @@ export class CombatSystem implements ISystem {
         if (distSq >= hitDist * hitDist) return;
 
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
-            this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, silk, pTrav, dx, dy, distSq);
+            this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);
             return;
         }
 
@@ -73,17 +73,13 @@ export class CombatSystem implements ISystem {
     }
 
     private resolvePlayerFlingHit(
-        _pTrans: TransformComponent,
-        _wTrans: TransformComponent,
         wHealth: HealthComponent,
-        wAI: WeaverAIComponent,
         silk: SilkComponent,
         pTrav: TraversalStateComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void _pTrans; void _wTrans; void wAI;
 
         wHealth.current -= this.PLAYER_FLING_DAMAGE;
         

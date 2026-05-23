@@ -54,7 +54,7 @@ export class CompositionRoot {
         const refs = new EntityRefs(playerTags, weaverTags, anchorTags);
 
         const renderSystem = new RenderSystem(canvas);
-        const cameraSystem = new CameraSystem(refs, transforms, weaverAIs, renderSystem, broker);
+        const cameraSystem = new CameraSystem(renderSystem, broker);
         const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, silks, healths, inputs, weaverAIs, playerStats, playerTags, weaverTags, anchorTags, renderSystem, traversal, iframes, weaverTraversal);
         const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, silks);
         const inputSystem = new PlayerInputSystem(refs, inputs);

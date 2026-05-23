@@ -1,93 +1,108 @@
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
-Vertical Slice / Game Jam Production Framework
-Version: Overhauled Architecture Edition
-Target Stack: React + TypeScript + Vite + Babylon.js + Rapier
-Reference Baseline: BOX BATTLE ENGINE
+Vertical Slice / Production Framework
+Version: 1.0 (Feature Complete Baseline)
+Target Stack: React + TypeScript + Vite + Babylon.js + Rapier 3D + Tone.js
+Architecture: Strict Custom ECS (Entity Component System)
 ===============================================================================
 
 PURPOSE
 -------------------------------------------------------------------------------
 This document is the authoritative engineering and architectural blueprint for
-SILK. It is designed as a complete AI handoff package for future build sessions.
+SILK. It reflects the current implementation state of the project, documenting 
+the physics systems, artificial intelligence routines, and audio-visual juice.
 
 SILK starts in the vertical portrait arena immediately without title screens.
 
 ===============================================================================
-REALIZED PLAY AREA & ALIGNMENT SPECIFICATIONS
+1. REALIZED PLAY AREA & ALIGNMENT SPECIFICATIONS
 ===============================================================================
-- Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
-- Vertical Boundaries: Flat solid walls at X = -15.0 and X = 15.0. No platform 
-  ledges jut out. Measurement unit ticks scroll downwards continuously, 
-  creating the endless vertical ascension illusion.
+- Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [1.0, 27.5]
+- Vertical Boundaries: Flat solid walls at X = -15.0 and X = 15.0. Measurement 
+  unit ticks scroll downwards continuously, creating the endless vertical 
+  ascension illusion.
 - Static Camera Lock: Fixed perspective camera at (0, 14, -38) looking at 
   (0, 14, 0) with a fixed horizontal FOV mode. This completely locks the render 
   view within the vertical portrait borders.
 
 ===============================================================================
-REALIZED COREtraversal PHYSICS SKELETON
+2. REALIZED CORE TRAVERSAL & PHYSICS SKELETON
 ===============================================================================
-1. WEAVER CEILING SWEEP (ANCHOR)
-   - Spawned as a giant mechanical sphere (radius = 2.4, 3x capsule width) 
-     patrolling autonomously back and forth along Y = 26.0 between X = [-12, 12].
-   - The top end of the silk string (tether anchor coordinate) locks dynamically 
-     to the Weaver's real-time position.
+- SPIDER CEILING SWEEP (WEAVER ANCHOR): 
+  Spawned as a giant mechanical sphere (radius = 2.4) patrolling autonomously. 
+  The top end of the silk string (tether anchor coordinate) locks dynamically 
+  to the Weaver's real-time position.
 
-2. PENDULUM SWING & STEERING
-   - The player capsule (radius 0.4, height 1.8) is suspended below the Weaver.
-   - Left/Right arrow keys directly steer the pendulum to build momentum.
+- PENDULUM SWING & STEERING:
+  The player capsule (radius 0.4, height 1.8) is suspended below the Weaver.
+  Left/Right input directly steers the pendulum to build momentum in mid-air.
 
-3. WALL SLIDE FRICTION & ELONGATION
-   - Steering into a wall locks the player's horizontal coordinate to prevent bounces.
-   - Friction slides the player down, dynamically stretching the maxLength of 
-     the tether. 
-   - Elongation past base limits generates critical tension load. Remaining on 
-     the wall accumulates strain. If critical strain persists for over 1.8s, the 
-     rope snaps, causing a Game Over.
+- WALL SLIDE FRICTION & ELONGATION:
+  Steering into a wall locks the player's horizontal coordinate. Friction slides 
+  the player down, dynamically stretching the base length of the tether up to 
+  a maximum breaking point.
+
+- TENSION & FLINGING:
+  Releasing the wall while under tension flings the player across the screen 
+  (launch power based on accumulated tension). Remaining on the wall at critical 
+  tension accumulates strain. If critical strain persists for over 2.6s, the 
+  silk snaps, causing a Game Over.
 
 ===============================================================================
-DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
+3. COMBAT & WEAVER AI STATE MACHINE
 ===============================================================================
-These systems are pruned from the initial integration pass to guarantee the
-absolute stability of the core physical swing, wall-drag, and tension loops. 
-They remain documented below as direct blueprints for future development phases.
+Combat resolves strictly through physics impacts and traversal states.
 
-1. WEAVER EMOTIONAL & ATTACK PHASES
--------------------------------------------------------------------------------
-- PHASE 1 CYCLE: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY.
-- FAKE DEATH STATE: Transition triggers at 0% HP. Emissive lights turn off, 
-  audio synthesizers scale down to low-frequency drones, and the Weaver is 
-  dazed for a 3.0s window.
-- PHASE 2 (BERSERK OVERDRIVE): Revives at 50% HP. Visuals switch to a intense
-  high-emissive orange glow, movement sweep speeds double, and the audio drone 
-  reaches its maximum screeching frequency. Permanent defeat occurs on the 
-  next 0% HP threshold.
+- PLAYER OFFENSE (FLING ATTACKS):
+  Player damages the Weaver (35 DMG) by impacting them while in the "LAUNCHING" 
+  state with a launch power threshold >= 80%.
 
-2. JUICE & VISUAL SPECTACLE
--------------------------------------------------------------------------------
-- SCREEN SHAKE: Screen positioning translates offset matrices with amplitude/duration
-  decays, reacting to collision impacts, charge launches, and state shifts.
-- CHROMATIC ABERRATION: Triggered on damage events to split color channels 
-  temporarily along horizontal coordinate offsets.
-- PROCEDURAL PARTICLES: Burst pools of geometric boxes tracking velocity vectors 
-  with linear gravity decay, color-coded by event source (green for player, red 
-  for Weaver).
+- WEAVER OFFENSE (CONTACT DAMAGE):
+  Weaver damages the player (1 DMG, 1.2s i-frames) via direct physical overlap 
+  while the Weaver is actively in the hostile "DASHING" state. 
 
-3. EXPANDED AUDIO DIRECTOR
--------------------------------------------------------------------------------
-- SPATIAL SFX: Pan coordinates scaled dynamically based on horizontal canvas position 
-  relative to the center.
-- IMPACT SYNTHS: Membrane synthesizers to deliver low-end kick thuds during player 
-  damage events, and pink-noise synthesizers for high-frequency hit-flashes.
-- STATE-BASED DRONES: Tension drone modulations that scale oscillator harmonics and 
-  low-pass filter Q-factors in sync with the Weaver's active state.
+- WEAVER STATE MACHINE:
+  1. SWEEPING (Red): Dormant patrol. Moves along the ceiling at a fixed velocity.
+  2. DASHING (Orange/Red/Cyan): Triggered by taking damage. Enters a Prep phase 
+     (0.6s), a high-velocity Thrust phase towards the player's coordinates, and 
+     a Recovery phase (0.5s). Loops 2 times.
+  3. RETURNING (Gray): Ascends vertically back to the ceiling patrol line.
+  4. DEFEATED (Dark): Triggers at 0 HP. Game Win state.
 
-4. USER MENU & CONFIGURATION
--------------------------------------------------------------------------------
-- TITLE SCREEN: Classic cabinet title screen with coordinate-tracked focus indicators.
-- VOLUME SLIDERS: Native Web Audio gains mapped to reactive sliders (Master, SFX, Music).
-- PERSISTENCE MATRIX: 3 distinct LocalStorage save slots with schema validation check passes 
-  for Win/Loss tallies, along with a custom key-rebind matrix.
+- BERSERK OVERDRIVE (<= 50% HP):
+  Sweep patrol speed doubles. Dashing sequence increases from 2 strikes to 3.
+
+===============================================================================
+4. AUDIO-VISUAL JUICE & SPECTACLE
+===============================================================================
+- PROCEDURAL AUDIO (Tone.js):
+  - Tension Synthesizer: FM Oscillator paired with a Lowpass Filter and LFO. 
+    Frequency, harmonicity, and gain scale dynamically in real-time based on 
+    the current silk tension percentage (0.0 to 1.0).
+  - Combat Audio: Membrane synth for low-end player damage impacts; Pink noise 
+    synth for high-frequency hit-flashes.
+  - State Audio: Tension drone modulations scale oscillator harmonics and 
+    LFO speeds based on the Weaver's active state (Berserk/Defeated).
+
+- VISUAL JUICE:
+  - Screen Shake: Globally broadcast via Event Broker. Amplitudes and durations 
+    react to flings, Weaver dashes, damage hits, and silk-snap failures.
+  - Procedural Particles: Object-pooled geometric bursts tracking velocity vectors 
+    with linear gravity decay, color-coded by event source (Green = Player, 
+    Red = Weaver).
+  - Emissive Shifting: The player's mesh emissive lighting pulses and shifts 
+    from green to red/orange based on active silk tension loads.
+
+===============================================================================
+5. DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
+===============================================================================
+These items remain slated for future development phases:
+1. USER MENU & CONFIGURATION:
+   - Title screen, classic cabinet focus indicators.
+   - Volume sliders mapped to native Tone.js Destination gain channels.
+2. PERSISTENCE MATRIX: 
+   - LocalStorage save slots with schema validation check passes for Win/Loss 
+     tallies and custom key-rebinds.
 
 ===============================================================================
 END OF DOCUMENT

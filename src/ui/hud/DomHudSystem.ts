@@ -31,10 +31,6 @@ export class DomHudSystem implements ISystem {
         this.registerSubscriptions();
     }
 
-    public update(_dt: number): void {
-        void _dt;
-    }
-
     private cacheDomElements(): void {
         if (typeof document === "undefined") return;
         this.tensionBar     = document.getElementById("tension-meter-bar");
