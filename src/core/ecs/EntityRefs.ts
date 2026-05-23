@@ -1,16 +1,14 @@
 import { EntityId } from "./Entity";
 import { ComponentStore } from "./ComponentStore";
-import { PlayerTag, WeaverTag, AnchorTag } from "./Components";
+import { PlayerTag, WeaverTag } from "./Components";
 
 export class EntityRefs {
     private _player: EntityId = -1;
     private _weaver: EntityId = -1;
-    private _anchor: EntityId = -1;
 
     constructor(
         private playerTags: ComponentStore<PlayerTag>,
-        private weaverTags: ComponentStore<WeaverTag>,
-        private anchorTags: ComponentStore<AnchorTag>
+        private weaverTags: ComponentStore<WeaverTag>
     ) {}
 
     public get player(): EntityId {
@@ -35,17 +33,5 @@ export class EntityRefs {
 
     public set weaver(id: EntityId) {
         this._weaver = id;
-    }
-
-    public get anchor(): EntityId {
-        if (this._anchor !== -1) return this._anchor;
-        for (const [id] of this.anchorTags.entries()) {
-            return id;
-        }
-        return -1;
-    }
-
-    public set anchor(id: EntityId) {
-        this._anchor = id;
     }
 }

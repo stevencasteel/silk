@@ -5,7 +5,7 @@ import { CommandBus } from "../core/commands/CommandBus";
 import { EntityRegistry } from "../core/ecs/Entity";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent, HealthComponent, InputIntentComponent, WeaverAIComponent, PlayerStatsComponent, PlayerTag, WeaverTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, WeaverTraversalComponent } from "../core/ecs/Components";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent, HealthComponent, InputIntentComponent, WeaverAIComponent, PlayerTag, WeaverTag, TraversalStateComponent, InvulnerabilityComponent, WeaverTraversalComponent } from "../core/ecs/Components";
 import { RenderSystem } from "../babylon/scene/RenderSystem";
 import { CameraSystem } from "../babylon/cameras/CameraSystem";
 import { LightingSystem } from "../babylon/lighting/LightingSystem";
@@ -18,7 +18,7 @@ import { WeaverTraversalSystem } from "../gameplay/systems/WeaverTraversalSystem
 import { SilkVisualizerSystem } from "../gameplay/systems/SilkVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
-import { RapierWorldSystem } from "../physics/rapier/RapierWorldSystem";
+import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
 import { CombatSystem } from "../gameplay/systems/CombatSystem";
 import { GameDirectorSystem } from "../gameplay/systems/GameDirectorSystem";
@@ -43,20 +43,18 @@ export class CompositionRoot {
         const healths = new ComponentStore<HealthComponent>();
         const inputs = new ComponentStore<InputIntentComponent>();
         const weaverAIs = new ComponentStore<WeaverAIComponent>();
-        const playerStats = new ComponentStore<PlayerStatsComponent>();
         const traversal = new ComponentStore<TraversalStateComponent>();
         const iframes = new ComponentStore<InvulnerabilityComponent>();
         const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
         
         const playerTags = new ComponentStore<PlayerTag>();
         const weaverTags = new ComponentStore<WeaverTag>();
-        const anchorTags = new ComponentStore<AnchorTag>();
-        const refs = new EntityRefs(playerTags, weaverTags, anchorTags);
+        const refs = new EntityRefs(playerTags, weaverTags);
 
         const renderSystem = new RenderSystem(canvas);
         const cameraSystem = new CameraSystem(renderSystem, broker);
-        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, silks, healths, inputs, weaverAIs, playerStats, playerTags, weaverTags, anchorTags, renderSystem, traversal, iframes, weaverTraversal);
-        const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, silks);
+        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, silks, healths, inputs, weaverAIs, playerTags, weaverTags, renderSystem, traversal, iframes, weaverTraversal);
+        const physicsSystem = new HavokPhysicsSystem(broker, commands, refs, transforms, velocities, targets, silks, renderSystem);
         const inputSystem = new PlayerInputSystem(refs, inputs);
         const weaverBrain = new WeaverBrainSystem(refs, weaverAIs, transforms, weaverTraversal, healths, broker, commands);
         const weaverTraversalSystem = new WeaverTraversalSystem(refs, velocities, weaverTraversal, transforms, targets, weaverAIs, healths);

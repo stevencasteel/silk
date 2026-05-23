@@ -31,17 +31,8 @@ export interface WeaverAIComponent {
     hue: string;
 }
 
-export interface PlayerStatsComponent {
-    moveSpeed: number;
-    climbSpeed: number;
-    swingForce: number;
-    minRope: number;
-    maxRope: number;
-}
-
 export interface PlayerTag { readonly tag?: "player"; }
 export interface WeaverTag { readonly tag?: "weaver"; }
-export interface AnchorTag { readonly tag?: "anchor"; }
 export interface InvulnerabilityComponent { timeRemaining: number; }
 
 export type TraversalState = "AIRBORNE" | "WALL_SLIDING" | "LAUNCHING" | "GROUNDED";

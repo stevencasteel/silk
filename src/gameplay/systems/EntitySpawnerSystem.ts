@@ -10,10 +10,8 @@ import {
     HealthComponent, 
     InputIntentComponent, 
     WeaverAIComponent, 
-    PlayerStatsComponent, 
     PlayerTag, 
     WeaverTag, 
-    AnchorTag, 
     TraversalStateComponent, 
     InvulnerabilityComponent, 
     WeaverTraversalComponent 
@@ -36,10 +34,8 @@ export class EntitySpawnerSystem implements ISystem {
         private healths: ComponentStore<HealthComponent>,
         private inputs: ComponentStore<InputIntentComponent>,
         private weaverAIs: ComponentStore<WeaverAIComponent>,
-        private playerStats: ComponentStore<PlayerStatsComponent>,
         private playerTags: ComponentStore<PlayerTag>,
         private weaverTags: ComponentStore<WeaverTag>,
-        private anchorTags: ComponentStore<AnchorTag>,
         private visualRegistry: IVisualRegistry,
         private traversal: ComponentStore<TraversalStateComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
@@ -49,17 +45,6 @@ export class EntitySpawnerSystem implements ISystem {
     public init(): void {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
-
-        const anchorId = this.entities.create();
-        this.transforms.add(anchorId, {
-            x: 0, y: 27.2, z: 0,
-            qx: 0, qy: 0, qz: 0, qw: 1,
-            prevX: 0, prevY: 27.2, prevZ: 0,
-            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-        });
-        this.anchorTags.add(anchorId, {});
-        this.refs.anchor = anchorId;
-        // Anchor mesh removed to prevent floating visual artifact.
 
         const weaverId = this.entities.create();
         this.transforms.add(weaverId, {
@@ -99,7 +84,6 @@ export class EntitySpawnerSystem implements ISystem {
         });
         this.healths.add(playerId, { current: 5, max: 5 });
         this.inputs.add(playerId, { x: 0, y: 0, jump: false });
-        this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 32, minRope: 4, maxRope: 24 });
         this.playerTags.add(playerId, {});
         this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
         this.iframes.add(playerId, { timeRemaining: 0 });
@@ -111,5 +95,4 @@ export class EntitySpawnerSystem implements ISystem {
         pMesh.material = pMat;
         this.visualRegistry.registerTransformNode(playerId, pMesh);
     }
-
 }
