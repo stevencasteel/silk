@@ -1,10 +1,37 @@
 import { ISystem } from "../../contracts/ISystem";
-import { IReadablePhysics } from "../../contracts/IPhysicsWorld";
+import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { TransformComponent } from "../../core/ecs/Components";
+import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
-    constructor(private physics: IReadablePhysics) {}
+    private scratchPrevQuat = new BABYLON.Quaternion();
+    private scratchCurrQuat = new BABYLON.Quaternion();
 
-    public update(dt: number): void {
-        // Reads Rapier transforms and writes to Babylon mesh position buffers
+    constructor(
+        private transforms: ComponentStore<TransformComponent>, 
+        private visualRegistry: IVisualRegistry
+    ) {}
+
+    public update(dt: number): void {}
+
+    public render(alpha: number): void {
+        for (const [id, curr] of this.transforms.entries()) {
+            const node = this.visualRegistry.getTransformNode(id);
+            if (!node) continue;
+
+            node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
+            node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
+            node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
+
+            this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
+            this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
+
+            if (!node.rotationQuaternion) {
+                node.rotationQuaternion = new BABYLON.Quaternion();
+            }
+            
+            BABYLON.Quaternion.SlerpToRef(this.scratchPrevQuat, this.scratchCurrQuat, alpha, node.rotationQuaternion);
+        }
     }
 }

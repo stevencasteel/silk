@@ -1,28 +1,124 @@
 import { ISystem } from "../../contracts/ISystem";
-import { IReadablePhysics, IWritablePhysics } from "../../contracts/IPhysicsWorld";
+import { IReadablePhysics, PhysicsTransform } from "../../contracts/IPhysicsWorld";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
+import { CommandBus } from "../../core/commands/CommandBus";
+import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent } from "../../core/ecs/Components";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { EntityId } from "../../core/ecs/Entity";
+import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetRopeMaxLengthCommand, SetRopeAttachedCommand } from "../commands/PhysicsCommands";
 
-export class RapierWorldSystem implements ISystem, IReadablePhysics, IWritablePhysics {
-    private transforms: Map<string, { x: number; y: number; z: number; qx: number; qy: number; qz: number; qw: number }> = new Map();
-    private velocities: Map<string, { x: number; y: number; z: number }> = new Map();
+export class RapierWorldSystem implements ISystem, IReadablePhysics {
+    private RAPIER: any = null;
+    private world: any = null;
+    private rigidBodies = new Map<EntityId, any>();
 
-    public init(): void {
-        this.transforms.set("player", { x: 0, y: 0, z: 0, qx: 0, qy: 0, qz: 0, qw: 1 });
-        this.transforms.set("warden", { x: 10, y: 0, z: 0, qx: 0, qy: 0, qz: 0, qw: 1 });
+    constructor(
+        private broker: EventBroker,
+        private commands: CommandBus,
+        private refs: EntityRefs,
+        private transforms: ComponentStore<TransformComponent>,
+        private velocities: ComponentStore<KinematicVelocityComponent>,
+        private targets: ComponentStore<KinematicTargetComponent>,
+        private tethers: ComponentStore<TetherComponent>
+    ) {}
+
+    public async init(): Promise<void> {
+        this.registerCommands();
+        try {
+            this.RAPIER = await import("@dimforge/rapier3d");
+            if (this.RAPIER && typeof this.RAPIER.init === "function") await this.RAPIER.init();
+            this.world = new this.RAPIER.World({ x: 0, y: -9.81, z: 0 });
+
+            const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 10, 0));
+            this.rigidBodies.set(this.refs.player, pBody);
+            this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.5, 1.0, 0.5), pBody);
+
+            const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(5, 5, 0));
+            this.rigidBodies.set(this.refs.warden, wBody);
+            this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(1.0, 1.0, 1.0), wBody);
+        } catch (err) {
+            console.warn("Failed to initialize Rapier WASM, running fallback virtual physics engine.", err);
+        }
+    }
+
+    private registerCommands(): void {
+        this.commands.register<SetKinematicVelocityCommand>("SET_KINEMATIC_VELOCITY", (cmd) => {
+            const vel = this.velocities.get(cmd.entityId);
+            if (vel) { vel.x = cmd.x; vel.y = cmd.y; vel.z = cmd.z; }
+        });
+        this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
+            if (cmd.entityId === this.refs.player) {
+                const tether = this.tethers.get(this.refs.player);
+                if (tether) { tether.dynamicVelX += cmd.x; tether.dynamicVelY += cmd.y; }
+            } else if (this.world) {
+                const body = this.rigidBodies.get(cmd.entityId);
+                if (body && typeof body.applyImpulse === "function") body.applyImpulse({ x: cmd.x, y: cmd.y, z: cmd.z }, true);
+            }
+        });
+        this.commands.register<SetRopeMaxLengthCommand>("SET_ROPE_MAX_LENGTH", (cmd) => {
+            const tether = this.tethers.get(this.refs.player);
+            if (tether) tether.maxLength = cmd.length;
+        });
+        this.commands.register<SetRopeAttachedCommand>("SET_ROPE_ATTACHED", (cmd) => {
+            const tether = this.tethers.get(this.refs.player);
+            if (tether) tether.isAttached = cmd.attached;
+        });
     }
 
     public update(dt: number): void {
-        // Authoritative Rapier world.step(dt) executes here
+        for (const [, curr] of this.transforms.entries()) {
+            curr.prevX = curr.x; curr.prevY = curr.y; curr.prevZ = curr.z;
+            curr.prevQx = curr.qx; curr.prevQy = curr.qy; curr.prevQz = curr.qz; curr.prevQw = curr.qw;
+        }
+
+        const pTarget = this.targets.get(this.refs.player);
+        const pBody = this.rigidBodies.get(this.refs.player);
+        if (pTarget && pTarget.active && pBody) {
+            pBody.setNextKinematicTranslation({ x: pTarget.x, y: pTarget.y, z: pTarget.z });
+        }
+
+        const wVel = this.velocities.get(this.refs.warden);
+        const wBody = this.rigidBodies.get(this.refs.warden);
+        if (wVel && wBody) {
+            const curr = wBody.translation();
+            wBody.setNextKinematicTranslation({ x: curr.x + wVel.x * dt, y: curr.y + wVel.y * dt, z: curr.z + wVel.z * dt });
+        }
+
+        if (this.world) this.world.step();
+
+        for (const [id, body] of this.rigidBodies.entries()) {
+            const t = body.translation();
+            const r = body.rotation();
+            const curr = this.transforms.get(id);
+            if (curr) {
+                curr.x = t.x; curr.y = t.y; curr.z = t.z;
+                curr.qx = r.x; curr.qy = r.y; curr.qz = r.z; curr.qw = r.w;
+            }
+        }
+        
+        if (!this.world) {
+            const pTrans = this.transforms.get(this.refs.player);
+            if (pTrans && pTarget) { pTrans.x = pTarget.x; pTrans.y = pTarget.y; }
+            const wTrans = this.transforms.get(this.refs.warden);
+            if (wTrans && wVel) { wTrans.x += wVel.x * dt; wTrans.y += wVel.y * dt; }
+        }
+
+        const tether = this.tethers.get(this.refs.player);
+        if (tether) {
+            this.broker.publish(GameEvent.ROPE_TENSION_CHANGE, { tension: tether.tension });
+            this.broker.publish(GameEvent.ROPE_LENGTH_CHANGE, { length: tether.currentLength, maxLength: tether.maxLength });
+        }
     }
 
-    public getTransform(entityId: string) {
-        return this.transforms.get(entityId) || null;
+    public getTransform(id: EntityId): PhysicsTransform | null {
+        const t = this.transforms.get(id);
+        return t ? { x: t.x, y: t.y, z: t.z, qx: t.qx, qy: t.qy, qz: t.qz, qw: t.qw } : null;
     }
 
-    public applyImpulse(entityId: string, x: number, y: number, z: number): void {
-        // Apply impulse to Rapier rigid body
-    }
-
-    public setKinematicVelocity(entityId: string, x: number, y: number, z: number): void {
-        this.velocities.set(entityId, { x, y, z });
+    public getPreviousTransform(id: EntityId): PhysicsTransform | null {
+        const t = this.transforms.get(id);
+        return t ? { x: t.prevX, y: t.prevY, z: t.prevZ, qx: t.prevQx, qy: t.prevQy, qz: t.prevQz, qw: t.prevQw } : null;
     }
 }
