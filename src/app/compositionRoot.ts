@@ -62,7 +62,7 @@ export class CompositionRoot {
         const inputSystem = new PlayerInputSystem(refs, inputs);
         const movementSystem = new PlayerMovementSystem();
         const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
-        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
+        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets, wardenAIs);
         
         const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
         const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);

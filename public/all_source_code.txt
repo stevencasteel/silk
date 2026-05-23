@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 2:40:46 PM
+ [SYSTEM] Generated: 5/23/2026, 2:47:40 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -863,7 +863,7 @@ export class CompositionRoot {
         const inputSystem = new PlayerInputSystem(refs, inputs);
         const movementSystem = new PlayerMovementSystem();
         const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
-        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
+        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets, wardenAIs);
         
         const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
         const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
@@ -1115,23 +1115,27 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TransformComponent, WardenAIComponent } from "../../core/ecs/Components";
+import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private cameraNode: BABYLON.FreeCamera | null = null;
+  private shakeIntensity = 0.0;
+  private shakeDuration = 0.0;
+  private shakeTimer = 0.0;
+  private unsub: (() => void) | null = null;
 
   constructor(
-    _refs: EntityRefs,
-    _transforms: ComponentStore<TransformComponent>,
-    _wardenAIs: ComponentStore<WardenAIComponent>,
+    private refs: EntityRefs,
+    private transforms: ComponentStore<TransformComponent>,
+    private wardenAIs: ComponentStore<WardenAIComponent>,
     private visualRegistry: IVisualRegistry,
-    _broker: EventBroker
+    private broker: EventBroker
   ) {
-    void _refs;
-    void _transforms;
-    void _wardenAIs;
-    void _broker;
+    void this.refs;
+    void this.transforms;
+    void this.wardenAIs;
   }
 
   public init(): void {
@@ -1142,17 +1146,46 @@ export class CameraSystem implements ISystem {
       this.cameraNode.position.set(0, 14.0, -38.0);
       this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }
+
+    this.unsub = this.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
+      this.shakeIntensity = Math.max(this.shakeIntensity, payload.amplitude);
+      this.shakeTimer = Math.max(this.shakeTimer, payload.duration);
+      this.shakeDuration = this.shakeTimer;
+    });
   }
 
   public update(dt: number): void {
-    void dt;
+    let shakeOffsetX = 0;
+    let shakeOffsetY = 0;
+    let shakeOffsetZ = 0;
+
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= dt;
+      
+      const decay = this.shakeDuration > 0 ? (this.shakeTimer / this.shakeDuration) : 0;
+      const currentIntensity = this.shakeIntensity * decay;
+
+      shakeOffsetX = (Math.random() - 0.5) * currentIntensity * 2.0;
+      shakeOffsetY = (Math.random() - 0.5) * currentIntensity * 2.0;
+      shakeOffsetZ = (Math.random() - 0.5) * currentIntensity * 1.2;
+
+      if (this.shakeTimer <= 0) {
+        this.shakeIntensity = 0;
+        this.shakeDuration = 0;
+      }
+    }
+
     if (this.cameraNode) {
-      this.cameraNode.position.set(0, 14.0, -38.0);
-      this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
+      this.cameraNode.position.set(shakeOffsetX, 14.0 + shakeOffsetY, -38.0 + shakeOffsetZ);
+      this.cameraNode.setTarget(new BABYLON.Vector3(shakeOffsetX * 0.25, 14.0 + shakeOffsetY * 0.25, 0));
     }
   }
 
-  public dispose(): void {}
+  public dispose(): void {
+    if (this.unsub) {
+      this.unsub();
+    }
+  }
 }
 
 
@@ -2387,7 +2420,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type WardenStateType = "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY" | "FAKE_DEATH" | "FINAL_PHASE";
+export type WardenStateType = "SWEEPING" | "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY" | "FAKE_DEATH" | "FINAL_PHASE";
 
 export interface AIContext {
   wardenId: EntityId;
@@ -3382,36 +3415,133 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
+import { IWardenState, AIContext, WardenStateType } from "../states/IWardenState";
+import { WardenDormantState } from "../states/WardenDormantState";
+import { WardenHuntingState } from "../states/WardenHuntingState";
+import { WardenChargePrepState } from "../states/WardenChargePrepState";
+import { WardenChargeAttackState } from "../states/WardenChargeAttackState";
+import { WardenRecoveryState } from "../states/WardenRecoveryState";
+import { WardenFakeDeathState } from "../states/WardenFakeDeathState";
+import { WardenFinalPhaseState } from "../states/WardenFinalPhaseState";
+
+export class WardenSweepingState implements IWardenState {
+  public readonly type: WardenStateType = "SWEEPING";
+  public readonly name = "SWEEPING CEILING";
+  public readonly hue = "#ef4444";
+
+  public enter(ctx: AIContext): void {
+    ctx.ai.timeInState = 0;
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.wardenId,
+      x: 4.5,
+      y: 0,
+      z: 0
+    });
+  }
+
+  public exit(_ctx: AIContext): void {}
+
+  public update(ctx: AIContext, dt: number): WardenStateType | null {
+    ctx.ai.timeInState += dt;
+    return ctx.ai.timeInState > 4.0 ? "DORMANT" : null;
+  }
+}
 
 export class WardenBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
+  private states = new Map<WardenStateType, IWardenState>();
+  private activeState: IWardenState | null = null;
+  private contextCache: AIContext | null = null;
 
   constructor(
     private refs: EntityRefs,
     private ai: ComponentStore<WardenAIComponent>,
-    _transforms: ComponentStore<TransformComponent>,
-    _wardenTraversal: ComponentStore<WardenTraversalComponent>,
-    _healths: ComponentStore<HealthComponent>,
+    private transforms: ComponentStore<TransformComponent>,
+    private wardenTraversal: ComponentStore<WardenTraversalComponent>,
+    private healths: ComponentStore<HealthComponent>,
     private broker: EventBroker,
-    _commands: CommandBus
+    private commands: CommandBus
   ) {
-    void _transforms;
-    void _wardenTraversal;
-    void _healths;
-    void _commands;
+    this.states.set("SWEEPING", new WardenSweepingState());
+    this.states.set("DORMANT", new WardenDormantState());
+    this.states.set("HUNTING", new WardenHuntingState());
+    this.states.set("CHARGE_PREP", new WardenChargePrepState());
+    this.states.set("CHARGE_ATTACK", new WardenChargeAttackState());
+    this.states.set("RECOVERY", new WardenRecoveryState());
+    this.states.set("FAKE_DEATH", new WardenFakeDeathState());
+    this.states.set("FINAL_PHASE", new WardenFinalPhaseState());
   }
 
   public init(): void {
     const aiComp = this.ai.get(this.refs.warden);
     if (aiComp) {
-      aiComp.state = "SWEEPING";
-      aiComp.hue = "#ef4444";
+      const startState = aiComp.state as WardenStateType;
+      const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
+      
+      aiComp.state = stateObj.type;
+      aiComp.hue = stateObj.hue;
+      aiComp.timeInState = 0;
+      
+      this.activeState = stateObj;
+      
+      this.contextCache = {
+        wardenId: this.refs.warden,
+        playerId: this.refs.player,
+        ai: aiComp,
+        transforms: this.transforms,
+        wardenTraversal: this.wardenTraversal,
+        healths: this.healths,
+        commands: this.commands,
+        broker: this.broker
+      };
+
+      this.activeState.enter(this.contextCache);
+      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
     }
-    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
   }
 
   public update(dt: number): void {
-    void dt;
+    const aiComp = this.ai.get(this.refs.warden);
+    if (!aiComp || !this.activeState) return;
+
+    if (!this.contextCache) {
+      this.contextCache = {
+        wardenId: this.refs.warden,
+        playerId: this.refs.player,
+        ai: aiComp,
+        transforms: this.transforms,
+        wardenTraversal: this.wardenTraversal,
+        healths: this.healths,
+        commands: this.commands,
+        broker: this.broker
+      };
+    }
+
+    const nextStateKey = this.activeState.update(this.contextCache, dt);
+
+    if (nextStateKey && nextStateKey !== this.activeState.type) {
+      const nextStateObj = this.states.get(nextStateKey);
+      if (nextStateObj) {
+        this.activeState.exit(this.contextCache);
+        
+        aiComp.state = nextStateObj.type;
+        aiComp.hue = nextStateObj.hue;
+        aiComp.timeInState = 0;
+        
+        if (nextStateKey === "FAKE_DEATH") {
+          aiComp.hasFakedDeath = true;
+        }
+
+        this.activeState = nextStateObj;
+        this.activeState.enter(this.contextCache);
+
+        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { 
+          state: nextStateObj.name, 
+          hue: nextStateObj.hue 
+        });
+      }
+    }
   }
 }
 
@@ -3422,21 +3552,22 @@ export class WardenBrainSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent } from "../../core/ecs/Components";
+import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class WardenTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -12.0;
   private maxX = 12.0;
-  private moveSpeed = 4.5;
+  private sweepSpeed = 4.5;
 
   constructor(
     private refs: EntityRefs,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private traversal: ComponentStore<WardenTraversalComponent>,
     private transforms: ComponentStore<TransformComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>
+    private targets: ComponentStore<KinematicTargetComponent>,
+    private aiStore: ComponentStore<WardenAIComponent>
   ) {}
 
   public update(dt: number): void {
@@ -3444,26 +3575,70 @@ export class WardenTraversalSystem implements ISystem {
     const trav = this.traversal.get(this.refs.warden);
     const trans = this.transforms.get(this.refs.warden);
     const target = this.targets.get(this.refs.warden);
+    const ai = this.aiStore.get(this.refs.warden);
     
     if (!vel || !trav || !trans || !target) return;
 
-    // Translate coordinates horizontally along the ceiling (Y = 26.0)
-    let nextX = trans.x + vel.x * dt;
+    const isSweeping = !ai || ai.state === "SWEEPING";
 
-    if (nextX >= this.maxX) {
-      nextX = this.maxX;
-      vel.x = -this.moveSpeed;
-    } else if (nextX <= this.minX) {
-      nextX = this.minX;
-      vel.x = this.moveSpeed;
+    if (isSweeping) {
+      let nextX = trans.x + vel.x * dt;
+
+      if (nextX >= this.maxX) {
+        nextX = this.maxX;
+        vel.x = -this.sweepSpeed;
+      } else if (nextX <= this.minX) {
+        nextX = this.minX;
+        vel.x = this.sweepSpeed;
+      }
+
+      target.x = nextX;
+      target.y = 26.0;
+      target.active = true;
+
+      trav.velX = vel.x;
+      trav.velY = 0;
+    } else {
+      target.x = trans.x + vel.x * dt;
+      target.y = trans.y + vel.y * dt;
+      target.active = true;
+
+      trav.velX = vel.x;
+      trav.velY = vel.y;
     }
 
-    target.x = nextX;
-    target.y = 26.0; // Fixed ceiling anchor elevation
-    target.active = true;
+    const wallLimit = 14.0;
+    if (target.x > wallLimit) {
+      target.x = wallLimit;
+      if (vel.x > 0) vel.x = 0;
+    } else if (target.x < -wallLimit) {
+      target.x = -wallLimit;
+      if (vel.x < 0) vel.x = 0;
+    }
 
-    trav.velX = vel.x;
-    trav.velY = 0;
+    const ceilingLimit = 27.5;
+    const floorLimit = 1.0;
+    if (target.y > ceilingLimit) {
+      target.y = ceilingLimit;
+      if (vel.y > 0) vel.y = 0;
+      trav.isGrounded = false;
+      trav.isWallClinging = false;
+    } else if (target.y < floorLimit) {
+      target.y = floorLimit;
+      if (vel.y < 0) vel.y = 0;
+      trav.isGrounded = true;
+      trav.isWallClinging = false;
+    } else {
+      trav.isGrounded = false;
+      const wallThreshold = 13.8;
+      if (Math.abs(target.x) >= wallThreshold) {
+        trav.isWallClinging = true;
+        trav.wallNormalX = target.x > 0 ? -1 : 1;
+      } else {
+        trav.isWallClinging = false;
+        trav.wallNormalX = 0;
+      }
+    }
   }
 }
 

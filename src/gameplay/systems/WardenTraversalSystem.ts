@@ -1,21 +1,22 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent } from "../../core/ecs/Components";
+import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class WardenTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -12.0;
   private maxX = 12.0;
-  private moveSpeed = 4.5;
+  private sweepSpeed = 4.5;
 
   constructor(
     private refs: EntityRefs,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private traversal: ComponentStore<WardenTraversalComponent>,
     private transforms: ComponentStore<TransformComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>
+    private targets: ComponentStore<KinematicTargetComponent>,
+    private aiStore: ComponentStore<WardenAIComponent>
   ) {}
 
   public update(dt: number): void {
@@ -23,25 +24,69 @@ export class WardenTraversalSystem implements ISystem {
     const trav = this.traversal.get(this.refs.warden);
     const trans = this.transforms.get(this.refs.warden);
     const target = this.targets.get(this.refs.warden);
+    const ai = this.aiStore.get(this.refs.warden);
     
     if (!vel || !trav || !trans || !target) return;
 
-    // Translate coordinates horizontally along the ceiling (Y = 26.0)
-    let nextX = trans.x + vel.x * dt;
+    const isSweeping = !ai || ai.state === "SWEEPING";
 
-    if (nextX >= this.maxX) {
-      nextX = this.maxX;
-      vel.x = -this.moveSpeed;
-    } else if (nextX <= this.minX) {
-      nextX = this.minX;
-      vel.x = this.moveSpeed;
+    if (isSweeping) {
+      let nextX = trans.x + vel.x * dt;
+
+      if (nextX >= this.maxX) {
+        nextX = this.maxX;
+        vel.x = -this.sweepSpeed;
+      } else if (nextX <= this.minX) {
+        nextX = this.minX;
+        vel.x = this.sweepSpeed;
+      }
+
+      target.x = nextX;
+      target.y = 26.0;
+      target.active = true;
+
+      trav.velX = vel.x;
+      trav.velY = 0;
+    } else {
+      target.x = trans.x + vel.x * dt;
+      target.y = trans.y + vel.y * dt;
+      target.active = true;
+
+      trav.velX = vel.x;
+      trav.velY = vel.y;
     }
 
-    target.x = nextX;
-    target.y = 26.0; // Fixed ceiling anchor elevation
-    target.active = true;
+    const wallLimit = 14.0;
+    if (target.x > wallLimit) {
+      target.x = wallLimit;
+      if (vel.x > 0) vel.x = 0;
+    } else if (target.x < -wallLimit) {
+      target.x = -wallLimit;
+      if (vel.x < 0) vel.x = 0;
+    }
 
-    trav.velX = vel.x;
-    trav.velY = 0;
+    const ceilingLimit = 27.5;
+    const floorLimit = 1.0;
+    if (target.y > ceilingLimit) {
+      target.y = ceilingLimit;
+      if (vel.y > 0) vel.y = 0;
+      trav.isGrounded = false;
+      trav.isWallClinging = false;
+    } else if (target.y < floorLimit) {
+      target.y = floorLimit;
+      if (vel.y < 0) vel.y = 0;
+      trav.isGrounded = true;
+      trav.isWallClinging = false;
+    } else {
+      trav.isGrounded = false;
+      const wallThreshold = 13.8;
+      if (Math.abs(target.x) >= wallThreshold) {
+        trav.isWallClinging = true;
+        trav.wallNormalX = target.x > 0 ? -1 : 1;
+      } else {
+        trav.isWallClinging = false;
+        trav.wallNormalX = 0;
+      }
+    }
   }
 }
