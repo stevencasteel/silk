@@ -1,0 +1,1136 @@
+
+===============================================================================
+SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
+Vertical Slice / Game Jam Production Framework
+Version: Overhauled Architecture Edition
+Target Stack: React + TypeScript + Vite + Babylon.js + Rapier
+Reference Baseline: BOX BATTLE ENGINE
+===============================================================================
+
+PURPOSE
+-------------------------------------------------------------------------------
+This document is the authoritative engineering and architectural blueprint for
+SILK. It is designed as a complete AI handoff package for future build sessions.
+
+This is NOT a lightweight game jam architecture.
+This is a production-minded vertical slice framework optimized for:
+- maintainability
+- iteration speed
+- modularity
+- deterministic gameplay systems
+- extensibility
+- debugging clarity
+- future scalability
+
+The design philosophy intentionally avoids:
+- god objects
+- giant manager classes
+- hidden mutable state
+- monolithic gameplay files
+- brittle inheritance chains
+- tightly coupled gameplay logic
+- architecture that collapses under feature expansion
+
+The system is intentionally designed around:
+- composition over inheritance
+- event-oriented communication
+- explicit ownership boundaries
+- feature encapsulation
+- deterministic fixed-step simulation
+- dependency inversion
+- observable runtime systems
+- isolated feature modules
+- testable subsystems
+- low-risk refactors
+
+SILK boots directly into gameplay.
+There is:
+- NO title screen
+- NO settings menu
+- NO save/load
+- NO multiplayer
+- NO profile management
+- NO account systems
+- NO network abstraction
+
+The game starts in the arena immediately.
+
+===============================================================================
+HIGH LEVEL GAME SUMMARY
+===============================================================================
+
+SILK is a vertical arena predator-prey combat game focused on:
+- momentum
+- tension
+- elastic traversal
+- wall slide charging
+- silk rope physics
+- psychological boss AI pressure
+- environmental control
+
+Core loop:
+1. Player wall-slides to build tension
+2. Player launches using silk momentum
+3. Anchors manipulate arena traversal
+4. Warden AI responds dynamically
+5. Player lands strikes
+6. Combat escalates through emotional states
+
+The entire game hinges on:
+- movement feel
+- readable momentum
+- audiovisual tension feedback
+- precision simulation
+- responsiveness
+
+Movement quality is more important than:
+- content volume
+- graphical fidelity
+- feature count
+
+===============================================================================
+NON-NEGOTIABLE DESIGN PILLARS
+===============================================================================
+
+NEVER CUT:
+- Wall slide charge and launch
+- Rope tension simulation
+- Warden emotional lighting shifts
+- Fake-out final phase
+- Dynamic tension audio drone
+- Deterministic fixed-step gameplay loop
+- Clear visual readability of velocity and danger
+
+CUT FIRST:
+- Advanced alternate anchor types
+- Environmental FX polish
+- Secondary enemy variants
+- Cinematic transitions
+- High fidelity shaders
+
+===============================================================================
+CORE ENGINEERING PHILOSOPHY
+===============================================================================
+
+1. SYSTEMS OWN THEIR DATA
+-------------------------------------------------------------------------------
+Avoid shared mutable state whenever possible.
+
+Every major subsystem owns:
+- its lifecycle
+- its update path
+- its runtime data
+- its configuration
+- its teardown logic
+
+Other systems communicate through:
+- events
+- readonly interfaces
+- explicit contracts
+
+2. COMPOSITION OVER INHERITANCE
+-------------------------------------------------------------------------------
+Do NOT build deep entity inheritance trees.
+
+BAD:
+Entity -> Enemy -> SpiderEnemy -> Warden -> EliteWarden
+
+GOOD:
+Warden
+- MovementComponent
+- AggroComponent
+- LightPulseComponent
+- StateMachineComponent
+- LegAnimationComponent
+- DamageComponent
+
+3. NO GLOBAL MANAGER SPRAWL
+-------------------------------------------------------------------------------
+Avoid:
+- EngineManager
+- GameManager
+- MegaController
+- UniversalSingleton
+
+Instead:
+- narrow orchestration layers
+- feature coordinators
+- isolated systems
+
+4. EVENT-ORIENTED COMMUNICATION
+-------------------------------------------------------------------------------
+Systems should NOT directly manipulate one another unless absolutely necessary.
+
+Preferred:
+EventBroker.emit(GameEvent.PLAYER_DAMAGED)
+
+Avoid:
+warden.damageSystem.player.health -= 1
+
+5. DETERMINISTIC GAMEPLAY
+-------------------------------------------------------------------------------
+Core gameplay simulation runs fixed timestep.
+
+Rendering may interpolate.
+Gameplay may NOT.
+
+This is critical for:
+- rope behavior
+- launch consistency
+- collision predictability
+- reproducible tuning
+
+6. OBSERVABILITY FIRST
+-------------------------------------------------------------------------------
+Every major runtime system must expose:
+- debug metrics
+- runtime status
+- profiling hooks
+- validation helpers
+
+The engine should be inspectable while running.
+
+===============================================================================
+TECH STACK
+===============================================================================
+
+Framework:
+- React 19
+- TypeScript
+- Vite
+
+3D:
+- Babylon.js
+
+Physics:
+- Rapier 3D WASM
+
+Animation:
+- GSAP
+
+Audio:
+- Tone.js
+- Howler.js (optional later to replace generated placeholders)
+
+State:
+- Zustand
+
+Dev Tooling:
+- Leva
+- Stats.js
+
+Linting:
+- ESLint
+- strict TS config
+
+===============================================================================
+ABSOLUTE ARCHITECTURAL RULES
+===============================================================================
+
+RULE 1:
+Gameplay systems NEVER directly touch React state.
+
+RULE 2:
+Babylon scene objects NEVER become source-of-truth gameplay state.
+
+RULE 3:
+React is presentation only.
+
+RULE 4:
+Physics owns authoritative movement truth.
+
+RULE 5:
+Visuals read gameplay state.
+Gameplay never reads visuals.
+
+RULE 6:
+Every system has:
+- init()
+- update()
+- dispose()
+
+RULE 7:
+No runtime circular dependencies.
+
+RULE 8:
+All cross-system communication must be explicit.
+
+RULE 9:
+Every feature module must be removable without catastrophic rewrites.
+
+RULE 10:
+No hidden side effects inside getters/setters.
+
+===============================================================================
+TARGET DIRECTORY STRUCTURE
+===============================================================================
+
+silk/
+├── docs/
+├── public/
+├── scripts/
+├── src/
+│
+├── app/
+│   ├── App.tsx
+│   ├── bootstrap.ts
+│   └── compositionRoot.ts
+│
+├── core/
+│   ├── engine/
+│   ├── events/
+│   ├── loop/
+│   ├── state/
+│   ├── timing/
+│   ├── memory/
+│   ├── math/
+│   ├── diagnostics/
+│   └── contracts/
+│
+├── babylon/
+│   ├── scene/
+│   ├── cameras/
+│   ├── lighting/
+│   ├── materials/
+│   ├── postfx/
+│   └── meshBuilders/
+│
+├── gameplay/
+│   ├── player/
+│   ├── warden/
+│   ├── anchors/
+│   ├── rope/
+│   ├── combat/
+│   ├── traversal/
+│   ├── arena/
+│   ├── progression/
+│   └── shared/
+│
+├── physics/
+│   ├── rapier/
+│   ├── colliders/
+│   ├── controllers/
+│   ├── constraints/
+│   └── simulation/
+│
+├── rendering/
+│   ├── shaders/
+│   ├── materials/
+│   ├── vfx/
+│   └── debug/
+│
+├── audio/
+│   ├── tone/
+│   ├── reactive/
+│   ├── events/
+│   └── sfx/
+│
+├── ui/
+│   ├── hud/
+│   ├── overlays/
+│   ├── debug/
+│   └── shared/
+│
+├── store/
+│   ├── slices/
+│   └── useGameStore.ts
+│
+├── tools/
+│   ├── sourceContext/
+│   ├── profiling/
+│   └── validation/
+│
+└── test/
+    ├── gameplay/
+    ├── systems/
+    ├── integration/
+    └── smoke/
+
+===============================================================================
+FEATURE ENCAPSULATION STANDARD
+===============================================================================
+
+Every gameplay feature owns:
+- config
+- types
+- systems
+- events
+- tests
+- debug helpers
+
+Example:
+
+gameplay/player/
+├── Player.ts
+├── PlayerConfig.ts
+├── PlayerEvents.ts
+├── PlayerMovementSystem.ts
+├── PlayerLaunchSystem.ts
+├── PlayerDebug.ts
+├── PlayerTypes.ts
+└── tests/
+
+This prevents:
+- ownership ambiguity
+- merge conflicts
+- feature scattering
+
+===============================================================================
+DEPENDENCY FLOW RULES
+===============================================================================
+
+Allowed:
+UI -> Store
+UI -> Readonly Gameplay State
+
+Gameplay -> EventBroker
+Gameplay -> Physics
+Gameplay -> Rendering Adapters
+
+Physics -> NONE
+
+Rendering -> Readonly Gameplay
+
+Forbidden:
+UI -> Physics mutation
+Rendering -> Gameplay mutation
+Gameplay -> React hooks
+Physics -> Babylon mesh ownership
+
+===============================================================================
+EVENT ARCHITECTURE
+===============================================================================
+
+Use a typed EventBroker.
+
+NO raw string events.
+
+Events are:
+- immutable
+- versionable
+- explicit
+- observable
+
+Example:
+
+GameEvent.PLAYER_LAUNCHED
+GameEvent.TENSION_CHANGED
+GameEvent.WARDEN_PHASE_CHANGED
+
+Every event payload must:
+- use readonly fields
+- avoid passing mutable references
+- avoid passing Babylon mesh refs directly
+
+===============================================================================
+STATE MANAGEMENT STRATEGY
+===============================================================================
+
+Zustand is NOT the simulation engine.
+
+Zustand stores:
+- HUD state
+- debug state
+- readonly snapshots
+- menu-less overlay info
+- reactive UI signals
+
+Simulation state lives in systems.
+
+DO NOT:
+- put physics transforms in Zustand every frame
+- use Zustand as ECS
+- trigger React rerenders from simulation spam
+
+Use snapshot throttling.
+
+===============================================================================
+GAME LOOP ARCHITECTURE
+===============================================================================
+
+REQUIRED:
+Fixed timestep simulation.
+
+Simulation:
+60hz fixed
+
+Rendering:
+uncapped
+
+Pipeline:
+Input
+-> Fixed Simulation
+-> Physics
+-> Gameplay Systems
+-> Events
+-> Render Sync
+-> Babylon Render
+
+Critical:
+Clamp delta spikes after tab restores.
+
+===============================================================================
+CORE SYSTEMS
+===============================================================================
+
+1. GameLoop
+-------------------------------------------------------------------------------
+Responsibilities:
+- RAF ownership
+- delta accumulation
+- fixed-step timing
+- visibility handling
+- pause handling
+- frame metrics
+
+Must NOT:
+- contain gameplay logic
+
+2. EventBroker
+-------------------------------------------------------------------------------
+Responsibilities:
+- typed pub/sub
+- event lifecycle
+- subscriptions
+- diagnostics
+
+Must NOT:
+- contain business logic
+
+3. PhysicsManager
+-------------------------------------------------------------------------------
+Responsibilities:
+- Rapier world
+- stepping
+- collider ownership
+- body lifecycle
+- simulation determinism
+
+Must NOT:
+- own gameplay rules
+
+4. SceneManager
+-------------------------------------------------------------------------------
+Responsibilities:
+- Babylon init
+- camera setup
+- lights
+- postFX
+- render coordination
+
+Must NOT:
+- own gameplay decisions
+
+5. RopeSystem
+-------------------------------------------------------------------------------
+Responsibilities:
+- rope nodes
+- constraints
+- tension calculations
+- rope rendering sync
+- snapping thresholds
+
+Must NOT:
+- own player movement logic
+
+6. WardenAI
+-------------------------------------------------------------------------------
+Responsibilities:
+- state machine
+- behavior selection
+- aggression evaluation
+- target logic
+
+Must NOT:
+- manipulate renderer directly
+
+===============================================================================
+PLAYER ARCHITECTURE
+===============================================================================
+
+Player is composition-driven.
+
+Suggested modules:
+- PlayerMovementComponent
+- PlayerTraversalComponent
+- PlayerLaunchComponent
+- PlayerCollisionComponent
+- PlayerHealthComponent
+- PlayerAnchorComponent
+- PlayerAnimationComponent
+
+Avoid:
+single 2500-line Player.ts
+
+===============================================================================
+WARDEN AI ARCHITECTURE
+===============================================================================
+
+Use hierarchical state machine.
+
+Top states:
+- Dormant
+- Hunting
+- Frenzied
+- FakeDeath
+- FinalPhase
+- Dying
+
+Substates:
+- Observe
+- Reel
+- Lunge
+- Retreat
+- Recover
+
+AI evaluation should be:
+- deterministic
+- score-based
+- inspectable
+
+Debug overlay should show:
+- active state
+- target tension
+- aggression value
+- cooldowns
+
+===============================================================================
+ROPE SYSTEM DESIGN
+===============================================================================
+
+This is the heart of the game.
+
+Architecture:
+- rope simulation
+- rope rendering
+- rope gameplay evaluation
+
+MUST be separate layers.
+
+Simulation:
+verlet or rapier joint chain
+
+Rendering:
+Babylon tube mesh
+
+Gameplay:
+tension
+snap thresholds
+launch impulse
+
+DO NOT couple rope rendering directly to gameplay logic.
+
+===============================================================================
+ANCHOR SYSTEM
+===============================================================================
+
+Anchors are modular entities.
+
+Each anchor owns:
+- placement state
+- durability
+- tension contribution
+- visuals
+
+Future extensibility:
+- sticky anchor
+- elastic anchor
+- temporary anchor
+- explosive anchor
+
+Architecture must support:
+adding new anchor types WITHOUT modifying existing systems.
+
+===============================================================================
+SHADER ARCHITECTURE
+===============================================================================
+
+Shaders are isolated modules.
+
+DO NOT inline giant shader strings inside TS files.
+
+Use:
+- dedicated .glsl files
+- explicit uniform contracts
+- shader adapter classes
+
+Each shader gets:
+- material wrapper
+- parameter config
+- debug controls
+
+===============================================================================
+AUDIO ARCHITECTURE
+===============================================================================
+
+Reactive audio is gameplay-critical.
+
+Tone.js reacts to:
+- tension
+- velocity
+- danger state
+- phase escalation
+
+Audio should be:
+data-driven
+event-driven
+
+DO NOT:
+scatter audio calls throughout gameplay code.
+
+Use:
+AudioEventRouter
+
+===============================================================================
+DEBUGGING + OBSERVABILITY
+===============================================================================
+
+Every major system must expose:
+- metrics
+- runtime status
+- validation hooks
+
+Required overlays:
+- FPS
+- frame time
+- physics bodies
+- rope tension
+- AI state
+- event spam counters
+
+Add:
+debug freeze-frame stepping
+
+===============================================================================
+AUTOMATED VALIDATION
+===============================================================================
+
+Before every phase completion:
+- npm run build
+- npm run lint
+
+Add smoke tests for:
+- scene boot
+- rapier init
+- rope spawn
+- player launch
+- AI transitions
+
+===============================================================================
+SOURCE CONTEXT TOOLING
+===============================================================================
+
+Carry forward the BOX BATTLE create_source_context pipeline.
+
+This tooling is REQUIRED.
+
+The AI workflow depends on:
+docs/all_source_code.txt
+
+Required updates:
+- include .glsl
+- skip docs recursion
+- update SILK headers
+
+This is NOT optional tooling.
+It is part of the engineering workflow.
+
+===============================================================================
+PERFORMANCE RULES
+===============================================================================
+
+Avoid:
+- per-frame allocations
+- object churn
+- giant React rerenders
+- creating Babylon materials repeatedly
+- creating vectors in hot loops
+
+Use:
+- object pools
+- cached vectors
+- reusable temp buffers
+
+Physics and rope updates must be allocation-light.
+
+===============================================================================
+MULTITHREADING / FUTURE MIGRATION STRATEGY
+===============================================================================
+
+Current target:
+single-threaded simplicity
+
+BUT:
+architecture must support future migration to:
+- workers
+- parallel simulation
+- ECS migration
+
+Therefore:
+- avoid hidden closures
+- avoid direct DOM assumptions
+- avoid non-serializable gameplay data
+
+===============================================================================
+TECHNICAL DEBT POLICY
+===============================================================================
+
+Every shortcut must include:
+- why it exists
+- risk
+- migration path
+
+Document debt immediately.
+
+Do NOT accumulate undocumented hacks.
+
+===============================================================================
+FAILURE CASE ANALYSIS
+===============================================================================
+
+1. Giant Monolithic Files
+Risk:
+Impossible onboarding and merge conflicts
+
+Mitigation:
+Feature modularization
+
+2. Babylon Meshes Becoming Gameplay Truth
+Risk:
+Desync and nondeterminism
+
+Mitigation:
+Physics authoritative transforms
+
+3. React Driving Simulation
+Risk:
+Frame instability
+
+Mitigation:
+Simulation isolated from UI
+
+4. Event Spam
+Risk:
+Debugging nightmare
+
+Mitigation:
+Typed broker and diagnostics
+
+5. Rope Instability
+Risk:
+Core mechanic collapse
+
+Mitigation:
+Fixed timestep and capped delta
+
+===============================================================================
+PARALLEL DEVELOPMENT STRATEGY
+===============================================================================
+
+Architecture supports parallel workstreams.
+
+Example ownership:
+Developer A:
+- Rope system
+
+Developer B:
+- Warden AI
+
+Developer C:
+- HUD + overlays
+
+Developer D:
+- shaders + postFX
+
+Minimal overlap reduces merge conflicts.
+
+===============================================================================
+PHASED BUILD PLAN
+===============================================================================
+
+PHASE 0 — INITIALIZATION
+-------------------------------------------------------------------------------
+Goal:
+Blank Babylon scene renders.
+
+Deliverables:
+- vite config
+- aliasing
+- Babylon boot
+- Rapier init
+- source context scripts
+
+Gate:
+- npm run build passes
+- blank scene visible
+- zero console errors
+
+-------------------------------------------------------------------------------
+
+PHASE 1 — CORE INFRASTRUCTURE
+-------------------------------------------------------------------------------
+Goal:
+Skeleton architecture operational.
+
+Build:
+- GameLoop
+- EventBroker
+- ObjectPool
+- StateMachine
+- diagnostics layer
+
+Gate:
+- fixed timestep verified
+- event subscriptions validated
+
+-------------------------------------------------------------------------------
+
+PHASE 2 — STORE + COMPOSITION ROOT
+-------------------------------------------------------------------------------
+Goal:
+Dependency graph centralized.
+
+Build:
+- composition root
+- service wiring
+- Zustand slices
+- readonly selectors
+
+Gate:
+- no circular dependencies
+- clean initialization order
+
+-------------------------------------------------------------------------------
+
+PHASE 3 — SCENE CONSTRUCTION
+-------------------------------------------------------------------------------
+Goal:
+Arena visible.
+
+Build:
+- shaft geometry
+- lighting
+- camera
+- placeholder Warden
+- placeholder Player
+
+Gate:
+- stable camera
+- correct scale
+- playable visibility
+
+-------------------------------------------------------------------------------
+
+PHASE 4 — PHYSICS FOUNDATION
+-------------------------------------------------------------------------------
+Goal:
+Stable deterministic simulation.
+
+Build:
+- rapier stepping
+- player body
+- rope chain
+- constraints
+
+Gate:
+- rope stable at 60hz
+- no explosive impulses
+
+-------------------------------------------------------------------------------
+
+PHASE 5 — PLAYER MOVEMENT
+-------------------------------------------------------------------------------
+Goal:
+Movement feels responsive.
+
+Build:
+- wall detection
+- acceleration
+- jump
+- slide
+- launch
+
+MOST IMPORTANT PHASE.
+
+Do NOT proceed until movement feels excellent.
+
+Gate:
+- movement playtested repeatedly
+- no sticky collisions
+- launch readable and consistent
+
+-------------------------------------------------------------------------------
+
+PHASE 6 — ROPE + TENSION
+-------------------------------------------------------------------------------
+Goal:
+Core fantasy operational.
+
+Build:
+- rope visuals
+- tension evaluation
+- snapping
+- anchor interaction
+
+Gate:
+- tension visually readable
+- no rope jitter explosions
+
+-------------------------------------------------------------------------------
+
+PHASE 7 — WARDEN AI
+-------------------------------------------------------------------------------
+Goal:
+Predator behavior functional.
+
+Build:
+- state machine
+- pursuit
+- reactions
+- aggression escalation
+
+Gate:
+- readable emotional states
+- no AI lockups
+
+-------------------------------------------------------------------------------
+
+PHASE 8 — COMBAT
+-------------------------------------------------------------------------------
+Goal:
+Combat loop complete.
+
+Build:
+- hit detection
+- phase transitions
+- fake-out sequence
+- death handling
+
+Gate:
+- entire game completable
+
+-------------------------------------------------------------------------------
+
+PHASE 9 — VISUALS + AUDIO
+-------------------------------------------------------------------------------
+Goal:
+Identity layer complete.
+
+Build:
+- shaders
+- bloom
+- chromatic aberration
+- reactive drone
+- impact SFX
+
+Gate:
+- emotional readability strong
+
+-------------------------------------------------------------------------------
+
+PHASE 10 — POLISH + TOOLING
+-------------------------------------------------------------------------------
+Goal:
+Stable demo build.
+
+Build:
+- debug panels
+- profiling
+- validation hooks
+- optimization pass
+
+Gate:
+- stable build
+- no catastrophic frame spikes
+- onboarding clarity verified
+
+===============================================================================
+MANDATORY TESTING GATES
+===============================================================================
+
+Before every phase:
+1. npm install clean
+2. npm run build
+3. npm run lint
+4. smoke test gameplay
+5. verify no console spam
+6. verify no memory leaks
+7. verify scene disposal
+
+===============================================================================
+EDITOR + TOOLING ERGONOMICS
+===============================================================================
+
+Required:
+- hot reload stability
+- deterministic resets
+- runtime tweak panels
+- debug visualization toggles
+
+The engine should support:
+rapid iteration without restarts.
+
+===============================================================================
+BUILD STABILITY REQUIREMENTS
+===============================================================================
+
+Never continue development on a broken build.
+
+If:
+- TypeScript errors exist
+- lint errors exist
+- runtime crashes exist
+
+STOP and stabilize before adding features.
+
+This is mandatory.
+
+===============================================================================
+AI SESSION HANDOFF PROTOCOL
+===============================================================================
+
+At the start of every AI coding session:
+
+1. Run:
+npm run dev
+
+2. Ensure:
+docs/all_source_code.txt regenerates
+
+3. Feed:
+all_source_code.txt + this document
+into new AI context
+
+4. Work phase-by-phase only
+
+5. Verify build after every phase
+
+===============================================================================
+FINAL PRINCIPLES
+===============================================================================
+
+SILK succeeds or fails on:
+- movement feel
+- tension readability
+- architectural clarity
+- iteration speed
+
+The architecture must remain:
+- understandable
+- replaceable
+- modular
+- scalable
+- observable
+
+If a system becomes difficult to explain,
+it is already becoming too complex.
+
+Prefer:
+small composable systems with explicit boundaries.
+
+The goal is not maximum abstraction.
+The goal is sustainable velocity without architectural collapse.
+
+===============================================================================
+END OF DOCUMENT
+===============================================================================

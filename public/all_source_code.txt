@@ -1,0 +1,1642 @@
+┌──────────────────────────────────────────────────┐
+│                    PROJECT SILK                  │
+│               Vite + React + Babylon             │
+└──────────────────────────────────────────────────┘
+ [SYSTEM] Generated: 5/23/2026, 9:50:21 AM
+ [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
+
+─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
+.
+├── docs/
+│   ├── AI_INSTRUCTIONS.txt
+│   ├── all_source_code.txt
+│   └── SILK_MASTER_ENGINEERING_DOCUMENT.txt
+├── node_modules/ (contents skipped)
+├── public/
+│   ├── all_source_code.txt
+│   └── source_code_manifest.json
+├── scripts/
+│   ├── create_source_context.command
+│   ├── create_source_context.js
+│   └── generate_manifest.js
+├── src/
+│   ├── app/
+│   │   ├── bootstrap.ts
+│   │   └── compositionRoot.ts
+│   ├── audio/
+│   │   ├── reactive/
+│   │   └── tone/
+│   │       ├── AudioEventRouter.ts
+│   │       ├── TensionSynthesizer.ts
+│   │       └── ToneAudioManager.ts
+│   ├── babylon/
+│   │   ├── cameras/
+│   │   │   └── CameraRig.ts
+│   │   ├── lighting/
+│   │   │   └── LightingRig.ts
+│   │   ├── materials/
+│   │   │   └── MaterialRegistry.ts
+│   │   ├── meshBuilders/
+│   │   │   └── ArenaGeometry.ts
+│   │   ├── postfx/
+│   │   │   └── PostProcessPipeline.ts
+│   │   └── scene/
+│   │       └── SceneManager.ts
+│   ├── core/
+│   │   ├── diagnostics/
+│   │   │   ├── DebugRenderer.ts
+│   │   │   └── Profiler.ts
+│   │   ├── engine/
+│   │   │   └── Engine.ts
+│   │   ├── events/
+│   │   │   ├── EventBroker.ts
+│   │   │   └── GameEvents.ts
+│   │   ├── loop/
+│   │   │   └── GameLoop.ts
+│   │   ├── state/
+│   │   │   └── useGameStore.ts
+│   │   └── sourceCodeManifest.ts
+│   ├── gameplay/
+│   │   ├── player/
+│   │   │   ├── PlayerAnchorSystem.ts
+│   │   │   ├── PlayerConfig.ts
+│   │   │   ├── PlayerEntity.ts
+│   │   │   ├── PlayerInputSystem.ts
+│   │   │   └── PlayerMovementSystem.ts
+│   │   ├── rope/
+│   │   │   ├── RopeSimulation.ts
+│   │   │   └── RopeVisualizer.ts
+│   │   └── warden/
+│   │       ├── WardenConfig.ts
+│   │       ├── WardenEntity.ts
+│   │       ├── WardenStateMachine.ts
+│   │       └── WardenStates.ts
+│   ├── physics/
+│   │   ├── colliders/
+│   │   │   └── ColliderFactory.ts
+│   │   ├── constraints/
+│   │   │   └── RopeConstraint.ts
+│   │   ├── controllers/
+│   │   │   ├── PlayerPhysicsController.ts
+│   │   │   └── WardenPhysicsController.ts
+│   │   └── rapier/
+│   │       └── PhysicsManager.ts
+│   ├── ui/
+│   │   ├── debug/
+│   │   └── hud/
+│   │       ├── DirectDomHud.ts
+│   │       └── HudOverlay.tsx
+│   ├── App.css
+│   ├── App.tsx
+│   ├── index.css
+│   └── main.tsx
+├── eslint.config.js
+├── Icon
+├── index.html
+├── package-lock.json
+├── package.json
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
+
+
+─── SOURCE FILES ───────────────────────────────────
+
+● ./docs/AI_INSTRUCTIONS.txt
+────────────────────────────────────────────────────
+===============================================================================
+STEVEN CASTEEL // SILK DEVELOPMENT TERMINAL INSTRUCTIONS
+Development Guidelines & Automation Protocols
+===============================================================================
+
+1. COMMAND LINE EXECUTION RULES (CRITICAL)
+------------------------------------------
+1.1 Terminal Directives Only
+    Provide complete, fully-implemented terminal scripts using standard 
+    heredocs ('EOF') to create or overwrite targets. Do not ask the user to 
+    manually modify files.
+
+1.2 No Placeholders
+    All generated code must be complete, functional, and compilation-safe. 
+    Never use ellipses ("// ...") or placeholder stubs.
+
+1.3 Phased Implementation Flow
+    Outline development phases sequentially. Provide code files and updates
+    step-by-step, waiting for user confirmation before moving to subsequent steps.
+
+1.4 Verification Checklist
+    Always supply concrete test parameters (e.g., checking compiler output,
+    running local development environments) to verify changes.
+
+1.5 Git Commits
+    Provide unified, clean Git commands for code check-ins only when explicitly
+    requested. Use the following format:
+      git add . && git commit -m "title" -m "description" && git push
+
+2. CODE STANDARDS & OPTIMIZATION PRINCIPLES
+-------------------------------------------
+2.1 Memory Optimization (Hot Loops)
+    Prevent runtime Garbage Collection spikes. Do not allocate memory or instantiate
+    classes (such as "new Vector3") inside update or draw loops. Always write and
+    modify pre-allocated coordinate buffers.
+
+2.2 Non-Reactive High-Frequency HUD
+    Real-time UI elements (like tension meters or resource gauges) must bypass
+    React's Virtual DOM. Utilize direct DOM subscriptions to mutate elements
+    directly via cached DOM references.
+
+2.3 Deterministic Fixed Timestep
+    Authoritative physics simulations must update inside fixed 60Hz blocks
+    using delta accumulator steps. Interpolate visual coordinates during the
+    rendering phase to ensure smooth displays.
+
+2.4 Clean ESM Standards
+    All script utilities must use clean ES Module imports and syntax.
+
+2.5 Zsh Compatibility
+    The development environment runs macOS with Zsh. Do not use unescaped 
+    exclamation points ("!") in command variables, and avoid placing hash symbols
+    ("#") inside active terminal blocks.
+
+===============================================================================
+END OF INSTRUCTIONS
+===============================================================================
+
+
+
+● ./docs/SILK_MASTER_ENGINEERING_DOCUMENT.txt
+────────────────────────────────────────────────────
+===============================================================================
+SILK — MASTER ENGINEERING & ARCHITECTURE DOCUMENT
+Vertical Slice Production Framework
+Version: Refined 3D Architecture Edition
+Target Stack: React 19 + TypeScript 6 + Vite 8 + Babylon.js + Rapier 3D WASM
+===============================================================================
+
+1. EXECUTIVE SUMMARY & DESIGN PHILOSOPHY
+-------------------------------------------------------------------------------
+SILK is a fast-paced vertical arena action game that prioritizes physical 
+momentum, elastic rope physics, dynamic lighting, and responsive traversal feedback. 
+
+To ensure performance remains smooth at high frame rates, SILK decouples 
+its subsystems into isolated layers:
+- React is used strictly for static UI layout.
+- Babylon.js handles visual presentation.
+- Rapier WASM manages authoritative physics transforms.
+- Gameplay systems process logic at a fixed 60Hz.
+
+There are no menus, settings, or loading screens. The application boots 
+directly into the active elevator shaft arena.
+
+2. SUB-SYSTEM TOPOLOGIES
+-------------------------------------------------------------------------------
+To prevent tight coupling, all cross-system communication is routed through
+a centralized, typed Event Broker.
+
+2.1 State Hierarchy & Data Flow
+- Rapier WASM: Authoritative owner of 3D rigid body positions and velocities.
+- Gameplay Systems: Mutates physics bodies by applying directional forces or
+  impulses; runs AI state machines and processes player inputs.
+- Babylon.js Scene: Synchronizes mesh positions to Rapier rigid bodies during
+  the render phase, interpolating transforms using the remaining frame delta.
+- Zustand Store: Read-only, throttled diagnostic state for HUD overlay renders.
+
+2.2 Core Performance Constraints
+- Hot-Loop Allocations: Memory allocation (e.g., "new BABYLON.Vector3()") is
+  forbidden inside update steps. Systems must read and modify pre-allocated
+  static vector buffers to prevent Garbage Collection frame spikes.
+- UI Rendition: Real-time UI updates (such as tension meters and velocity gauges)
+  bypass React's Virtual DOM. Direct DOM HUD managers mutate targets at 60Hz
+  via cached DOM references.
+
+3. EXHAUSTIVE DIRECTORY MAP
+-------------------------------------------------------------------------------
+The codebase is structured as follows:
+
+- src/app/             : Bootstrap routing and composition root configuration.
+- src/core/            : Game loops, event brokers, and diagnostic monitors.
+- src/babylon/         : Scene setups, camera rigs, dynamic lights, and post-processing.
+- src/physics/         : WASM Rapier setups, collider builders, and constraints.
+- src/gameplay/        : Entities, input handlers, movement controllers, and AI systems.
+- src/audio/           : Spatialized Tone.js synthesizer nodes and routing.
+- src/ui/              : Direct-DOM layouts and React HUD overlays.
+
+4. DETAILED COMPONENT CONSTRAINTS
+-------------------------------------------------------------------------------
+4.1 GameLoop (src/core/loop/GameLoop.ts)
+- Runs a high-precision RequestAnimationFrame loop.
+- Accumulates delta times and runs discrete, fixed-step updates (dt = 1/60s).
+- Dynamically caps update steps to prevent simulation instability after tab
+  restoration or system lag.
+
+4.2 EventBroker (src/core/events/EventBroker.ts)
+- Strictly typed. All events must define immutable payloads with clear types.
+- Decouples core simulation updates from secondary systems (such as Tone.js SFX,
+  camera shakes, and particle systems).
+
+4.3 CameraRig (src/babylon/cameras/CameraRig.ts)
+- Tracks the player using smooth, spring-based interpolations.
+- Applies camera-shake offsets directly to the target vector using an exponential
+  decay solver, keeping the underlying math separate from the physics simulation.
+
+4.4 RopeSimulation (src/gameplay/rope/RopeSimulation.ts)
+- Simulates the physical silk line using a chain of distance constraints or joints
+  inside the Rapier world.
+- Evaluates tension forces, manages anchor snapping thresholds, and applies
+  elastic pull forces back to the player.
+
+4.5 WardenStateMachine (src/gameplay/warden/WardenStateMachine.ts)
+- Orchestrates Warden boss states (Dormant, Hunting, Frenzied, Recovering)
+  using a deterministic, state-pattern machine.
+- Shuts down the Warden physics controller and resets update parameters upon
+  state transitions.
+
+5. GAME JUICE MATHEMATICS
+-------------------------------------------------------------------------------
+5.1 Visual Squash & Stretch
+To convey velocity and momentum without causing physics simulation errors, 
+squash and stretch scaling is applied strictly to the Babylon visual mesh.
+The calculations are derived from the entity's vertical velocity:
+
+  Stretch_Y = 1.0 + Clamp((|Velocity_Y| / MaxSpeed) * StretchFactor, 0.0, 0.25)
+  Squash_XZ = 1.0 / Sqrt(Stretch_Y)
+
+5.2 Camera Shake
+Rotational and translational offsets are applied to the active camera using
+a spring-decay solver:
+
+  Offset = Noise(t) * Amplitude * e^(-Decay * t)
+
+6. DEVELOPMENT WORKFLOW & TESTING
+-------------------------------------------------------------------------------
+Development follows a strict, step-by-step phased workflow. Before adding 
+features, you must ensure:
+- "npm run build" completes with zero TypeScript errors.
+- "npm run lint" passes successfully.
+- No memory leaks occur over extended play sessions.
+
+All project updates must be aggregated into "docs/all_source_code.txt" 
+using the provided source-context tools.
+
+===============================================================================
+END OF DOCUMENT
+===============================================================================
+
+
+
+● ./eslint.config.js
+────────────────────────────────────────────────────
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+])
+
+
+
+● ./index.html
+────────────────────────────────────────────────────
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project SILK</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+
+● ./package.json
+────────────────────────────────────────────────────
+{
+  "name": "silk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/generate_manifest.js && node scripts/create_source_context.js",
+    "dev": "vite",
+    "prebuild": "node scripts/generate_manifest.js && node scripts/create_source_context.js",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.47.0",
+    "@dimforge/rapier3d": "^0.19.3",
+    "framer-motion": "^12.39.0",
+    "gsap": "^3.12.5",
+    "lucide-react": "^1.16.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-syntax-highlighter": "^15.6.1",
+    "tone": "^15.1.22",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.12.4",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.12"
+  }
+}
+
+
+
+● ./scripts/create_source_context.command
+────────────────────────────────────────────────────
+#!/usr/bin/env zsh
+cd "$(dirname "$0")/.."
+clear
+echo "Assembling project source context..."
+node scripts/create_source_context.js
+
+
+
+● ./scripts/create_source_context.js
+────────────────────────────────────────────────────
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const fsp = fs.promises;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+const docsDir = path.join(rootDir, 'docs');
+const outputFile = path.join(docsDir, 'all_source_code.txt');
+
+function shouldInclude(filePath) {
+  const relPath = path.relative(rootDir, filePath).split(path.sep).join('/');
+  
+  if (
+    path.basename(filePath) === 'all_source_code.txt' || 
+    path.basename(filePath) === 'source_code_manifest.json' ||
+    path.basename(filePath) === 'sourceCodeManifest.ts'
+  ) {
+    return false;
+  }
+
+  const ignoredPaths = ['node_modules', '.git', 'dist', '.vscode', '.github', 'BOX_BATTLE_ARCHIVE'];
+  if (ignoredPaths.some(p => relPath.startsWith(p) || relPath.includes(`/${p}/`))) return false;
+  
+  const boilerplateConfigs = ['.DS_Store', 'package-lock.json', 'tsconfig.tsbuildinfo'];
+  if (boilerplateConfigs.includes(path.basename(relPath))) return false;
+
+  const ext = path.extname(relPath);
+  const allowedExts = ['.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.json', '.md', '.txt', '.glsl', '.command'];
+  return allowedExts.includes(ext);
+}
+
+function getAllFiles(dir, fileList = []) {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    const fileName = path.basename(filePath);
+    if (fs.statSync(filePath).isDirectory()) {
+      if (!fileName.startsWith('.') && fileName !== 'node_modules' && fileName !== 'dist') {
+        getAllFiles(filePath, fileList);
+      }
+    } else {
+      if (shouldInclude(filePath)) fileList.push(filePath);
+    }
+  }
+  return fileList;
+}
+
+function generateTree(dir, prefix = '') {
+  let output = '';
+  const files = fs.readdirSync(dir);
+  
+  const items = files
+    .map(file => {
+      const filePath = path.join(dir, file);
+      let isDir = false;
+      try {
+        isDir = fs.statSync(filePath).isDirectory();
+      } catch (e) {}
+      return { name: file, isDir, path: filePath };
+    })
+    .filter(item => {
+      if (item.name.startsWith('.') && item.name !== '.env') return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.isDir && !b.isDir) return -1;
+      if (!a.isDir && b.isDir) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const isLast = i === items.length - 1;
+    const branch = isLast ? '└── ' : '├── ';
+    
+    const skippedDirs = ['node_modules', 'dist', '.git', 'BOX_BATTLE_ARCHIVE'];
+    if (item.isDir && skippedDirs.includes(item.name)) {
+      output += `${prefix}${branch}${item.name}/ (contents skipped)\n`;
+      continue;
+    }
+
+    output += `${prefix}${branch}${item.name}${item.isDir ? '/' : ''}\n`;
+
+    if (item.isDir) {
+      const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+      output += generateTree(item.path, nextPrefix);
+    }
+  }
+  return output;
+}
+
+async function main() {
+  try {
+    if (!fs.existsSync(docsDir)) {
+      fs.mkdirSync(docsDir, { recursive: true });
+    }
+
+    const now = new Date().toLocaleString();
+    let content = '┌──────────────────────────────────────────────────┐\n';
+    content += '│                    PROJECT SILK                  │\n';
+    content += '│               Vite + React + Babylon             │\n';
+    content += '└──────────────────────────────────────────────────┘\n';
+    content += ` [SYSTEM] Generated: ${now}\n`;
+    content += ` [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js\n\n`;
+    
+    content += '─── ABRIDGED DIRECTORY STRUCTURE ───────────────────\n';
+    content += '.\n';
+    content += generateTree(rootDir, '');
+    content += '\n\n─── SOURCE FILES ───────────────────────────────────\n\n';
+
+    const files = getAllFiles(rootDir);
+    
+    for (let i = 0; i < files.length; i++) {
+      const filePath = files[i];
+      const relPath = path.relative(rootDir, filePath).split(path.sep).join('/');
+      
+      content += `● ./${relPath}\n`;
+      content += `────────────────────────────────────────────────────\n`;
+      const fileContent = await fsp.readFile(filePath, 'utf8');
+      content += fileContent + '\n\n\n';
+    }
+
+    await fsp.writeFile(outputFile, content, 'utf8');
+    const publicOutputFile = path.join(rootDir, 'public', 'all_source_code.txt');
+    await fsp.writeFile(publicOutputFile, content, 'utf8');
+    
+    console.log('Source context assembled successfully.');
+    process.exit(0);
+
+  } catch (err) {
+    console.error('Error during context compilation:', err);
+    process.exit(1);
+  }
+}
+
+main();
+
+
+
+● ./scripts/generate_manifest.js
+────────────────────────────────────────────────────
+import fs from 'fs';
+import path from 'path';
+
+const rootDir = process.cwd();
+const manifest = {};
+
+const includeFiles = [
+  'index.html',
+  'package.json',
+  'tsconfig.json',
+  'tsconfig.app.json',
+  'tsconfig.node.json',
+  'vite.config.ts',
+  'eslint.config.js',
+  'README.md'
+];
+
+const includeDirs = ['src'];
+
+function scanDir(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    const relPath = path.relative(rootDir, fullPath).replace(/\\/g, '/');
+
+    if (entry.isDirectory()) {
+      if (entry.name !== 'node_modules' && entry.name !== 'dist' && entry.name !== '.git') {
+        scanDir(fullPath);
+      }
+    } else if (entry.isFile()) {
+      if (entry.name === 'sourceCodeManifest.ts' || entry.name === 'source_code_manifest.json') {
+        continue;
+      }
+      const ext = path.extname(entry.name);
+      if (['.ts', '.tsx', '.js', '.jsx', '.css', '.json', '.md', '.txt', '.html', '.glsl'].includes(ext)) {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        manifest[relPath] = content;
+      }
+    }
+  }
+}
+
+for (const file of includeFiles) {
+  const fullPath = path.join(rootDir, file);
+  if (fs.existsSync(fullPath)) {
+    const content = fs.readFileSync(fullPath, 'utf8');
+    manifest[file] = content;
+  }
+}
+
+for (const dir of includeDirs) {
+  const fullPath = path.join(rootDir, dir);
+  if (fs.existsSync(fullPath)) {
+    scanDir(fullPath);
+  }
+}
+
+fs.mkdirSync(path.join(rootDir, 'public'), { recursive: true });
+fs.writeFileSync(
+  path.join(rootDir, 'public/source_code_manifest.json'),
+  JSON.stringify(manifest, null, 2),
+  'utf8'
+);
+
+fs.mkdirSync(path.join(rootDir, 'src/core'), { recursive: true });
+const tsContent = `// Automatically generated by scripts/generate_manifest.js. Do not edit directly.\nexport const sourceCodeManifest: Record<string, string> = ${JSON.stringify(manifest, null, 2)};\n`;
+fs.writeFileSync(
+  path.join(rootDir, 'src/core/sourceCodeManifest.ts'),
+  tsContent,
+  'utf8'
+);
+
+console.log('Manifest and dynamic source assets compiled successfully.');
+
+
+
+● ./src/App.css
+────────────────────────────────────────────────────
+.cabinet-outer {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #050505;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.viewport-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.hud-overlay-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+
+
+● ./src/App.tsx
+────────────────────────────────────────────────────
+import { useEffect, useRef } from "react";
+import { bootstrapApplication } from "./app/bootstrap";
+import { HudOverlay } from "./ui/hud/HudOverlay";
+import "./App.css";
+
+export default function App() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    
+    let engineInstance: any = null;
+    bootstrapApplication(canvasRef.current).then((engine) => {
+      engineInstance = engine;
+      engineInstance.start();
+    });
+
+    return () => {
+      if (engineInstance) {
+        engineInstance.stop();
+      }
+    };
+  }, []);
+
+  return (
+    <div className="cabinet-outer">
+      <div className="viewport-container">
+        <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
+        <HudOverlay />
+      </div>
+    </div>
+  );
+}
+
+
+
+● ./src/app/bootstrap.ts
+────────────────────────────────────────────────────
+import { Engine } from "../core/engine/Engine";
+
+export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<Engine> {
+  const engine = new Engine(canvas);
+  return engine;
+}
+
+
+
+● ./src/app/compositionRoot.ts
+────────────────────────────────────────────────────
+export class CompositionRoot {
+  private services = new Map<string, any>();
+
+  public register(token: string, instance: any): void {
+    this.services.set(token, instance);
+  }
+
+  public resolve<T>(token: string): T {
+    const service = this.services.get(token);
+    if (!service) {
+      throw new Error(`Service token not found: ${token}`);
+    }
+    return service as T;
+  }
+}
+
+
+
+● ./src/audio/tone/AudioEventRouter.ts
+────────────────────────────────────────────────────
+export class AudioEventRouter {
+  public registerEvents(): void {
+    // Mapping triggers to synthesized waves
+  }
+}
+
+
+
+● ./src/audio/tone/TensionSynthesizer.ts
+────────────────────────────────────────────────────
+import * as Tone from "tone";
+
+export class TensionSynthesizer {
+  private fmOsc: Tone.FMOscillator | null = null;
+  private lowpassFilter: Tone.Filter | null = null;
+  private gainNode: Tone.Gain | null = null;
+  private lfo: Tone.LFO | null = null;
+
+  public initialize(): void {
+    this.lowpassFilter = new Tone.Filter({
+      frequency: 200,
+      type: "lowpass",
+      Q: 4.0
+    }).toDestination();
+
+    this.fmOsc = new Tone.FMOscillator({
+      frequency: 55,
+      type: "sawtooth",
+      modulationType: "sine",
+      harmonicity: 1.5,
+      modulationIndex: 5
+    });
+
+    this.gainNode = new Tone.Gain(0.15);
+
+    this.lfo = new Tone.LFO({
+      frequency: 0.2,
+      min: 150,
+      max: 280
+    });
+
+    this.fmOsc.connect(this.gainNode);
+    this.gainNode.connect(this.lowpassFilter);
+    this.lfo.connect(this.lowpassFilter.frequency);
+
+    this.lfo.start();
+    this.fmOsc.start();
+  }
+
+  public updateDronePitch(tensionVal: number): void {
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
+
+    const now = Tone.now();
+    const clampedTension = Math.max(0, Math.min(1, tensionVal));
+
+    const targetBaseFreq = 55 + clampedTension * 55;
+    const targetModulationIndex = 5 + clampedTension * 25;
+    const targetGain = 0.15 + clampedTension * 0.12;
+
+    this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, 0.1);
+    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, 0.1);
+    this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
+  }
+
+  public dispose(): void {
+    if (this.fmOsc) {
+      this.fmOsc.stop();
+      this.fmOsc.dispose();
+    }
+    if (this.lfo) {
+      this.lfo.stop();
+      this.lfo.dispose();
+    }
+    if (this.lowpassFilter) {
+      this.lowpassFilter.dispose();
+    }
+    if (this.gainNode) {
+      this.gainNode.dispose();
+    }
+  }
+}
+
+
+
+● ./src/audio/tone/ToneAudioManager.ts
+────────────────────────────────────────────────────
+import * as Tone from "tone";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
+import { TensionSynthesizer } from "./TensionSynthesizer";
+
+export class ToneAudioManager {
+  private broker: EventBroker;
+  private tensionSynth: TensionSynthesizer | null = null;
+  private initialized: boolean = false;
+  private unsub: (() => void) | null = null;
+
+  constructor(broker: EventBroker) {
+    this.broker = broker;
+  }
+
+  public initialize(): void {
+    if (typeof window === "undefined") return;
+
+    const triggerOnFirstGesture = (): void => {
+      this.bootAudioEngine();
+      window.removeEventListener("click", triggerOnFirstGesture);
+      window.removeEventListener("keydown", triggerOnFirstGesture);
+      window.removeEventListener("touchend", triggerOnFirstGesture);
+      window.removeEventListener("mousedown", triggerOnFirstGesture);
+    };
+
+    window.addEventListener("click", triggerOnFirstGesture);
+    window.addEventListener("keydown", triggerOnFirstGesture);
+    window.addEventListener("touchend", triggerOnFirstGesture);
+    window.addEventListener("mousedown", triggerOnFirstGesture);
+
+    this.unsub = this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => {
+      if (this.initialized && this.tensionSynth) {
+        this.tensionSynth.updateDronePitch(payload.tension);
+      }
+    });
+  }
+
+  private bootAudioEngine(): void {
+    if (this.initialized) return;
+
+    Tone.start().then(() => {
+      this.initialized = true;
+      this.tensionSynth = new TensionSynthesizer();
+      this.tensionSynth.initialize();
+      this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+    });
+  }
+
+  public dispose(): void {
+    if (this.unsub) {
+      this.unsub();
+    }
+    if (this.tensionSynth) {
+      this.tensionSynth.dispose();
+    }
+  }
+}
+
+
+
+● ./src/babylon/cameras/CameraRig.ts
+────────────────────────────────────────────────────
+export class CameraRig {
+  public updateTracking(targetX: number, targetY: number): void {
+    // Clamps focal length and centers action view
+  }
+
+  public shake(amplitude: number): void {
+    // Evaluates camera offset spring solver
+  }
+}
+
+
+
+● ./src/babylon/lighting/LightingRig.ts
+────────────────────────────────────────────────────
+export class LightingRig {
+  public setWardenPhaseHue(colorHex: string): void {
+    // Dynamic light shifts
+  }
+}
+
+
+
+● ./src/babylon/materials/MaterialRegistry.ts
+────────────────────────────────────────────────────
+export class MaterialRegistry {
+  private compiledMaterials = new Map<string, any>();
+
+  public getMaterial(key: string): any {
+    return this.compiledMaterials.get(key);
+  }
+}
+
+
+
+● ./src/babylon/meshBuilders/ArenaGeometry.ts
+────────────────────────────────────────────────────
+export class ArenaGeometry {
+  public generateElevatorShaft(): void {
+    // Structural layout generator
+  }
+}
+
+
+
+● ./src/babylon/postfx/PostProcessPipeline.ts
+────────────────────────────────────────────────────
+export class PostProcessPipeline {
+  public triggerAberrationPulse(): void {
+    // Screen post process pulse
+  }
+}
+
+
+
+● ./src/babylon/scene/SceneManager.ts
+────────────────────────────────────────────────────
+export class SceneManager {
+  private canvas: HTMLCanvasElement;
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+  }
+
+  public initialize(): void {
+    // Instantiates WebGL / WebGPU scene
+  }
+
+  public render(): void {
+    // Primary camera view render step
+  }
+}
+
+
+
+● ./src/core/diagnostics/DebugRenderer.ts
+────────────────────────────────────────────────────
+export class DebugRenderer {
+  public drawWireframe(): void {
+    // Visual physics debug overlay pass
+  }
+}
+
+
+
+● ./src/core/diagnostics/Profiler.ts
+────────────────────────────────────────────────────
+export class Profiler {
+  private fps: number = 0;
+  private frameCount: number = 0;
+  private lastTime: number = performance.now();
+
+  public update(): void {
+    this.frameCount++;
+    const now = performance.now();
+    if (now - this.lastTime >= 1000) {
+      this.fps = this.frameCount;
+      this.frameCount = 0;
+      this.lastTime = now;
+    }
+  }
+
+  public getFps(): number {
+    return this.fps;
+  }
+}
+
+
+
+● ./src/core/engine/Engine.ts
+────────────────────────────────────────────────────
+import { GameLoop } from "../loop/GameLoop";
+import { EventBroker } from "../events/EventBroker";
+
+export class Engine {
+  private loop: GameLoop;
+  private broker: EventBroker;
+  private canvas: HTMLCanvasElement;
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+    this.broker = new EventBroker();
+    this.loop = new GameLoop(
+      (dt) => this.update(dt),
+      () => this.render()
+    );
+  }
+
+  public start(): void {
+    this.loop.start();
+  }
+
+  public stop(): void {
+    this.loop.stop();
+  }
+
+  private update(dt: number): void {
+    // Scheduled fixed update step
+  }
+
+  private render(): void {
+    // Scheduled Babylon render pass
+  }
+}
+
+
+
+● ./src/core/events/EventBroker.ts
+────────────────────────────────────────────────────
+import { GameEvent, GameEventMap } from "./GameEvents";
+
+export type EventCallback<T> = (payload: T) => void;
+
+export class EventBroker {
+  private listeners: { [K in GameEvent]?: Set<EventCallback<any>> } = {};
+
+  public subscribe<K extends GameEvent>(event: K, cb: EventCallback<GameEventMap[K]>): () => void {
+    if (!this.listeners[event]) {
+      this.listeners[event] = new Set();
+    }
+    this.listeners[event]!.add(cb);
+    return () => {
+      this.listeners[event]?.delete(cb);
+    };
+  }
+
+  public publish<K extends GameEvent>(event: K, payload: GameEventMap[K]): void {
+    const set = this.listeners[event];
+    if (set) {
+      set.forEach((cb) => cb(payload));
+    }
+  }
+
+  public clear(): void {
+    this.listeners = {};
+  }
+}
+
+
+
+● ./src/core/events/GameEvents.ts
+────────────────────────────────────────────────────
+export enum GameEvent {
+  GAME_INITIALIZED = "GAME_INITIALIZED",
+  USER_GESTURE_REGISTERED = "USER_GESTURE_REGISTERED",
+  PLAYER_MOVE = "PLAYER_MOVE",
+  PLAYER_HEALTH_CHANGED = "PLAYER_HEALTH_CHANGED",
+  PLAYER_VELOCITY_CHANGED = "PLAYER_VELOCITY_CHANGED",
+  ROPE_TENSION_CHANGE = "ROPE_TENSION_CHANGE",
+  ROPE_LENGTH_CHANGE = "ROPE_LENGTH_CHANGE",
+  WARDEN_STATE_CHANGE = "WARDEN_STATE_CHANGE",
+  CAMERA_SHAKE_TRIGGERED = "CAMERA_SHAKE_TRIGGERED"
+}
+
+export interface GameEventMap {
+  [GameEvent.GAME_INITIALIZED]: void;
+  [GameEvent.USER_GESTURE_REGISTERED]: void;
+  [GameEvent.PLAYER_MOVE]: { x: number; y: number; z: number };
+  [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
+  [GameEvent.PLAYER_VELOCITY_CHANGED]: { velocity: number; maxVelocity: number };
+  [GameEvent.ROPE_TENSION_CHANGE]: { tension: number };
+  [GameEvent.ROPE_LENGTH_CHANGE]: { length: number; maxLength: number };
+  [GameEvent.WARDEN_STATE_CHANGE]: { state: string; hue: string };
+  [GameEvent.CAMERA_SHAKE_TRIGGERED]: { amplitude: number; duration: number };
+}
+
+
+
+● ./src/core/loop/GameLoop.ts
+────────────────────────────────────────────────────
+export class GameLoop {
+  private isRunning: boolean = false;
+  private lastTime: number = 0;
+  private accumulator: number = 0;
+  private readonly fixedStep: number = 1 / 60;
+  private onUpdate: (dt: number) => void;
+  private onRender: (interpolationAlpha: number) => void;
+  private rafId: number | null = null;
+
+  constructor(onUpdate: (dt: number) => void, onRender: (interpolationAlpha: number) => void) {
+    this.onUpdate = onUpdate;
+    this.onRender = onRender;
+    if (typeof window !== "undefined") {
+      document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    }
+  }
+
+  public start(): void {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    this.lastTime = performance.now();
+    this.accumulator = 0;
+    this.rafId = requestAnimationFrame((t) => this.tick(t));
+  }
+
+  public stop(): void {
+    this.isRunning = false;
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
+  private tick(now: number): void {
+    if (!this.isRunning) return;
+    let dt = (now - this.lastTime) / 1000;
+    this.lastTime = now;
+
+    if (dt > 0.1) {
+      dt = 0.1;
+    }
+    this.accumulator += dt;
+
+    while (this.accumulator >= this.fixedStep) {
+      this.onUpdate(this.fixedStep);
+      this.accumulator -= this.fixedStep;
+    }
+
+    const alpha = this.accumulator / this.fixedStep;
+    this.onRender(alpha);
+
+    this.rafId = requestAnimationFrame((t) => this.tick(t));
+  }
+
+  private handleVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.stop;
+    } else {
+      this.start();
+    }
+  };
+
+  public cleanup(): void {
+    this.stop();
+    if (typeof window !== "undefined") {
+      document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    }
+  }
+}
+
+
+
+● ./src/core/state/useGameStore.ts
+────────────────────────────────────────────────────
+import { create } from "zustand";
+
+interface UIState {
+  isPaused: boolean;
+  activeScreen: string;
+  setPaused: (paused: boolean) => void;
+  setScreen: (screen: string) => void;
+}
+
+export const useGameStore = create<UIState>((set) => ({
+  isPaused: false,
+  activeScreen: "ARENA",
+  setPaused: (paused) => set({ isPaused: paused }),
+  setScreen: (screen) => set({ activeScreen: screen }),
+}));
+
+
+
+● ./src/gameplay/player/PlayerAnchorSystem.ts
+────────────────────────────────────────────────────
+export class PlayerAnchorSystem {
+  public connectAnchor(anchorId: string): void {
+    // Deploy dynamic line
+  }
+}
+
+
+
+● ./src/gameplay/player/PlayerConfig.ts
+────────────────────────────────────────────────────
+export const PlayerConfig = {
+  climbSpeed: 300,
+  gravityMultiplier: 1.2,
+  maxRopeLength: 15,
+};
+
+
+
+● ./src/gameplay/player/PlayerEntity.ts
+────────────────────────────────────────────────────
+export class PlayerEntity {
+  public hp: number = 5;
+  public update(): void {
+    // Core update hook
+  }
+}
+
+
+
+● ./src/gameplay/player/PlayerInputSystem.ts
+────────────────────────────────────────────────────
+export class PlayerInputSystem {
+  public getDirection(): { x: number; y: number } {
+    return { x: 0, y: 0 };
+  }
+}
+
+
+
+● ./src/gameplay/player/PlayerMovementSystem.ts
+────────────────────────────────────────────────────
+export class PlayerMovementSystem {
+  public applyMovement(): void {
+    // Climb / Wall cling updates
+  }
+}
+
+
+
+● ./src/gameplay/rope/RopeSimulation.ts
+────────────────────────────────────────────────────
+export class RopeSimulation {
+  public calculateTension(): number {
+    return 0.0;
+  }
+}
+
+
+
+● ./src/gameplay/rope/RopeVisualizer.ts
+────────────────────────────────────────────────────
+export class RopeVisualizer {
+  public drawTether(): void {
+    // Dynamic tube / ribbon updates
+  }
+}
+
+
+
+● ./src/gameplay/warden/WardenConfig.ts
+────────────────────────────────────────────────────
+export const WardenConfig = {
+  phase2Threshold: 0.6,
+  attackChargeSpeed: 800,
+};
+
+
+
+● ./src/gameplay/warden/WardenEntity.ts
+────────────────────────────────────────────────────
+export class WardenEntity {
+  public health: number = 100;
+  public update(): void {
+    // Update step
+  }
+}
+
+
+
+● ./src/gameplay/warden/WardenStateMachine.ts
+────────────────────────────────────────────────────
+export class WardenStateMachine {
+  private activeState: string = "DORMANT";
+
+  public setWardenState(state: string): void {
+    this.activeState = state;
+  }
+
+  public getActiveState(): string {
+    return this.activeState;
+  }
+}
+
+
+
+● ./src/gameplay/warden/WardenStates.ts
+────────────────────────────────────────────────────
+export class WardenDormantState {}
+export class WardenHuntingState {}
+export class WardenFrenziedState {}
+
+
+
+● ./src/index.css
+────────────────────────────────────────────────────
+:root {
+  --void-bg: #050505;
+  --surface-bg: #0c0e12;
+  --signal-green: #22c55e;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--void-bg);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+
+
+● ./src/main.tsx
+────────────────────────────────────────────────────
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+
+● ./src/physics/colliders/ColliderFactory.ts
+────────────────────────────────────────────────────
+export class ColliderFactory {
+  public createCapsuleCollider(): void {
+    // Build Rapier capsules
+  }
+}
+
+
+
+● ./src/physics/constraints/RopeConstraint.ts
+────────────────────────────────────────────────────
+export class RopeConstraint {
+  public updateLengthLimit(maxLen: number): void {
+    // Adjust distance limit
+  }
+}
+
+
+
+● ./src/physics/controllers/PlayerPhysicsController.ts
+────────────────────────────────────────────────────
+export class PlayerPhysicsController {
+  public applyVelocity(vx: number, vy: number): void {
+    // Direct kinematically controlled impulses
+  }
+}
+
+
+
+● ./src/physics/controllers/WardenPhysicsController.ts
+────────────────────────────────────────────────────
+export class WardenPhysicsController {
+  public chargeImpulse(forceX: number): void {
+    // Applies impact forces
+  }
+}
+
+
+
+● ./src/physics/rapier/PhysicsManager.ts
+────────────────────────────────────────────────────
+export class PhysicsManager {
+  public stepPhysics(): void {
+    // Authoritative step tick
+  }
+}
+
+
+
+● ./src/ui/hud/DirectDomHud.ts
+────────────────────────────────────────────────────
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
+
+export class DirectDomHud {
+  private broker: EventBroker;
+  private unsubscribes: (() => void)[] = [];
+
+  private tensionBar: HTMLElement | null = null;
+  private tensionText: HTMLElement | null = null;
+  private speedBar: HTMLElement | null = null;
+  private speedText: HTMLElement | null = null;
+  private hpText: HTMLElement | null = null;
+  private hpValue: HTMLElement | null = null;
+  private bossStateText: HTMLElement | null = null;
+  private bossPhaseText: HTMLElement | null = null;
+
+  constructor(broker: EventBroker) {
+    this.broker = broker;
+  }
+
+  public initialize(): void {
+    this.cacheDomElements();
+    this.registerSubscribers();
+  }
+
+  private cacheDomElements(): void {
+    if (typeof document === "undefined") return;
+    this.tensionBar = document.getElementById("tension-meter-bar");
+    this.tensionText = document.getElementById("tension-meter-text");
+    this.speedBar = document.getElementById("speedometer-bar");
+    this.speedText = document.getElementById("speedometer-text");
+    this.hpText = document.getElementById("player-hp-bar");
+    this.hpValue = document.getElementById("player-hp-value");
+    this.bossStateText = document.getElementById("boss-state-text");
+    this.bossPhaseText = document.getElementById("boss-state-phase");
+  }
+
+  private registerSubscribers(): void {
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => {
+        this.updateTensionDisplay(payload.tension);
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_VELOCITY_CHANGED, (payload) => {
+        this.updateVelocityDisplay(payload.velocity, payload.maxVelocity);
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
+        this.updateHealthDisplay(payload.hp, payload.maxHp);
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => {
+        this.updateWardenStateDisplay(payload.state, payload.hue);
+      })
+    );
+  }
+
+  public updateTensionDisplay(value: number): void {
+    const clamped = Math.max(0, Math.min(1, value));
+    const percentage = (clamped * 100).toFixed(1) + "%";
+
+    if (this.tensionBar) {
+      this.tensionBar.style.width = percentage;
+      if (clamped > 0.8) {
+        this.tensionBar.style.backgroundColor = "var(--signal-red, #ef4444)";
+      } else if (clamped > 0.5) {
+        this.tensionBar.style.backgroundColor = "var(--signal-yellow, #eab308)";
+      } else {
+        this.tensionBar.style.backgroundColor = "var(--signal-green, #22c55e)";
+      }
+    }
+    if (this.tensionText) {
+      this.tensionText.textContent = `TENSION: ${percentage}`;
+    }
+  }
+
+  public updateVelocityDisplay(velocity: number, maxVelocity: number): void {
+    const ratio = maxVelocity > 0 ? Math.max(0, Math.min(1, velocity / maxVelocity)) : 0;
+    const percentage = (ratio * 100).toFixed(0) + "%";
+    
+    if (this.speedBar) {
+      this.speedBar.style.width = percentage;
+    }
+    if (this.speedText) {
+      this.speedText.textContent = `VELOCITY: ${velocity.toFixed(0)} / ${maxVelocity.toFixed(0)} m/s`;
+    }
+  }
+
+  public updateHealthDisplay(hp: number, maxHp: number): void {
+    if (this.hpValue) {
+      this.hpValue.textContent = `HP: ${hp} / ${maxHp}`;
+    }
+    if (this.hpText) {
+      const hpPct = ((hp / maxHp) * 100).toFixed(0) + "%";
+      this.hpText.style.width = hpPct;
+      if (hp <= 1) {
+        this.hpText.style.backgroundColor = "var(--signal-red, #ef4444)";
+      } else {
+        this.hpText.style.backgroundColor = "var(--signal-green, #22c55e)";
+      }
+    }
+  }
+
+  public updateWardenStateDisplay(state: string, hue: string): void {
+    if (this.bossStateText) {
+      this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
+      this.bossStateText.style.color = hue;
+    }
+    if (this.bossPhaseText) {
+      this.bossPhaseText.style.borderColor = hue;
+      this.bossPhaseText.style.color = hue;
+    }
+  }
+
+  public dispose(): void {
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
+  }
+}
+
+
+
+● ./src/ui/hud/HudOverlay.tsx
+────────────────────────────────────────────────────
+import React from "react";
+
+export const HudOverlay: React.FC = () => {
+  return (
+    <div 
+      className="hud-overlay-container" 
+      style={{
+        position: "absolute",
+        inset: "24px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        pointerEvents: "none",
+        fontFamily: "monospace",
+        color: "#f3f4f6"
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "240px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "bold" }}>
+            <span>PLAYER INTEGRITY</span>
+            <span id="player-hp-value">HP: 5 / 5</span>
+          </div>
+          <div style={{ width: "100%", height: "8px", background: "#1f2937", borderRadius: "4px", overflow: "hidden" }}>
+            <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "var(--signal-green, #22c55e)", transition: "width 0.15s ease" }} />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "240px", alignItems: "flex-end" }}>
+          <span id="boss-state-text" style={{ fontSize: "13px", fontWeight: "bold", color: "#f3f4f6" }}>WARDEN: DORMANT</span>
+          <div id="boss-state-phase" style={{ fontSize: "10px", color: "#9ca3af", border: "1px solid #374151", padding: "4px 8px", borderRadius: "4px" }}>
+            PHASE 01
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "280px" }}>
+          <span id="tension-meter-text" style={{ fontSize: "12px", fontWeight: "bold", letterSpacing: "0.1em" }}>TENSION: 0.0%</span>
+          <div style={{ width: "100%", height: "12px", background: "#1f2937", borderRadius: "6px", overflow: "hidden" }}>
+            <div id="tension-meter-bar" style={{ width: "0%", height: "100%", backgroundColor: "var(--signal-green, #22c55e)", transition: "width 0.1s ease" }} />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "280px" }}>
+          <span id="speedometer-text" style={{ fontSize: "12px", fontWeight: "bold", letterSpacing: "0.1em" }}>VELOCITY: 0 m/s</span>
+          <div style={{ width: "100%", height: "6px", background: "#1f2937", borderRadius: "3px", overflow: "hidden" }}>
+            <div id="speedometer-bar" style={{ width: "0%", height: "100%", backgroundColor: "#3b82f6", transition: "width 0.1s ease" }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+● ./tsconfig.app.json
+────────────────────────────────────────────────────
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}
+
+
+
+● ./tsconfig.json
+────────────────────────────────────────────────────
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+
+
+
+● ./tsconfig.node.json
+────────────────────────────────────────────────────
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["vite.config.ts"]
+}
+
+
+
+● ./vite.config.ts
+────────────────────────────────────────────────────
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  base: "./",
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    port: 6502,
+    strictPort: true,
+  },
+  build: {
+    chunkSizeWarningLimit: 1500,
+  }
+})
+
+
+

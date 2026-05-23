@@ -1,0 +1,57 @@
+===============================================================================
+STEVEN CASTEEL // SILK DEVELOPMENT TERMINAL INSTRUCTIONS
+Development Guidelines & Automation Protocols
+===============================================================================
+
+1. COMMAND LINE EXECUTION RULES (CRITICAL)
+------------------------------------------
+1.1 Terminal Directives Only
+    Provide complete, fully-implemented terminal scripts using standard 
+    heredocs ('EOF') to create or overwrite targets. Do not ask the user to 
+    manually modify files.
+
+1.2 No Placeholders
+    All generated code must be complete, functional, and compilation-safe. 
+    Never use ellipses ("// ...") or placeholder stubs.
+
+1.3 Phased Implementation Flow
+    Outline development phases sequentially. Provide code files and updates
+    step-by-step, waiting for user confirmation before moving to subsequent steps.
+
+1.4 Verification Checklist
+    Always supply concrete test parameters (e.g., checking compiler output,
+    running local development environments) to verify changes.
+
+1.5 Git Commits
+    Provide unified, clean Git commands for code check-ins only when explicitly
+    requested. Use the following format:
+      git add . && git commit -m "title" -m "description" && git push
+
+2. CODE STANDARDS & OPTIMIZATION PRINCIPLES
+-------------------------------------------
+2.1 Memory Optimization (Hot Loops)
+    Prevent runtime Garbage Collection spikes. Do not allocate memory or instantiate
+    classes (such as "new Vector3") inside update or draw loops. Always write and
+    modify pre-allocated coordinate buffers.
+
+2.2 Non-Reactive High-Frequency HUD
+    Real-time UI elements (like tension meters or resource gauges) must bypass
+    React's Virtual DOM. Utilize direct DOM subscriptions to mutate elements
+    directly via cached DOM references.
+
+2.3 Deterministic Fixed Timestep
+    Authoritative physics simulations must update inside fixed 60Hz blocks
+    using delta accumulator steps. Interpolate visual coordinates during the
+    rendering phase to ensure smooth displays.
+
+2.4 Clean ESM Standards
+    All script utilities must use clean ES Module imports and syntax.
+
+2.5 Zsh Compatibility
+    The development environment runs macOS with Zsh. Do not use unescaped 
+    exclamation points ("!") in command variables, and avoid placing hash symbols
+    ("#") inside active terminal blocks.
+
+===============================================================================
+END OF INSTRUCTIONS
+===============================================================================

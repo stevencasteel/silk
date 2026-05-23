@@ -1,0 +1,115 @@
+===============================================================================
+SILK — MASTER ENGINEERING & ARCHITECTURE DOCUMENT
+Vertical Slice Production Framework
+Version: Refined 3D Architecture Edition
+Target Stack: React 19 + TypeScript 6 + Vite 8 + Babylon.js + Rapier 3D WASM
+===============================================================================
+
+1. EXECUTIVE SUMMARY & DESIGN PHILOSOPHY
+-------------------------------------------------------------------------------
+SILK is a fast-paced vertical arena action game that prioritizes physical 
+momentum, elastic rope physics, dynamic lighting, and responsive traversal feedback. 
+
+To ensure performance remains smooth at high frame rates, SILK decouples 
+its subsystems into isolated layers:
+- React is used strictly for static UI layout.
+- Babylon.js handles visual presentation.
+- Rapier WASM manages authoritative physics transforms.
+- Gameplay systems process logic at a fixed 60Hz.
+
+There are no menus, settings, or loading screens. The application boots 
+directly into the active elevator shaft arena.
+
+2. SUB-SYSTEM TOPOLOGIES
+-------------------------------------------------------------------------------
+To prevent tight coupling, all cross-system communication is routed through
+a centralized, typed Event Broker.
+
+2.1 State Hierarchy & Data Flow
+- Rapier WASM: Authoritative owner of 3D rigid body positions and velocities.
+- Gameplay Systems: Mutates physics bodies by applying directional forces or
+  impulses; runs AI state machines and processes player inputs.
+- Babylon.js Scene: Synchronizes mesh positions to Rapier rigid bodies during
+  the render phase, interpolating transforms using the remaining frame delta.
+- Zustand Store: Read-only, throttled diagnostic state for HUD overlay renders.
+
+2.2 Core Performance Constraints
+- Hot-Loop Allocations: Memory allocation (e.g., "new BABYLON.Vector3()") is
+  forbidden inside update steps. Systems must read and modify pre-allocated
+  static vector buffers to prevent Garbage Collection frame spikes.
+- UI Rendition: Real-time UI updates (such as tension meters and velocity gauges)
+  bypass React's Virtual DOM. Direct DOM HUD managers mutate targets at 60Hz
+  via cached DOM references.
+
+3. EXHAUSTIVE DIRECTORY MAP
+-------------------------------------------------------------------------------
+The codebase is structured as follows:
+
+- src/app/             : Bootstrap routing and composition root configuration.
+- src/core/            : Game loops, event brokers, and diagnostic monitors.
+- src/babylon/         : Scene setups, camera rigs, dynamic lights, and post-processing.
+- src/physics/         : WASM Rapier setups, collider builders, and constraints.
+- src/gameplay/        : Entities, input handlers, movement controllers, and AI systems.
+- src/audio/           : Spatialized Tone.js synthesizer nodes and routing.
+- src/ui/              : Direct-DOM layouts and React HUD overlays.
+
+4. DETAILED COMPONENT CONSTRAINTS
+-------------------------------------------------------------------------------
+4.1 GameLoop (src/core/loop/GameLoop.ts)
+- Runs a high-precision RequestAnimationFrame loop.
+- Accumulates delta times and runs discrete, fixed-step updates (dt = 1/60s).
+- Dynamically caps update steps to prevent simulation instability after tab
+  restoration or system lag.
+
+4.2 EventBroker (src/core/events/EventBroker.ts)
+- Strictly typed. All events must define immutable payloads with clear types.
+- Decouples core simulation updates from secondary systems (such as Tone.js SFX,
+  camera shakes, and particle systems).
+
+4.3 CameraRig (src/babylon/cameras/CameraRig.ts)
+- Tracks the player using smooth, spring-based interpolations.
+- Applies camera-shake offsets directly to the target vector using an exponential
+  decay solver, keeping the underlying math separate from the physics simulation.
+
+4.4 RopeSimulation (src/gameplay/rope/RopeSimulation.ts)
+- Simulates the physical silk line using a chain of distance constraints or joints
+  inside the Rapier world.
+- Evaluates tension forces, manages anchor snapping thresholds, and applies
+  elastic pull forces back to the player.
+
+4.5 WardenStateMachine (src/gameplay/warden/WardenStateMachine.ts)
+- Orchestrates Warden boss states (Dormant, Hunting, Frenzied, Recovering)
+  using a deterministic, state-pattern machine.
+- Shuts down the Warden physics controller and resets update parameters upon
+  state transitions.
+
+5. GAME JUICE MATHEMATICS
+-------------------------------------------------------------------------------
+5.1 Visual Squash & Stretch
+To convey velocity and momentum without causing physics simulation errors, 
+squash and stretch scaling is applied strictly to the Babylon visual mesh.
+The calculations are derived from the entity's vertical velocity:
+
+  Stretch_Y = 1.0 + Clamp((|Velocity_Y| / MaxSpeed) * StretchFactor, 0.0, 0.25)
+  Squash_XZ = 1.0 / Sqrt(Stretch_Y)
+
+5.2 Camera Shake
+Rotational and translational offsets are applied to the active camera using
+a spring-decay solver:
+
+  Offset = Noise(t) * Amplitude * e^(-Decay * t)
+
+6. DEVELOPMENT WORKFLOW & TESTING
+-------------------------------------------------------------------------------
+Development follows a strict, step-by-step phased workflow. Before adding 
+features, you must ensure:
+- "npm run build" completes with zero TypeScript errors.
+- "npm run lint" passes successfully.
+- No memory leaks occur over extended play sessions.
+
+All project updates must be aggregated into "docs/all_source_code.txt" 
+using the provided source-context tools.
+
+===============================================================================
+END OF DOCUMENT
+===============================================================================
