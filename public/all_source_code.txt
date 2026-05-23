@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 5:56:33 PM
+ [SYSTEM] Generated: 5/23/2026, 6:08:58 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -783,13 +783,20 @@ export default function App() {
   useEffect(() => {
     if (!canvasRef.current) return;
     
+    let cancelled = false;
     let engineInstance: Engine | null = null;
+    
     bootstrapApplication(canvasRef.current).then((engine) => {
+      if (cancelled) {
+        engine.stop();
+        return;
+      }
       engineInstance = engine;
       engineInstance.start();
     });
 
     return () => {
+      cancelled = true;
       if (engineInstance) {
         engineInstance.stop();
       }

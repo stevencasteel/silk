@@ -1,104 +1,79 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import {
-    SilkComponent,
-    KinematicTargetComponent,
-    HealthComponent,
-    TraversalStateComponent
-} from "../../core/ecs/Components";
+import { SilkComponent, KinematicTargetComponent, HealthComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class EnvironmentCollisionSystem implements ISystem {
-    readonly phase = SystemPhase.Collision;
+readonly phase = SystemPhase.Collision;
+private readonly FLOOR_Y            = -8.0;
+private readonly CEILING_Y          = 32.0;
+private readonly PLAYER_HALF_HEIGHT = 0.9;
+private readonly SNAP_THRESHOLD     = 0.90;
+private readonly SNAP_BREAK_TIME    = 2.6;
+private readonly SNAP_DECAY_RATE    = 2.5;
+private strainAccum = 0.0;
 
-    private readonly FLOOR_Y            = 1.0;
-    private readonly CEILING_Y          = 27.4;
-    private readonly PLAYER_HALF_HEIGHT = 0.9;
+constructor(
+private refs: EntityRefs,
+private silks: ComponentStore<SilkComponent>,
+private targets: ComponentStore<KinematicTargetComponent>,
+private healths: ComponentStore<HealthComponent>,
+private traversal: ComponentStore<TraversalStateComponent>,
+private broker: EventBroker
+) {}
 
-    private readonly SNAP_THRESHOLD     = 0.90;
-    private readonly SNAP_BREAK_TIME    = 2.6;   
-    private readonly SNAP_DECAY_RATE    = 2.5;   
+public update(dt: number): void {
+const silk = this.silks.get(this.refs.player);
+const target  = this.targets.get(this.refs.player);
+const health  = this.healths.get(this.refs.player);
+const trav    = this.traversal.get(this.refs.player);
+if (!silk || !target || !health || !trav) return;
+this.clampToArenaBounds(target, silk);
+this.updateStrainMeter(dt, silk, health, trav);
+}
 
-    private strainAccum = 0.0;
+private clampToArenaBounds(target: KinematicTargetComponent, silk: SilkComponent): void {
+const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
+const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
+if (target.y < minY) {
+target.y = minY;
+silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
+} else if (target.y > maxY) {
+target.y = maxY;
+silk.dynamicVelY = Math.min(0, silk.dynamicVelY);
+}
+}
 
-    constructor(
-        private refs: EntityRefs,
-        private silks: ComponentStore<SilkComponent>,
-        private targets: ComponentStore<KinematicTargetComponent>,
-        private healths: ComponentStore<HealthComponent>,
-        private traversal: ComponentStore<TraversalStateComponent>,
-        private broker: EventBroker
-    ) {}
+private updateStrainMeter(dt: number, silk: SilkComponent, health: HealthComponent, trav: TraversalStateComponent): void {
+const overloaded = silk.tension >= this.SNAP_THRESHOLD && trav.state === "WALL_SLIDING";
+if (overloaded) {
+this.strainAccum += dt;
+const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
+if (Math.random() < strainRatio * 0.25) {
+this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+amplitude: 0.1 + strainRatio * 0.25,
+duration: 0.08
+});
+}
+if (this.strainAccum >= this.SNAP_BREAK_TIME) {
+this.snapSilk(silk, health);
+}
+} else {
+this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
+}
+}
 
-    public update(dt: number): void {
-        const silk = this.silks.get(this.refs.player);
-        const target  = this.targets.get(this.refs.player);
-        const health  = this.healths.get(this.refs.player);
-        const trav    = this.traversal.get(this.refs.player);
-
-        if (!silk || !target || !health || !trav) return;
-
-        this.clampToArenaBounds(target, silk);
-        this.updateStrainMeter(dt, silk, health, trav);
-    }
-
-    private clampToArenaBounds(
-        target: KinematicTargetComponent,
-        silk: SilkComponent
-    ): void {
-        const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
-        const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
-
-        if (target.y < minY) {
-            target.y = minY;
-            silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
-        } else if (target.y > maxY) {
-            target.y = maxY;
-            silk.dynamicVelY = Math.min(0, silk.dynamicVelY);
-        }
-    }
-
-    private updateStrainMeter(
-        dt: number,
-        silk: SilkComponent,
-        health: HealthComponent,
-        trav: TraversalStateComponent
-    ): void {
-        const overloaded = silk.tension >= this.SNAP_THRESHOLD
-            && trav.state === "WALL_SLIDING";
-
-        if (overloaded) {
-            this.strainAccum += dt;
-
-            const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
-            if (Math.random() < strainRatio * 0.25) {
-                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                    amplitude: 0.1 + strainRatio * 0.25,
-                    duration: 0.08
-                });
-            }
-
-            if (this.strainAccum >= this.SNAP_BREAK_TIME) {
-                this.snapSilk(silk, health);
-            }
-        } else {
-            this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
-        }
-    }
-
-    private snapSilk(silk: SilkComponent, health: HealthComponent): void {
-        silk.isAttached = false;
-        silk.tension    = 0.0;
-        this.strainAccum  = 0.0;
-        health.current    = 0;
-
-        this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "SILK_SNAP" });
-        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
-        this.broker.publish(GameEvent.PLAYER_DIED,           undefined);
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
-    }
-
+private snapSilk(silk: SilkComponent, health: HealthComponent): void {
+silk.isAttached = false;
+silk.tension    = 0.0;
+this.strainAccum  = 0.0;
+health.current    = 0;
+this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "SILK_SNAP" });
+this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
+this.broker.publish(GameEvent.PLAYER_DIED,           undefined);
+this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
+}
 }

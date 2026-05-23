@@ -7,146 +7,136 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
-    readonly phase = SystemPhase.RenderSync;
+readonly phase = SystemPhase.RenderSync;
+private scratchPrevQuat = new BABYLON.Quaternion();
+private scratchCurrQuat = new BABYLON.Quaternion();
+private scrollOffset    = 0.0;
+private scrollSpeed     = 5.0;
+private currentEmissiveR = 0.05;
+private currentEmissiveG = 0.15;
+private currentEmissiveB = 0.05;
 
-    private scratchPrevQuat = new BABYLON.Quaternion();
-    private scratchCurrQuat = new BABYLON.Quaternion();
-    private scrollOffset    = 0.0;
-    private scrollSpeed     = 5.0;
+constructor(
+private refs: EntityRefs,
+private transforms: ComponentStore<TransformComponent>,
+private silks: ComponentStore<SilkComponent>,
+private traversal: ComponentStore<TraversalStateComponent>,
+private visualRegistry: IVisualRegistry,
+private weaverAIs: ComponentStore<WeaverAIComponent>,
+private healthStore: ComponentStore<HealthComponent>
+) {}
 
-    private currentEmissiveR = 0.05;
-    private currentEmissiveG = 0.15;
-    private currentEmissiveB = 0.05;
+public render(alpha: number): void {
+this.scrollTicks();
+this.syncTransforms(alpha);
+}
 
-    constructor(
-        private refs: EntityRefs,
-        private transforms: ComponentStore<TransformComponent>,
-        private silks: ComponentStore<SilkComponent>,
-        private traversal: ComponentStore<TraversalStateComponent>,
-        private visualRegistry: IVisualRegistry,
-        private weaverAIs: ComponentStore<WeaverAIComponent>,
-        private healthStore: ComponentStore<HealthComponent>
-    ) {}
+private scrollTicks(): void {
+const scene = this.visualRegistry.getScene();
+if (!scene) return;
 
-    public render(alpha: number): void {
-        this.scrollTicks();
-        this.syncTransforms(alpha);
-    }
+const wAI = this.weaverAIs.get(this.refs.weaver);
+const wHealth = this.healthStore.get(this.refs.weaver);
 
-    private scrollTicks(): void {
-        const scene = this.visualRegistry.getScene();
-        if (!scene) return;
+let targetScrollSpeed = 5.0;
+if (wHealth && wHealth.current <= 0) {
+targetScrollSpeed = 0.0;
+} else if (wAI) {
+if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
+targetScrollSpeed = 0.0;
+} else if (wHealth && wHealth.current < wHealth.max * 0.5) {
+targetScrollSpeed = 9.0;
+}
+}
 
-        const wAI = this.weaverAIs.get(this.refs.weaver);
-        const wHealth = this.healthStore.get(this.refs.weaver);
+this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.1);
+const totalRange  = 140.0;
+this.scrollOffset += this.scrollSpeed * (1 / 60);
+if (this.scrollOffset > totalRange) {
+this.scrollOffset -= totalRange;
+}
 
-        let targetScrollSpeed = 5.0;
-        if (wHealth && wHealth.current <= 0) {
-            targetScrollSpeed = 0.0;
-        } else if (wAI) {
-            if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
-                targetScrollSpeed = 0.0;
-            } else if (wHealth && wHealth.current < wHealth.max * 0.5) {
-                targetScrollSpeed = 9.0;
-            }
-        }
+const ticks = scene.meshes.filter(m => m.metadata?.type === "scrolling_tick");
+for (const tick of ticks) {
+let y = tick.metadata.initialY - this.scrollOffset;
+while (y < -56.0) y += totalRange;
+tick.position.y = y;
+}
+}
 
-        this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.1);
+private syncTransforms(alpha: number): void {
+const silk = this.silks.get(this.refs.player);
+const trav   = this.traversal.get(this.refs.player);
+const wAI    = this.weaverAIs.get(this.refs.weaver);
 
-        const totalRange  = 36.0;
-        this.scrollOffset += this.scrollSpeed * (1 / 60);
-        if (this.scrollOffset > totalRange) {
-            this.scrollOffset -= totalRange;
-        }
+for (const [id, curr] of this.transforms.entries()) {
+const node = this.visualRegistry.getTransformNode(id);
+if (!node) continue;
 
-        const ticks = scene.meshes.filter(m => m.metadata?.type === "scrolling_tick");
-        for (const tick of ticks) {
-            let y = tick.metadata.initialY - this.scrollOffset;
-            while (y < -2.0) y += totalRange;
-            tick.position.y = y;
-        }
-    }
+node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
+node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
+node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
-    private syncTransforms(alpha: number): void {
-        const silk = this.silks.get(this.refs.player);
-        const trav   = this.traversal.get(this.refs.player);
-        const wAI    = this.weaverAIs.get(this.refs.weaver);
+this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
+this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
 
-        for (const [id, curr] of this.transforms.entries()) {
-            const node = this.visualRegistry.getTransformNode(id);
-            if (!node) continue;
+if (!node.rotationQuaternion) {
+node.rotationQuaternion = new BABYLON.Quaternion();
+}
+BABYLON.Quaternion.SlerpToRef(
+this.scratchPrevQuat,
+this.scratchCurrQuat,
+alpha,
+node.rotationQuaternion
+);
 
-            node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
-            node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
-            node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
+if (id === this.refs.player && silk && trav) {
+const mesh = node as BABYLON.AbstractMesh;
+const mat  = mesh?.material as BABYLON.PBRMaterial | null;
+if (mat) {
+this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
+}
+}
 
-            this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
-            this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
-            if (!node.rotationQuaternion) {
-                node.rotationQuaternion = new BABYLON.Quaternion();
-            }
-            BABYLON.Quaternion.SlerpToRef(
-                this.scratchPrevQuat,
-                this.scratchCurrQuat,
-                alpha,
-                node.rotationQuaternion
-            );
+if (id === this.refs.weaver && wAI) {
+const mesh = node as BABYLON.AbstractMesh;
+const mat  = mesh?.material as BABYLON.PBRMaterial | null;
+if (mat) {
+const hex = wAI.hue.replace(String.fromCharCode(35), "");
+const r = parseInt(hex.substring(0, 2), 16) / 255;
+const g = parseInt(hex.substring(2, 4), 16) / 255;
+const b = parseInt(hex.substring(4, 6), 16) / 255;
+const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
+mat.emissiveColor.set(r + pulse, g, b);
+}
+}
+}
+}
 
-            if (id === this.refs.player && silk && trav) {
-                const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
-                if (mat) {
-                    this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
-                }
-            }
+private updatePlayerEmissive(mat: BABYLON.PBRMaterial, tension: number, state: string, _alpha: number): void {
+void _alpha;
+let targetR: number;
+let targetG: number;
+let targetB: number;
 
-            if (id === this.refs.weaver && wAI) {
-                const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
-                if (mat) {
-                    const hex = wAI.hue.replace("#", "");
-                    const r = parseInt(hex.substring(0, 2), 16) / 255;
-                    const g = parseInt(hex.substring(2, 4), 16) / 255;
-                    const b = parseInt(hex.substring(4, 6), 16) / 255;
-                    
-                    const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
-                    mat.emissiveColor.set(r + pulse, g, b);
-                }
-            }
-        }
-    }
+if (state === "WALL_SLIDING") {
+targetR = 0.1 + tension * 0.9;
+targetG = 0.1 + (1.0 - tension) * 0.1;
+targetB = 0.1 * (1.0 - tension);
+} else if (state === "LAUNCHING") {
+targetR = 0.9;
+targetG = 0.9;
+targetB = 0.9;
+} else {
+targetR = 0.05;
+targetG = 0.05;
+targetB = 0.05;
+}
 
-    private updatePlayerEmissive(
-        mat: BABYLON.PBRMaterial,
-        tension: number,
-        state: string,
-        _alpha: number
-    ): void {
-        void _alpha;
-
-        let targetR: number;
-        let targetG: number;
-        let targetB: number;
-
-        if (state === "WALL_SLIDING") {
-            targetR = 0.05 + tension * 0.95;
-            targetG = 0.15 + (1.0 - tension) * 0.40;
-            targetB = 0.05 * (1.0 - tension);
-        } else if (state === "LAUNCHING") {
-            targetR = 0.9;
-            targetG = 0.9;
-            targetB = 0.9;
-        } else {
-            targetR = 0.05;
-            targetG = 0.12;
-            targetB = 0.05;
-        }
-
-        const lerpRate = 0.18;
-        this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
-        this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
-        this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
-
-        mat.emissiveColor.set(this.currentEmissiveR, this.currentEmissiveG, this.currentEmissiveB);
-    }
+const lerpRate = 0.18;
+this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
+this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
+this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
+mat.emissiveColor.set(this.currentEmissiveR, this.currentEmissiveG, this.currentEmissiveB);
+}
 }
