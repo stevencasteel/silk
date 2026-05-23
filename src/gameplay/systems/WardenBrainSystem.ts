@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { WardenAIComponent, TransformComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
@@ -13,6 +14,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 
 export class WardenBrainSystem implements ISystem {
+    readonly phase = SystemPhase.Intents;
     private currentState: IWardenState;
     private states: Map<WardenStateType, IWardenState> = new Map();
     private ctx: AIContext;

@@ -1,8 +1,10 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class DomHudSystem implements ISystem {
+    readonly phase = SystemPhase.RenderSync;
     private unsubscribes: (() => void)[] = [];
     private tensionBar: HTMLElement | null = null;
     private tensionText: HTMLElement | null = null;
@@ -20,7 +22,7 @@ export class DomHudSystem implements ISystem {
         this.registerSubscribers();
     }
 
-    public update(dt: number): void {
+    public update(_dt: number): void {
         // DOM mutations are event-driven
     }
 

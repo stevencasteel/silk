@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { IReadablePhysics, PhysicsTransform } from "../../contracts/IPhysicsWorld";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -10,6 +11,7 @@ import { EntityId } from "../../core/ecs/Entity";
 import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetRopeMaxLengthCommand, SetRopeAttachedCommand } from "../commands/PhysicsCommands";
 
 export class RapierWorldSystem implements ISystem, IReadablePhysics {
+    readonly phase = SystemPhase.PhysicsStep;
     private RAPIER: any = null;
     private world: any = null;
     private rigidBodies = new Map<EntityId, any>();
@@ -27,7 +29,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     public async init(): Promise<void> {
         this.registerCommands();
         try {
-            this.RAPIER = await import("@dimforge/rapier3d");
+            this.RAPIER = await import("@dimforge/rapier3d-compat");
             if (this.RAPIER && typeof this.RAPIER.init === "function") await this.RAPIER.init();
             this.world = new this.RAPIER.World({ x: 0, y: -9.81, z: 0 });
 
@@ -67,7 +69,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
         });
     }
 
-    public update(dt: number): void {
+    public update(_dt: number): void {
+        this.commands.flush();
+
         for (const [, curr] of this.transforms.entries()) {
             curr.prevX = curr.x; curr.prevY = curr.y; curr.prevZ = curr.z;
             curr.prevQx = curr.qx; curr.prevQy = curr.qy; curr.prevQz = curr.qz; curr.prevQw = curr.qw;
@@ -83,7 +87,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
         const wBody = this.rigidBodies.get(this.refs.warden);
         if (wVel && wBody) {
             const curr = wBody.translation();
-            wBody.setNextKinematicTranslation({ x: curr.x + wVel.x * dt, y: curr.y + wVel.y * dt, z: curr.z + wVel.z * dt });
+            wBody.setNextKinematicTranslation({ x: curr.x + wVel.x * _dt, y: curr.y + wVel.y * _dt, z: curr.z + wVel.z * _dt });
         }
 
         if (this.world) this.world.step();
@@ -102,7 +106,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
             const pTrans = this.transforms.get(this.refs.player);
             if (pTrans && pTarget) { pTrans.x = pTarget.x; pTrans.y = pTarget.y; }
             const wTrans = this.transforms.get(this.refs.warden);
-            if (wTrans && wVel) { wTrans.x += wVel.x * dt; wTrans.y += wVel.y * dt; }
+            if (wTrans && wVel) { wTrans.x += wVel.x * _dt; wTrans.y += wVel.y * _dt; }
         }
 
         const tether = this.tethers.get(this.refs.player);

@@ -1,9 +1,11 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { InputIntentComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerInputSystem implements ISystem {
+    readonly phase = SystemPhase.Input;
     private keysPressed: Set<string> = new Set();
     constructor(private refs: EntityRefs, private inputs: ComponentStore<InputIntentComponent>) {}
 
@@ -12,7 +14,7 @@ export class PlayerInputSystem implements ISystem {
         window.addEventListener("keyup", this.handleKeyUp);
     }
 
-    public update(dt: number): void {
+    public update(_dt: number): void {
         const input = this.inputs.get(this.refs.player);
         if (!input) return;
         let x = 0, y = 0;

@@ -1,10 +1,12 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TensionSynthesizer } from "../tone/TensionSynthesizer";
 import * as Tone from "tone";
 
 export class AudioDirectorSystem implements ISystem {
+    readonly phase = SystemPhase.RenderSync;
     private tensionSynth: TensionSynthesizer | null = null;
     private initialized: boolean = false;
     private unsub: (() => void) | null = null;
@@ -31,7 +33,7 @@ export class AudioDirectorSystem implements ISystem {
         });
     }
 
-    public update(dt: number): void {
+    public update(_dt: number): void {
         // Audio logic updates
     }
 

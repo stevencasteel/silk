@@ -10,6 +10,7 @@ export class SystemManager {
     public register(system: ISystem): void {
         this.systems.push(system);
         this.systemNames.set(system, system.constructor.name);
+        this.systems.sort((a, b) => a.phase - b.phase);
     }
 
     public async initAll(): Promise<void> {
@@ -24,9 +25,11 @@ export class SystemManager {
         this.profiler.clearFrame();
         this.profiler.beginFrame();
         for (const system of this.systems) {
-            const start = performance.now();
-            system.update(dt);
-            this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
+            if (system.update) {
+                const start = performance.now();
+                system.update(dt);
+                this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
+            }
         }
     }
 

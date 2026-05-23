@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
@@ -6,6 +7,7 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class RopeVisualizerSystem implements ISystem {
+    readonly phase = SystemPhase.RenderSync;
     private ropeMesh: BABYLON.LinesMesh | null = null;
     private segments = 12;
     private points: BABYLON.Vector3[] = [];

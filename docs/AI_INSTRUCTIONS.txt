@@ -28,10 +28,8 @@
      Do not present commit commands until explicitly requested. Always use the 
      period (.) for `git add` to capture all staged modifications.
 
-1.6  Lean Ship
-     Keep external runtime dependencies low. Generate game assets, procedural 
-     waveforms, and canvas graphics programmatically rather than relying on 
-     static binaries or heavy external loaders.
+1.6  Generative Procedural
+     Generate game assets, procedural waveforms, and canvas graphics programmatically.
 
 1.7  WAIT (Communication Checkpoint)
      Do not output extensive code blocks for a proposed plan until the user 

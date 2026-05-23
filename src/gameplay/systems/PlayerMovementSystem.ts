@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { InputIntentComponent, PlayerStatsComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
@@ -8,6 +9,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SetKinematicVelocityCommand, SetRopeAttachedCommand, SetRopeMaxLengthCommand } from "../../physics/commands/PhysicsCommands";
 
 export class PlayerMovementSystem implements ISystem {
+    readonly phase = SystemPhase.Intents;
     private spaceWasPressed = false;
     constructor(
         private refs: EntityRefs,

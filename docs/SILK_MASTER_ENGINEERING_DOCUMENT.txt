@@ -1,136 +1,147 @@
 ===============================================================================
 SILK — MASTER ENGINEERING & ARCHITECTURE DOCUMENT
 Data-Oriented ECS, Command Pipeline & Zero-Allocation Edition
-Target Stack: React 19 + TypeScript 6 + Vite 8 + Babylon.js + Rapier 3D WASM
+Target Stack: React 19 + TypeScript 6 + Vite 8 + Babylon.js + Rapier 3D WASM Compat
 ===============================================================================
 
 1. EXECUTIVE SUMMARY & DESIGN PHILOSOPHY
 -------------------------------------------------------------------------------
 SILK is a vertical arena action game built around dynamic movement. The architecture
 is founded on a lightweight, data-oriented Entity-Component-System (ECS), strict
-unidirectional data flow, and zero-allocation rendering pipelines. 
+unidirectional data flow, phased system orchestration, and zero-allocation rendering.
 
 Core Pillars:
-- Data-Oriented ECS: Pure data components (e.g., TransformComponent, TetherComponent) 
-  decoupled from logic. Entities are represented by numeric IDs (EntityId) for O(1) 
-  lookups and zero garbage collection pressure.
-- Unidirectional Command/Event Bus: Gameplay systems issue imperative Commands 
-  (downward to physics), while Simulation/Physics systems emit past-tense Events 
-  (upward to view/audio/UI).
-- Zero-Allocation Rendering: High-refresh-rate (144Hz+) stability is guaranteed by 
-  utilizing class-level scratchpad vectors and quaternions, entirely eliminating 
-  per-frame memory allocations in the render loop.
-- Deterministic Pipeline: Time and scheduling are abstracted via IClock and IScheduler 
-  interfaces, enabling headless, fixed-step simulation testing.
-- First-Class Observability: Integrated Profiler, Event Traffic Tracker, and toggleable 
-  Debug Wireframe/Telemetry overlays ensure long-term maintainability.
+- Phased System Orchestration: Systems are ordered deterministically by designated 
+  SystemPhase layers rather than registration sequence, eliminating single-frame lags 
+  and initialization races.
+- Data-Oriented ECS: Pure data components decoupled from logic. Dynamic aspect queries 
+  and tag component stores (PlayerTag, WardenTag, AnchorTag) replace rigid hardcoded 
+  entity reference lookups.
+- Deferred Command Buffering: Systems issue commands to a buffered queue. Commands are 
+  deferred and flushed atomically at the entry boundary of the physics step, ensuring 
+  unidirectional state mutations and preventing frame-loop side effects.
+- Zero-Allocation Rendering: High-refresh-rate stability is guaranteed by 
+  utilizing class-level scratchpad vectors, quaternions, and optional lifecycle hooks 
+  (e.g., rendering-only systems have no update stubs), eliminating garbage collection pressure.
+- Out-of-the-Box Compilation: Employs rapier3d-compat to integrate the WebAssembly 
+  physics engine directly into standard ESM bundles, bypassing complex bundler loaders.
+
 
 2. THE NERVOUS SYSTEM: FRAME EXECUTION PIPELINE
 -------------------------------------------------------------------------------
-The GameLoop enforces a strict, dual-layer sequential pipeline separating the fixed
-timestep update thread (dt = 1/60s) from the variable-rate render loop.
+The GameLoop enforces a strict, phase-sorted pipeline separating gameplay updates 
+from presentation render cycles. Systems are registered to specific SystemPhase 
+layers and sorted during engine bootstrap.
 
-A. FIXED-TIMESTEP UPDATE (60Hz Ticks)
-1. Input Phase: PlayerInputSystem polls DOM/Keyboard, writing to InputIntentComponent.
-2. Intent & AI Phase: 
-   - PlayerMovementSystem reads intents and stats, dispatching Commands (e.g., 
-     SetKinematicVelocityCommand) to the CommandBus.
-   - WardenBrainSystem evaluates AIContext, transitions states, and dispatches Commands.
-3. Command Resolution Phase: RapierWorldSystem (Adapter) synchronously processes the 
-   CommandBus, mutating ECS Velocity and Target components.
-4. Simulation Phase:
-   - PlayerKinematicsSystem applies pendulum-tension constraints to Target components.
-   - EnvironmentCollisionSystem resolves AABB platform and border collisions.
-5. Physics Phase: RapierWorldSystem steps the WASM simulation, syncing Rapier bodies 
-   to ECS TransformComponents, and publishes Events (e.g., ROPE_TENSION_CHANGE).
+A. SYSTEMPHASE PIPELINE LAYERS
+1. Phase 0: SystemPhase.Input
+   - PlayerInputSystem: Polls keyboard/mouse inputs, writing directly to the 
+     InputIntentComponent of active player-tagged entities.
+2. Phase 1: SystemPhase.Intents
+   - PlayerMovementSystem: Evaluates inputs, dispatching SetKinematicVelocity and 
+     SetRopeMaxLength commands to the CommandBus.
+   - WardenBrainSystem: Drives Warden finite state machine actions and transitions, 
+     dispatching movement commands based on sensory states.
+3. Phase 2: SystemPhase.Kinematics
+   - PlayerKinematicsSystem: Applies gravity, swing mechanics, and tether length 
+     constraints, updating kinematic targets.
+4. Phase 3: SystemPhase.Collision
+   - EnvironmentCollisionSystem: Adjusts movement targets based on platform AABB 
+     overlapping to resolve environment collisions prior to physics stepping.
+5. Phase 4: SystemPhase.PhysicsStep
+   - RapierWorldSystem: First flushes all deferred commands from the CommandBus. 
+     Next, updates Rapier kinematic body translations to match kinematic targets, 
+     steps the C++ WASM physics simulation, and synchronizes resulting body transforms 
+     back to ECS TransformComponents.
+6. Phase 5: SystemPhase.RenderSync
+   - TransformSyncSystem: Interpolates prev/curr TransformComponents using alpha ratios 
+     and slerp calculations to update visual Babylon nodes.
+   - RopeVisualizerSystem: Regenerates procedural rope sag ribbons based on player 
+     and anchor transforms.
+   - CameraSystem: Tracks players and applies spring-mass-damper smoothing with camera shake.
+   - Audio/UI Systems: Direct Tone.js FM synthesis and DOM HUD updates.
 
-B. VARIABLE-RATE RENDERING PASS (Variable FPS)
-1. Render-Sync Phase: TransformSyncSystem interpolates previous and current 
-   TransformComponents to Babylon nodes using zero-allocation scratchpad math.
-2. Presentation Phase: RopeVisualizerSystem regenerates dynamic line ribbons using 
-   pre-allocated Vector3 arrays to simulate rope sag.
-3. Camera Phase: CameraSystem applies spring-mass-damper tracking and screen shake 
-   using scratchpad vectors.
-4. Render Phase: RenderSystem draws the active Babylon WebGL call.
-5. Audio/UI Phase: Event-driven systems mutate Tone.js synthesizers and DOM nodes.
-6. Diagnostics Phase: Profiler records system timings; DebugTelemetryOverlay renders.
 
 3. ARCHITECTURAL PATTERNS & SOLID COMPLIANCE
 -------------------------------------------------------------------------------
-- Single Responsibility Principle (SRP): Systems contain only execution logic. 
-  Physics math, collision resolution, and WASM stepping are isolated in separate systems.
-- Open/Closed Principle (OCP): Warden AI utilizes a formal State Pattern operating on 
-  an AIContext. Adding new behaviors requires only new state files and components.
-- Liskov Substitution Principle (LSP): SystemManager expects general ISystem structures.
-- Interface Segregation Principle (ISP): Physics exposes IReadablePhysics. Visuals 
-  expose IVisualRegistry. Systems only depend on the exact data slices they require.
-- Dependency Inversion Principle (DIP): Systems depend on ComponentStores and EntityRefs, 
-  completely decoupled from concrete rendering or physics engine implementations.
-- Composition over Inheritance: Entities are composed of pure data components rather 
-  than inheriting from monolithic base classes.
+- Single Responsibility Principle (SRP): Systems hold pure execution logic. Physics 
+  stepping, collision math, and input capturing are kept strictly isolated.
+- Interface Segregation Principle (ISP): The ISystem contract features optional 
+  update, render, and initialization lifecycles. Rendering-only systems (such as 
+  RopeVisualizerSystem) do not require empty update stubs.
+- Open/Closed Principle (OCP): State AI utilizes modular Warden states that read and 
+  evaluate contextual components. New behaviors can be introduced with zero changes 
+  to the central brain system.
+- Liskov Substitution Principle (LSP): SystemManager handles general systems, sorting 
+  and stepping execution sequences based on their phase properties.
+- Dependency Inversion Principle (DIP): Gameplay systems write to decoupled CommandBus 
+  and ComponentStores, completely isolated from direct physics or WebGL rendering drivers.
+
 
 4. DATA-ORIENTED ECS & SUBSYSTEM BREAKDOWN
 -------------------------------------------------------------------------------
-- EntityRegistry: Manages numeric EntityId lifecycles.
-- ComponentStore<T>: Type-safe, contiguous storage for pure data structures.
-- EntityRefs: Dependency injection context for core entity IDs (player, warden, anchor).
-- CommandBus: Synchronous, typed dispatcher for downward imperative actions.
-- EventBroker: Asynchronous, typed pub/sub for upward state notifications.
+- EntityRefs: Backed by dynamic tag ComponentStore lookups (PlayerTag, WardenTag, AnchorTag). 
+  Resolves entity IDs dynamically at runtime, allowing fallback assignments for backwards 
+  compatibility while keeping the design open to multiple enemies or players.
+- CommandBus: Buffered queue that collects imperative actions. By deferring command execution 
+  to a dedicated flush boundary in the physics step, frame loop race conditions are avoided.
+- EventBroker: Synchronous event dispatcher used for upward UI alerts, camera shakes, 
+  lighting transitions, and acoustic updates.
 
-Key Subsystems:
-- RapierWorldSystem: Pure WASM adapter and Command handler. Contains zero gameplay math.
-- PlayerKinematicsSystem: Custom pendulum and tether constraint solver.
-- EnvironmentCollisionSystem: AABB resolution using shared EnvironmentColliders data.
-- EntitySpawnerSystem: Authoritative factory for entity creation and visual mapping.
 
 5. OBSERVABILITY, TOOLING & DETERMINISM
 -------------------------------------------------------------------------------
-- Profiler: Tracks exact execution timings per system and overall FPS/Frame Time.
-- DebugWireframeSystem: Toggleable (F3 / Backtick) rendering of AABB colliders, 
-  tether constraints, and anchor points.
-- DebugTelemetryOverlay: DOM-based overlay displaying real-time system timings, 
-  entity counts, and event bus traffic.
-- IClock & IScheduler: Abstractions allowing the GameLoop to run independently of 
-  requestAnimationFrame for automated testing and server-side authority.
+- Profiler: Tracks timing latency per phase and records rendering frame rates.
+- DebugWireframeSystem: Renders visual wireframes of collision boxes and constraints, 
+  implementing the RenderSync phase.
+- DebugTelemetryOverlay: Direct diagnostic overlay displaying system profiling metrics and 
+  active entity states.
+- Void-Eval Safety: Unused fields in skeletal diagnostic classes are evaluated with standard 
+  TS "void" operators, satisfying compiler checks while maintaining zero-overhead declarations.
+
 
 6. EXHAUSTIVE DIRECTORY MAP
 -------------------------------------------------------------------------------
 src/
-├── app/                   Bootstrap, CompositionRoot (DI System Wire-up)
-├── contracts/             System interface abstractions, registries, and data boundaries
-├── core/                  Loop orchestration, ECS, events, commands, and diagnostics:
-│   ├── clock/             (IClock, PerformanceClock abstractions)
-│   ├── commands/          (CommandBus, ICommand interfaces)
-│   ├── diagnostics/       (Profiler, DebugWireframe, Telemetry Overlay)
-│   ├── ecs/               (EntityRegistry, ComponentStore, Components, EntityRefs)
-│   ├── engine/            (Engine initialization orchestration)
-│   ├── events/            (EventBroker, GameEvents)
-│   ├── loop/              (GameLoop, IScheduler, RafScheduler)
-│   └── systems/           (SystemManager handling lifecycle and profiling)
-├── physics/               Physics orchestration, constraints, and collisions:
-│   ├── collisions/        (EnvironmentCollisionSystem, shared AABB data)
-│   ├── commands/          (Physics-specific Command payloads)
-│   ├── constraints/       (PlayerKinematicsSystem, tether math)
-│   ├── rapier/            (Rapier WASM adapter & sync)
-│   └── sync/              (Zero-allocation dual-buffered render interpolation)
-├── gameplay/              Behavior logic, states, and spawners:
-│   ├── states/            (Finite state machine classes driving AI via AIContext)
-│   └── systems/           (Input, movement, brain, spawner, and rope systems)
-├── babylon/               Visual environment and node presentation layers:
-│   ├── scene/             (RenderSystem implementing IVisualRegistry)
-│   ├── cameras/           (Zero-allocation spring-damped camera tracker)
-│   ├── meshBuilders/      (Procedural visual geometry builders)
-│   └── lighting/          (Event-driven hue transitions)
+├── app/                   Bootstrap, CompositionRoot (Dependency wiring and registry)
+├── contracts/             System interface phase definitions, registries, and data boundaries:
+│   ├── ISystem.ts         (ISystem interface with optional update/render methods)
+│   └── SystemPhase.ts     (Deterministic numeric stage order definitions)
+├── core/                  Loop orchestration, ECS, commands, events, and diagnostics:
+│   ├── clock/             (IClock, PerformanceClock definitions)
+│   ├── commands/          (Deferred CommandBus with atomic flush capabilities)
+│   ├── diagnostics/       (Profiler, DebugWireframe, Telemetry overlays)
+│   ├── ecs/               (Entity registry, dynamic EntityRefs, ComponentStores)
+│   ├── engine/            (Clean dependency-injected Engine lifecycle)
+│   ├── events/            (EventBroker and GameEvents payload definitions)
+│   ├── loop/              (Fixed-timestep dual-threaded GameLoop)
+│   └── systems/           (SystemManager with phase sorting logic)
+├── physics/               Physics constraints, collisions, and WASM integration:
+│   ├── collisions/        (Environment collisions and platform AABBs)
+│   ├── commands/          (Physics and rope action payloads)
+│   ├── constraints/       (Tether and custom pendulum kinematics math)
+│   ├── rapier/            (Rapier Compatibility base64 integrated physics engine)
+│   └── sync/              (Dual-buffered zero-allocation rendering interpolation)
+├── gameplay/              Gameplay behavior state machine and spawners:
+│   ├── states/            (Unused parameters prefixed for state machine safety)
+│   └── systems/           (Input, movement, brain, spawner, and visual systems)
+├── babylon/               Graphics pipelines and visual components:
+│   ├── scene/             (WebGL rendering system implementation)
+│   ├── cameras/           (Spring-damped camera tracking system)
+│   ├── meshBuilders/      (Procedural geometry builder for walls/floors)
+│   └── lighting/          (Event-driven color transitions)
 ├── audio/                 Procedural synthesized acoustics and director controls
-└── ui/                    Visual overlay components and direct DOM managers
+├── ui/                    DOM managers and React HUD overlay modules
+└── vite-env.d.ts          Vite environment type declarations and side-effect CSS definitions
+
 
 7. DEVELOPMENT WORKFLOW & TESTING
 -------------------------------------------------------------------------------
-- Ensure "npm run build" executes with zero compilation errors before merging.
-- Standard physical ticks operate at 60Hz. Ensure rendering interpolation does not
-  instantiate new memory buffers to prevent uncontrolled garbage collection spikes.
-- Use the F3 / Backtick toggle to inspect physics wireframes and system timings.
-- All code modifications must keep project context aligned in all_source_code.txt.
+- Standard physical updates run at a fixed 60Hz step. Ensure all visual interpolation 
+  code uses pre-allocated scratchpad arrays to prevent garbage collection spikes.
+- Always run "npm run build" to verify type safety across all system files prior to deployment.
+- Diagnostic systems should declare all structural references, using standard "void" reads 
+  to satisfy compiler checks without adding operational complexity.
 ===============================================================================
 END OF DOCUMENT
 ===============================================================================

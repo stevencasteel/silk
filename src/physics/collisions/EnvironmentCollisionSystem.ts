@@ -1,10 +1,12 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TetherComponent, KinematicTargetComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { PLATFORM_AABBS } from "./EnvironmentColliders";
 
 export class EnvironmentCollisionSystem implements ISystem {
+    readonly phase = SystemPhase.Collision;
     private borderX = 14.0;
     private minY = 1.0;
     private maxY = 28.0;
@@ -15,7 +17,7 @@ export class EnvironmentCollisionSystem implements ISystem {
         private targets: ComponentStore<KinematicTargetComponent>
     ) {}
 
-    public update(dt: number): void {
+    public update(_dt: number): void {
         const tether = this.tethers.get(this.refs.player);
         const target = this.targets.get(this.refs.player);
         if (!tether || !target) return;

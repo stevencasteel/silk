@@ -1,10 +1,12 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TransformComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
+    readonly phase = SystemPhase.RenderSync;
     private scratchPrevQuat = new BABYLON.Quaternion();
     private scratchCurrQuat = new BABYLON.Quaternion();
 
@@ -13,7 +15,7 @@ export class TransformSyncSystem implements ISystem {
         private visualRegistry: IVisualRegistry
     ) {}
 
-    public update(dt: number): void {}
+    public update(_dt: number): void {}
 
     public render(alpha: number): void {
         for (const [id, curr] of this.transforms.entries()) {

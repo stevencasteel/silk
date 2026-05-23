@@ -1,10 +1,12 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ArenaGeometry } from "../meshBuilders/ArenaGeometry";
 import { EntityId } from "../../core/ecs/Entity";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem, IVisualRegistry {
+    readonly phase = SystemPhase.RenderSync;
     private engine: BABYLON.Engine | null = null;
     private scene: BABYLON.Scene | null = null;
     private canvas: HTMLCanvasElement;
@@ -25,8 +27,8 @@ export class RenderSystem implements ISystem, IVisualRegistry {
         window.addEventListener("resize", this.handleResize);
     }
 
-    public update(dt: number): void {}
-    public render(alpha: number): void { if (this.scene) this.scene.render(); }
+    public update(_dt: number): void {}
+    public render(_alpha: number): void { if (this.scene) this.scene.render(); }
     public getScene(): BABYLON.Scene | null { return this.scene; }
     public getTransformNode(id: EntityId): BABYLON.TransformNode | null { return this.visualNodes.get(id) || null; }
     public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { this.visualNodes.set(id, node); }

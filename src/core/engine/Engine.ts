@@ -6,19 +6,15 @@ import { IScheduler } from "../loop/IScheduler";
 
 export class Engine {
   private loop: GameLoop;
-  private broker: EventBroker;
   private systemManager: SystemManager;
-  private canvas: HTMLCanvasElement;
 
   constructor(
-    canvas: HTMLCanvasElement, 
-    broker: EventBroker, 
+    _canvas: HTMLCanvasElement, 
+    _broker: EventBroker, 
     systemManager: SystemManager,
     clock: IClock,
     scheduler: IScheduler
   ) {
-    this.canvas = canvas;
-    this.broker = broker;
     this.systemManager = systemManager;
     this.loop = new GameLoop(
       (dt) => this.update(dt),

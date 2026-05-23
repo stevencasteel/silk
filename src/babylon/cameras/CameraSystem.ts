@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -8,6 +9,7 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
+    readonly phase = SystemPhase.RenderSync;
     private cameraNode: BABYLON.FreeCamera | null = null;
     private shakeIntensity = 0.0; 
     private shakeTimeRemaining = 0.0; 

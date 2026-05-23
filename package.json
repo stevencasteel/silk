@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@babylonjs/core": "^7.47.0",
-    "@dimforge/rapier3d": "^0.19.3",
+    "@dimforge/rapier3d-compat": "^0.19.3",
     "framer-motion": "^12.39.0",
     "gsap": "^3.12.5",
     "lucide-react": "^1.16.0",

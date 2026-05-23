@@ -38,7 +38,6 @@ export class CompositionRoot {
         const profiler = new Profiler();
         const systemManager = new SystemManager(profiler);
         const entities = new EntityRegistry();
-        const refs = new EntityRefs();
 
         const transforms = new ComponentStore<TransformComponent>();
         const velocities = new ComponentStore<KinematicVelocityComponent>();
@@ -51,6 +50,8 @@ export class CompositionRoot {
         const playerTags = new ComponentStore<PlayerTag>();
         const wardenTags = new ComponentStore<WardenTag>();
         const anchorTags = new ComponentStore<AnchorTag>();
+
+        const refs = new EntityRefs(playerTags, wardenTags, anchorTags);
 
         const renderSystem = new RenderSystem(canvas);
         const cameraSystem = new CameraSystem(refs, transforms, renderSystem, broker);

@@ -1,9 +1,11 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TetherComponent, KinematicVelocityComponent, KinematicTargetComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerKinematicsSystem implements ISystem {
+    readonly phase = SystemPhase.Kinematics;
     constructor(
         private refs: EntityRefs,
         private tethers: ComponentStore<TetherComponent>,
