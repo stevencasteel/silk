@@ -59,6 +59,10 @@ export class AudioDirectorSystem implements ISystem {
     if (this.initialized) return;
     Tone.start().then(() => {
       this.initialized = true;
+
+      // Default the entire application's master output to muted
+      Tone.getDestination().mute = true;
+
       this.tensionSynth = new TensionSynthesizer();
       this.tensionSynth.initialize();
       
