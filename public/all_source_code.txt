@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 1:48:34 PM
+ [SYSTEM] Generated: 5/23/2026, 2:07:48 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -307,49 +307,39 @@ PURPOSE
 This document is the authoritative engineering and architectural blueprint for
 SILK. It is designed as a complete AI handoff package for future build sessions.
 
-This is a production-minded vertical slice framework optimized for:
-- maintainability
-- deterministic gameplay systems
-- debugging clarity
-- movement quality priority
-
-The game starts in the arena immediately.
+SILK starts in the vertical portrait arena immediately without title screens.
 
 ===============================================================================
-HIGH LEVEL GAME SUMMARY
+REALIZED PLAY AREA & ALIGNMENT SPECIFICATIONS
 ===============================================================================
-SILK is a vertical arena swing-pendulum traversal game focused on:
-- momentum
-- tension
-- elastic traversal
-- ceiling anchor oscillation tracking
-- wall-friction drag and strain
-- rope snapping breakdown limits
-
-Movement quality is the focal priority of the experience.
+- Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
+- Vertical Boundaries: Flat solid walls at X = -15.0 and X = 15.0. No platform 
+  ledges jut out. Measurement unit ticks scroll downwards continuously, 
+  creating the endless vertical ascension illusion.
+- Static Camera Lock: Fixed perspective camera at (0, 14, -38) looking at 
+  (0, 14, 0) with a fixed horizontal FOV mode. This completely locks the render 
+  view within the vertical portrait borders.
 
 ===============================================================================
-NON-NEGOTIABLE DESIGN PILLARS
+REALIZED COREtraversal PHYSICS SKELETON
 ===============================================================================
-NEVER CUT:
-- Dynamic pendulum swing relative to moving ceiling anchor
-- Steering momentum thrusts (left/right controls)
-- Wall contact downward drag and velocity friction
-- Progressive rope elongation tension calculations
-- Strain accumulation and snap breakdown limits
-- Immediate vertical portrait arena readability
+1. WARDEN CEILING SWEEP (ANCHOR)
+   - Spawned as a giant mechanical sphere (radius = 2.4, 3x capsule width) 
+     patrolling autonomously back and forth along Y = 26.0 between X = [-12, 12].
+   - The top end of the silk string (tether anchor coordinate) locks dynamically 
+     to the Warden's real-time position.
 
-===============================================================================
-ABSOLUTE ARCHITECTURAL RULES
-===============================================================================
-RULE 1: Gameplay systems NEVER directly touch React state.
-RULE 2: Babylon scene objects NEVER become source-of-truth gameplay state.
-RULE 3: React is presentation only.
-RULE 4: Dynamic kinematics owns authoritative movement truth.
-RULE 5: Visuals read gameplay state. Gameplay never reads visuals.
-RULE 6: Every system has: init(), update(), dispose().
-RULE 7: Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
-RULE 8: Left Wall inner edge is at X = -15.0. Right Wall inner edge is at X = 15.0.
+2. PENDULUM SWING & STEERING
+   - The player capsule (radius 0.4, height 1.8) is suspended below the Warden.
+   - Left/Right arrow keys directly steer the pendulum to build momentum.
+
+3. WALL SLIDE FRICTION & ELONGATION
+   - Steering into a wall locks the player's horizontal coordinate to prevent bounces.
+   - Friction slides the player down, dynamically stretching the maxLength of 
+     the tether. 
+   - Elongation past base limits generates critical tension load. Remaining on 
+     the wall accumulates strain. If critical strain persists for over 1.8s, the 
+     rope snaps, causing a Game Over.
 
 ===============================================================================
 DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
@@ -842,80 +832,80 @@ import { PerformanceClock } from "../core/clock/PerformanceClock";
 import { RafScheduler } from "../core/loop/RafScheduler";
 
 export class CompositionRoot {
-  public buildEngine(canvas: HTMLCanvasElement): Engine {
-    const broker = new EventBroker();
-    const commands = new CommandBus();
-    const profiler = new Profiler();
-    const systemManager = new SystemManager(profiler);
-    
-    const entities = new EntityRegistry();
-    const transforms = new ComponentStore<TransformComponent>();
-    const velocities = new ComponentStore<KinematicVelocityComponent>();
-    const targets = new ComponentStore<KinematicTargetComponent>();
-    const tethers = new ComponentStore<TetherComponent>();
-    const healths = new ComponentStore<HealthComponent>();
-    const inputs = new ComponentStore<InputIntentComponent>();
-    const wardenAIs = new ComponentStore<WardenAIComponent>();
-    const playerStats = new ComponentStore<PlayerStatsComponent>();
-    const traversal = new ComponentStore<TraversalStateComponent>();
-    const iframes = new ComponentStore<InvulnerabilityComponent>();
-    const wardenTraversal = new ComponentStore<WardenTraversalComponent>();
-    
-    const playerTags = new ComponentStore<PlayerTag>();
-    const wardenTags = new ComponentStore<WardenTag>();
-    const anchorTags = new ComponentStore<AnchorTag>();
-    
-    const refs = new EntityRefs(playerTags, wardenTags, anchorTags);
+    public buildEngine(canvas: HTMLCanvasElement): Engine {
+        const broker = new EventBroker();
+        const commands = new CommandBus();
+        const profiler = new Profiler();
+        const systemManager = new SystemManager(profiler);
+        
+        const entities = new EntityRegistry();
+        const transforms = new ComponentStore<TransformComponent>();
+        const velocities = new ComponentStore<KinematicVelocityComponent>();
+        const targets = new ComponentStore<KinematicTargetComponent>();
+        const tethers = new ComponentStore<TetherComponent>();
+        const healths = new ComponentStore<HealthComponent>();
+        const inputs = new ComponentStore<InputIntentComponent>();
+        const wardenAIs = new ComponentStore<WardenAIComponent>();
+        const playerStats = new ComponentStore<PlayerStatsComponent>();
+        const traversal = new ComponentStore<TraversalStateComponent>();
+        const iframes = new ComponentStore<InvulnerabilityComponent>();
+        const wardenTraversal = new ComponentStore<WardenTraversalComponent>();
+        
+        const playerTags = new ComponentStore<PlayerTag>();
+        const wardenTags = new ComponentStore<WardenTag>();
+        const anchorTags = new ComponentStore<AnchorTag>();
+        const refs = new EntityRefs(playerTags, wardenTags, anchorTags);
 
-    const renderSystem = new RenderSystem(canvas);
-    const cameraSystem = new CameraSystem(refs, transforms, wardenAIs, renderSystem, broker);
-    const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, wardenAIs, playerStats, playerTags, wardenTags, anchorTags, renderSystem, traversal, iframes, wardenTraversal);
-    const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, tethers);
-    const inputSystem = new PlayerInputSystem(refs, inputs);
-    const movementSystem = new PlayerMovementSystem(refs, inputs, playerStats, tethers, traversal, transforms, commands, broker);
-    const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
-    const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
-    
-    // Aligned PlayerKinematics parameters to read Inputs directly
-    const playerKinematics = new PlayerKinematicsSystem(refs, tethers, velocities, targets, traversal, transforms, inputs);
-    const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, broker);
-    const syncSystem = new TransformSyncSystem(refs, transforms, tethers, renderSystem);
-    const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
-    const lightingSystem = new LightingSystem(broker, renderSystem);
-    const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
-    const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, wardenAIs, velocities, iframes, targets);
-    const audioSystem = new AudioDirectorSystem(broker);
-    const juiceSystem = new JuiceSystem(broker, renderSystem);
-    const hudSystem = new DomHudSystem(broker);
-    const debugWireframe = new DebugWireframeSystem(refs, transforms, tethers, renderSystem);
-    const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, tethers, velocities);
+        const renderSystem = new RenderSystem(canvas);
+        const cameraSystem = new CameraSystem(refs, transforms, wardenAIs, renderSystem, broker);
+        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, wardenAIs, playerStats, playerTags, wardenTags, anchorTags, renderSystem, traversal, iframes, wardenTraversal);
+        const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, tethers);
+        const inputSystem = new PlayerInputSystem(refs, inputs);
+        const movementSystem = new PlayerMovementSystem();
+        const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
+        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
+        
+        const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
+        const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
+        
+        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, renderSystem);
+        const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
+        const lightingSystem = new LightingSystem(broker, renderSystem);
+        const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
+        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, wardenAIs, velocities, iframes, targets, traversal);
+        
+        const audioSystem = new AudioDirectorSystem(broker);
+        const juiceSystem = new JuiceSystem(broker, renderSystem);
+        const hudSystem = new DomHudSystem(broker);
+        const debugWireframe = new DebugWireframeSystem(refs, transforms, tethers, renderSystem);
+        const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, tethers, velocities);
 
-    systemManager.register(spawner);
-    systemManager.register(renderSystem);
-    systemManager.register(physicsSystem);
-    systemManager.register(inputSystem);
-    systemManager.register(movementSystem);
-    systemManager.register(wardenBrain);
-    systemManager.register(playerKinematics);
-    systemManager.register(wardenTraversalSystem);
-    systemManager.register(environmentCollision);
-    systemManager.register(syncSystem);
-    systemManager.register(ropeVisualizer);
-    systemManager.register(cameraSystem);
-    systemManager.register(combatSystem);
-    systemManager.register(juiceSystem);
-    systemManager.register(gameDirector);
-    systemManager.register(audioSystem);
-    systemManager.register(lightingSystem);
-    systemManager.register(hudSystem);
-    systemManager.register(debugWireframe);
-    systemManager.register(debugTelemetry);
+        systemManager.register(spawner);
+        systemManager.register(renderSystem);
+        systemManager.register(physicsSystem);
+        systemManager.register(inputSystem);
+        systemManager.register(movementSystem);
+        systemManager.register(wardenBrain);
+        systemManager.register(playerKinematics);
+        systemManager.register(wardenTraversalSystem);
+        systemManager.register(environmentCollision);
+        systemManager.register(syncSystem);
+        systemManager.register(ropeVisualizer);
+        systemManager.register(cameraSystem);
+        systemManager.register(combatSystem);
+        systemManager.register(juiceSystem);
+        systemManager.register(gameDirector);
+        systemManager.register(audioSystem);
+        systemManager.register(lightingSystem);
+        systemManager.register(hudSystem);
+        systemManager.register(debugWireframe);
+        systemManager.register(debugTelemetry);
 
-    const clock = new PerformanceClock();
-    const scheduler = new RafScheduler();
+        const clock = new PerformanceClock();
+        const scheduler = new RafScheduler();
 
-    return new Engine(canvas, broker, systemManager, clock, scheduler);
-  }
+        return new Engine(canvas, broker, systemManager, clock, scheduler);
+    }
 }
 
 
@@ -1146,17 +1136,16 @@ export class CameraSystem implements ISystem {
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
       
-      // Lock the viewport camera strictly to the vertical portrait cabinet frame
-      this.cameraNode.position.set(0, 14.0, -28.0);
+      // Fixed static camera lock at depth of -38
+      this.cameraNode.position.set(0, 14.0, -38.0);
       this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }
   }
 
   public update(dt: number): void {
     void dt;
-    // Strictly static lock: Completely disabled tracking springs to prevent viewport leaks and mesh scaling
     if (this.cameraNode) {
-      this.cameraNode.position.set(0, 14.0, -28.0);
+      this.cameraNode.position.set(0, 14.0, -38.0);
       this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }
   }
@@ -1463,11 +1452,11 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     this.scene = new BABYLON.Scene(this.engine);
     this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.02, 1.0);
     
-    const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -28), this.scene);
+    // Adjusted camera Z-depth back to -38 to widen the frustum and bring 3D walls onto the portrait frame
+    const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -38), this.scene);
     camera.setTarget(new BABYLON.Vector3(0, 14, 0));
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
     
-    // Increased light intensity for highly visible 3D assets
     const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
     light.intensity = 1.3;
 
@@ -1863,47 +1852,57 @@ export class ComponentStore<T> {
 ● ./src/core/ecs/Components.ts
 ────────────────────────────────────────────────────
 export interface TransformComponent {
-  x: number; y: number; z: number;
-  qx: number; qy: number; qz: number; qw: number;
-  prevX: number; prevY: number; prevZ: number;
-  prevQx: number; prevQy: number; prevQz: number; prevQw: number;
+    x: number; y: number; z: number;
+    qx: number; qy: number; qz: number; qw: number;
+    prevX: number; prevY: number; prevZ: number;
+    prevQx: number; prevQy: number; prevQz: number; prevQw: number;
 }
+
 export interface KinematicVelocityComponent { x: number; y: number; z: number; }
 export interface KinematicTargetComponent { x: number; y: number; z: number; active: boolean; }
+
 export interface TetherComponent {
-  anchorX: number; anchorY: number; anchorZ: number;
-  maxLength: number; currentLength: number;
-  isAttached: boolean; tension: number;
-  dynamicVelX: number; dynamicVelY: number;
+    anchorX: number; anchorY: number; anchorZ: number;
+    maxLength: number; currentLength: number;
+    isAttached: boolean; tension: number;
+    dynamicVelX: number; dynamicVelY: number;
 }
+
 export interface HealthComponent { current: number; max: number; }
 export interface InputIntentComponent { x: number; y: number; jump: boolean; fire: boolean; detach: boolean; }
-export interface WardenAIComponent { 
-  state: string; 
-  timeInState: number; 
-  targetX: number; 
-  targetY: number; 
-  hue: string; 
-  hasFakedDeath: boolean;
+
+export interface WardenAIComponent {
+    state: string;
+    timeInState: number;
+    targetX: number;
+    targetY: number;
+    hue: string;
+    hasFakedDeath: boolean;
 }
+
 export interface PlayerStatsComponent { moveSpeed: number; climbSpeed: number; swingForce: number; minRope: number; maxRope: number; }
 export interface PlayerTag { readonly tag?: "player"; }
 export interface WardenTag { readonly tag?: "warden"; }
 export interface AnchorTag { readonly tag?: "anchor"; }
 export interface InvulnerabilityComponent { timeRemaining: number; }
-export type TraversalState = "AIRBORNE" | "WALL_SLIDING" | "GROUNDED";
-export interface TraversalStateComponent { 
-  state: TraversalState; 
-  wallNormalX: number; 
-  wallNormalY: number; 
-  charge: number;
+
+export type TraversalState = "AIRBORNE" | "WALL_SLIDING" | "LAUNCHING" | "GROUNDED";
+
+export interface TraversalStateComponent {
+    state: TraversalState;
+    wallNormalX: number;
+    wallNormalY: number;
+    charge: number;
+    launchTimer: number;
+    launchPower: number;
 }
+
 export interface WardenTraversalComponent {
-  velX: number;
-  velY: number;
-  isGrounded: boolean;
-  isWallClinging: boolean;
-  wallNormalX: number;
+    velX: number;
+    velY: number;
+    isGrounded: boolean;
+    isWallClinging: boolean;
+    wallNormalX: number;
 }
 
 
@@ -2690,92 +2689,98 @@ import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 
 export class CombatSystem implements ISystem {
-  readonly phase = SystemPhase.Gameplay;
-  
-  private playerHitRadius = 0.8;
-  private wardenHitRadius = 1.5;
-  private wardenDamage = 1;
-  private playerIframeDuration = 1.5;
-  private playerAttackDamage = 25;
+    readonly phase = SystemPhase.Gameplay;
+    private playerHitRadius = 0.8;
+    private wardenHitRadius = 2.0;
+    private wardenDamage = 1;
+    private playerIframeDuration = 1.5;
+    private playerFlingDamage = 35;
 
-  constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private wardenAIs: ComponentStore<WardenAIComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>,
-    traversal: ComponentStore<TraversalStateComponent>,
-    private broker: EventBroker,
-    private commands: CommandBus
-  ) {
-    void traversal;
-  }
+    constructor(
+        private refs: EntityRefs,
+        private transforms: ComponentStore<TransformComponent>,
+        private healths: ComponentStore<HealthComponent>,
+        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private tethers: ComponentStore<TetherComponent>,
+        private iframes: ComponentStore<InvulnerabilityComponent>,
+        private traversal: ComponentStore<TraversalStateComponent>,
+        private broker: EventBroker,
+        private commands: CommandBus
+    ) {}
 
-  public update(dt: number): void {
-    const pTrans = this.transforms.get(this.refs.player);
-    const wTrans = this.transforms.get(this.refs.warden);
-    const pHealth = this.healths.get(this.refs.player);
-    const wHealth = this.healths.get(this.refs.warden);
-    const wAI = this.wardenAIs.get(this.refs.warden);
-    const pIframe = this.iframes.get(this.refs.player);
-    const tether = this.tethers.get(this.refs.player);
+    public update(dt: number): void {
+        const pTrans = this.transforms.get(this.refs.player);
+        const wTrans = this.transforms.get(this.refs.warden);
+        const pHealth = this.healths.get(this.refs.player);
+        const wHealth = this.healths.get(this.refs.warden);
+        const wAI = this.wardenAIs.get(this.refs.warden);
+        const pIframe = this.iframes.get(this.refs.player);
+        const tether = this.tethers.get(this.refs.player);
+        const pTrav = this.traversal.get(this.refs.player);
 
-    if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether) return;
+        if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
 
-    if (pIframe.timeRemaining > 0) {
-      pIframe.timeRemaining -= dt;
-    }
-
-    const dx = pTrans.x - wTrans.x;
-    const dy = pTrans.y - wTrans.y;
-    const distSq = dx * dx + dy * dy;
-    const hitDist = this.playerHitRadius + this.wardenHitRadius;
-    const isColliding = distSq < (hitDist * hitDist);
-
-    if (isColliding) {
-      if (wAI.state === "DAZED RECOVERY" || wAI.state === "BERSERK OVERDRIVE") {
-        const dmg = this.playerAttackDamage * dt;
-        wHealth.current -= dmg;
-        this.broker.publish(GameEvent.WARDEN_DAMAGED, { amount: dmg, source: "PLAYER" });
-        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.2, duration: 0.1 });
-        
-        if (wHealth.current <= 0) {
-          wHealth.current = 0;
-          if (wAI.hasFakedDeath) {
-            this.broker.publish(GameEvent.WARDEN_DIED, undefined);
-          }
+        if (pIframe.timeRemaining > 0) {
+            pIframe.timeRemaining -= dt;
         }
-      } 
-      else if (pIframe.timeRemaining <= 0 && (wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING")) {
-        pHealth.current -= this.wardenDamage;
-        pIframe.timeRemaining = this.playerIframeDuration;
-        
-        const dist = Math.sqrt(distSq) || 1;
-        const knockbackForce = 15;
-        const kbX = (dx / dist) * knockbackForce;
-        const kbY = (dy / dist) * knockbackForce + 5;
-        
-        this.commands.dispatch<ApplyImpulseCommand>({
-          type: "APPLY_IMPULSE",
-          entityId: this.refs.player,
-          x: kbX,
-          y: kbY,
-          z: 0
-        });
 
-        this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: this.wardenDamage, source: "WARDEN" });
-        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
+        const dx = pTrans.x - wTrans.x;
+        const dy = pTrans.y - wTrans.y;
+        const distSq = dx * dx + dy * dy;
+        const hitDist = this.playerHitRadius + this.wardenHitRadius;
+        const isColliding = distSq < (hitDist * hitDist);
 
-        if (pHealth.current <= 0) {
-          pHealth.current = 0;
-          this.broker.publish(GameEvent.PLAYER_DIED, undefined);
+        if (isColliding) {
+            if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.95) {
+                wHealth.current -= this.playerFlingDamage;
+                this.broker.publish(GameEvent.WARDEN_DAMAGED, { amount: this.playerFlingDamage, source: "PLAYER_FLING" });
+                this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
+                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.2, duration: 0.5 });
+                
+                const dist = Math.sqrt(distSq) || 1;
+                tether.dynamicVelX = (dx / dist) * 25;
+                tether.dynamicVelY = (dy / dist) * 25;
+                pTrav.state = "AIRBORNE";
+                pTrav.launchPower = 0;
+                pTrav.launchTimer = 0;
+
+                if (wHealth.current <= 0) {
+                    wHealth.current = 0;
+                    if (wAI.hasFakedDeath) {
+                        this.broker.publish(GameEvent.WARDEN_DIED, undefined);
+                    } else {
+                        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "FAKE_DEATH", hue: "#1f2937" });
+                    }
+                }
+            }
+            else if (pIframe.timeRemaining <= 0 && (wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING" || wAI.state === "SWEEPING")) {
+                pHealth.current -= this.wardenDamage;
+                pIframe.timeRemaining = this.playerIframeDuration;
+                
+                const dist = Math.sqrt(distSq) || 1;
+                const knockbackForce = 15;
+                const kbX = (dx / dist) * knockbackForce;
+                const kbY = (dy / dist) * knockbackForce + 5;
+                
+                this.commands.dispatch<ApplyImpulseCommand>({
+                    type: "APPLY_IMPULSE",
+                    entityId: this.refs.player,
+                    x: kbX,
+                    y: kbY,
+                    z: 0
+                });
+                
+                this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: this.wardenDamage, source: "WARDEN" });
+                this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
+                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
+
+                if (pHealth.current <= 0) {
+                    pHealth.current = 0;
+                    this.broker.publish(GameEvent.PLAYER_DIED, undefined);
+                }
+            }
         }
-      }
     }
-  }
 }
 
 
@@ -2792,112 +2797,109 @@ import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import * as BABYLON from "@babylonjs/core";
 
 export class EntitySpawnerSystem implements ISystem {
-  readonly phase = SystemPhase.Intents;
-  readonly initPhase = InitPhase.World;
+    readonly phase = SystemPhase.Intents;
+    readonly initPhase = InitPhase.World;
 
-  constructor(
-    private refs: EntityRefs,
-    private entities: EntityRegistry,
-    private transforms: ComponentStore<TransformComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private inputs: ComponentStore<InputIntentComponent>,
-    private wardenAIs: ComponentStore<WardenAIComponent>,
-    private playerStats: ComponentStore<PlayerStatsComponent>,
-    private playerTags: ComponentStore<PlayerTag>,
-    private wardenTags: ComponentStore<WardenTag>,
-    private anchorTags: ComponentStore<AnchorTag>,
-    private visualRegistry: IVisualRegistry,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>,
-    private wardenTraversal: ComponentStore<WardenTraversalComponent>
-  ) {}
+    constructor(
+        private refs: EntityRefs,
+        private entities: EntityRegistry,
+        private transforms: ComponentStore<TransformComponent>,
+        private velocities: ComponentStore<KinematicVelocityComponent>,
+        private targets: ComponentStore<KinematicTargetComponent>,
+        private tethers: ComponentStore<TetherComponent>,
+        private healths: ComponentStore<HealthComponent>,
+        private inputs: ComponentStore<InputIntentComponent>,
+        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private playerStats: ComponentStore<PlayerStatsComponent>,
+        private playerTags: ComponentStore<PlayerTag>,
+        private wardenTags: ComponentStore<WardenTag>,
+        private anchorTags: ComponentStore<AnchorTag>,
+        private visualRegistry: IVisualRegistry,
+        private traversal: ComponentStore<TraversalStateComponent>,
+        private iframes: ComponentStore<InvulnerabilityComponent>,
+        private wardenTraversal: ComponentStore<WardenTraversalComponent>
+    ) {}
 
-  public init(): void {
-    const scene = this.visualRegistry.getScene();
-    if (!scene) return;
+    public init(): void {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
 
-    // 1. Dynamic Anchor
-    const anchorId = this.entities.create();
-    this.transforms.add(anchorId, { 
-      x: 0, y: 26, z: 0, 
-      qx: 0, qy: 0, qz: 0, qw: 1, 
-      prevX: 0, prevY: 26, prevZ: 0, 
-      prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 
-    });
-    this.anchorTags.add(anchorId, {});
-    this.refs.anchor = anchorId;
+        const anchorId = this.entities.create();
+        this.transforms.add(anchorId, {
+            x: 0, y: 26, z: 0,
+            qx: 0, qy: 0, qz: 0, qw: 1,
+            prevX: 0, prevY: 26, prevZ: 0,
+            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+        });
+        this.anchorTags.add(anchorId, {});
+        this.refs.anchor = anchorId;
+        const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
+        const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
+        anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        anchorMesh.material = anchorMat;
+        this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
 
-    const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
-    const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
-    anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-    anchorMesh.material = anchorMat;
-    this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
+        const wardenId = this.entities.create();
+        this.transforms.add(wardenId, {
+            x: 0, y: 26, z: 0,
+            qx: 0, qy: 0, qz: 0, qw: 1,
+            prevX: 0, prevY: 26, prevZ: 0,
+            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+        });
+        this.velocities.add(wardenId, { x: 4.5, y: 0, z: 0 });
+        this.targets.add(wardenId, { x: 0, y: 26, z: 0, active: true });
+        this.wardenAIs.add(wardenId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 26, hue: "#ef4444", hasFakedDeath: false });
+        this.healths.add(wardenId, { current: 100, max: 100 });
+        this.wardenTags.add(wardenId, {});
+        this.wardenTraversal.add(wardenId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
+        this.refs.warden = wardenId;
+        const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("wardenVisual", { radius: 2.4, subdivisions: 3 }, scene);
+        const wMat = new BABYLON.StandardMaterial("wardenMat", scene);
+        wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
+        wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
+        wMesh.material = wMat;
+        this.visualRegistry.registerTransformNode(wardenId, wMesh);
 
-    // 2. Warden Entity (Ceiling Sweep Anchor) - Giant 3D Spider configuration
-    const wardenId = this.entities.create();
-    this.transforms.add(wardenId, { 
-      x: 0, y: 26, z: 0, 
-      qx: 0, qy: 0, qz: 0, qw: 1, 
-      prevX: 0, prevY: 26, prevZ: 0, 
-      prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 
-    });
-    this.velocities.add(wardenId, { x: 4.5, y: 0, z: 0 });
-    this.targets.add(wardenId, { x: 0, y: 26, z: 0, active: true });
-    this.wardenAIs.add(wardenId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 26, hue: "#ef4444", hasFakedDeath: false });
-    this.healths.add(wardenId, { current: 100, max: 100 });
-    this.wardenTags.add(wardenId, {});
-    this.wardenTraversal.add(wardenId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
-    this.refs.warden = wardenId;
+        const playerId = this.entities.create();
+        this.transforms.add(playerId, {
+            x: 0, y: 16, z: 0,
+            qx: 0, qy: 0, qz: 0, qw: 1,
+            prevX: 0, prevY: 16, prevZ: 0,
+            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+        });
+        this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
+        this.targets.add(playerId, { x: 0, y: 16, z: 0, active: true });
+        this.tethers.add(playerId, {
+            anchorX: 0, anchorY: 26, anchorZ: 0,
+            maxLength: 10.0, currentLength: 10.0,
+            isAttached: true, tension: 0.0,
+            dynamicVelX: 0.0, dynamicVelY: 0.0
+        });
+        this.healths.add(playerId, { current: 5, max: 5 });
+        this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
+        this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 28, minRope: 4, maxRope: 20 });
+        this.playerTags.add(playerId, {});
+        this.traversal.add(playerId, { 
+            state: "AIRBORNE", 
+            wallNormalX: 0, 
+            wallNormalY: 0, 
+            charge: 0.0,
+            launchTimer: 0.0,
+            launchPower: 0.0
+        });
+        this.iframes.add(playerId, { timeRemaining: 0 });
+        this.refs.player = playerId;
+        const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
+        const pMat = new BABYLON.StandardMaterial("playerMat", scene);
+        pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
+        pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
+        pMesh.material = pMat;
+        this.visualRegistry.registerTransformNode(playerId, pMesh);
+    }
 
-    // Giant Spider Mech Sphere (Radius 2.4 - 3x capsule width width)
-    const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("wardenVisual", { radius: 2.4, subdivisions: 3 }, scene);
-    const wMat = new BABYLON.StandardMaterial("wardenMat", scene);
-    wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
-    wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
-    wMesh.material = wMat;
-    this.visualRegistry.registerTransformNode(wardenId, wMesh);
-
-    // 3. Player Entity
-    const playerId = this.entities.create();
-    this.transforms.add(playerId, { 
-      x: 0, y: 16, z: 0, 
-      qx: 0, qy: 0, qz: 0, qw: 1, 
-      prevX: 0, prevY: 16, prevZ: 0, 
-      prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 
-    });
-    this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-    this.targets.add(playerId, { x: 0, y: 16, z: 0, active: true });
-    
-    // Dynamic swing tether is 10.0 units starting length
-    this.tethers.add(playerId, { 
-      anchorX: 0, anchorY: 26, anchorZ: 0, 
-      maxLength: 10.0, currentLength: 10.0, 
-      isAttached: true, tension: 0.0, 
-      dynamicVelX: 0.0, dynamicVelY: 0.0 
-    });
-    
-    this.healths.add(playerId, { current: 5, max: 5 });
-    this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
-    this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 28, minRope: 4, maxRope: 20 });
-    this.playerTags.add(playerId, {});
-    this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, charge: 0.0 });
-    this.iframes.add(playerId, { timeRemaining: 0 });
-    this.refs.player = playerId;
-
-    const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
-    const pMat = new BABYLON.StandardMaterial("playerMat", scene);
-    pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-    pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
-    pMesh.material = pMat;
-    this.visualRegistry.registerTransformNode(playerId, pMesh);
-  }
-
-  public update(_dt: number): void {
-    void _dt;
-  }
+    public update(_dt: number): void {
+        void _dt;
+    }
 }
 
 
@@ -2909,127 +2911,133 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, TetherComponent, WardenAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent } from "../../core/ecs/Components";
+import { TransformComponent, HealthComponent, TetherComponent, WardenAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
-  readonly phase = SystemPhase.Gameplay;
-  private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
-  private resetRequested = false;
+    readonly phase = SystemPhase.Gameplay;
+    private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
+    private resetRequested = false;
 
-  constructor(
-    private broker: EventBroker,
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private wardenAIs: ComponentStore<WardenAIComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>
-  ) {}
+    constructor(
+        private broker: EventBroker,
+        private refs: EntityRefs,
+        private transforms: ComponentStore<TransformComponent>,
+        private healths: ComponentStore<HealthComponent>,
+        private tethers: ComponentStore<TetherComponent>,
+        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private velocities: ComponentStore<KinematicVelocityComponent>,
+        private iframes: ComponentStore<InvulnerabilityComponent>,
+        private targets: ComponentStore<KinematicTargetComponent>,
+        private traversal: ComponentStore<TraversalStateComponent>
+    ) {}
 
-  public init(): void {
-    this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-      if (this.gameState === "PLAYING") {
-        this.gameState = "GAME_OVER";
-        this.broker.publish(GameEvent.GAME_OVER, undefined);
-      }
-    });
-
-    window.addEventListener("keydown", this.handleKeyDown);
-  }
-
-  private handleKeyDown = (e: KeyboardEvent): void => {
-    if (e.key.toLowerCase() === "r" && this.gameState !== "PLAYING") {
-      this.resetRequested = true;
-    }
-  };
-
-  public update(_dt: number): void {
-    void _dt;
-    if (this.resetRequested) {
-      this.resetGame();
-      this.resetRequested = false;
-    }
-  }
-
-  private resetGame(): void {
-    this.gameState = "PLAYING";
-
-    // 1. Reset Player to hanging position
-    const pTrans = this.transforms.get(this.refs.player);
-    const pHealth = this.healths.get(this.refs.player);
-    const pTether = this.tethers.get(this.refs.player);
-    const pVel = this.velocities.get(this.refs.player);
-    const pIframe = this.iframes.get(this.refs.player);
-    const pTarget = this.targets.get(this.refs.player);
-
-    if (pTrans) { 
-      pTrans.x = 0; pTrans.y = 16; pTrans.z = 0; 
-      pTrans.prevX = 0; pTrans.prevY = 16; pTrans.prevZ = 0;
-    }
-    if (pTarget) {
-      pTarget.x = 0; pTarget.y = 16; pTarget.z = 0; pTarget.active = true;
-    }
-    if (pHealth) { 
-      pHealth.current = pHealth.max; 
-    }
-    if (pTether) { 
-      pTether.isAttached = true; 
-      pTether.maxLength = 10.0;
-      tether.currentLength = 10.0;
-      pTether.dynamicVelX = 0; 
-      pTether.dynamicVelY = 0; 
-      pTether.tension = 0.0;
-      pTether.anchorX = 0;
-      pTether.anchorY = 26;
-    }
-    if (pVel) { 
-      pVel.x = 0; pVel.y = 0; pVel.z = 0; 
-    }
-    if (pIframe) { 
-      pIframe.timeRemaining = 0; 
+    public init(): void {
+        this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+            if (this.gameState === "PLAYING") {
+                this.gameState = "GAME_OVER";
+                this.broker.publish(GameEvent.GAME_OVER, undefined);
+            }
+        });
+        window.addEventListener("keydown", this.handleKeyDown);
     }
 
-    // 2. Reset Warden to the ceiling sweep start
-    const wTrans = this.transforms.get(this.refs.warden);
-    const wHealth = this.healths.get(this.refs.warden);
-    const wAI = this.wardenAIs.get(this.refs.warden);
-    const wVel = this.velocities.get(this.refs.warden);
-    const wTarget = this.targets.get(this.refs.warden);
+    private handleKeyDown = (e: KeyboardEvent): void => {
+        if (e.key.toLowerCase() === "r" && this.gameState !== "PLAYING") {
+            this.resetRequested = true;
+        }
+    };
 
-    if (wTrans) { 
-      wTrans.x = 0; wTrans.y = 26; wTrans.z = 0; 
-      wTrans.prevX = 0; wTrans.prevY = 26; wTrans.prevZ = 0;
-    }
-    if (wTarget) {
-      wTarget.x = 0; wTarget.y = 26; wTarget.z = 0; wTarget.active = true;
-    }
-    if (wHealth) { 
-      wHealth.current = wHealth.max; 
-    }
-    if (wAI) { 
-      wAI.state = "SWEEPING"; 
-      wAI.timeInState = 0; 
-      wAI.hue = "#ef4444"; 
-      wAI.hasFakedDeath = false;
-    }
-    if (wVel) { 
-      wVel.x = 4.0; wVel.y = 0; wVel.z = 0; 
+    public update(_dt: number): void {
+        void _dt;
+        if (this.resetRequested) {
+            this.resetGame();
+            this.resetRequested = false;
+        }
     }
 
-    this.broker.publish(GameEvent.GAME_RESET, undefined);
-    this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
-    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
-    this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
-  }
+    private resetGame(): void {
+        this.gameState = "PLAYING";
+        
+        const pTrans = this.transforms.get(this.refs.player);
+        const pHealth = this.healths.get(this.refs.player);
+        const pTether = this.tethers.get(this.refs.player);
+        const pVel = this.velocities.get(this.refs.player);
+        const pIframe = this.iframes.get(this.refs.player);
+        const pTarget = this.targets.get(this.refs.player);
+        const pTrav = this.traversal.get(this.refs.player);
 
-  public dispose(): void {
-    window.removeEventListener("keydown", this.handleKeyDown);
-  }
+        if (pTrans) {
+            pTrans.x = 0; pTrans.y = 16; pTrans.z = 0;
+            pTrans.prevX = 0; pTrans.prevY = 16; pTrans.prevZ = 0;
+        }
+        if (pTarget) {
+            pTarget.x = 0; pTarget.y = 16; pTarget.z = 0; pTarget.active = true;
+        }
+        if (pHealth) {
+            pHealth.current = pHealth.max;
+        }
+        if (pTether) {
+            pTether.isAttached = true;
+            pTether.maxLength = 10.0;
+            pTether.currentLength = 10.0;
+            pTether.dynamicVelX = 0;
+            pTether.dynamicVelY = 0;
+            pTether.tension = 0.0;
+            pTether.anchorX = 0;
+            pTether.anchorY = 26;
+        }
+        if (pVel) {
+            pVel.x = 0; pVel.y = 0; pVel.z = 0;
+        }
+        if (pIframe) {
+            pIframe.timeRemaining = 0;
+        }
+        if (pTrav) {
+            pTrav.state = "AIRBORNE";
+            pTrav.wallNormalX = 0;
+            pTrav.wallNormalY = 0;
+            pTrav.charge = 0;
+            pTrav.launchTimer = 0;
+            pTrav.launchPower = 0;
+        }
+
+        const wTrans = this.transforms.get(this.refs.warden);
+        const wHealth = this.healths.get(this.refs.warden);
+        const wAI = this.wardenAIs.get(this.refs.warden);
+        const wVel = this.velocities.get(this.refs.warden);
+        const wTarget = this.targets.get(this.refs.warden);
+
+        if (wTrans) {
+            wTrans.x = 0; wTrans.y = 26; wTrans.z = 0;
+            wTrans.prevX = 0; wTrans.prevY = 26; wTrans.prevZ = 0;
+        }
+        if (wTarget) {
+            wTarget.x = 0; wTarget.y = 26; wTarget.z = 0; wTarget.active = true;
+        }
+        if (wHealth) {
+            wHealth.current = wHealth.max;
+        }
+        if (wAI) {
+            wAI.state = "SWEEPING";
+            wAI.timeInState = 0;
+            wAI.hue = "#ef4444";
+            wAI.hasFakedDeath = false;
+        }
+        if (wVel) {
+            wVel.x = 4.0; wVel.y = 0; wVel.z = 0;
+        }
+
+        this.broker.publish(GameEvent.GAME_RESET, undefined);
+        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
+        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
+        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
+    }
+
+    public dispose(): void {
+        window.removeEventListener("keydown", this.handleKeyDown);
+    }
 }
-const tether = { anchorX: 0, anchorY: 26, anchorZ: 0, maxLength: 10.0, currentLength: 10.0, isAttached: true, tension: 0.0, dynamicVelX: 0.0, dynamicVelY: 0.0 };
 
 
 
@@ -3042,45 +3050,44 @@ import { InputIntentComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerInputSystem implements ISystem {
-  readonly phase = SystemPhase.Input;
-  private keysPressed: Set<string> = new Set();
+    readonly phase = SystemPhase.Input;
+    private keysPressed: Set<string> = new Set();
 
-  constructor(private refs: EntityRefs, private inputs: ComponentStore<InputIntentComponent>) {}
+    constructor(private refs: EntityRefs, private inputs: ComponentStore<InputIntentComponent>) {}
 
-  public init(): void {
-    window.addEventListener("keydown", this.handleKeyDown);
-    window.addEventListener("keyup", this.handleKeyUp);
-  }
+    public init(): void {
+        window.addEventListener("keydown", this.handleKeyDown);
+        window.addEventListener("keyup", this.handleKeyUp);
+    }
 
-  public update(_dt: number): void {
-    void _dt;
-    const input = this.inputs.get(this.refs.player);
-    if (!input) return;
+    public update(_dt: number): void {
+        void _dt;
+        const input = this.inputs.get(this.refs.player);
+        if (!input) return;
 
-    let x = 0;
-    // Strictly read left/right steering keys matching Box Battle inputs
-    if (this.keysPressed.has("a") || this.keysPressed.has("arrowleft")) x -= 1;
-    if (this.keysPressed.has("d") || this.keysPressed.has("arrowright")) x += 1;
+        let x = 0;
+        if (this.keysPressed.has("a") || this.keysPressed.has("arrowleft")) x -= 1;
+        if (this.keysPressed.has("d") || this.keysPressed.has("arrowright")) x += 1;
+        
+        input.x = x;
+        input.y = 0;
+        input.jump = this.keysPressed.has(" ") || this.keysPressed.has("w") || this.keysPressed.has("arrowup");
+        input.detach = false;
+        input.fire = false;
+    }
 
-    input.x = x; 
-    input.y = 0;
-    input.jump = false;
-    input.detach = false;
-    input.fire = false;
-  }
+    public dispose(): void {
+        window.removeEventListener("keydown", this.handleKeyDown);
+        window.removeEventListener("keyup", this.handleKeyUp);
+    }
 
-  public dispose(): void {
-    window.removeEventListener("keydown", this.handleKeyDown);
-    window.removeEventListener("keyup", this.handleKeyUp);
-  }
+    private handleKeyDown = (e: KeyboardEvent): void => {
+        this.keysPressed.add(e.key.toLowerCase());
+    };
 
-  private handleKeyDown = (e: KeyboardEvent): void => { 
-    this.keysPressed.add(e.key.toLowerCase()); 
-  };
-  
-  private handleKeyUp = (e: KeyboardEvent): void => { 
-    this.keysPressed.delete(e.key.toLowerCase()); 
-  };
+    private handleKeyUp = (e: KeyboardEvent): void => {
+        this.keysPressed.delete(e.key.toLowerCase());
+    };
 }
 
 
@@ -3089,49 +3096,10 @@ export class PlayerInputSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { InputIntentComponent, PlayerStatsComponent, TetherComponent } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { CommandBus } from "../../core/commands/CommandBus";
-import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
 
 export class PlayerMovementSystem implements ISystem {
-  readonly phase = SystemPhase.Intents;
-
-  constructor(
-    private refs: EntityRefs,
-    private inputs: ComponentStore<InputIntentComponent>,
-    private stats: ComponentStore<PlayerStatsComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    _traversal: any,
-    _transforms: any,
-    private commands: CommandBus,
-    _broker: any
-  ) {
-    void _traversal;
-    void _transforms;
-    void _broker;
-  }
-
-  public update(dt: number): void {
-    void dt;
-    const input = this.inputs.get(this.refs.player);
-    const stats = this.stats.get(this.refs.player);
-    const tether = this.tethers.get(this.refs.player);
-    
-    if (!input || !stats || !tether) return;
-
-    // Direct left and right steering controls to drive pendular momentum
-    if (tether.isAttached) {
-      this.commands.dispatch<SetKinematicVelocityCommand>({ 
-        type: "SET_KINEMATIC_VELOCITY", 
-        entityId: this.refs.player, 
-        x: input.x * stats.swingForce, 
-        y: 0, 
-        z: 0 
-      });
-    }
-  }
+    readonly phase = SystemPhase.Intents;
+    public update(_dt: number): void { void _dt; }
 }
 
 
@@ -3399,108 +3367,74 @@ export const BORDER_AABBS: AABB[] = [
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TetherComponent, KinematicTargetComponent, HealthComponent } from "../../core/ecs/Components";
+import { TetherComponent, KinematicTargetComponent, HealthComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class EnvironmentCollisionSystem implements ISystem {
-  readonly phase = SystemPhase.Collision;
-  private borderLimitX = 14.6; // Inner edge boundary limit
-  private minY = 1.0;
-  private maxY = 27.5;
-  
-  private wallDragSpeed = -10.0; // Steady downward sliding speed
-  private currentStrain = 0.0;
-  private strainBreakThreshold = 1.8;
+    readonly phase = SystemPhase.Collision;
+    
+    private readonly MIN_Y = 1.0;
+    private readonly MAX_Y = 27.5;
+    private readonly STRAIN_THRESHOLD = 0.80;
+    private readonly STRAIN_BREAK_TIME = 1.8;
+    
+    private currentStrain = 0.0;
 
-  constructor(
-    private refs: EntityRefs,
-    private tethers: ComponentStore<TetherComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private broker: EventBroker
-  ) {}
+    constructor(
+        private refs: EntityRefs,
+        private tethers: ComponentStore<TetherComponent>,
+        private targets: ComponentStore<KinematicTargetComponent>,
+        private healths: ComponentStore<HealthComponent>,
+        private traversal: ComponentStore<TraversalStateComponent>,
+        private broker: EventBroker
+    ) {}
 
-  public update(dt: number): void {
-    const tether = this.tethers.get(this.refs.player);
-    const target = this.targets.get(this.refs.player);
-    const health = this.healths.get(this.refs.player);
-    if (!tether || !target || !health) return;
+    public update(dt: number): void {
+        const tether = this.tethers.get(this.refs.player);
+        const target = this.targets.get(this.refs.player);
+        const health = this.healths.get(this.refs.player);
+        const trav = this.traversal.get(this.refs.player);
 
-    let nextX = target.x;
-    let nextY = target.y;
-    const playerHalfWidth = 0.4;
-    const playerHalfHeight = 0.9;
+        if (!tether || !target || !health || !trav) return;
 
-    let isSlidingOnWall = false;
-
-    // Slide locking: Freeze horizontal boundary to eliminate bouncing
-    if (nextX - playerHalfWidth <= -this.borderLimitX) {
-      nextX = -this.borderLimitX + playerHalfWidth;
-      isSlidingOnWall = true;
-    } else if (nextX + playerHalfWidth >= this.borderLimitX) {
-      nextX = this.borderLimitX - playerHalfWidth;
-      isSlidingOnWall = true;
-    }
-
-    if (nextY - playerHalfHeight <= this.minY) {
-      nextY = this.minY + playerHalfHeight;
-      tether.dynamicVelY = 0;
-    } else if (nextY + playerHalfHeight >= this.maxY) {
-      nextY = this.maxY - playerHalfHeight;
-      tether.dynamicVelY = 0;
-    }
-
-    // Apply sliding friction and dynamic elongation
-    if (isSlidingOnWall) {
-      tether.dynamicVelX = 0;
-      tether.dynamicVelY = this.wallDragSpeed;
-      nextY += this.wallDragSpeed * dt;
-
-      // Dynamically stretch maxLength as the wall drags the player down
-      const currentDistance = Math.sqrt((nextX - tether.anchorX) ** 2 + (nextY - tether.anchorY) ** 2);
-      if (currentDistance > tether.maxLength) {
-        tether.maxLength = currentDistance; // Stretch the silk string!
-      }
-    }
-
-    const dx = nextX - tether.anchorX;
-    const dy = nextY - tether.anchorY;
-    const finalDistance = Math.sqrt(dx * dx + dy * dy) || 1.0;
-
-    // Tension metrics scale only during stretching elongation on the walls
-    if (finalDistance > 10.0) {
-      tether.tension = Math.max(0.0, (finalDistance - 10.0) / 4.0); // 10.0 is base length
-
-      if (tether.tension > 0.8) {
-        this.currentStrain += dt;
-        if (Math.random() < 0.2) {
-          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.1 });
+        const playerHalfHeight = 0.9;
+        if (target.y - playerHalfHeight <= this.MIN_Y) {
+            target.y = this.MIN_Y + playerHalfHeight;
+            tether.dynamicVelY = Math.max(0, tether.dynamicVelY);
+        } else if (target.y + playerHalfHeight >= this.MAX_Y) {
+            target.y = this.MAX_Y - playerHalfHeight;
+            tether.dynamicVelY = Math.min(0, tether.dynamicVelY);
         }
 
-        if (this.currentStrain >= this.strainBreakThreshold) {
-          tether.isAttached = false;
-          tether.tension = 0.0;
-          this.currentStrain = 0.0;
-          
-          health.current = 0;
-          this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
-          this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
-          this.broker.publish(GameEvent.PLAYER_DIED, undefined);
-          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.5 });
+        if (tether.tension >= this.STRAIN_THRESHOLD && trav.state === "WALL_SLIDING") {
+            this.currentStrain += dt;
+            
+            if (Math.random() < 0.15) {
+                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.15, duration: 0.1 });
+            }
+
+            if (this.currentStrain >= this.STRAIN_BREAK_TIME) {
+                this.snapTether(tether, health);
+            }
+        } else {
+            this.currentStrain = Math.max(0.0, this.currentStrain - dt * 2.0);
         }
-      } else {
-        this.currentStrain = Math.max(0.0, this.currentStrain - dt * 2.0);
-      }
-    } else {
-      tether.tension = 0.0;
-      this.currentStrain = Math.max(0.0, this.currentStrain - dt * 2.0);
     }
 
-    target.x = nextX;
-    target.y = nextY;
-  }
+    private snapTether(tether: TetherComponent, health: HealthComponent): void {
+        tether.isAttached = false;
+        tether.tension = 0.0;
+        this.currentStrain = 0.0;
+        
+        health.current = 0;
+        
+        this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
+        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
+        this.broker.publish(GameEvent.PLAYER_DIED, undefined);
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.2, duration: 0.6 });
+    }
 }
 
 
@@ -3538,79 +3472,190 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TetherComponent, KinematicTargetComponent, TraversalStateComponent, TransformComponent, InputIntentComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
 
 export class PlayerKinematicsSystem implements ISystem {
-  readonly phase = SystemPhase.Kinematics;
-  private gravity = -20.0;
+    readonly phase = SystemPhase.Kinematics;
+    
+    private readonly GRAVITY = -22.0;
+    private readonly SWING_STEER_FORCE = 28.0;
+    private readonly BASE_ROPE_LENGTH = 10.0;
+    private readonly MAX_ROPE_LENGTH = 24.0;
+    private readonly WALL_LIMIT_X = 14.2;
+    private readonly WALL_SLIDE_SPEED = -4.5;
+    private readonly TENSION_CHARGE_RATE = 0.65;
+    private readonly FLING_IMPULSE = 45.0;
+    private readonly LAUNCH_DURATION = 0.6;
+    private readonly DRAG_DAMPING = 0.985;
 
-  constructor(
-    private refs: EntityRefs,
-    private tethers: ComponentStore<TetherComponent>,
-    _velocities: any,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private transforms: ComponentStore<TransformComponent>,
-    private inputs: ComponentStore<InputIntentComponent>
-  ) {
-    void _velocities;
-  }
+    constructor(
+        private refs: EntityRefs,
+        private tethers: ComponentStore<TetherComponent>,
+        private targets: ComponentStore<KinematicTargetComponent>,
+        private traversal: ComponentStore<TraversalStateComponent>,
+        private transforms: ComponentStore<TransformComponent>,
+        private inputs: ComponentStore<InputIntentComponent>,
+        private broker: EventBroker
+    ) {}
 
-  public update(dt: number): void {
-    const tether = this.tethers.get(this.refs.player);
-    const target = this.targets.get(this.refs.player);
-    const trav = this.traversal.get(this.refs.player);
-    const wTrans = this.transforms.get(this.refs.warden);
-    const input = this.inputs.get(this.refs.player);
+    public update(dt: number): void {
+        const tether = this.tethers.get(this.refs.player);
+        const target = this.targets.get(this.refs.player);
+        const trav = this.traversal.get(this.refs.player);
+        const wTrans = this.transforms.get(this.refs.warden);
+        const input = this.inputs.get(this.refs.player);
 
-    if (!tether || !target || !trav || !wTrans) return;
+        if (!tether || !target || !trav || !wTrans || !input) return;
 
-    // 1. Sync the anchor directly to the Warden's horizontal coordinate
-    tether.anchorX = wTrans.x;
-    tether.anchorY = wTrans.y;
-    tether.anchorZ = wTrans.z;
+        tether.anchorX = wTrans.x;
+        tether.anchorY = wTrans.y;
+        tether.anchorZ = wTrans.z;
 
-    // 2. Direct Steering swings
-    if (input) {
-      const swingSteerForce = 22.0; 
-      tether.dynamicVelX += input.x * swingSteerForce * dt;
+        if (trav.state === "LAUNCHING") {
+            this.updateLaunching(dt, tether, trav);
+        } else {
+            this.updateMovement(dt, tether, trav, input);
+        }
+
+        const nextX = target.x + tether.dynamicVelX * dt;
+        const nextY = target.y + tether.dynamicVelY * dt;
+
+        this.resolveWallCollisions(nextX, nextY, target, tether, trav, input, dt);
+
+        if (trav.state !== "LAUNCHING") {
+            this.applyRopeConstraint(target, tether);
+        }
+
+        const dx = target.x - tether.anchorX;
+        const dy = target.y - tether.anchorY;
+        tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+        
+        this.broker.publish(GameEvent.ROPE_TENSION_CHANGE, { tension: tether.tension });
     }
 
-    // Apply continuous gravity
-    tether.dynamicVelY += this.gravity * dt;
+    private updateMovement(dt: number, tether: TetherComponent, trav: TraversalStateComponent, input: InputIntentComponent) {
+        tether.dynamicVelY += this.GRAVITY * dt;
 
-    // Apply drag damping
-    tether.dynamicVelX *= Math.pow(0.985, dt * 60);
-    tether.dynamicVelY *= Math.pow(0.985, dt * 60);
+        if (trav.state === "AIRBORNE") {
+            tether.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
+        }
 
-    let nextX = target.x + tether.dynamicVelX * dt;
-    let nextY = target.y + tether.dynamicVelY * dt;
-
-    const dx = nextX - tether.anchorX;
-    const dy = nextY - tether.anchorY;
-    const currentDistance = Math.sqrt(dx * dx + dy * dy) || 1.0;
-
-    // 3. Keep player locked to pendulum constraints
-    if (currentDistance > tether.maxLength) {
-      const nx = dx / currentDistance;
-      const ny = dy / currentDistance;
-
-      nextX = tether.anchorX + nx * tether.maxLength;
-      nextY = tether.anchorY + ny * tether.maxLength;
-
-      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
-      if (dot > 0) {
-        tether.dynamicVelX -= dot * nx;
-        tether.dynamicVelY -= dot * ny;
-      }
+        tether.dynamicVelX *= Math.pow(this.DRAG_DAMPING, dt * 60);
+        tether.dynamicVelY *= Math.pow(this.DRAG_DAMPING, dt * 60);
     }
 
-    tether.currentLength = currentDistance;
-    trav.state = "AIRBORNE";
+    private updateLaunching(dt: number, tether: TetherComponent, trav: TraversalStateComponent) {
+        trav.launchTimer -= dt;
+        tether.dynamicVelY += this.GRAVITY * 0.3 * dt;
 
-    target.x = nextX;
-    target.y = nextY;
-    target.active = true;
-  }
+        if (trav.launchTimer <= 0) {
+            trav.state = "AIRBORNE";
+            tether.maxLength = this.BASE_ROPE_LENGTH;
+        }
+    }
+
+    private resolveWallCollisions(nextX: number, nextY: number, target: KinematicTargetComponent, tether: TetherComponent, trav: TraversalStateComponent, input: InputIntentComponent, dt: number) {
+        const wallDir = nextX > this.WALL_LIMIT_X ? 1 : (nextX < -this.WALL_LIMIT_X ? -1 : 0);
+        
+        if (wallDir !== 0 && trav.state !== "LAUNCHING") {
+            const isPressingIn = (input.x === wallDir);
+            
+            if (isPressingIn && tether.dynamicVelY <= 0) {
+                if (trav.state !== "WALL_SLIDING") {
+                    trav.state = "WALL_SLIDING";
+                    trav.wallNormalX = -wallDir;
+                }
+                
+                target.x = wallDir * this.WALL_LIMIT_X;
+                target.y = nextY;
+                tether.dynamicVelX = 0;
+                tether.dynamicVelY = Math.max(tether.dynamicVelY, this.WALL_SLIDE_SPEED);
+                
+                const stretch = Math.max(0, tether.currentLength - this.BASE_ROPE_LENGTH);
+                const maxStretch = this.MAX_ROPE_LENGTH - this.BASE_ROPE_LENGTH;
+                const physicalTension = Math.min(1.0, stretch / maxStretch);
+                
+                tether.tension = Math.min(1.0, tether.tension + this.TENSION_CHARGE_RATE * dt);
+                tether.tension = Math.max(tether.tension, physicalTension);
+                
+                tether.maxLength = this.BASE_ROPE_LENGTH + (tether.tension * maxStretch);
+            } else {
+                if (trav.state === "WALL_SLIDING") {
+                    this.triggerFling(tether, target, trav, input);
+                } else {
+                    trav.state = "AIRBORNE";
+                }
+                target.x = wallDir * this.WALL_LIMIT_X;
+                target.y = nextY;
+                if (Math.sign(tether.dynamicVelX) === wallDir) {
+                    tether.dynamicVelX = 0;
+                }
+            }
+        } else {
+            if (trav.state === "WALL_SLIDING") {
+                this.triggerFling(tether, target, trav, input);
+            } else if (trav.state !== "LAUNCHING") {
+                trav.state = "AIRBORNE";
+            }
+            target.x = nextX;
+            target.y = nextY;
+        }
+
+        if (trav.state === "WALL_SLIDING" && input.jump) {
+            this.triggerFling(tether, target, trav, input);
+            input.jump = false;
+        }
+    }
+
+    private triggerFling(tether: TetherComponent, target: KinematicTargetComponent, trav: TraversalStateComponent, input: InputIntentComponent) {
+        if (tether.tension > 0.1) {
+            const dx = tether.anchorX - target.x;
+            const dy = tether.anchorY - target.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            
+            const dirX = dx / dist;
+            const dirY = dy / dist;
+            
+            const power = tether.tension * this.FLING_IMPULSE;
+            
+            tether.dynamicVelX = dirX * power + (input.x * 10.0);
+            tether.dynamicVelY = dirY * power;
+            
+            trav.state = "LAUNCHING";
+            trav.launchTimer = this.LAUNCH_DURATION;
+            trav.launchPower = tether.tension;
+            tether.maxLength = this.MAX_ROPE_LENGTH * 2;
+            
+            this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.3 * tether.tension, duration: 0.2 });
+        } else {
+            trav.state = "AIRBORNE";
+            trav.launchPower = 0;
+        }
+        
+        tether.tension = 0.0;
+        tether.maxLength = this.BASE_ROPE_LENGTH;
+    }
+
+    private applyRopeConstraint(target: KinematicTargetComponent, tether: TetherComponent) {
+        const dx = target.x - tether.anchorX;
+        const dy = target.y - tether.anchorY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+        if (dist > tether.maxLength) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            
+            target.x = tether.anchorX + nx * tether.maxLength;
+            target.y = tether.anchorY + ny * tether.maxLength;
+            
+            const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
+            if (dot > 0) {
+                tether.dynamicVelX -= dot * nx;
+                tether.dynamicVelY -= dot * ny;
+            }
+        }
+    }
 }
 
 
