@@ -22,7 +22,9 @@ export class WardenSweepingState implements IWardenState {
     });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(ctx: AIContext): void {
+    void ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
@@ -51,7 +53,9 @@ export class WardenDashingState implements IWardenState {
     this.startPrep(ctx);
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(ctx: AIContext): void {
+    void ctx;
+  }
 
   private startPrep(ctx: AIContext): void {
     this.currentPhase = "PREP";
@@ -154,7 +158,9 @@ export class WardenReturningState implements IWardenState {
     ctx.ai.timeInState = 0;
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(ctx: AIContext): void {
+    void ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
@@ -199,11 +205,13 @@ export class WardenDefeatedState implements IWardenState {
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(ctx: AIContext): void {
+    void ctx;
+  }
 
-  public update(_ctx: AIContext, _dt: number): WardenStateType | null {
-    void _ctx;
-    void _dt;
+  public update(ctx: AIContext, dt: number): WardenStateType | null {
+    void ctx;
+    void dt;
     return null;
   }
 }
