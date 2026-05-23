@@ -93,7 +93,7 @@ export class TransformSyncSystem implements ISystem {
 
             if (id === this.refs.player && silk && trav) {
                 const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
                 if (mat) {
                     this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
                 }
@@ -101,7 +101,7 @@ export class TransformSyncSystem implements ISystem {
 
             if (id === this.refs.weaver) {
                 const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
                 if (mat) {
                     const pulse = 0.02 + Math.sin(Date.now() * 0.003) * 0.015;
                     mat.emissiveColor.set(0.4 + pulse, 0.02, 0.02);
@@ -111,7 +111,7 @@ export class TransformSyncSystem implements ISystem {
     }
 
     private updatePlayerEmissive(
-        mat: BABYLON.StandardMaterial,
+        mat: BABYLON.PBRMaterial,
         tension: number,
         state: string,
         _alpha: number

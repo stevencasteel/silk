@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 5:03:49 PM
+ [SYSTEM] Generated: 5/23/2026, 5:10:37 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1239,11 +1239,11 @@ export class ArenaGeometry {
     constructor(private scene: BABYLON.Scene) {}
 
     public generateElevatorShaft(): void {
-        const wallMaterial = new BABYLON.StandardMaterial("wallMat", this.scene);
-        wallMaterial.diffuseColor = new BABYLON.Color3(0.07, 0.08, 0.11);
-        wallMaterial.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+        const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
+        wallMaterial.albedoColor = new BABYLON.Color3(0.07, 0.08, 0.11);
+        wallMaterial.metallic = 0.2;
+        wallMaterial.roughness = 0.8; // Matte, rubbery look
 
-        // Smooth left and right solid walls (boundaries at X = -15 and X = 15)
         const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 40, depth: 4 }, this.scene);
         leftWall.position.set(-16, 14, 0);
         leftWall.material = wallMaterial;
@@ -1252,9 +1252,10 @@ export class ArenaGeometry {
         rightWall.position.set(16, 14, 0);
         rightWall.material = wallMaterial;
 
-        // Generate unit measurement ticks at regular height intervals
-        const tickMat = new BABYLON.StandardMaterial("tickMat", this.scene);
-        tickMat.emissiveColor = new BABYLON.Color3(0.2, 0.5, 0.85);
+        const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
+        tickMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+        tickMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.7);
+        tickMat.emissiveIntensity = 2.0; // Pushed into Bloom threshold
         tickMat.disableLighting = true;
 
         const tickCount = 18;
@@ -1441,15 +1442,38 @@ export class RenderSystem implements ISystem, IVisualRegistry {
   public async init(): Promise<void> {
     this.engine = new BABYLON.Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
     this.scene = new BABYLON.Scene(this.engine);
-    this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.02, 1.0);
+    this.scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.03, 1.0);
     
-    // Adjusted camera Z-depth back to -38 to widen the frustum and bring 3D walls onto the portrait frame
     const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -38), this.scene);
     camera.setTarget(new BABYLON.Vector3(0, 14, 0));
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
     
-    const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
-    light.intensity = 1.3;
+    // Switch to a softer hemispheric light suitable for PBR
+    const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, -0.5), this.scene);
+    light.intensity = 0.6;
+    light.diffuse = new BABYLON.Color3(0.8, 0.8, 0.9);
+    light.specular = new BABYLON.Color3(0.1, 0.1, 0.1);
+
+    // Setup Default Rendering Pipeline (Post-Processing)
+    const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [camera]);
+    pipeline.samples = 4; // Anti-aliasing
+    pipeline.fxaaEnabled = true;
+    
+    pipeline.bloomEnabled = true;
+    pipeline.bloomThreshold = 0.6;
+    pipeline.bloomWeight = 0.8;
+    pipeline.bloomScale = 0.5;
+
+    pipeline.imageProcessingEnabled = true;
+    pipeline.imageProcessing.vignetteEnabled = true;
+    pipeline.imageProcessing.vignetteWeight = 1.8;
+    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
+    pipeline.imageProcessing.contrast = 1.1;
+    pipeline.imageProcessing.exposure = 1.2;
+
+    pipeline.chromaticAberrationEnabled = true;
+    pipeline.chromaticAberration.aberrationAmount = 2.5;
+    pipeline.chromaticAberration.radialIntensity = 1.5;
 
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
@@ -2737,9 +2761,12 @@ export class EntitySpawnerSystem implements ISystem {
         this.weaverTraversal.add(weaverId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
         this.refs.weaver = weaverId;
         const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("weaverVisual", { radius: 2.4, subdivisions: 3 }, scene);
-        const wMat = new BABYLON.StandardMaterial("weaverMat", scene);
-        wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
-        wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
+        const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
+        wMat.albedoColor = new BABYLON.Color3(0.95, 0.1, 0.1);
+        wMat.emissiveColor = new BABYLON.Color3(0.8, 0.04, 0.04);
+        wMat.emissiveIntensity = 2.5;
+        wMat.metallic = 0.85;
+        wMat.roughness = 0.3;
         wMesh.material = wMat;
         this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
@@ -2765,9 +2792,12 @@ export class EntitySpawnerSystem implements ISystem {
         this.iframes.add(playerId, { timeRemaining: 0 });
         this.refs.player = playerId;
         const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
-        const pMat = new BABYLON.StandardMaterial("playerMat", scene);
-        pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-        pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
+        const pMat = new BABYLON.PBRMaterial("playerMat", scene);
+        pMat.albedoColor = new BABYLON.Color3(0.13, 0.77, 0.36);
+        pMat.emissiveColor = new BABYLON.Color3(0.02, 0.16, 0.02);
+        pMat.emissiveIntensity = 2.0;
+        pMat.metallic = 0.1;
+        pMat.roughness = 0.2;
         pMesh.material = pMat;
         this.visualRegistry.registerTransformNode(playerId, pMesh);
     }
@@ -2977,7 +3007,7 @@ export class SilkVisualizerSystem implements ISystem {
     private readonly MAX_RADIUS  = 0.13;
 
     private silkMesh : BABYLON.Mesh | null = null;
-    private silkMat  : BABYLON.StandardMaterial | null = null;
+    private silkMat  : BABYLON.PBRMaterial | null = null;
     private points   : BABYLON.Vector3[] = [];
 
     private scratchAnchor = new BABYLON.Vector3();
@@ -3002,10 +3032,13 @@ export class SilkVisualizerSystem implements ISystem {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
 
-        this.silkMat = new BABYLON.StandardMaterial("silkMat", scene);
-        this.silkMat.diffuseColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
+        this.silkMat = new BABYLON.PBRMaterial("silkMat", scene);
+        this.silkMat.metallic = 0.0;
+        this.silkMat.roughness = 0.4;
+        this.silkMat.emissiveIntensity = 3.0;
+        this.silkMat.albedoColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
         this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-        this.silkMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        
         this.silkMat.disableLighting = false;
 
         this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
@@ -3082,7 +3115,7 @@ export class SilkVisualizerSystem implements ISystem {
             ? 1.0  - tension * 0.2
             : 0.9  - (tension - 0.5) * 1.7;
 
-        this.silkMat.diffuseColor.set(
+        this.silkMat.albedoColor.set(
             Math.max(0, Math.min(1, r)),
             Math.max(0, Math.min(1, g)),
             Math.max(0, Math.min(1, b))
@@ -4016,7 +4049,7 @@ export class TransformSyncSystem implements ISystem {
 
             if (id === this.refs.player && silk && trav) {
                 const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
                 if (mat) {
                     this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
                 }
@@ -4024,7 +4057,7 @@ export class TransformSyncSystem implements ISystem {
 
             if (id === this.refs.weaver) {
                 const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.StandardMaterial | null;
+                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
                 if (mat) {
                     const pulse = 0.02 + Math.sin(Date.now() * 0.003) * 0.015;
                     mat.emissiveColor.set(0.4 + pulse, 0.02, 0.02);
@@ -4034,7 +4067,7 @@ export class TransformSyncSystem implements ISystem {
     }
 
     private updatePlayerEmissive(
-        mat: BABYLON.StandardMaterial,
+        mat: BABYLON.PBRMaterial,
         tension: number,
         state: string,
         _alpha: number

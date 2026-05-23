@@ -61,9 +61,12 @@ export class EntitySpawnerSystem implements ISystem {
         this.weaverTraversal.add(weaverId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
         this.refs.weaver = weaverId;
         const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("weaverVisual", { radius: 2.4, subdivisions: 3 }, scene);
-        const wMat = new BABYLON.StandardMaterial("weaverMat", scene);
-        wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
-        wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
+        const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
+        wMat.albedoColor = new BABYLON.Color3(0.95, 0.1, 0.1);
+        wMat.emissiveColor = new BABYLON.Color3(0.8, 0.04, 0.04);
+        wMat.emissiveIntensity = 2.5;
+        wMat.metallic = 0.3;
+        wMat.roughness = 0.6;
         wMesh.material = wMat;
         this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
@@ -89,9 +92,12 @@ export class EntitySpawnerSystem implements ISystem {
         this.iframes.add(playerId, { timeRemaining: 0 });
         this.refs.player = playerId;
         const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
-        const pMat = new BABYLON.StandardMaterial("playerMat", scene);
-        pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-        pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
+        const pMat = new BABYLON.PBRMaterial("playerMat", scene);
+        pMat.albedoColor = new BABYLON.Color3(0.13, 0.77, 0.36);
+        pMat.emissiveColor = new BABYLON.Color3(0.02, 0.16, 0.02);
+        pMat.emissiveIntensity = 2.0;
+        pMat.metallic = 0.0;
+        pMat.roughness = 0.5;
         pMesh.material = pMat;
         this.visualRegistry.registerTransformNode(playerId, pMesh);
     }

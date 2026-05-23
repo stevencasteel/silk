@@ -15,7 +15,7 @@ export class SilkVisualizerSystem implements ISystem {
     private readonly MAX_RADIUS  = 0.13;
 
     private silkMesh : BABYLON.Mesh | null = null;
-    private silkMat  : BABYLON.StandardMaterial | null = null;
+    private silkMat  : BABYLON.PBRMaterial | null = null;
     private points   : BABYLON.Vector3[] = [];
 
     private scratchAnchor = new BABYLON.Vector3();
@@ -40,10 +40,13 @@ export class SilkVisualizerSystem implements ISystem {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
 
-        this.silkMat = new BABYLON.StandardMaterial("silkMat", scene);
-        this.silkMat.diffuseColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
+        this.silkMat = new BABYLON.PBRMaterial("silkMat", scene);
+        this.silkMat.metallic = 0.0;
+        this.silkMat.roughness = 0.4;
+        this.silkMat.emissiveIntensity = 3.0;
+        this.silkMat.albedoColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
         this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-        this.silkMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        
         this.silkMat.disableLighting = false;
 
         this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
@@ -120,7 +123,7 @@ export class SilkVisualizerSystem implements ISystem {
             ? 1.0  - tension * 0.2
             : 0.9  - (tension - 0.5) * 1.7;
 
-        this.silkMat.diffuseColor.set(
+        this.silkMat.albedoColor.set(
             Math.max(0, Math.min(1, r)),
             Math.max(0, Math.min(1, g)),
             Math.max(0, Math.min(1, b))

@@ -4,11 +4,11 @@ export class ArenaGeometry {
     constructor(private scene: BABYLON.Scene) {}
 
     public generateElevatorShaft(): void {
-        const wallMaterial = new BABYLON.StandardMaterial("wallMat", this.scene);
-        wallMaterial.diffuseColor = new BABYLON.Color3(0.07, 0.08, 0.11);
-        wallMaterial.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+        const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
+        wallMaterial.albedoColor = new BABYLON.Color3(0.07, 0.08, 0.11);
+        wallMaterial.metallic = 0.2;
+        wallMaterial.roughness = 0.8; // Matte, rubbery look
 
-        // Smooth left and right solid walls (boundaries at X = -15 and X = 15)
         const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 40, depth: 4 }, this.scene);
         leftWall.position.set(-16, 14, 0);
         leftWall.material = wallMaterial;
@@ -17,9 +17,10 @@ export class ArenaGeometry {
         rightWall.position.set(16, 14, 0);
         rightWall.material = wallMaterial;
 
-        // Generate unit measurement ticks at regular height intervals
-        const tickMat = new BABYLON.StandardMaterial("tickMat", this.scene);
-        tickMat.emissiveColor = new BABYLON.Color3(0.2, 0.5, 0.85);
+        const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
+        tickMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+        tickMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.7);
+        tickMat.emissiveIntensity = 2.0; // Pushed into Bloom threshold
         tickMat.disableLighting = true;
 
         const tickCount = 18;
