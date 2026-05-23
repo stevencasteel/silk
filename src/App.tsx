@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { bootstrapApplication } from "./app/bootstrap";
 import { HudOverlay } from "./ui/hud/HudOverlay";
+import { Engine } from "./core/engine/Engine";
 import "./App.css";
 
 export default function App() {
@@ -9,7 +10,7 @@ export default function App() {
   useEffect(() => {
     if (!canvasRef.current) return;
     
-    let engineInstance: any = null;
+    let engineInstance: Engine | null = null;
     bootstrapApplication(canvasRef.current).then((engine) => {
       engineInstance = engine;
       engineInstance.start();

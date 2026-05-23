@@ -21,5 +21,7 @@ export class DebugWireframeSystem implements ISystem {
         void this._tethers;
         void this._visualRegistry;
     }
-    public update(_dt: number): void {}
+    public update(_dt: number): void {
+        void _dt;
+    }
 }

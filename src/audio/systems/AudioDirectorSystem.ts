@@ -53,14 +53,15 @@ export class AudioDirectorSystem implements ISystem {
     });
   }
 
-  public update(_dt: number): void {}
+  public update(_dt: number): void {
+    void _dt;
+  }
 
   private bootAudioEngine(): void {
     if (this.initialized) return;
     Tone.start().then(() => {
       this.initialized = true;
 
-      // Default the entire application's master output to muted
       Tone.getDestination().mute = true;
 
       this.tensionSynth = new TensionSynthesizer();
