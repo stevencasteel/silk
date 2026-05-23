@@ -2,21 +2,26 @@
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: #050505;
+  background: #030305;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
 .viewport-container {
-  width: 100%;
-  height: 100%;
+  width: min(56.25vh, 95vw);
+  height: min(95vh, 168.89vw);
   position: relative;
+  border: 4px solid #14161f;
+  border-radius: 12px;
+  background: #020204;
+  box-shadow: 0 12px 45px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
 }
 
 .hud-overlay-container {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  inset: 12px;
   z-index: 10;
+  pointer-events: none;
 }

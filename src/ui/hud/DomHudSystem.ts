@@ -8,14 +8,9 @@ export class DomHudSystem implements ISystem {
   private unsubscribes: (() => void)[] = [];
   private tensionBar: HTMLElement | null = null;
   private tensionText: HTMLElement | null = null;
-  private speedBar: HTMLElement | null = null;
-  private speedText: HTMLElement | null = null;
   private hpText: HTMLElement | null = null;
   private hpValue: HTMLElement | null = null;
   private bossStateText: HTMLElement | null = null;
-  private bossPhaseText: HTMLElement | null = null;
-  private wardenHpBar: HTMLElement | null = null;
-  private wardenHpValue: HTMLElement | null = null;
   private overlay: HTMLElement | null = null;
   private overlayTitle: HTMLElement | null = null;
 
@@ -34,14 +29,9 @@ export class DomHudSystem implements ISystem {
     if (typeof document === "undefined") return;
     this.tensionBar = document.getElementById("tension-meter-bar");
     this.tensionText = document.getElementById("tension-meter-text");
-    this.speedBar = document.getElementById("speedometer-bar");
-    this.speedText = document.getElementById("speedometer-text");
     this.hpText = document.getElementById("player-hp-bar");
     this.hpValue = document.getElementById("player-hp-value");
     this.bossStateText = document.getElementById("boss-state-text");
-    this.bossPhaseText = document.getElementById("boss-state-phase");
-    this.wardenHpBar = document.getElementById("warden-hp-bar");
-    this.wardenHpValue = document.getElementById("warden-hp-value");
     this.overlay = document.getElementById("game-state-overlay");
     this.overlayTitle = document.getElementById("game-state-title");
   }
@@ -51,22 +41,13 @@ export class DomHudSystem implements ISystem {
       this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => this.updateTensionDisplay(payload.tension))
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_VELOCITY_CHANGED, (payload) => this.updateVelocityDisplay(payload.velocity, payload.maxVelocity))
-    );
-    this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => this.updateHealthDisplay(payload.hp, payload.maxHp))
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => this.updateWardenStateDisplay(payload.state, payload.hue))
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, (payload) => this.updateWardenHealthDisplay(payload.hp, payload.maxHp))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("GAME OVER", "#ef4444"))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_WIN, () => this.showOverlay("VICTORY", "#22c55e"))
+      this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("TETHER SNAPPED", "#ef4444"))
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => this.hideOverlay())
@@ -74,41 +55,31 @@ export class DomHudSystem implements ISystem {
   }
 
   private updateTensionDisplay(value: number): void {
-    const clamped = Math.max(0, Math.min(1, value));
-    const percentage = (clamped * 100).toFixed(1) + "%";
+    const clamped = Math.max(0, Math.min(1.5, value));
+    const percentage = Math.min(100, clamped * 100).toFixed(1) + "%";
     if (this.tensionBar) {
       this.tensionBar.style.width = percentage;
-      if (clamped > 0.8) this.tensionBar.style.backgroundColor = "var(--signal-red, #ef4444)";
-      else if (clamped > 0.5) this.tensionBar.style.backgroundColor = "var(--signal-yellow, #eab308)";
-      else this.tensionBar.style.backgroundColor = "var(--signal-green, #22c55e)";
+      if (clamped > 1.1) {
+        this.tensionBar.style.backgroundColor = "#ef4444";
+      } else if (clamped > 0.9) {
+        this.tensionBar.style.backgroundColor = "#eab308";
+      } else {
+        this.tensionBar.style.backgroundColor = "#22c55e";
+      }
     }
-    if (this.tensionText) this.tensionText.textContent = `TENSION: ${percentage}`;
-  }
-
-  private updateVelocityDisplay(velocity: number, maxVelocity: number): void {
-    const ratio = maxVelocity > 0 ? Math.max(0, Math.min(1, velocity / maxVelocity)) : 0;
-    const percentage = (ratio * 100).toFixed(0) + "%";
-    if (this.speedBar) this.speedBar.style.width = percentage;
-    if (this.speedText) this.speedText.textContent = `VELOCITY: ${velocity.toFixed(0)} / ${maxVelocity.toFixed(0)} m/s`;
+    if (this.tensionText) {
+      this.tensionText.textContent = `TETHER LOAD: ${percentage}`;
+    }
   }
 
   private updateHealthDisplay(hp: number, maxHp: number): void {
-    if (this.hpValue) this.hpValue.textContent = `HP: ${hp} / ${maxHp}`;
+    if (this.hpValue) {
+      this.hpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+    }
     if (this.hpText) {
       const hpPct = ((hp / maxHp) * 100).toFixed(0) + "%";
       this.hpText.style.width = hpPct;
-      this.hpText.style.backgroundColor = hp <= 1 ? "var(--signal-red, #ef4444)" : "var(--signal-green, #22c55e)";
-    }
-  }
-
-  private updateWardenHealthDisplay(hp: number, maxHp: number): void {
-    const percentage = maxHp > 0 ? (hp / maxHp) : 0;
-    const pctString = (percentage * 100).toFixed(0) + "%";
-    if (this.wardenHpValue) {
-      this.wardenHpValue.textContent = `HP: ${hp.toFixed(0)} / ${maxHp.toFixed(0)}`;
-    }
-    if (this.wardenHpBar) {
-      this.wardenHpBar.style.width = pctString;
+      this.hpText.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
     }
   }
 
@@ -116,11 +87,6 @@ export class DomHudSystem implements ISystem {
     if (this.bossStateText) {
       this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
       this.bossStateText.style.color = hue;
-    }
-    if (this.bossPhaseText) {
-      this.bossPhaseText.style.borderColor = hue;
-      this.bossPhaseText.style.color = hue;
-      this.bossPhaseText.textContent = state === "BERSERK OVERDRIVE" ? "FINAL PHASE" : "PHASE 01";
     }
   }
 

@@ -11,220 +11,83 @@ PURPOSE
 This document is the authoritative engineering and architectural blueprint for
 SILK. It is designed as a complete AI handoff package for future build sessions.
 
-This is NOT a lightweight game jam architecture.
-This is a production-minded vertical slice framework optimized for:
-- maintainability
-- iteration speed
-- modularity
-- deterministic gameplay systems
-- extensibility
-- debugging clarity
-- future scalability
-
-The design philosophy intentionally avoids:
-- god objects
-- giant manager classes
-- hidden mutable state
-- monolithic gameplay files
-- brittle inheritance chains
-- tightly coupled gameplay logic
-- architecture that collapses under feature expansion
-
-The system is intentionally designed around:
-- composition over inheritance
-- event-oriented communication
-- explicit ownership boundaries
-- feature encapsulation
-- deterministic fixed-step simulation
-- dependency inversion
-- observable runtime systems
-- isolated feature modules
-- testable subsystems
-- low-risk refactors
-
-SILK boots directly into gameplay.
-There is:
-- NO title screen
-- NO settings menu
-- NO save/load
-- NO multiplayer
-- NO profile management
-- NO account systems
-- NO network abstraction
-
-The game starts in the arena immediately.
+SILK starts in the vertical portrait arena immediately without title screens.
 
 ===============================================================================
-HIGH LEVEL GAME SUMMARY
+REALIZED PLAY AREA & ALIGNMENT SPECIFICATIONS
 ===============================================================================
-
-SILK is a vertical arena predator-prey combat game focused on:
-- momentum
-- tension
-- elastic traversal
-- wall slide charging
-- silk rope physics
-- psychological boss AI pressure
-- environmental control
-
-Core loop:
-1. Player wall-slides to build slide charge (visually glowing emissive color)
-2. Player launches using silk momentum, with jump velocities scaling by charge
-3. Dynamic anchors hook dynamically to platform undersides or ceilings
-4. Warden AI responds dynamically with emotional state and light-pulse shifts
-5. Player lands strikes during Warden recovery or Frenzied state windows
-6. Boss battle intensifies with a Fake-Death phase and Berserk Overdrive rage
-
-Movement quality is the focal priority of the experience.
-
-===============================================================================
-NON-NEGOTIABLE DESIGN PILLARS
-===============================================================================
-
-NEVER CUT:
-- Wall slide charge and launch
-- Dynamic grapple acquisition
-- Warden emotional lighting shifts
-- Fake-out final boss phase (Berserk Overdrive)
-- Dynamic tension audio drone escalation
-- Deterministic fixed-step gameplay loop
-- Clear visual readability of velocity and danger
-
-CUT FIRST:
-- Advanced alternate anchor types
-- Environmental FX polish
-- Secondary enemy variants
-- Cinematic transitions
-- High fidelity shaders
-
-===============================================================================
-CORE ENGINEERING PHILOSOPHY
-===============================================================================
-
-1. SYSTEMS OWN THEIR DATA
--------------------------------------------------------------------------------
-Avoid shared mutable state whenever possible.
-
-Every major subsystem owns:
-- its lifecycle
-- its update path
-- its runtime data
-- its configuration
-- its teardown logic
-
-Other systems communicate through:
-- events
-- readonly interfaces
-- explicit contracts
-
-2. COMPOSITION OVER INHERITANCE
--------------------------------------------------------------------------------
-Do NOT build deep entity inheritance trees.
-
-3. NO GLOBAL MANAGER SPRAWL
--------------------------------------------------------------------------------
-Use narrow orchestration layers and isolated systems.
-
-4. EVENT-ORIENTED COMMUNICATION
--------------------------------------------------------------------------------
-Systems communicate via a strongly typed EventBroker.
-
-5. DETERMINISTIC GAMEPLAY
--------------------------------------------------------------------------------
-Core gameplay simulation runs at a fixed 60Hz step. Rendering interpolates.
-
-6. OBSERVABILITY FIRST
--------------------------------------------------------------------------------
-Every major runtime system must expose:
-- debug metrics
-- runtime status
-- profiling hooks
-- validation helpers
-
-The engine should be inspectable while running.
-
-===============================================================================
-TECH STACK
-===============================================================================
-
-Framework: React 19 + TypeScript + Vite
-3D: Babylon.js
-Physics: Rapier 3D WASM Compat
-Audio: Tone.js
-State: Zustand
-
-===============================================================================
-ABSOLUTE ARCHITECTURAL RULES
-===============================================================================
-
-RULE 1: Gameplay systems NEVER directly touch React state.
-RULE 2: Babylon scene objects NEVER become source-of-truth gameplay state.
-RULE 3: React is presentation only.
-RULE 4: Physics/Kinematics owns authoritative movement truth.
-RULE 5: Visuals read gameplay state. Gameplay never reads visuals.
-RULE 6: Every system has: init(), update(), dispose().
-RULE 7: No runtime circular dependencies.
-RULE 8: All cross-system communication must be explicit.
-RULE 9: Every feature module must be removable without catastrophic rewrites.
-RULE 10: No hidden side effects inside getters/setters.
-
-===============================================================================
-STATE MANAGEMENT STRATEGY
-===============================================================================
-
-Zustand is NOT the simulation engine. Zustand manages only HUD overlay triggers,
-debug toggles, and readonly snapshots. Simulation state remains fully encapsulated
-inside ECS systems and dynamic ComponentStores.
-
-===============================================================================
-GAME LOOP ARCHITECTURE
-===============================================================================
-
-Simulation: 60Hz fixed timestep.
-Rendering: Uncapped with alpha interpolation.
-
-Pipeline:
-Input -> Fixed Simulation -> Physics -> Gameplay Systems -> Events -> Render Sync -> Babylon Render
-
-===============================================================================
-REFINED PLAY AREA & ALIGNMENT SPECIFICATIONS
-===============================================================================
-
-Logical limits must align perfectly to prevent collision sticking and clipping:
 - Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
-- Left Wall Visual center: -16, width 2 (spans -17 to -15)
-- Right Wall Visual center: 16, width 2 (spans 15 to 17)
-- Player mesh: Capsule radius 0.4, height 1.8 (clamping coordinates playerHalfW = 0.4, playerHalfH = 0.9)
-- Warden mesh: Sphere radius 1.0 (clamping coordinates wHalfW = 1.0, wHalfH = 1.0)
+- Vertical Boundaries: Flat solid walls at X = -15.0 and X = 15.0. No platform 
+  ledges jut out. Measurement unit ticks scroll downwards continuously, 
+  creating the endless vertical ascension illusion.
+- Static Camera Lock: Fixed perspective camera at (0, 14, -38) looking at 
+  (0, 14, 0) with a fixed horizontal FOV mode. This completely locks the render 
+  view within the vertical portrait borders.
 
 ===============================================================================
-ROPE SYSTEM & DYNAMIC GRAPPLING
+REALIZED COREtraversal PHYSICS SKELETON
 ===============================================================================
+1. WARDEN CEILING SWEEP (ANCHOR)
+   - Spawned as a giant mechanical sphere (radius = 2.4, 3x capsule width) 
+     patrolling autonomously back and forth along Y = 26.0 between X = [-12, 12].
+   - The top end of the silk string (tether anchor coordinate) locks dynamically 
+     to the Warden's real-time position.
 
-Dynamic overhead grapples target the ceiling (Y = 28) or the undersides of Left
-and Right platforms depending on the player's lateral coordinate:
-- Left Platform underside: Y = 11.5 (spans X: [-15, -7])
-- Right Platform underside: Y = 17.5 (spans X: [7, 15])
+2. PENDULUM SWING & STEERING
+   - The player capsule (radius 0.4, height 1.8) is suspended below the Warden.
+   - Left/Right arrow keys directly steer the pendulum to build momentum.
 
-Tension synthesizer scales audio pitch based on tension, escalating to high-frequency
-screeches when the Warden enters BERSERK OVERDRIVE and dropping to eerie lows on DEFEATED?.
+3. WALL SLIDE FRICTION & ELONGATION
+   - Steering into a wall locks the player's horizontal coordinate to prevent bounces.
+   - Friction slides the player down, dynamically stretching the maxLength of 
+     the tether. 
+   - Elongation past base limits generates critical tension load. Remaining on 
+     the wall accumulates strain. If critical strain persists for over 1.8s, the 
+     rope snaps, causing a Game Over.
 
 ===============================================================================
-WARDEN AI BEHAVIOR PHASES
+DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
 ===============================================================================
+These systems are pruned from the initial integration pass to guarantee the
+absolute stability of the core physical swing, wall-drag, and tension loops. 
+They remain documented below as direct blueprints for future development phases.
 
-State cycle:
-1. PHASE 1: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY
-2. FAKE DEATH: Hit 0% HP -> enters FAKE_DEATH (dazed, light turns off, low pitch audio drone)
-3. PHASE 2 (BERSERK OVERDRIVE): Revives with 50% HP, bright orange glow, relentless pursuit speed, screeching synth drone escalation. Permanently dies on next 0% HP.
+1. WARDEN EMOTIONAL & ATTACK PHASES
+-------------------------------------------------------------------------------
+- PHASE 1 CYCLE: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY.
+- FAKE DEATH STATE: Transition triggers at 0% HP. Emissive lights turn off, 
+  audio synthesizers scale down to low-frequency drones, and the Warden is 
+  dazed for a 3.0s window.
+- PHASE 2 (BERSERK OVERDRIVE): Revives at 50% HP. Visuals switch to a intense
+  high-emissive orange glow, movement sweep speeds double, and the audio drone 
+  reaches its maximum screeching frequency. Permanent defeat occurs on the 
+  next 0% HP threshold.
 
-===============================================================================
-EDITOR + TOOLING ERGONOMICS
-===============================================================================
+2. JUICE & VISUAL SPECTACLE
+-------------------------------------------------------------------------------
+- SCREEN SHAKE: Screen positioning translates offset matrices with amplitude/duration
+  decays, reacting to collision impacts, charge launches, and state shifts.
+- CHROMATIC ABERRATION: Triggered on damage events to split color channels 
+  temporarily along horizontal coordinate offsets.
+- PROCEDURAL PARTICLES: Burst pools of geometric boxes tracking velocity vectors 
+  with linear gravity decay, color-coded by event source (green for player, red 
+  for Warden).
 
-- Hot reload stability
-- Deterministic resets via keyboard 'R' key trigger
-- Clean render loop visibility and FPS telemetry
+3. EXPANDED AUDIO DIRECTOR
+-------------------------------------------------------------------------------
+- SPATIAL SFX: Pan coordinates scaled dynamically based on horizontal canvas position 
+  relative to the center.
+- IMPACT SYNTHS: Membrane synthesizers to deliver low-end kick thuds during player 
+  damage events, and pink-noise synthesizers for high-frequency hit-flashes.
+- STATE-BASED DRONES: Tension drone modulations that scale oscillator harmonics and 
+  low-pass filter Q-factors in sync with the Warden's active state.
+
+4. USER MENU & CONFIGURATION
+-------------------------------------------------------------------------------
+- TITLE SCREEN: Classic cabinet title screen with coordinate-tracked focus indicators.
+- VOLUME SLIDERS: Native Web Audio gains mapped to reactive sliders (Master, SFX, Music).
+- PERSISTENCE MATRIX: 3 distinct LocalStorage save slots with schema validation check passes 
+  for Win/Loss tallies, along with a custom key-rebind matrix.
 
 ===============================================================================
 END OF DOCUMENT

@@ -64,18 +64,20 @@ export class CompositionRoot {
     const movementSystem = new PlayerMovementSystem(refs, inputs, playerStats, tethers, traversal, transforms, commands, broker);
     const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
     const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
-    const playerKinematics = new PlayerKinematicsSystem(refs, tethers, velocities, targets, traversal);
-    const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, transforms, velocities);
-    const syncSystem = new TransformSyncSystem(refs, transforms, traversal, renderSystem);
+    
+    // Aligned PlayerKinematics parameters to read Inputs directly
+    const playerKinematics = new PlayerKinematicsSystem(refs, tethers, velocities, targets, traversal, transforms, inputs);
+    const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, broker);
+    const syncSystem = new TransformSyncSystem(refs, transforms, tethers, renderSystem);
     const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
     const lightingSystem = new LightingSystem(broker, renderSystem);
     const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
-    const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, wardenAIs, velocities, iframes);
+    const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, wardenAIs, velocities, iframes, targets);
     const audioSystem = new AudioDirectorSystem(broker);
     const juiceSystem = new JuiceSystem(broker, renderSystem);
     const hudSystem = new DomHudSystem(broker);
     const debugWireframe = new DebugWireframeSystem(refs, transforms, tethers, renderSystem);
-    const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities);
+    const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, tethers, velocities);
 
     systemManager.register(spawner);
     systemManager.register(renderSystem);

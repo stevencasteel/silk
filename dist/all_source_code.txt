@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 12:31:50 PM
+ [SYSTEM] Generated: 5/23/2026, 1:48:34 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -307,220 +307,93 @@ PURPOSE
 This document is the authoritative engineering and architectural blueprint for
 SILK. It is designed as a complete AI handoff package for future build sessions.
 
-This is NOT a lightweight game jam architecture.
 This is a production-minded vertical slice framework optimized for:
 - maintainability
-- iteration speed
-- modularity
 - deterministic gameplay systems
-- extensibility
 - debugging clarity
-- future scalability
-
-The design philosophy intentionally avoids:
-- god objects
-- giant manager classes
-- hidden mutable state
-- monolithic gameplay files
-- brittle inheritance chains
-- tightly coupled gameplay logic
-- architecture that collapses under feature expansion
-
-The system is intentionally designed around:
-- composition over inheritance
-- event-oriented communication
-- explicit ownership boundaries
-- feature encapsulation
-- deterministic fixed-step simulation
-- dependency inversion
-- observable runtime systems
-- isolated feature modules
-- testable subsystems
-- low-risk refactors
-
-SILK boots directly into gameplay.
-There is:
-- NO title screen
-- NO settings menu
-- NO save/load
-- NO multiplayer
-- NO profile management
-- NO account systems
-- NO network abstraction
+- movement quality priority
 
 The game starts in the arena immediately.
 
 ===============================================================================
 HIGH LEVEL GAME SUMMARY
 ===============================================================================
-
-SILK is a vertical arena predator-prey combat game focused on:
+SILK is a vertical arena swing-pendulum traversal game focused on:
 - momentum
 - tension
 - elastic traversal
-- wall slide charging
-- silk rope physics
-- psychological boss AI pressure
-- environmental control
-
-Core loop:
-1. Player wall-slides to build slide charge (visually glowing emissive color)
-2. Player launches using silk momentum, with jump velocities scaling by charge
-3. Dynamic anchors hook dynamically to platform undersides or ceilings
-4. Warden AI responds dynamically with emotional state and light-pulse shifts
-5. Player lands strikes during Warden recovery or Frenzied state windows
-6. Boss battle intensifies with a Fake-Death phase and Berserk Overdrive rage
+- ceiling anchor oscillation tracking
+- wall-friction drag and strain
+- rope snapping breakdown limits
 
 Movement quality is the focal priority of the experience.
 
 ===============================================================================
 NON-NEGOTIABLE DESIGN PILLARS
 ===============================================================================
-
 NEVER CUT:
-- Wall slide charge and launch
-- Dynamic grapple acquisition
-- Warden emotional lighting shifts
-- Fake-out final boss phase (Berserk Overdrive)
-- Dynamic tension audio drone escalation
-- Deterministic fixed-step gameplay loop
-- Clear visual readability of velocity and danger
-
-CUT FIRST:
-- Advanced alternate anchor types
-- Environmental FX polish
-- Secondary enemy variants
-- Cinematic transitions
-- High fidelity shaders
-
-===============================================================================
-CORE ENGINEERING PHILOSOPHY
-===============================================================================
-
-1. SYSTEMS OWN THEIR DATA
--------------------------------------------------------------------------------
-Avoid shared mutable state whenever possible.
-
-Every major subsystem owns:
-- its lifecycle
-- its update path
-- its runtime data
-- its configuration
-- its teardown logic
-
-Other systems communicate through:
-- events
-- readonly interfaces
-- explicit contracts
-
-2. COMPOSITION OVER INHERITANCE
--------------------------------------------------------------------------------
-Do NOT build deep entity inheritance trees.
-
-3. NO GLOBAL MANAGER SPRAWL
--------------------------------------------------------------------------------
-Use narrow orchestration layers and isolated systems.
-
-4. EVENT-ORIENTED COMMUNICATION
--------------------------------------------------------------------------------
-Systems communicate via a strongly typed EventBroker.
-
-5. DETERMINISTIC GAMEPLAY
--------------------------------------------------------------------------------
-Core gameplay simulation runs at a fixed 60Hz step. Rendering interpolates.
-
-6. OBSERVABILITY FIRST
--------------------------------------------------------------------------------
-Every major runtime system must expose:
-- debug metrics
-- runtime status
-- profiling hooks
-- validation helpers
-
-The engine should be inspectable while running.
-
-===============================================================================
-TECH STACK
-===============================================================================
-
-Framework: React 19 + TypeScript + Vite
-3D: Babylon.js
-Physics: Rapier 3D WASM Compat
-Audio: Tone.js
-State: Zustand
+- Dynamic pendulum swing relative to moving ceiling anchor
+- Steering momentum thrusts (left/right controls)
+- Wall contact downward drag and velocity friction
+- Progressive rope elongation tension calculations
+- Strain accumulation and snap breakdown limits
+- Immediate vertical portrait arena readability
 
 ===============================================================================
 ABSOLUTE ARCHITECTURAL RULES
 ===============================================================================
-
 RULE 1: Gameplay systems NEVER directly touch React state.
 RULE 2: Babylon scene objects NEVER become source-of-truth gameplay state.
 RULE 3: React is presentation only.
-RULE 4: Physics/Kinematics owns authoritative movement truth.
+RULE 4: Dynamic kinematics owns authoritative movement truth.
 RULE 5: Visuals read gameplay state. Gameplay never reads visuals.
 RULE 6: Every system has: init(), update(), dispose().
-RULE 7: No runtime circular dependencies.
-RULE 8: All cross-system communication must be explicit.
-RULE 9: Every feature module must be removable without catastrophic rewrites.
-RULE 10: No hidden side effects inside getters/setters.
+RULE 7: Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
+RULE 8: Left Wall inner edge is at X = -15.0. Right Wall inner edge is at X = 15.0.
 
 ===============================================================================
-STATE MANAGEMENT STRATEGY
+DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
 ===============================================================================
+These systems are pruned from the initial integration pass to guarantee the
+absolute stability of the core physical swing, wall-drag, and tension loops. 
+They remain documented below as direct blueprints for future development phases.
 
-Zustand is NOT the simulation engine. Zustand manages only HUD overlay triggers,
-debug toggles, and readonly snapshots. Simulation state remains fully encapsulated
-inside ECS systems and dynamic ComponentStores.
+1. WARDEN EMOTIONAL & ATTACK PHASES
+-------------------------------------------------------------------------------
+- PHASE 1 CYCLE: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY.
+- FAKE DEATH STATE: Transition triggers at 0% HP. Emissive lights turn off, 
+  audio synthesizers scale down to low-frequency drones, and the Warden is 
+  dazed for a 3.0s window.
+- PHASE 2 (BERSERK OVERDRIVE): Revives at 50% HP. Visuals switch to a intense
+  high-emissive orange glow, movement sweep speeds double, and the audio drone 
+  reaches its maximum screeching frequency. Permanent defeat occurs on the 
+  next 0% HP threshold.
 
-===============================================================================
-GAME LOOP ARCHITECTURE
-===============================================================================
+2. JUICE & VISUAL SPECTACLE
+-------------------------------------------------------------------------------
+- SCREEN SHAKE: Screen positioning translates offset matrices with amplitude/duration
+  decays, reacting to collision impacts, charge launches, and state shifts.
+- CHROMATIC ABERRATION: Triggered on damage events to split color channels 
+  temporarily along horizontal coordinate offsets.
+- PROCEDURAL PARTICLES: Burst pools of geometric boxes tracking velocity vectors 
+  with linear gravity decay, color-coded by event source (green for player, red 
+  for Warden).
 
-Simulation: 60Hz fixed timestep.
-Rendering: Uncapped with alpha interpolation.
+3. EXPANDED AUDIO DIRECTOR
+-------------------------------------------------------------------------------
+- SPATIAL SFX: Pan coordinates scaled dynamically based on horizontal canvas position 
+  relative to the center.
+- IMPACT SYNTHS: Membrane synthesizers to deliver low-end kick thuds during player 
+  damage events, and pink-noise synthesizers for high-frequency hit-flashes.
+- STATE-BASED DRONES: Tension drone modulations that scale oscillator harmonics and 
+  low-pass filter Q-factors in sync with the Warden's active state.
 
-Pipeline:
-Input -> Fixed Simulation -> Physics -> Gameplay Systems -> Events -> Render Sync -> Babylon Render
-
-===============================================================================
-REFINED PLAY AREA & ALIGNMENT SPECIFICATIONS
-===============================================================================
-
-Logical limits must align perfectly to prevent collision sticking and clipping:
-- Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
-- Left Wall Visual center: -16, width 2 (spans -17 to -15)
-- Right Wall Visual center: 16, width 2 (spans 15 to 17)
-- Player mesh: Capsule radius 0.4, height 1.8 (clamping coordinates playerHalfW = 0.4, playerHalfH = 0.9)
-- Warden mesh: Sphere radius 1.0 (clamping coordinates wHalfW = 1.0, wHalfH = 1.0)
-
-===============================================================================
-ROPE SYSTEM & DYNAMIC GRAPPLING
-===============================================================================
-
-Dynamic overhead grapples target the ceiling (Y = 28) or the undersides of Left
-and Right platforms depending on the player's lateral coordinate:
-- Left Platform underside: Y = 11.5 (spans X: [-15, -7])
-- Right Platform underside: Y = 17.5 (spans X: [7, 15])
-
-Tension synthesizer scales audio pitch based on tension, escalating to high-frequency
-screeches when the Warden enters BERSERK OVERDRIVE and dropping to eerie lows on DEFEATED?.
-
-===============================================================================
-WARDEN AI BEHAVIOR PHASES
-===============================================================================
-
-State cycle:
-1. PHASE 1: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY
-2. FAKE DEATH: Hit 0% HP -> enters FAKE_DEATH (dazed, light turns off, low pitch audio drone)
-3. PHASE 2 (BERSERK OVERDRIVE): Revives with 50% HP, bright orange glow, relentless pursuit speed, screeching synth drone escalation. Permanently dies on next 0% HP.
-
-===============================================================================
-EDITOR + TOOLING ERGONOMICS
-===============================================================================
-
-- Hot reload stability
-- Deterministic resets via keyboard 'R' key trigger
-- Clean render loop visibility and FPS telemetry
+4. USER MENU & CONFIGURATION
+-------------------------------------------------------------------------------
+- TITLE SCREEN: Classic cabinet title screen with coordinate-tracked focus indicators.
+- VOLUME SLIDERS: Native Web Audio gains mapped to reactive sliders (Master, SFX, Music).
+- PERSISTENCE MATRIX: 3 distinct LocalStorage save slots with schema validation check passes 
+  for Win/Loss tallies, along with a custom key-rebind matrix.
 
 ===============================================================================
 END OF DOCUMENT
@@ -856,23 +729,28 @@ console.log('Manifest and dynamic source assets compiled successfully.');
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: #050505;
+  background: #030305;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
 .viewport-container {
-  width: 100%;
-  height: 100%;
+  width: min(56.25vh, 95vw);
+  height: min(95vh, 168.89vw);
   position: relative;
+  border: 4px solid #14161f;
+  border-radius: 12px;
+  background: #020204;
+  box-shadow: 0 12px 45px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
 }
 
 .hud-overlay-container {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  inset: 12px;
   z-index: 10;
+  pointer-events: none;
 }
 
 
@@ -882,6 +760,7 @@ console.log('Manifest and dynamic source assets compiled successfully.');
 import { useEffect, useRef } from "react";
 import { bootstrapApplication } from "./app/bootstrap";
 import { HudOverlay } from "./ui/hud/HudOverlay";
+import { Engine } from "./core/engine/Engine";
 import "./App.css";
 
 export default function App() {
@@ -890,7 +769,7 @@ export default function App() {
   useEffect(() => {
     if (!canvasRef.current) return;
     
-    let engineInstance: any = null;
+    let engineInstance: Engine | null = null;
     bootstrapApplication(canvasRef.current).then((engine) => {
       engineInstance = engine;
       engineInstance.start();
@@ -996,18 +875,20 @@ export class CompositionRoot {
     const movementSystem = new PlayerMovementSystem(refs, inputs, playerStats, tethers, traversal, transforms, commands, broker);
     const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
     const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
-    const playerKinematics = new PlayerKinematicsSystem(refs, tethers, velocities, targets, traversal);
-    const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, transforms, velocities);
-    const syncSystem = new TransformSyncSystem(refs, transforms, traversal, renderSystem);
+    
+    // Aligned PlayerKinematics parameters to read Inputs directly
+    const playerKinematics = new PlayerKinematicsSystem(refs, tethers, velocities, targets, traversal, transforms, inputs);
+    const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, broker);
+    const syncSystem = new TransformSyncSystem(refs, transforms, tethers, renderSystem);
     const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
     const lightingSystem = new LightingSystem(broker, renderSystem);
     const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
-    const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, wardenAIs, velocities, iframes);
+    const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, wardenAIs, velocities, iframes, targets);
     const audioSystem = new AudioDirectorSystem(broker);
     const juiceSystem = new JuiceSystem(broker, renderSystem);
     const hudSystem = new DomHudSystem(broker);
     const debugWireframe = new DebugWireframeSystem(refs, transforms, tethers, renderSystem);
-    const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities);
+    const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, tethers, velocities);
 
     systemManager.register(spawner);
     systemManager.register(renderSystem);
@@ -1096,12 +977,17 @@ export class AudioDirectorSystem implements ISystem {
     });
   }
 
-  public update(_dt: number): void {}
+  public update(_dt: number): void {
+    void _dt;
+  }
 
   private bootAudioEngine(): void {
     if (this.initialized) return;
     Tone.start().then(() => {
       this.initialized = true;
+
+      Tone.getDestination().mute = true;
+
       this.tensionSynth = new TensionSynthesizer();
       this.tensionSynth.initialize();
       
@@ -1236,110 +1122,46 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
-import { GameEvent } from "../../core/events/GameEvents";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, WardenAIComponent } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private cameraNode: BABYLON.FreeCamera | null = null;
-  private shakeIntensity = 0.0;
-  private shakeTimeRemaining = 0.0;
-  private unsub: (() => void) | null = null;
-  private currentTarget = new BABYLON.Vector3(0, 10, -25);
-  private springPosition = new BABYLON.Vector3(0, 10, -25);
-  private springVelocity = new BABYLON.Vector3(0, 0, 0);
-  private scratchLookAt = new BABYLON.Vector3();
 
   constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private wardenAIs: ComponentStore<WardenAIComponent>,
+    _refs: any,
+    _transforms: any,
+    _wardenAIs: any,
     private visualRegistry: IVisualRegistry,
-    private broker: EventBroker
-  ) {}
+    _broker: EventBroker
+  ) {
+    void _refs;
+    void _transforms;
+    void _wardenAIs;
+    void _broker;
+  }
 
   public init(): void {
     const scene = this.visualRegistry.getScene();
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
-      this.springPosition.copyFrom(this.cameraNode.position);
+      
+      // Lock the viewport camera strictly to the vertical portrait cabinet frame
+      this.cameraNode.position.set(0, 14.0, -28.0);
+      this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }
-    this.unsub = this.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
-      this.shakeIntensity = Math.max(this.shakeIntensity, payload.amplitude);
-      this.shakeTimeRemaining = Math.max(this.shakeTimeRemaining, payload.duration);
-    });
   }
 
   public update(dt: number): void {
-    if (!this.cameraNode) {
-      const scene = this.visualRegistry.getScene();
-      if (scene && scene.activeCamera) {
-        this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
-        this.springPosition.copyFrom(this.cameraNode.position);
-      }
-      return;
+    void dt;
+    // Strictly static lock: Completely disabled tracking springs to prevent viewport leaks and mesh scaling
+    if (this.cameraNode) {
+      this.cameraNode.position.set(0, 14.0, -28.0);
+      this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }
-
-    const p = this.transforms.get(this.refs.player);
-    const w = this.transforms.get(this.refs.warden);
-    const wAI = this.wardenAIs.get(this.refs.warden);
-
-    if (p) {
-      let targetX = p.x;
-      let targetY = p.y + 2.0;
-      let camZ = -22.0;
-
-      if (w && wAI) {
-        const dx = w.x - p.x;
-        const dy = w.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (wAI.state === "CHARGE_ATTACK" || wAI.state === "CHARGE_PREP" || dist < 8.0) {
-          targetX = p.x * 0.75 + w.x * 0.25;
-          targetY = (p.y * 0.75 + w.y * 0.25) + 2.0;
-          camZ = -28.0; 
-        }
-      }
-      
-      this.currentTarget.set(targetX, targetY, camZ);
-    }
-
-    const stiffness = 8.0, damping = 3.5;
-    const forceX = (this.currentTarget.x - this.springPosition.x) * stiffness - this.springVelocity.x * damping;
-    const forceY = (this.currentTarget.y - this.springPosition.y) * stiffness - this.springVelocity.y * damping;
-    const forceZ = (this.currentTarget.z - this.springPosition.z) * stiffness - this.springVelocity.z * damping;
-
-    this.springVelocity.x += forceX * dt;
-    this.springVelocity.y += forceY * dt;
-    this.springVelocity.z += forceZ * dt;
-
-    this.springPosition.x += this.springVelocity.x * dt;
-    this.springPosition.y += this.springVelocity.y * dt;
-    this.springPosition.z += this.springVelocity.z * dt;
-
-    this.cameraNode.position.copyFrom(this.springPosition);
-
-    if (this.shakeTimeRemaining > 0) {
-      this.shakeTimeRemaining -= dt;
-      const ci = this.shakeIntensity * (this.shakeTimeRemaining / 0.5);
-      if (ci > 0) {
-        this.cameraNode.position.x += (Math.random() - 0.5) * ci * 2.5;
-        this.cameraNode.position.y += (Math.random() - 0.5) * ci * 2.5;
-      }
-    } else {
-      this.shakeIntensity = 0;
-    }
-
-    this.scratchLookAt.set(this.currentTarget.x, this.currentTarget.y - 2.0, 0);
-    this.cameraNode.setTarget(this.scratchLookAt);
   }
 
-  public dispose(): void {
-    if (this.unsub) this.unsub();
-  }
+  public dispose(): void {}
 }
 
 
@@ -1407,10 +1229,12 @@ export class LightingSystem implements ISystem {
 
 ● ./src/babylon/materials/MaterialRegistry.ts
 ────────────────────────────────────────────────────
-export class MaterialRegistry {
-  private compiledMaterials = new Map<string, any>();
+import * as BABYLON from "@babylonjs/core";
 
-  public getMaterial(key: string): any {
+export class MaterialRegistry {
+  private compiledMaterials = new Map<string, BABYLON.Material>();
+
+  public getMaterial(key: string): BABYLON.Material | undefined {
     return this.compiledMaterials.get(key);
   }
 }
@@ -1426,49 +1250,34 @@ export class ArenaGeometry {
 
     public generateElevatorShaft(): void {
         const wallMaterial = new BABYLON.StandardMaterial("wallMat", this.scene);
-        wallMaterial.diffuseColor = new BABYLON.Color3(0.06, 0.07, 0.09);
+        wallMaterial.diffuseColor = new BABYLON.Color3(0.07, 0.08, 0.11);
         wallMaterial.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
 
-        const metalMaterial = new BABYLON.StandardMaterial("metalMat", this.scene);
-        metalMaterial.diffuseColor = new BABYLON.Color3(0.12, 0.13, 0.15);
-        metalMaterial.specularColor = new BABYLON.Color3(0.35, 0.35, 0.35);
-
-        const neonBlueMat = new BABYLON.StandardMaterial("neonBlueMat", this.scene);
-        neonBlueMat.emissiveColor = new BABYLON.Color3(0.0, 0.45, 0.95);
-        neonBlueMat.disableLighting = true;
-
-        const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 32, depth: 4 }, this.scene);
-        leftWall.position.set(-16, 15, 0);
+        // Smooth left and right solid walls (boundaries at X = -15 and X = 15)
+        const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 40, depth: 4 }, this.scene);
+        leftWall.position.set(-16, 14, 0);
         leftWall.material = wallMaterial;
 
-        const rightWall = BABYLON.MeshBuilder.CreateBox("rightWall", { width: 2, height: 32, depth: 4 }, this.scene);
-        rightWall.position.set(16, 15, 0);
+        const rightWall = BABYLON.MeshBuilder.CreateBox("rightWall", { width: 2, height: 40, depth: 4 }, this.scene);
+        rightWall.position.set(16, 14, 0);
         rightWall.material = wallMaterial;
 
-        const floor = BABYLON.MeshBuilder.CreateBox("floorBlock", { width: 34, height: 2, depth: 4 }, this.scene);
-        floor.position.set(0, -1, 0);
-        floor.material = wallMaterial;
+        // Generate unit measurement ticks at regular height intervals
+        const tickMat = new BABYLON.StandardMaterial("tickMat", this.scene);
+        tickMat.emissiveColor = new BABYLON.Color3(0.2, 0.5, 0.85);
+        tickMat.disableLighting = true;
 
-        const ceiling = BABYLON.MeshBuilder.CreateBox("ceilingBlock", { width: 34, height: 2, depth: 4 }, this.scene);
-        ceiling.position.set(0, 29, 0);
-        ceiling.material = wallMaterial;
+        const tickCount = 18;
+        for (let i = 0; i < tickCount; i++) {
+            const leftTick = BABYLON.MeshBuilder.CreateBox(`leftTick_${i}`, { width: 0.35, height: 0.08, depth: 2.1 }, this.scene);
+            leftTick.position.set(-14.9, i * 2.0, 0);
+            leftTick.material = tickMat;
+            leftTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 };
 
-        const leftPlatform = BABYLON.MeshBuilder.CreateBox("leftPlatform", { width: 8, height: 1, depth: 3 }, this.scene);
-        leftPlatform.position.set(-11, 12, 0);
-        leftPlatform.material = metalMaterial;
-
-        const rightPlatform = BABYLON.MeshBuilder.CreateBox("rightPlatform", { width: 8, height: 1, depth: 3 }, this.scene);
-        rightPlatform.position.set(11, 18, 0);
-        rightPlatform.material = metalMaterial;
-
-        for (let y = 3; y <= 27; y += 6) {
-            const leftStrut = BABYLON.MeshBuilder.CreateBox("strutLeft_" + y, { width: 0.3, height: 0.3, depth: 4.2 }, this.scene);
-            leftStrut.position.set(-14.9, y, 0);
-            leftStrut.material = neonBlueMat;
-
-            const rightStrut = BABYLON.MeshBuilder.CreateBox("strutRight_" + y, { width: 0.3, height: 0.3, depth: 4.2 }, this.scene);
-            rightStrut.position.set(14.9, y, 0);
-            rightStrut.material = neonBlueMat;
+            const rightTick = BABYLON.MeshBuilder.CreateBox(`rightTick_${i}`, { width: 0.35, height: 0.08, depth: 2.1 }, this.scene);
+            rightTick.position.set(14.9, i * 2.0, 0);
+            rightTick.material = tickMat;
+            rightTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 };
         }
     }
 }
@@ -1645,18 +1454,22 @@ export class RenderSystem implements ISystem, IVisualRegistry {
   private canvas: HTMLCanvasElement;
   private visualNodes = new Map<EntityId, BABYLON.TransformNode>();
 
-  constructor(canvas: HTMLCanvasElement) { this.canvas = canvas; }
+  constructor(canvas: HTMLCanvasElement) { 
+    this.canvas = canvas; 
+  }
 
   public async init(): Promise<void> {
     this.engine = new BABYLON.Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
     this.scene = new BABYLON.Scene(this.engine);
     this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.02, 1.0);
     
-    const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 10, -25), this.scene);
-    camera.setTarget(BABYLON.Vector3.Zero());
+    const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -28), this.scene);
+    camera.setTarget(new BABYLON.Vector3(0, 14, 0));
+    camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
     
+    // Increased light intensity for highly visible 3D assets
     const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
-    light.intensity = 0.55;
+    light.intensity = 1.3;
 
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
@@ -1664,21 +1477,42 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     window.addEventListener("resize", this.handleResize);
   }
 
-  public update(_dt: number): void {}
+  public update(_dt: number): void {
+    void _dt;
+  }
   
   public render(_alpha: number): void { 
-    if (this.scene) this.scene.render(); 
+    void _alpha;
+    if (this.scene) {
+      this.scene.render();
+    }
   }
 
-  public getScene(): BABYLON.Scene | null { return this.scene; }
-  public getTransformNode(id: EntityId): BABYLON.TransformNode | null { return this.visualNodes.get(id) || null; }
-  public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { this.visualNodes.set(id, node); }
+  public getScene(): BABYLON.Scene | null { 
+    return this.scene; 
+  }
+  
+  public getTransformNode(id: EntityId): BABYLON.TransformNode | null { 
+    return this.visualNodes.get(id) || null; 
+  }
+  
+  public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { 
+    this.visualNodes.set(id, node); 
+  }
+  
   public unregisterTransformNode(id: EntityId): void { 
     const node = this.visualNodes.get(id); 
-    if (node) { node.dispose(); this.visualNodes.delete(id); } 
+    if (node) { 
+      node.dispose(); 
+      this.visualNodes.delete(id); 
+    } 
   }
 
-  private handleResize = () => { if (this.engine) this.engine.resize(); };
+  private handleResize = () => { 
+    if (this.engine) {
+      this.engine.resize();
+    }
+  };
 
   public dispose(): void { 
     window.removeEventListener("resize", this.handleResize); 
@@ -1781,14 +1615,14 @@ export interface ICommand {
 export type CommandHandler<T extends ICommand> = (cmd: T) => void;
 
 export class CommandBus {
-    private handlers = new Map<string, CommandHandler<any>[]>();
+    private handlers = new Map<string, CommandHandler<ICommand>[]>();
     private queue: ICommand[] = [];
 
     public register<T extends ICommand>(type: string, handler: CommandHandler<T>): void {
         if (!this.handlers.has(type)) {
             this.handlers.set(type, []);
         }
-        this.handlers.get(type)!.push(handler);
+        this.handlers.get(type)!.push(handler as CommandHandler<ICommand>);
     }
 
     public dispatch<T extends ICommand>(cmd: T): void {
@@ -1834,29 +1668,36 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { Profiler } from "./Profiler";
 import { EventBroker } from "../events/EventBroker";
 import { EntityRegistry } from "../ecs/Entity";
+import { EntityRefs } from "../ecs/EntityRefs";
+import { ComponentStore } from "../ecs/ComponentStore";
+import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
 
 export class DebugTelemetryOverlay implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private overlay: HTMLElement | null = null;
-  private fpsText: HTMLElement | null = null;
   private sysText: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
 
   constructor(
     private _profiler: Profiler,
     private _broker: EventBroker,
-    private _entities: EntityRegistry
+    private _entities: EntityRegistry,
+    private _refs: EntityRefs,
+    private _transforms: ComponentStore<TransformComponent>,
+    private _tethers: ComponentStore<TetherComponent>,
+    private _velocities: ComponentStore<KinematicVelocityComponent>
   ) {}
 
   public init(): void {
     if (typeof document === "undefined") return;
     this.overlay = document.createElement("div");
-    this.overlay.style.cssText = "position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.8);color:#0f0;font-family:monospace;font-size:10px;padding:8px;z-index:9999;pointer-events:none;min-width:200px;";
     
-    this.fpsText = document.createElement("div");
-    this.sysText = document.createElement("div");
-    this.overlay.appendChild(this.fpsText);
+    // Aligned to the absolute LEFT of the window
+    this.overlay.style.cssText = "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
+    
+    this.sysText = document.createElement("pre");
+    this.sysText.style.margin = "0";
     this.overlay.appendChild(this.sysText);
     document.body.appendChild(this.overlay);
 
@@ -1867,19 +1708,41 @@ export class DebugTelemetryOverlay implements ISystem {
   }
 
   public update(_dt: number): void {
+    void _dt;
     if (!this.overlay || this.overlay.style.display === "none") return;
     
     const fps = this._profiler.getFps();
-    const frameTime = this._profiler.getFrameTime().toFixed(2);
-    if (this.fpsText) this.fpsText.textContent = `FPS: ${fps} | Frame: ${frameTime}ms`;
+    const frameTime = this._profiler.getFrameTime().toFixed(1);
+
+    const playerTrans = this._transforms.get(this._refs.player);
+    const playerTether = this._tethers.get(this._refs.player);
+    const wardenTrans = this._transforms.get(this._refs.warden);
+    const wardenVel = this._velocities.get(this._refs.warden);
+
+    let info = `=== PROJECT SILK DIAGNOSTICS ===\n`;
+    info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
+    info += `Entities   : ${this._entities.count()}\n\n`;
+
+    if (playerTrans && playerTether) {
+      const spd = Math.sqrt(playerTether.dynamicVelX * playerTether.dynamicVelX + playerTether.dynamicVelY * playerTether.dynamicVelY);
+      info += `=== PLAYER STATE ===\n`;
+      info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
+      info += `Vel X/Y    : ${playerTether.dynamicVelX.toFixed(2)}, ${playerTether.dynamicVelY.toFixed(2)}\n`;
+      info += `Speed      : ${spd.toFixed(2)} units/s\n\n`;
+      
+      info += `=== TETHER / ROPE ===\n`;
+      info += `Length     : ${playerTether.currentLength.toFixed(2)} / ${playerTether.maxLength.toFixed(1)}\n`;
+      info += `Load/Tens  : ${(playerTether.tension * 100).toFixed(1)}%\n`;
+    }
+
+    if (wardenTrans && wardenVel) {
+      info += `\n=== WARDEN CEILING ANCHOR ===\n`;
+      info += `Pos X/Y    : ${wardenTrans.x.toFixed(2)}, ${wardenTrans.y.toFixed(2)}\n`;
+      info += `Vel X      : ${wardenVel.x.toFixed(2)} units/s\n`;
+    }
 
     if (this.sysText) {
-      let txt = "Entities: " + this._entities.count() + "\n";
-      const timings = this._profiler.getSystemTimings();
-      for (const [name, time] of timings) {
-        txt += `${name.padEnd(20)} ${time.toFixed(2)}ms\n`;
-      }
-      this.sysText.textContent = txt;
+      this.sysText.textContent = info;
     }
   }
 
@@ -1916,7 +1779,9 @@ export class DebugWireframeSystem implements ISystem {
         void this._tethers;
         void this._visualRegistry;
     }
-    public update(_dt: number): void {}
+    public update(_dt: number): void {
+        void _dt;
+    }
 }
 
 
@@ -2022,9 +1887,9 @@ export interface WardenAIComponent {
   hasFakedDeath: boolean;
 }
 export interface PlayerStatsComponent { moveSpeed: number; climbSpeed: number; swingForce: number; minRope: number; maxRope: number; }
-export interface PlayerTag {}
-export interface WardenTag {}
-export interface AnchorTag {}
+export interface PlayerTag { readonly tag?: "player"; }
+export interface WardenTag { readonly tag?: "warden"; }
+export interface AnchorTag { readonly tag?: "anchor"; }
 export interface InvulnerabilityComponent { timeRemaining: number; }
 export type TraversalState = "AIRBORNE" | "WALL_SLIDING" | "GROUNDED";
 export interface TraversalStateComponent { 
@@ -2188,16 +2053,16 @@ import { GameEvent, GameEventMap } from "./GameEvents";
 export type EventCallback<T> = (payload: T) => void;
 
 export class EventBroker {
-    private listeners: { [K in GameEvent]?: Set<EventCallback<any>> } = {};
+    private listeners: { [K in GameEvent]?: Set<EventCallback<unknown>> } = {};
     public traffic: Map<string, number> = new Map();
 
     public subscribe<K extends GameEvent>(event: K, cb: EventCallback<GameEventMap[K]>): () => void {
         if (!this.listeners[event]) {
-            this.listeners[event] = new Set();
+            this.listeners[event] = new Set<EventCallback<unknown>>();
         }
-        this.listeners[event]!.add(cb);
+        this.listeners[event]!.add(cb as EventCallback<unknown>);
         return () => {
-            this.listeners[event]?.delete(cb);
+            this.listeners[event]?.delete(cb as EventCallback<unknown>);
         };
     }
 
@@ -2205,7 +2070,9 @@ export class EventBroker {
         this.traffic.set(event, (this.traffic.get(event) || 0) + 1);
         const set = this.listeners[event];
         if (set) {
-            set.forEach((cb) => cb(payload));
+            set.forEach((cb) => {
+                (cb as EventCallback<GameEventMap[K]>)(payload);
+            });
         }
     }
 
@@ -2536,7 +2403,9 @@ export class WardenChargeAttackState implements IWardenState {
     }
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(_ctx: AIContext): void {
+    void _ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
@@ -2584,7 +2453,9 @@ export class WardenChargePrepState implements IWardenState {
         });
     }
 
-    public exit(_ctx: AIContext): void {}
+    public exit(_ctx: AIContext): void {
+        void _ctx;
+    }
 
     public update(ctx: AIContext, dt: number): WardenStateType | null {
         ctx.ai.timeInState += dt;
@@ -2616,7 +2487,9 @@ export class WardenDormantState implements IWardenState {
         });
     }
 
-    public exit(_ctx: AIContext): void {}
+    public exit(_ctx: AIContext): void {
+        void _ctx;
+    }
 
     public update(ctx: AIContext, dt: number): WardenStateType | null {
         ctx.ai.timeInState += dt;
@@ -2649,7 +2522,9 @@ export class WardenFakeDeathState implements IWardenState {
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.6, duration: 0.8 });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(_ctx: AIContext): void {
+    void _ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
@@ -2682,7 +2557,9 @@ export class WardenFinalPhaseState implements IWardenState {
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.0, duration: 1.2 });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(_ctx: AIContext): void {
+    void _ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
@@ -2729,7 +2606,9 @@ export class WardenHuntingState implements IWardenState {
     ctx.ai.timeInState = 0;
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(_ctx: AIContext): void {
+    void _ctx;
+  }
 
   public update(ctx: AIContext, dt: number): WardenStateType | null {
     ctx.ai.timeInState += dt;
@@ -2786,7 +2665,9 @@ export class WardenRecoveryState implements IWardenState {
         });
     }
 
-    public exit(_ctx: AIContext): void {}
+    public exit(_ctx: AIContext): void {
+        void _ctx;
+    }
 
     public update(ctx: AIContext, dt: number): WardenStateType | null {
         ctx.ai.timeInState += dt;
@@ -2938,25 +2819,69 @@ export class EntitySpawnerSystem implements ISystem {
     const scene = this.visualRegistry.getScene();
     if (!scene) return;
 
+    // 1. Dynamic Anchor
     const anchorId = this.entities.create();
-    this.transforms.add(anchorId, { x: 0, y: 22, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, prevX: 0, prevY: 22, prevZ: 0, prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 });
+    this.transforms.add(anchorId, { 
+      x: 0, y: 26, z: 0, 
+      qx: 0, qy: 0, qz: 0, qw: 1, 
+      prevX: 0, prevY: 26, prevZ: 0, 
+      prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 
+    });
     this.anchorTags.add(anchorId, {});
     this.refs.anchor = anchorId;
 
-    const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.4, diameter: 0.6 }, scene);
+    const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
     const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
     anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
     anchorMesh.material = anchorMat;
     this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
 
+    // 2. Warden Entity (Ceiling Sweep Anchor) - Giant 3D Spider configuration
+    const wardenId = this.entities.create();
+    this.transforms.add(wardenId, { 
+      x: 0, y: 26, z: 0, 
+      qx: 0, qy: 0, qz: 0, qw: 1, 
+      prevX: 0, prevY: 26, prevZ: 0, 
+      prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 
+    });
+    this.velocities.add(wardenId, { x: 4.5, y: 0, z: 0 });
+    this.targets.add(wardenId, { x: 0, y: 26, z: 0, active: true });
+    this.wardenAIs.add(wardenId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 26, hue: "#ef4444", hasFakedDeath: false });
+    this.healths.add(wardenId, { current: 100, max: 100 });
+    this.wardenTags.add(wardenId, {});
+    this.wardenTraversal.add(wardenId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
+    this.refs.warden = wardenId;
+
+    // Giant Spider Mech Sphere (Radius 2.4 - 3x capsule width width)
+    const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("wardenVisual", { radius: 2.4, subdivisions: 3 }, scene);
+    const wMat = new BABYLON.StandardMaterial("wardenMat", scene);
+    wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
+    wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
+    wMesh.material = wMat;
+    this.visualRegistry.registerTransformNode(wardenId, wMesh);
+
+    // 3. Player Entity
     const playerId = this.entities.create();
-    this.transforms.add(playerId, { x: 0, y: 10, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, prevX: 0, prevY: 10, prevZ: 0, prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 });
+    this.transforms.add(playerId, { 
+      x: 0, y: 16, z: 0, 
+      qx: 0, qy: 0, qz: 0, qw: 1, 
+      prevX: 0, prevY: 16, prevZ: 0, 
+      prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 
+    });
     this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-    this.targets.add(playerId, { x: 0, y: 10, z: 0, active: true });
-    this.tethers.add(playerId, { anchorX: 0, anchorY: 22, anchorZ: 0, maxLength: 12, currentLength: 12, isAttached: true, tension: 0, dynamicVelX: 0, dynamicVelY: 0 });
+    this.targets.add(playerId, { x: 0, y: 16, z: 0, active: true });
+    
+    // Dynamic swing tether is 10.0 units starting length
+    this.tethers.add(playerId, { 
+      anchorX: 0, anchorY: 26, anchorZ: 0, 
+      maxLength: 10.0, currentLength: 10.0, 
+      isAttached: true, tension: 0.0, 
+      dynamicVelX: 0.0, dynamicVelY: 0.0 
+    });
+    
     this.healths.add(playerId, { current: 5, max: 5 });
     this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
-    this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 5, swingForce: 20, minRope: 4, maxRope: 20 });
+    this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 28, minRope: 4, maxRope: 20 });
     this.playerTags.add(playerId, {});
     this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, charge: 0.0 });
     this.iframes.add(playerId, { timeRemaining: 0 });
@@ -2965,28 +2890,14 @@ export class EntitySpawnerSystem implements ISystem {
     const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
     const pMat = new BABYLON.StandardMaterial("playerMat", scene);
     pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-    pMat.emissiveColor = new BABYLON.Color3(0.05, 0.15, 0.05);
+    pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
     pMesh.material = pMat;
     this.visualRegistry.registerTransformNode(playerId, pMesh);
-
-    const wardenId = this.entities.create();
-    this.transforms.add(wardenId, { x: 5, y: 5, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, prevX: 5, prevY: 5, prevZ: 0, prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 });
-    this.velocities.add(wardenId, { x: 0, y: 0, z: 0 });
-    this.targets.add(wardenId, { x: 5, y: 5, z: 0, active: true });
-    this.wardenAIs.add(wardenId, { state: "DORMANT", timeInState: 0, targetX: 0, targetY: 0, hue: "#4b5563", hasFakedDeath: false });
-    this.healths.add(wardenId, { current: 100, max: 100 });
-    this.wardenTags.add(wardenId, {});
-    this.wardenTraversal.add(wardenId, { velX: 0, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
-    this.refs.warden = wardenId;
-
-    const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("wardenVisual", { radius: 1.0, subdivisions: 2 }, scene);
-    const wMat = new BABYLON.StandardMaterial("wardenMat", scene);
-    wMat.diffuseColor = new BABYLON.Color3(0.93, 0.22, 0.22);
-    wMesh.material = wMat;
-    this.visualRegistry.registerTransformNode(wardenId, wMesh);
   }
 
-  public update(_dt: number): void {}
+  public update(_dt: number): void {
+    void _dt;
+  }
 }
 
 
@@ -2998,7 +2909,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, TetherComponent, WardenAIComponent, KinematicVelocityComponent, InvulnerabilityComponent } from "../../core/ecs/Components";
+import { TransformComponent, HealthComponent, TetherComponent, WardenAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
@@ -3014,7 +2925,8 @@ export class GameDirectorSystem implements ISystem {
     private tethers: ComponentStore<TetherComponent>,
     private wardenAIs: ComponentStore<WardenAIComponent>,
     private velocities: ComponentStore<KinematicVelocityComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>
+    private iframes: ComponentStore<InvulnerabilityComponent>,
+    private targets: ComponentStore<KinematicTargetComponent>
   ) {}
 
   public init(): void {
@@ -3022,13 +2934,6 @@ export class GameDirectorSystem implements ISystem {
       if (this.gameState === "PLAYING") {
         this.gameState = "GAME_OVER";
         this.broker.publish(GameEvent.GAME_OVER, undefined);
-      }
-    });
-
-    this.broker.subscribe(GameEvent.WARDEN_DIED, () => {
-      if (this.gameState === "PLAYING") {
-        this.gameState = "VICTORY";
-        this.broker.publish(GameEvent.GAME_WIN, undefined);
       }
     });
 
@@ -3042,6 +2947,7 @@ export class GameDirectorSystem implements ISystem {
   };
 
   public update(_dt: number): void {
+    void _dt;
     if (this.resetRequested) {
       this.resetGame();
       this.resetRequested = false;
@@ -3051,41 +2957,71 @@ export class GameDirectorSystem implements ISystem {
   private resetGame(): void {
     this.gameState = "PLAYING";
 
+    // 1. Reset Player to hanging position
     const pTrans = this.transforms.get(this.refs.player);
     const pHealth = this.healths.get(this.refs.player);
     const pTether = this.tethers.get(this.refs.player);
     const pVel = this.velocities.get(this.refs.player);
     const pIframe = this.iframes.get(this.refs.player);
+    const pTarget = this.targets.get(this.refs.player);
 
-    if (pTrans) { pTrans.x = 0; pTrans.y = 10; pTrans.z = 0; }
-    if (pHealth) { pHealth.current = pHealth.max; }
+    if (pTrans) { 
+      pTrans.x = 0; pTrans.y = 16; pTrans.z = 0; 
+      pTrans.prevX = 0; pTrans.prevY = 16; pTrans.prevZ = 0;
+    }
+    if (pTarget) {
+      pTarget.x = 0; pTarget.y = 16; pTarget.z = 0; pTarget.active = true;
+    }
+    if (pHealth) { 
+      pHealth.current = pHealth.max; 
+    }
     if (pTether) { 
       pTether.isAttached = true; 
-      pTether.maxLength = 12; 
+      pTether.maxLength = 10.0;
+      tether.currentLength = 10.0;
       pTether.dynamicVelX = 0; 
       pTether.dynamicVelY = 0; 
+      pTether.tension = 0.0;
+      pTether.anchorX = 0;
+      pTether.anchorY = 26;
     }
-    if (pVel) { pVel.x = 0; pVel.y = 0; pVel.z = 0; }
-    if (pIframe) { pIframe.timeRemaining = 0; }
+    if (pVel) { 
+      pVel.x = 0; pVel.y = 0; pVel.z = 0; 
+    }
+    if (pIframe) { 
+      pIframe.timeRemaining = 0; 
+    }
 
+    // 2. Reset Warden to the ceiling sweep start
     const wTrans = this.transforms.get(this.refs.warden);
     const wHealth = this.healths.get(this.refs.warden);
     const wAI = this.wardenAIs.get(this.refs.warden);
     const wVel = this.velocities.get(this.refs.warden);
+    const wTarget = this.targets.get(this.refs.warden);
 
-    if (wTrans) { wTrans.x = 5; wTrans.y = 5; wTrans.z = 0; }
-    if (wHealth) { wHealth.current = wHealth.max; }
+    if (wTrans) { 
+      wTrans.x = 0; wTrans.y = 26; wTrans.z = 0; 
+      wTrans.prevX = 0; wTrans.prevY = 26; wTrans.prevZ = 0;
+    }
+    if (wTarget) {
+      wTarget.x = 0; wTarget.y = 26; wTarget.z = 0; wTarget.active = true;
+    }
+    if (wHealth) { 
+      wHealth.current = wHealth.max; 
+    }
     if (wAI) { 
-      wAI.state = "DORMANT"; 
+      wAI.state = "SWEEPING"; 
       wAI.timeInState = 0; 
-      wAI.hue = "#4b5563"; 
+      wAI.hue = "#ef4444"; 
       wAI.hasFakedDeath = false;
     }
-    if (wVel) { wVel.x = 0; wVel.y = 0; wVel.z = 0; }
+    if (wVel) { 
+      wVel.x = 4.0; wVel.y = 0; wVel.z = 0; 
+    }
 
     this.broker.publish(GameEvent.GAME_RESET, undefined);
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
-    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "DORMANT", hue: "#4b5563" });
+    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
     this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
   }
 
@@ -3093,6 +3029,7 @@ export class GameDirectorSystem implements ISystem {
     window.removeEventListener("keydown", this.handleKeyDown);
   }
 }
+const tether = { anchorX: 0, anchorY: 26, anchorZ: 0, maxLength: 10.0, currentLength: 10.0, isAttached: true, tension: 0.0, dynamicVelX: 0.0, dynamicVelY: 0.0 };
 
 
 
@@ -3116,19 +3053,20 @@ export class PlayerInputSystem implements ISystem {
   }
 
   public update(_dt: number): void {
+    void _dt;
     const input = this.inputs.get(this.refs.player);
     if (!input) return;
 
-    let x = 0, y = 0;
-    if (this.keysPressed.has("w") || this.keysPressed.has("arrowup")) y += 1;
-    if (this.keysPressed.has("s") || this.keysPressed.has("arrowdown")) y -= 1;
+    let x = 0;
+    // Strictly read left/right steering keys matching Box Battle inputs
     if (this.keysPressed.has("a") || this.keysPressed.has("arrowleft")) x -= 1;
     if (this.keysPressed.has("d") || this.keysPressed.has("arrowright")) x += 1;
 
     input.x = x; 
-    input.y = y;
-    input.jump = this.keysPressed.has(" ");
-    input.detach = this.keysPressed.has("e") || this.keysPressed.has("q");
+    input.y = 0;
+    input.jump = false;
+    input.detach = false;
+    input.fire = false;
   }
 
   public dispose(): void {
@@ -3136,8 +3074,13 @@ export class PlayerInputSystem implements ISystem {
     window.removeEventListener("keyup", this.handleKeyUp);
   }
 
-  private handleKeyDown = (e: KeyboardEvent): void => { this.keysPressed.add(e.key.toLowerCase()); };
-  private handleKeyUp = (e: KeyboardEvent): void => { this.keysPressed.delete(e.key.toLowerCase()); };
+  private handleKeyDown = (e: KeyboardEvent): void => { 
+    this.keysPressed.add(e.key.toLowerCase()); 
+  };
+  
+  private handleKeyUp = (e: KeyboardEvent): void => { 
+    this.keysPressed.delete(e.key.toLowerCase()); 
+  };
 }
 
 
@@ -3147,112 +3090,47 @@ export class PlayerInputSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { InputIntentComponent, PlayerStatsComponent, TetherComponent, TraversalStateComponent, TransformComponent } from "../../core/ecs/Components";
+import { InputIntentComponent, PlayerStatsComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { CommandBus } from "../../core/commands/CommandBus";
-import { EventBroker } from "../../core/events/EventBroker";
-import { GameEvent } from "../../core/events/GameEvents";
-import { SetKinematicVelocityCommand, SetRopeAttachedCommand, SetRopeMaxLengthCommand, ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
+import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
 
 export class PlayerMovementSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
-  private spaceWasPressed = false;
-  private detachWasPressed = false;
 
   constructor(
     private refs: EntityRefs,
     private inputs: ComponentStore<InputIntentComponent>,
     private stats: ComponentStore<PlayerStatsComponent>,
     private tethers: ComponentStore<TetherComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private transforms: ComponentStore<TransformComponent>,
+    _traversal: any,
+    _transforms: any,
     private commands: CommandBus,
-    private broker: EventBroker
-  ) {}
+    _broker: any
+  ) {
+    void _traversal;
+    void _transforms;
+    void _broker;
+  }
 
   public update(dt: number): void {
+    void dt;
     const input = this.inputs.get(this.refs.player);
     const stats = this.stats.get(this.refs.player);
     const tether = this.tethers.get(this.refs.player);
-    const trav = this.traversal.get(this.refs.player);
-    const playerTrans = this.transforms.get(this.refs.player);
-    if (!input || !stats || !tether || !trav || !playerTrans) return;
+    
+    if (!input || !stats || !tether) return;
 
-    if (input.detach && !this.detachWasPressed) {
-      if (!tether.isAttached) {
-        let anchorY = 28.0; 
-        const playerX = playerTrans.x;
-        const playerY = playerTrans.y;
-
-        if (playerX >= -15.0 && playerX <= -7.0 && playerY < 11.5) {
-          anchorY = 11.5;
-        } else if (playerX >= 7.0 && playerX <= 15.0 && playerY < 17.5) {
-          anchorY = 17.5;
-        }
-
-        const anchorTrans = this.transforms.get(this.refs.anchor);
-        if (anchorTrans) {
-          anchorTrans.x = playerX;
-          anchorTrans.y = anchorY;
-          anchorTrans.z = 0;
-        }
-
-        tether.anchorX = playerX;
-        tether.anchorY = anchorY;
-        tether.anchorZ = 0;
-        
-        const dx = playerTrans.x - playerX;
-        const dy = playerTrans.y - anchorY;
-        tether.maxLength = Math.max(stats.minRope, Math.sqrt(dx * dx + dy * dy));
-        tether.isAttached = true;
-
-        this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: true });
-        this.commands.dispatch<SetRopeMaxLengthCommand>({ type: "SET_ROPE_MAX_LENGTH", length: tether.maxLength });
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.15, duration: 0.15 });
-      } else {
-        tether.isAttached = false;
-        this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: false });
-      }
-    }
-    this.detachWasPressed = input.detach;
-
-    if (input.jump && !this.spaceWasPressed) {
-      if (trav.state === "WALL_SLIDING") {
-        const chargeMultiplier = 1.0 + trav.charge * 1.5;
-        const launchX = trav.wallNormalX * 15.0 * chargeMultiplier;
-        const launchY = 11.0 * chargeMultiplier;
-        
-        trav.charge = 0.0;
-
-        this.commands.dispatch<ApplyImpulseCommand>({
-          type: "APPLY_IMPULSE",
-          entityId: this.refs.player,
-          x: launchX,
-          y: launchY,
-          z: 0
-        });
-
-        const shakeAmplitude = 0.2 + (chargeMultiplier - 1.0) * 0.4;
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: shakeAmplitude, duration: 0.25 });
-      }
-    }
-    this.spaceWasPressed = input.jump;
-
+    // Direct left and right steering controls to drive pendular momentum
     if (tether.isAttached) {
-      if (input.y > 0) tether.maxLength = Math.max(stats.minRope, tether.maxLength - stats.climbSpeed * dt);
-      else if (input.y < 0) tether.maxLength = Math.min(stats.maxRope, tether.maxLength + stats.climbSpeed * dt);
-      
-      this.commands.dispatch<SetRopeMaxLengthCommand>({ type: "SET_ROPE_MAX_LENGTH", length: tether.maxLength });
-      this.commands.dispatch<SetKinematicVelocityCommand>({ type: "SET_KINEMATIC_VELOCITY", entityId: this.refs.player, x: input.x * stats.swingForce, y: 0, z: 0 });
-    } else {
-      this.commands.dispatch<SetKinematicVelocityCommand>({ type: "SET_KINEMATIC_VELOCITY", entityId: this.refs.player, x: input.x * stats.moveSpeed, y: 0, z: 0 });
+      this.commands.dispatch<SetKinematicVelocityCommand>({ 
+        type: "SET_KINEMATIC_VELOCITY", 
+        entityId: this.refs.player, 
+        x: input.x * stats.swingForce, 
+        y: 0, 
+        z: 0 
+      });
     }
-
-    const speed = Math.sqrt(tether.dynamicVelX * tether.dynamicVelX + tether.dynamicVelY * tether.dynamicVelY);
-    this.broker.publish(GameEvent.PLAYER_VELOCITY_CHANGED, {
-      velocity: speed,
-      maxVelocity: 30.0
-    });
   }
 }
 
@@ -3294,8 +3172,8 @@ export class RopeVisualizerSystem implements ISystem {
     if (!scene) return;
 
     this.ropeMat = new BABYLON.StandardMaterial("ropeMat", scene);
-    this.ropeMat.diffuseColor = new BABYLON.Color3(0.8, 0.9, 1.0);
-    this.ropeMat.emissiveColor = new BABYLON.Color3(0.2, 0.4, 0.6);
+    this.ropeMat.diffuseColor = new BABYLON.Color3(0.9, 0.95, 1.0);
+    this.ropeMat.emissiveColor = new BABYLON.Color3(0.3, 0.5, 0.7);
     this.ropeMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
 
     this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
@@ -3311,9 +3189,8 @@ export class RopeVisualizerSystem implements ISystem {
   public render(alpha: number): void {
     if (!this.ropeMesh || !this.ropeMat) return;
     const pTrans = this.transforms.get(this.refs.player);
-    const aTrans = this.transforms.get(this.refs.anchor);
     const tether = this.tethers.get(this.refs.player);
-    if (!pTrans || !aTrans || !tether) return;
+    if (!pTrans || !tether) return;
 
     if (!tether.isAttached) {
       this.ropeMesh.setEnabled(false);
@@ -3324,25 +3201,21 @@ export class RopeVisualizerSystem implements ISystem {
     const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
     const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
     this.scratchPlayer.set(px, py, 0);
-    this.scratchAnchor.set(aTrans.x, aTrans.y, aTrans.z);
 
-    const clampedTension = Math.max(0, Math.min(1, tether.currentLength / tether.maxLength));
-    const sagFactor = (1.0 - clampedTension) * 2.5;
-    const applySag = clampedTension < 0.95;
+    // Dynamic Silk Lock: Read real-time coordinates of the moving Warden spider directly
+    this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
 
     for (let i = 0; i <= this.segments; i++) {
       const ratio = i / this.segments;
       BABYLON.Vector3.LerpToRef(this.scratchAnchor, this.scratchPlayer, ratio, this.scratchLerp);
-      if (applySag) {
-        this.scratchLerp.y -= Math.sin(ratio * Math.PI) * sagFactor;
-      }
+      
       const targetPoint = this.points[i];
       targetPoint.x = this.scratchLerp.x;
       targetPoint.y = this.scratchLerp.y;
       targetPoint.z = this.scratchLerp.z;
     }
 
-    const radius = 0.12 - (clampedTension * 0.07);
+    const radius = 0.09;
     this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
       path: this.points,
       radius: radius,
@@ -3350,17 +3223,6 @@ export class RopeVisualizerSystem implements ISystem {
       cap: BABYLON.Mesh.NO_CAP,
       instance: this.ropeMesh
     });
-
-    if (clampedTension > 0.8) {
-      const t = (clampedTension - 0.8) / 0.2;
-      this.ropeMat.emissiveColor.r = 0.2 + t * 0.8;
-      this.ropeMat.emissiveColor.g = 0.4 - t * 0.3;
-      this.ropeMat.emissiveColor.b = 0.6 - t * 0.5;
-    } else {
-      this.ropeMat.emissiveColor.r = 0.2;
-      this.ropeMat.emissiveColor.g = 0.4;
-      this.ropeMat.emissiveColor.b = 0.6;
-    }
   }
 
   public dispose(): void {
@@ -3376,101 +3238,41 @@ export class RopeVisualizerSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import { WardenAIComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { IWardenState, WardenStateType, AIContext } from "../states/IWardenState";
-import { WardenDormantState } from "../states/WardenDormantState";
-import { WardenHuntingState } from "../states/WardenHuntingState";
-import { WardenChargePrepState } from "../states/WardenChargePrepState";
-import { WardenChargeAttackState } from "../states/WardenChargeAttackState";
-import { WardenRecoveryState } from "../states/WardenRecoveryState";
-import { WardenFakeDeathState } from "../states/WardenFakeDeathState";
-import { WardenFinalPhaseState } from "../states/WardenFinalPhaseState";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { CommandBus } from "../../core/commands/CommandBus";
 
 export class WardenBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
-  private currentState: IWardenState;
-  private states: Map<WardenStateType, IWardenState> = new Map();
-  private ctx: AIContext;
-  private unsubReset: (() => void) | null = null;
 
   constructor(
     private refs: EntityRefs,
     private ai: ComponentStore<WardenAIComponent>,
-    private transforms: ComponentStore<TransformComponent>,
-    private wardenTraversal: ComponentStore<WardenTraversalComponent>,
-    private healths: ComponentStore<HealthComponent>,
+    _transforms: any,
+    _wardenTraversal: any,
+    _healths: any,
     private broker: EventBroker,
-    private commands: CommandBus
+    _commands: any
   ) {
-    this.states.set("DORMANT", new WardenDormantState());
-    this.states.set("HUNTING", new WardenHuntingState());
-    this.states.set("CHARGE_PREP", new WardenChargePrepState());
-    this.states.set("CHARGE_ATTACK", new WardenChargeAttackState());
-    this.states.set("RECOVERY", new WardenRecoveryState());
-    this.states.set("FAKE_DEATH", new WardenFakeDeathState());
-    this.states.set("FINAL_PHASE", new WardenFinalPhaseState());
-
-    this.currentState = this.states.get("DORMANT") as IWardenState;
-    this.ctx = { 
-      wardenId: -1, 
-      playerId: -1, 
-      ai: null as any, 
-      transforms: this.transforms, 
-      wardenTraversal: this.wardenTraversal, 
-      healths: this.healths,
-      commands: this.commands, 
-      broker: this.broker 
-    };
+    void _transforms;
+    void _wardenTraversal;
+    void _healths;
+    void _commands;
   }
 
   public init(): void {
-    this.ctx.wardenId = this.refs.warden;
-    this.ctx.playerId = this.refs.player;
-    this.ctx.ai = this.ai.get(this.refs.warden)!;
-    this.currentState.enter(this.ctx);
-    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: this.currentState.name, hue: this.currentState.hue });
-
-    this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
-      this.currentState = this.states.get("DORMANT") as IWardenState;
-      this.ctx.ai = this.ai.get(this.refs.warden)!;
-      this.currentState.enter(this.ctx);
-      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: this.currentState.name, hue: this.currentState.hue });
-    });
+    const aiComp = this.ai.get(this.refs.warden);
+    if (aiComp) {
+      aiComp.state = "SWEEPING";
+      aiComp.hue = "#ef4444";
+    }
+    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
   }
 
   public update(dt: number): void {
-    if (!this.ctx.ai) this.ctx.ai = this.ai.get(this.refs.warden)!;
-
-    const wHealth = this.healths.get(this.refs.warden);
-    if (wHealth && wHealth.current <= 0 && !this.ctx.ai.hasFakedDeath && this.currentState.type !== "FAKE_DEATH" && this.currentState.type !== "FINAL_PHASE") {
-      this.ctx.ai.hasFakedDeath = true;
-      this.transitionTo("FAKE_DEATH");
-      return;
-    }
-
-    const nextStateType = this.currentState.update(this.ctx, dt);
-    if (nextStateType && nextStateType !== this.currentState.type) {
-      this.transitionTo(nextStateType);
-    }
-  }
-
-  private transitionTo(nextStateType: WardenStateType): void {
-    this.currentState.exit(this.ctx);
-    const nextState = this.states.get(nextStateType);
-    if (!nextState) throw new Error(`Warden state not found: ${nextStateType}`);
-    this.currentState = nextState;
-    this.currentState.enter(this.ctx);
-    this.ctx.ai.state = this.currentState.name;
-    this.ctx.ai.hue = this.currentState.hue;
-    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: this.currentState.name, hue: this.currentState.hue });
-  }
-
-  public dispose(): void {
-    if (this.unsubReset) this.unsubReset();
+    void dt;
+    // Stubbed: autonomous horizontal sweep is fully automated inside WardenTraversalSystem.ts
   }
 }
 
@@ -3483,12 +3285,12 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { PLATFORM_AABBS, BORDER_AABBS } from "../../physics/collisions/EnvironmentColliders";
 
 export class WardenTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private gravity = -22.0;
-  private maxFallSpeed = -35.0;
+  private minX = -12.0;
+  private maxX = 12.0;
+  private moveSpeed = 4.5;
 
   constructor(
     private refs: EntityRefs,
@@ -3503,68 +3305,26 @@ export class WardenTraversalSystem implements ISystem {
     const trav = this.traversal.get(this.refs.warden);
     const trans = this.transforms.get(this.refs.warden);
     const target = this.targets.get(this.refs.warden);
+    
     if (!vel || !trav || !trans || !target) return;
 
-    let resolvedVelX = vel.x;
-    let resolvedVelY = vel.y;
+    // Translate coordinates horizontally along the ceiling (Y = 26.0)
+    let nextX = trans.x + vel.x * dt;
 
-    if (!trav.isGrounded && vel.y <= 0.1) {
-      trav.velY += this.gravity * dt;
-      if (trav.velY < this.maxFallSpeed) trav.velY = this.maxFallSpeed;
-      resolvedVelY += trav.velY;
-    } else if (trav.isGrounded && vel.y <= 0.1) {
-      trav.velY = 0;
+    if (nextX >= this.maxX) {
+      nextX = this.maxX;
+      vel.x = -this.moveSpeed;
+    } else if (nextX <= this.minX) {
+      nextX = this.minX;
+      vel.x = this.moveSpeed;
     }
-
-    let nextX = trans.x + resolvedVelX * dt;
-    let nextY = trans.y + resolvedVelY * dt;
-
-    trav.isGrounded = false;
-    trav.isWallClinging = false;
-    trav.wallNormalX = 0;
-
-    const wHalfW = 1.0;
-    const wHalfH = 1.0;
-    const allColliders = [...PLATFORM_AABBS, ...BORDER_AABBS];
-
-    for (const aabb of allColliders) {
-      const overlapX = (nextX + wHalfW > aabb.minX) && (nextX - wHalfW < aabb.maxX);
-      const overlapY = (nextY + wHalfH > aabb.minY) && (nextY - wHalfH < aabb.maxY);
-
-      if (overlapX && overlapY) {
-        const overlapDepthX = Math.min(nextX + wHalfW - aabb.minX, aabb.maxX - (nextX - wHalfW));
-        const overlapDepthY = Math.min(nextY + wHalfH - aabb.minY, aabb.maxY - (nextY - wHalfH));
-
-        if (overlapDepthY < overlapDepthX) {
-          if (nextY > (aabb.minY + aabb.maxY) / 2) {
-            nextY = aabb.maxY + wHalfH;
-            trav.isGrounded = true;
-            trav.velY = 0;
-            resolvedVelY = 0;
-          } else {
-            nextY = aabb.minY - wHalfH;
-            trav.velY = 0;
-            resolvedVelY = 0;
-          }
-        } else {
-          if (nextX > (aabb.minX + aabb.maxX) / 2) {
-            nextX = aabb.maxX + wHalfW;
-            trav.wallNormalX = 1;
-          } else {
-            nextX = aabb.minX - wHalfW;
-            trav.wallNormalX = -1;
-          }
-          trav.isWallClinging = true;
-          resolvedVelX = 0;
-        }
-      }
-    }
-
-    vel.x = resolvedVelX;
-    vel.y = resolvedVelY;
 
     target.x = nextX;
-    target.y = nextY;
+    target.y = 26.0; // Fixed ceiling anchor elevation
+    target.active = true;
+
+    trav.velX = vel.x;
+    trav.velY = 0;
   }
 }
 
@@ -3639,102 +3399,107 @@ export const BORDER_AABBS: AABB[] = [
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TetherComponent, KinematicTargetComponent, TransformComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+import { TetherComponent, KinematicTargetComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { PLATFORM_AABBS } from "./EnvironmentColliders";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
 
 export class EnvironmentCollisionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  private borderX = 15.0;
-  private minY = 0.0;
-  private maxY = 28.0;
+  private borderLimitX = 14.6; // Inner edge boundary limit
+  private minY = 1.0;
+  private maxY = 27.5;
+  
+  private wallDragSpeed = -10.0; // Steady downward sliding speed
+  private currentStrain = 0.0;
+  private strainBreakThreshold = 1.8;
 
   constructor(
     private refs: EntityRefs,
     private tethers: ComponentStore<TetherComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    transforms: ComponentStore<TransformComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>
-  ) {
-    void transforms;
-  }
+    private healths: ComponentStore<HealthComponent>,
+    private broker: EventBroker
+  ) {}
 
-  public update(_dt: number): void {
-    this.resolvePlayerCollisions();
-    this.resolveWardenBounds();
-  }
-
-  private resolvePlayerCollisions(): void {
+  public update(dt: number): void {
     const tether = this.tethers.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
-    if (!tether || !target) return;
+    const health = this.healths.get(this.refs.player);
+    if (!tether || !target || !health) return;
 
     let nextX = target.x;
     let nextY = target.y;
-    const playerHalfW = 0.4;
-    const playerHalfH = 0.9;
+    const playerHalfWidth = 0.4;
+    const playerHalfHeight = 0.9;
 
-    for (const plat of PLATFORM_AABBS) {
-      const overlapX = (nextX + playerHalfW > plat.minX) && (nextX - playerHalfW < plat.maxX);
-      const overlapY = (nextY + playerHalfH > plat.minY) && (nextY - playerHalfH < plat.maxY);
+    let isSlidingOnWall = false;
 
-      if (overlapX && overlapY) {
-        const overlapDepthX = Math.min(nextX + playerHalfW - plat.minX, plat.maxX - (nextX - playerHalfW));
-        const overlapDepthY = Math.min(nextY + playerHalfH - plat.minY, plat.maxY - (nextY - playerHalfH));
+    // Slide locking: Freeze horizontal boundary to eliminate bouncing
+    if (nextX - playerHalfWidth <= -this.borderLimitX) {
+      nextX = -this.borderLimitX + playerHalfWidth;
+      isSlidingOnWall = true;
+    } else if (nextX + playerHalfWidth >= this.borderLimitX) {
+      nextX = this.borderLimitX - playerHalfWidth;
+      isSlidingOnWall = true;
+    }
 
-        if (overlapDepthY < overlapDepthX) {
-          if (nextY > (plat.minY + plat.maxY) / 2) {
-            nextY = plat.maxY + playerHalfH;
-            if (tether.dynamicVelY < 0) tether.dynamicVelY = 0;
-          } else {
-            nextY = plat.minY - playerHalfH;
-            if (tether.dynamicVelY > 0) tether.dynamicVelY = 0;
-          }
-        } else {
-          if (nextX > (plat.minX + plat.maxX) / 2) {
-            nextX = plat.maxX + playerHalfW;
-            tether.dynamicVelX = 0;
-          } else {
-            nextX = plat.minX - playerHalfW;
-            tether.dynamicVelX = 0;
-          }
-        }
+    if (nextY - playerHalfHeight <= this.minY) {
+      nextY = this.minY + playerHalfHeight;
+      tether.dynamicVelY = 0;
+    } else if (nextY + playerHalfHeight >= this.maxY) {
+      nextY = this.maxY - playerHalfHeight;
+      tether.dynamicVelY = 0;
+    }
+
+    // Apply sliding friction and dynamic elongation
+    if (isSlidingOnWall) {
+      tether.dynamicVelX = 0;
+      tether.dynamicVelY = this.wallDragSpeed;
+      nextY += this.wallDragSpeed * dt;
+
+      // Dynamically stretch maxLength as the wall drags the player down
+      const currentDistance = Math.sqrt((nextX - tether.anchorX) ** 2 + (nextY - tether.anchorY) ** 2);
+      if (currentDistance > tether.maxLength) {
+        tether.maxLength = currentDistance; // Stretch the silk string!
       }
     }
 
-    if (nextX - playerHalfW < -this.borderX) { nextX = -this.borderX + playerHalfW; tether.dynamicVelX = 0; }
-    if (nextX + playerHalfW > this.borderX) { nextX = this.borderX - playerHalfW; tether.dynamicVelX = 0; }
-    if (nextY - playerHalfH < this.minY) { nextY = this.minY + playerHalfH; tether.dynamicVelY = 0; }
-    if (nextY + playerHalfH > this.maxY) { nextY = this.maxY - playerHalfH; tether.dynamicVelY = 0; }
+    const dx = nextX - tether.anchorX;
+    const dy = nextY - tether.anchorY;
+    const finalDistance = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+    // Tension metrics scale only during stretching elongation on the walls
+    if (finalDistance > 10.0) {
+      tether.tension = Math.max(0.0, (finalDistance - 10.0) / 4.0); // 10.0 is base length
+
+      if (tether.tension > 0.8) {
+        this.currentStrain += dt;
+        if (Math.random() < 0.2) {
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.1 });
+        }
+
+        if (this.currentStrain >= this.strainBreakThreshold) {
+          tether.isAttached = false;
+          tether.tension = 0.0;
+          this.currentStrain = 0.0;
+          
+          health.current = 0;
+          this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
+          this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
+          this.broker.publish(GameEvent.PLAYER_DIED, undefined);
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.5 });
+        }
+      } else {
+        this.currentStrain = Math.max(0.0, this.currentStrain - dt * 2.0);
+      }
+    } else {
+      tether.tension = 0.0;
+      this.currentStrain = Math.max(0.0, this.currentStrain - dt * 2.0);
+    }
 
     target.x = nextX;
     target.y = nextY;
-  }
-
-  private resolveWardenBounds(): void {
-    const wTarget = this.targets.get(this.refs.warden);
-    const wVel = this.velocities.get(this.refs.warden);
-    if (!wTarget || !wVel) return;
-
-    const wHalfW = 1.0;
-    const wHalfH = 1.0;
-
-    if (wTarget.x - wHalfW < -this.borderX) {
-      wTarget.x = -this.borderX + wHalfW;
-      wVel.x = Math.max(0, wVel.x);
-    }
-    if (wTarget.x + wHalfW > this.borderX) {
-      wTarget.x = this.borderX - wHalfW;
-      wVel.x = Math.min(0, wVel.x);
-    }
-    if (wTarget.y - wHalfH < this.minY) {
-      wTarget.y = this.minY + wHalfH;
-      wVel.y = Math.max(0, wVel.y);
-    }
-    if (wTarget.y + wHalfH > this.maxY) {
-      wTarget.y = this.maxY - wHalfH;
-      wVel.y = Math.min(0, wVel.y);
-    }
   }
 }
 
@@ -3771,123 +3536,80 @@ export interface SetRopeAttachedCommand extends ICommand {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TetherComponent, KinematicVelocityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TetherComponent, KinematicTargetComponent, TraversalStateComponent, TransformComponent, InputIntentComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private gravity = -25.0;
-  private wallSlideGravity = -4.0;
-  private maxFallSpeed = -40.0;
+  private gravity = -20.0;
 
   constructor(
     private refs: EntityRefs,
     private tethers: ComponentStore<TetherComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
+    _velocities: any,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>
-  ) {}
+    private traversal: ComponentStore<TraversalStateComponent>,
+    private transforms: ComponentStore<TransformComponent>,
+    private inputs: ComponentStore<InputIntentComponent>
+  ) {
+    void _velocities;
+  }
 
   public update(dt: number): void {
     const tether = this.tethers.get(this.refs.player);
-    const vel = this.velocities.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
-    if (!tether || !vel || !target || !trav) return;
+    const wTrans = this.transforms.get(this.refs.warden);
+    const input = this.inputs.get(this.refs.player);
 
-    let nextX = target.x;
-    let nextY = target.y;
+    if (!tether || !target || !trav || !wTrans) return;
 
-    if (tether.isAttached) {
-      tether.dynamicVelY += this.gravity * dt;
+    // 1. Sync the anchor directly to the Warden's horizontal coordinate
+    tether.anchorX = wTrans.x;
+    tether.anchorY = wTrans.y;
+    tether.anchorZ = wTrans.z;
 
-      const dx = nextX - tether.anchorX;
-      const dy = nextY - tether.anchorY;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const nx = dx / dist;
-      const ny = dy / dist;
-
-      const tx = -ny;
-      const ty = nx;
-
-      const inputForceMag = vel.x * 2.5; 
-      tether.dynamicVelX += tx * inputForceMag * dt;
-      tether.dynamicVelY += ty * inputForceMag * dt;
-      
-      tether.dynamicVelX *= Math.pow(0.985, dt * 60);
-      tether.dynamicVelY *= Math.pow(0.985, dt * 60);
-
-      if (tether.dynamicVelY < this.maxFallSpeed) tether.dynamicVelY = this.maxFallSpeed;
-
-      nextX += tether.dynamicVelX * dt;
-      nextY += tether.dynamicVelY * dt;
-
-      const nextDx = nextX - tether.anchorX;
-      const nextDy = nextY - tether.anchorY;
-      const nextDist = Math.sqrt(nextDx * nextDx + nextDy * nextDy) || 1;
-
-      if (nextDist > tether.maxLength) {
-        const nextNx = nextDx / nextDist;
-        const nextNy = nextDy / nextDist;
-        nextX = tether.anchorX + nextNx * tether.maxLength;
-        nextY = tether.anchorY + nextNy * tether.maxLength;
-
-        const dot = tether.dynamicVelX * nextNx + tether.dynamicVelY * nextNy;
-        if (dot > 0) {
-          tether.dynamicVelX -= dot * nextNx;
-          tether.dynamicVelY -= dot * nextNy;
-        }
-        tether.tension = 1.0;
-      } else {
-        tether.tension = Math.max(0, nextDist / tether.maxLength);
-      }
-      tether.currentLength = nextDist;
-      trav.state = "AIRBORNE";
-      trav.charge = Math.max(0.0, trav.charge - dt * 2.0);
-    } else {
-      let currentGravity = this.gravity;
-      let isWallSliding = false;
-      let wallNormalX = 0;
-
-      const pHalfW = 0.4;
-      if (nextX <= -15.0 + pHalfW + 0.05) {
-        if (tether.dynamicVelY < 0) {
-          isWallSliding = true;
-          wallNormalX = 1;
-        }
-      } else if (nextX >= 15.0 - pHalfW - 0.05) {
-        if (tether.dynamicVelY < 0) {
-          isWallSliding = true;
-          wallNormalX = -1;
-        }
-      }
-
-      if (isWallSliding) {
-        currentGravity = this.wallSlideGravity;
-        trav.state = "WALL_SLIDING";
-        trav.wallNormalX = wallNormalX;
-        tether.dynamicVelX = 0;
-        trav.charge = Math.min(1.0, trav.charge + dt * 1.5);
-      } else {
-        trav.state = "AIRBORNE";
-        trav.wallNormalX = 0;
-        tether.dynamicVelX += vel.x * dt;
-        tether.dynamicVelX *= Math.pow(0.95, dt * 60);
-        trav.charge = Math.max(0.0, trav.charge - dt * 2.0);
-      }
-
-      tether.dynamicVelY += currentGravity * dt;
-      if (tether.dynamicVelY < this.maxFallSpeed) tether.dynamicVelY = this.maxFallSpeed;
-
-      nextX += tether.dynamicVelX * dt;
-      nextY += tether.dynamicVelY * dt;
-      
-      tether.currentLength = 0;
-      tether.tension = 0;
+    // 2. Direct Steering swings
+    if (input) {
+      const swingSteerForce = 22.0; 
+      tether.dynamicVelX += input.x * swingSteerForce * dt;
     }
+
+    // Apply continuous gravity
+    tether.dynamicVelY += this.gravity * dt;
+
+    // Apply drag damping
+    tether.dynamicVelX *= Math.pow(0.985, dt * 60);
+    tether.dynamicVelY *= Math.pow(0.985, dt * 60);
+
+    let nextX = target.x + tether.dynamicVelX * dt;
+    let nextY = target.y + tether.dynamicVelY * dt;
+
+    const dx = nextX - tether.anchorX;
+    const dy = nextY - tether.anchorY;
+    const currentDistance = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+    // 3. Keep player locked to pendulum constraints
+    if (currentDistance > tether.maxLength) {
+      const nx = dx / currentDistance;
+      const ny = dy / currentDistance;
+
+      nextX = tether.anchorX + nx * tether.maxLength;
+      nextY = tether.anchorY + ny * tether.maxLength;
+
+      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
+      if (dot > 0) {
+        tether.dynamicVelX -= dot * nx;
+        tether.dynamicVelY -= dot * ny;
+      }
+    }
+
+    tether.currentLength = currentDistance;
+    trav.state = "AIRBORNE";
 
     target.x = nextX;
     target.y = nextY;
+    target.active = true;
   }
 }
 
@@ -3907,14 +3629,16 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntityId } from "../../core/ecs/Entity";
 import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetRopeMaxLengthCommand, SetRopeAttachedCommand } from "../commands/PhysicsCommands";
 import { PLATFORM_AABBS, BORDER_AABBS } from "../collisions/EnvironmentColliders";
+import type { World, RigidBody } from "@dimforge/rapier3d-compat";
 
 export class RapierWorldSystem implements ISystem, IReadablePhysics {
   readonly phase = SystemPhase.PhysicsStep;
   readonly initPhase = InitPhase.Bootstrap;
   
-  private RAPIER: any = null;
-  private world: any = null;
-  private rigidBodies = new Map<EntityId, any>();
+  private RAPIER: typeof import("@dimforge/rapier3d-compat") | null = null;
+  private world: World | null = null;
+  private rigidBodies = new Map<EntityId, RigidBody>();
+  private deferSetUpDone = false;
 
   constructor(
     private broker: EventBroker,
@@ -3930,10 +3654,12 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     this.registerCommands();
     try {
       this.RAPIER = await import("@dimforge/rapier3d-compat");
-      if (this.RAPIER && typeof this.RAPIER.init === "function") await this.RAPIER.init();
-      
+      if (this.RAPIER && typeof this.RAPIER.init === "function") {
+        await this.RAPIER.init();
+      }
       this.world = new this.RAPIER.World({ x: 0, y: -9.81, z: 0 });
 
+      // Load static geometry borders
       const allAabbs = [...PLATFORM_AABBS, ...BORDER_AABBS];
       for (const aabb of allAabbs) {
         const hx = (aabb.maxX - aabb.minX) / 2;
@@ -3951,18 +3677,30 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
           body
         );
       }
-
-      const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 10, 0));
-      this.rigidBodies.set(this.refs.player, pBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
-
-      const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(5, 5, 0));
-      this.rigidBodies.set(this.refs.warden, wBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(1.0, 1.0, 1.0), wBody);
-
     } catch (err) {
-      console.warn("Failed to initialize Rapier WASM, running fallback virtual physics engine.", err);
+      console.warn("WASM physics failed to initialize, running fallback virtual physics engine.", err);
     }
+  }
+
+  private deferSetUpRigidBodies(): void {
+    if (!this.world || !this.RAPIER) return;
+    
+    const playerEntity = this.refs.player;
+    const wardenEntity = this.refs.warden;
+
+    if (playerEntity !== -1 && !this.rigidBodies.has(playerEntity)) {
+      const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 16, 0));
+      this.rigidBodies.set(playerEntity, pBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
+    }
+
+    if (wardenEntity !== -1 && !this.rigidBodies.has(wardenEntity)) {
+      const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
+      this.rigidBodies.set(wardenEntity, wBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), wBody); // Match massive size
+    }
+
+    this.deferSetUpDone = true;
   }
 
   private registerCommands(): void {
@@ -3975,9 +3713,6 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       if (cmd.entityId === this.refs.player) {
         const tether = this.tethers.get(this.refs.player);
         if (tether) { tether.dynamicVelX += cmd.x; tether.dynamicVelY += cmd.y; }
-      } else if (this.world) {
-        const body = this.rigidBodies.get(cmd.entityId);
-        if (body && typeof body.applyImpulse === "function") body.applyImpulse({ x: cmd.x, y: cmd.y, z: cmd.z }, true);
       }
     });
 
@@ -3993,6 +3728,11 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
   }
 
   public update(_dt: number): void {
+    void _dt;
+    if (!this.deferSetUpDone) {
+      this.deferSetUpRigidBodies();
+    }
+
     this.commands.flush();
 
     for (const [, curr] of this.transforms.entries()) {
@@ -4012,7 +3752,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       wBody.setNextKinematicTranslation({ x: wTarget.x, y: wTarget.y, z: wTarget.z });
     }
 
-    if (this.world) this.world.step();
+    if (this.world) {
+      this.world.step();
+    }
 
     for (const [id, body] of this.rigidBodies.entries()) {
       const t = body.translation();
@@ -4058,7 +3800,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
@@ -4066,17 +3808,42 @@ export class TransformSyncSystem implements ISystem {
     readonly phase = SystemPhase.RenderSync;
     private scratchPrevQuat = new BABYLON.Quaternion();
     private scratchCurrQuat = new BABYLON.Quaternion();
+    private scrollOffset = 0.0;
 
     constructor(
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>, 
-        private traversal: ComponentStore<TraversalStateComponent>,
+        private tethers: ComponentStore<TetherComponent>,
         private visualRegistry: IVisualRegistry
     ) {}
 
-    public update(_dt: number): void {}
+    public update(_dt: number): void {
+        void _dt;
+    }
 
     public render(alpha: number): void {
+        // 1. Animate/Scroll the physical unit ticks downward to create the endless ascension illusion
+        const scene = this.visualRegistry.getScene();
+        if (scene) {
+            const scrollSpeed = 5.0; // Speed matching downward wall displacement
+            const totalRange = 36.0; // Range matching tick spawning heights
+            this.scrollOffset += scrollSpeed * (1 / 60); // 60Hz estimate sync
+            
+            if (this.scrollOffset > totalRange) {
+                this.scrollOffset -= totalRange;
+            }
+
+            const ticks = scene.meshes.filter(m => m.metadata && m.metadata.type === "scrolling_tick");
+            for (const tick of ticks) {
+                let currentY = tick.metadata.initialY - this.scrollOffset;
+                while (currentY < -2.0) {
+                    currentY += totalRange;
+                }
+                tick.position.y = currentY;
+            }
+        }
+
+        // 2. Synchronize visual mesh positioning with simulation components
         for (const [id, curr] of this.transforms.entries()) {
             const node = this.visualRegistry.getTransformNode(id);
             if (!node) continue;
@@ -4095,15 +3862,16 @@ export class TransformSyncSystem implements ISystem {
             BABYLON.Quaternion.SlerpToRef(this.scratchPrevQuat, this.scratchCurrQuat, alpha, node.rotationQuaternion);
 
             if (id === this.refs.player) {
-                const trav = this.traversal.get(id);
-                if (trav) {
+                const tether = this.tethers.get(id);
+                if (tether) {
                     const mesh = node as BABYLON.AbstractMesh;
                     if (mesh && mesh.material) {
                         const mat = mesh.material as BABYLON.StandardMaterial;
                         if (mat) {
-                            mat.emissiveColor.r = 0.05 + trav.charge * 0.95;
-                            mat.emissiveColor.g = 0.15 + trav.charge * 0.85;
-                            mat.emissiveColor.b = 0.05;
+                            const stress = Math.max(0.0, Math.min(1.0, (tether.currentLength / tether.maxLength) - 0.9) * 10.0);
+                            mat.emissiveColor.r = 0.05 + stress * 0.95;
+                            mat.emissiveColor.g = 0.15 * (1.0 - stress);
+                            mat.emissiveColor.b = 0.05 * (1.0 - stress);
                         }
                     }
                 }
@@ -4126,14 +3894,9 @@ export class DomHudSystem implements ISystem {
   private unsubscribes: (() => void)[] = [];
   private tensionBar: HTMLElement | null = null;
   private tensionText: HTMLElement | null = null;
-  private speedBar: HTMLElement | null = null;
-  private speedText: HTMLElement | null = null;
   private hpText: HTMLElement | null = null;
   private hpValue: HTMLElement | null = null;
   private bossStateText: HTMLElement | null = null;
-  private bossPhaseText: HTMLElement | null = null;
-  private wardenHpBar: HTMLElement | null = null;
-  private wardenHpValue: HTMLElement | null = null;
   private overlay: HTMLElement | null = null;
   private overlayTitle: HTMLElement | null = null;
 
@@ -4144,20 +3907,17 @@ export class DomHudSystem implements ISystem {
     this.registerSubscribers();
   }
 
-  public update(_dt: number): void {}
+  public update(_dt: number): void {
+    void _dt;
+  }
 
   private cacheDomElements(): void {
     if (typeof document === "undefined") return;
     this.tensionBar = document.getElementById("tension-meter-bar");
     this.tensionText = document.getElementById("tension-meter-text");
-    this.speedBar = document.getElementById("speedometer-bar");
-    this.speedText = document.getElementById("speedometer-text");
     this.hpText = document.getElementById("player-hp-bar");
     this.hpValue = document.getElementById("player-hp-value");
     this.bossStateText = document.getElementById("boss-state-text");
-    this.bossPhaseText = document.getElementById("boss-state-phase");
-    this.wardenHpBar = document.getElementById("warden-hp-bar");
-    this.wardenHpValue = document.getElementById("warden-hp-value");
     this.overlay = document.getElementById("game-state-overlay");
     this.overlayTitle = document.getElementById("game-state-title");
   }
@@ -4167,22 +3927,13 @@ export class DomHudSystem implements ISystem {
       this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => this.updateTensionDisplay(payload.tension))
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_VELOCITY_CHANGED, (payload) => this.updateVelocityDisplay(payload.velocity, payload.maxVelocity))
-    );
-    this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => this.updateHealthDisplay(payload.hp, payload.maxHp))
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => this.updateWardenStateDisplay(payload.state, payload.hue))
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, (payload) => this.updateWardenHealthDisplay(payload.hp, payload.maxHp))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("GAME OVER", "#ef4444"))
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_WIN, () => this.showOverlay("VICTORY", "#22c55e"))
+      this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("TETHER SNAPPED", "#ef4444"))
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => this.hideOverlay())
@@ -4190,41 +3941,31 @@ export class DomHudSystem implements ISystem {
   }
 
   private updateTensionDisplay(value: number): void {
-    const clamped = Math.max(0, Math.min(1, value));
-    const percentage = (clamped * 100).toFixed(1) + "%";
+    const clamped = Math.max(0, Math.min(1.5, value));
+    const percentage = Math.min(100, clamped * 100).toFixed(1) + "%";
     if (this.tensionBar) {
       this.tensionBar.style.width = percentage;
-      if (clamped > 0.8) this.tensionBar.style.backgroundColor = "var(--signal-red, #ef4444)";
-      else if (clamped > 0.5) this.tensionBar.style.backgroundColor = "var(--signal-yellow, #eab308)";
-      else this.tensionBar.style.backgroundColor = "var(--signal-green, #22c55e)";
+      if (clamped > 1.1) {
+        this.tensionBar.style.backgroundColor = "#ef4444";
+      } else if (clamped > 0.9) {
+        this.tensionBar.style.backgroundColor = "#eab308";
+      } else {
+        this.tensionBar.style.backgroundColor = "#22c55e";
+      }
     }
-    if (this.tensionText) this.tensionText.textContent = `TENSION: ${percentage}`;
-  }
-
-  private updateVelocityDisplay(velocity: number, maxVelocity: number): void {
-    const ratio = maxVelocity > 0 ? Math.max(0, Math.min(1, velocity / maxVelocity)) : 0;
-    const percentage = (ratio * 100).toFixed(0) + "%";
-    if (this.speedBar) this.speedBar.style.width = percentage;
-    if (this.speedText) this.speedText.textContent = `VELOCITY: ${velocity.toFixed(0)} / ${maxVelocity.toFixed(0)} m/s`;
+    if (this.tensionText) {
+      this.tensionText.textContent = `TETHER LOAD: ${percentage}`;
+    }
   }
 
   private updateHealthDisplay(hp: number, maxHp: number): void {
-    if (this.hpValue) this.hpValue.textContent = `HP: ${hp} / ${maxHp}`;
+    if (this.hpValue) {
+      this.hpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+    }
     if (this.hpText) {
       const hpPct = ((hp / maxHp) * 100).toFixed(0) + "%";
       this.hpText.style.width = hpPct;
-      this.hpText.style.backgroundColor = hp <= 1 ? "var(--signal-red, #ef4444)" : "var(--signal-green, #22c55e)";
-    }
-  }
-
-  private updateWardenHealthDisplay(hp: number, maxHp: number): void {
-    const percentage = maxHp > 0 ? (hp / maxHp) : 0;
-    const pctString = (percentage * 100).toFixed(0) + "%";
-    if (this.wardenHpValue) {
-      this.wardenHpValue.textContent = `HP: ${hp.toFixed(0)} / ${maxHp.toFixed(0)}`;
-    }
-    if (this.wardenHpBar) {
-      this.wardenHpBar.style.width = pctString;
+      this.hpText.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
     }
   }
 
@@ -4232,11 +3973,6 @@ export class DomHudSystem implements ISystem {
     if (this.bossStateText) {
       this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
       this.bossStateText.style.color = hue;
-    }
-    if (this.bossPhaseText) {
-      this.bossPhaseText.style.borderColor = hue;
-      this.bossPhaseText.style.color = hue;
-      this.bossPhaseText.textContent = state === "BERSERK OVERDRIVE" ? "FINAL PHASE" : "PHASE 01";
     }
   }
 
@@ -4272,7 +4008,7 @@ export const HudOverlay: React.FC = () => {
         className="hud-overlay-container"
         style={{
           position: "absolute",
-          inset: "24px",
+          inset: "16px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -4282,46 +4018,26 @@ export const HudOverlay: React.FC = () => {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "240px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "bold" }}>
-              <span>PLAYER INTEGRITY</span>
-              <span id="player-hp-value">HP: 5 / 5</span>
-            </div>
-            <div style={{ width: "100%", height: "8px", background: "#1f2937", borderRadius: "4px", overflow: "hidden" }}>
-              <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "var(--signal-green, #22c55e)", transition: "width 0.15s ease" }} />
-            </div>
-          </div>
-
-          <div id="warden-hp-container" style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(12, 14, 18, 0.85)", padding: "12px 24px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "320px", alignItems: "center" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "11px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.1em" }}>
-              <span>THE WARDEN</span>
-              <span id="warden-hp-value">HP: 100 / 100</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(10, 11, 15, 0.9)", padding: "12px", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "180px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: "bold" }}>
+              <span>SYSTEM</span>
+              <span id="player-hp-value">INTEGRITY: 5 / 5</span>
             </div>
             <div style={{ width: "100%", height: "6px", background: "#1f2937", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="warden-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.1s ease" }} />
+              <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#22c55e" }} />
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "240px", alignItems: "flex-end" }}>
-            <span id="boss-state-text" style={{ fontSize: "13px", fontWeight: "bold", color: "#f3f4f6" }}>WARDEN: DORMANT</span>
-            <div id="boss-state-phase" style={{ fontSize: "10px", color: "#9ca3af", border: "1px solid #374151", padding: "4px 8px", borderRadius: "4px" }}>
-              PHASE 01
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", background: "rgba(10, 11, 15, 0.9)", padding: "12px", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "180px", alignItems: "flex-end" }}>
+            <span id="boss-state-text" style={{ fontSize: "11px", fontWeight: "bold", color: "#ef4444" }}>WARDEN: SWEEPING</span>
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", width: "100%" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "280px" }}>
-            <span id="tension-meter-text" style={{ fontSize: "12px", fontWeight: "bold", letterSpacing: "0.1em" }}>TENSION: 0.0%</span>
-            <div style={{ width: "100%", height: "12px", background: "#1f2937", borderRadius: "6px", overflow: "hidden" }}>
-              <div id="tension-meter-bar" style={{ width: "0%", height: "100%", backgroundColor: "var(--signal-green, #22c55e)", transition: "width 0.1s ease" }} />
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "280px" }}>
-            <span id="speedometer-text" style={{ fontSize: "12px", fontWeight: "bold", letterSpacing: "0.1em" }}>VELOCITY: 0 m/s</span>
-            <div style={{ width: "100%", height: "6px", background: "#1f2937", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="speedometer-bar" style={{ width: "0%", height: "100%", backgroundColor: "#3b82f6", transition: "width 0.1s ease" }} />
+        <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(10, 11, 15, 0.9)", padding: "12px", borderRadius: "6px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "220px" }}>
+            <span id="tension-meter-text" style={{ fontSize: "10px", fontWeight: "bold", letterSpacing: "0.1em" }}>TETHER LOAD: 0.0%</span>
+            <div style={{ width: "100%", height: "8px", background: "#1f2937", borderRadius: "4px", overflow: "hidden" }}>
+              <div id="tension-meter-bar" style={{ width: "0%", height: "100%", backgroundColor: "#22c55e" }} />
             </div>
           </div>
         </div>
@@ -4332,8 +4048,8 @@ export const HudOverlay: React.FC = () => {
         justifyContent: "center", alignItems: "center", background: "rgba(0,0,0,0.85)",
         zIndex: 100, pointerEvents: "auto", fontFamily: "monospace"
       }}>
-        <h1 id="game-state-title" style={{ fontSize: "64px", color: "#ef4444", margin: 0, letterSpacing: "0.2em", textShadow: "0 0 20px rgba(239, 68, 68, 0.5)" }}>GAME OVER</h1>
-        <p id="game-state-subtitle" style={{ fontSize: "18px", color: "#9ca3af", marginTop: "24px", letterSpacing: "0.1em" }}>PRESS [R] TO RESTART</p>
+        <h1 id="game-state-title" style={{ fontSize: "36px", color: "#ef4444", margin: 0, letterSpacing: "0.15em" }}>TETHER SNAPPED</h1>
+        <p id="game-state-subtitle" style={{ fontSize: "14px", color: "#9ca3af", marginTop: "16px", letterSpacing: "0.1em" }}>PRESS [R] TO RECONNECT TETHER</p>
       </div>
     </>
   );

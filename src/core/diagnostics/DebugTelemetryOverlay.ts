@@ -3,29 +3,36 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { Profiler } from "./Profiler";
 import { EventBroker } from "../events/EventBroker";
 import { EntityRegistry } from "../ecs/Entity";
+import { EntityRefs } from "../ecs/EntityRefs";
+import { ComponentStore } from "../ecs/ComponentStore";
+import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
 
 export class DebugTelemetryOverlay implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private overlay: HTMLElement | null = null;
-  private fpsText: HTMLElement | null = null;
   private sysText: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
 
   constructor(
     private _profiler: Profiler,
     private _broker: EventBroker,
-    private _entities: EntityRegistry
+    private _entities: EntityRegistry,
+    private _refs: EntityRefs,
+    private _transforms: ComponentStore<TransformComponent>,
+    private _tethers: ComponentStore<TetherComponent>,
+    private _velocities: ComponentStore<KinematicVelocityComponent>
   ) {}
 
   public init(): void {
     if (typeof document === "undefined") return;
     this.overlay = document.createElement("div");
-    this.overlay.style.cssText = "position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.8);color:#0f0;font-family:monospace;font-size:10px;padding:8px;z-index:9999;pointer-events:none;min-width:200px;";
     
-    this.fpsText = document.createElement("div");
-    this.sysText = document.createElement("div");
-    this.overlay.appendChild(this.fpsText);
+    // Aligned to the absolute LEFT of the window
+    this.overlay.style.cssText = "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
+    
+    this.sysText = document.createElement("pre");
+    this.sysText.style.margin = "0";
     this.overlay.appendChild(this.sysText);
     document.body.appendChild(this.overlay);
 
@@ -40,16 +47,37 @@ export class DebugTelemetryOverlay implements ISystem {
     if (!this.overlay || this.overlay.style.display === "none") return;
     
     const fps = this._profiler.getFps();
-    const frameTime = this._profiler.getFrameTime().toFixed(2);
-    if (this.fpsText) this.fpsText.textContent = `FPS: ${fps} | Frame: ${frameTime}ms`;
+    const frameTime = this._profiler.getFrameTime().toFixed(1);
+
+    const playerTrans = this._transforms.get(this._refs.player);
+    const playerTether = this._tethers.get(this._refs.player);
+    const wardenTrans = this._transforms.get(this._refs.warden);
+    const wardenVel = this._velocities.get(this._refs.warden);
+
+    let info = `=== PROJECT SILK DIAGNOSTICS ===\n`;
+    info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
+    info += `Entities   : ${this._entities.count()}\n\n`;
+
+    if (playerTrans && playerTether) {
+      const spd = Math.sqrt(playerTether.dynamicVelX * playerTether.dynamicVelX + playerTether.dynamicVelY * playerTether.dynamicVelY);
+      info += `=== PLAYER STATE ===\n`;
+      info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
+      info += `Vel X/Y    : ${playerTether.dynamicVelX.toFixed(2)}, ${playerTether.dynamicVelY.toFixed(2)}\n`;
+      info += `Speed      : ${spd.toFixed(2)} units/s\n\n`;
+      
+      info += `=== TETHER / ROPE ===\n`;
+      info += `Length     : ${playerTether.currentLength.toFixed(2)} / ${playerTether.maxLength.toFixed(1)}\n`;
+      info += `Load/Tens  : ${(playerTether.tension * 100).toFixed(1)}%\n`;
+    }
+
+    if (wardenTrans && wardenVel) {
+      info += `\n=== WARDEN CEILING ANCHOR ===\n`;
+      info += `Pos X/Y    : ${wardenTrans.x.toFixed(2)}, ${wardenTrans.y.toFixed(2)}\n`;
+      info += `Vel X      : ${wardenVel.x.toFixed(2)} units/s\n`;
+    }
 
     if (this.sysText) {
-      let txt = "Entities: " + this._entities.count() + "\n";
-      const timings = this._profiler.getSystemTimings();
-      for (const [name, time] of timings) {
-        txt += `${name.padEnd(20)} ${time.toFixed(2)}ms\n`;
-      }
-      this.sysText.textContent = txt;
+      this.sysText.textContent = info;
     }
   }
 

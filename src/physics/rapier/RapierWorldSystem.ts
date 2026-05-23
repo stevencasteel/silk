@@ -19,6 +19,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
   private RAPIER: typeof import("@dimforge/rapier3d-compat") | null = null;
   private world: World | null = null;
   private rigidBodies = new Map<EntityId, RigidBody>();
+  private deferSetUpDone = false;
 
   constructor(
     private broker: EventBroker,
@@ -34,10 +35,12 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     this.registerCommands();
     try {
       this.RAPIER = await import("@dimforge/rapier3d-compat");
-      if (this.RAPIER && typeof this.RAPIER.init === "function") await this.RAPIER.init();
-      
+      if (this.RAPIER && typeof this.RAPIER.init === "function") {
+        await this.RAPIER.init();
+      }
       this.world = new this.RAPIER.World({ x: 0, y: -9.81, z: 0 });
 
+      // Load static geometry borders
       const allAabbs = [...PLATFORM_AABBS, ...BORDER_AABBS];
       for (const aabb of allAabbs) {
         const hx = (aabb.maxX - aabb.minX) / 2;
@@ -55,18 +58,30 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
           body
         );
       }
-
-      const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 10, 0));
-      this.rigidBodies.set(this.refs.player, pBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
-
-      const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(5, 5, 0));
-      this.rigidBodies.set(this.refs.warden, wBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(1.0, 1.0, 1.0), wBody);
-
     } catch (err) {
-      console.warn("Failed to initialize Rapier WASM, running fallback virtual physics engine.", err);
+      console.warn("WASM physics failed to initialize, running fallback virtual physics engine.", err);
     }
+  }
+
+  private deferSetUpRigidBodies(): void {
+    if (!this.world || !this.RAPIER) return;
+    
+    const playerEntity = this.refs.player;
+    const wardenEntity = this.refs.warden;
+
+    if (playerEntity !== -1 && !this.rigidBodies.has(playerEntity)) {
+      const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 16, 0));
+      this.rigidBodies.set(playerEntity, pBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
+    }
+
+    if (wardenEntity !== -1 && !this.rigidBodies.has(wardenEntity)) {
+      const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
+      this.rigidBodies.set(wardenEntity, wBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), wBody); // Match massive size
+    }
+
+    this.deferSetUpDone = true;
   }
 
   private registerCommands(): void {
@@ -79,9 +94,6 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       if (cmd.entityId === this.refs.player) {
         const tether = this.tethers.get(this.refs.player);
         if (tether) { tether.dynamicVelX += cmd.x; tether.dynamicVelY += cmd.y; }
-      } else if (this.world) {
-        const body = this.rigidBodies.get(cmd.entityId);
-        if (body && typeof body.applyImpulse === "function") body.applyImpulse({ x: cmd.x, y: cmd.y, z: cmd.z }, true);
       }
     });
 
@@ -98,6 +110,10 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
 
   public update(_dt: number): void {
     void _dt;
+    if (!this.deferSetUpDone) {
+      this.deferSetUpRigidBodies();
+    }
+
     this.commands.flush();
 
     for (const [, curr] of this.transforms.entries()) {
@@ -117,7 +133,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       wBody.setNextKinematicTranslation({ x: wTarget.x, y: wTarget.y, z: wTarget.z });
     }
 
-    if (this.world) this.world.step();
+    if (this.world) {
+      this.world.step();
+    }
 
     for (const [id, body] of this.rigidBodies.entries()) {
       const t = body.translation();

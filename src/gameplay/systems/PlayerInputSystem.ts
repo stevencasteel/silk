@@ -20,16 +20,16 @@ export class PlayerInputSystem implements ISystem {
     const input = this.inputs.get(this.refs.player);
     if (!input) return;
 
-    let x = 0, y = 0;
-    if (this.keysPressed.has("w") || this.keysPressed.has("arrowup")) y += 1;
-    if (this.keysPressed.has("s") || this.keysPressed.has("arrowdown")) y -= 1;
+    let x = 0;
+    // Strictly read left/right steering keys matching Box Battle inputs
     if (this.keysPressed.has("a") || this.keysPressed.has("arrowleft")) x -= 1;
     if (this.keysPressed.has("d") || this.keysPressed.has("arrowright")) x += 1;
 
     input.x = x; 
-    input.y = y;
-    input.jump = this.keysPressed.has(" ");
-    input.detach = this.keysPressed.has("e") || this.keysPressed.has("q");
+    input.y = 0;
+    input.jump = false;
+    input.detach = false;
+    input.fire = false;
   }
 
   public dispose(): void {
@@ -37,6 +37,11 @@ export class PlayerInputSystem implements ISystem {
     window.removeEventListener("keyup", this.handleKeyUp);
   }
 
-  private handleKeyDown = (e: KeyboardEvent): void => { this.keysPressed.add(e.key.toLowerCase()); };
-  private handleKeyUp = (e: KeyboardEvent): void => { this.keysPressed.delete(e.key.toLowerCase()); };
+  private handleKeyDown = (e: KeyboardEvent): void => { 
+    this.keysPressed.add(e.key.toLowerCase()); 
+  };
+  
+  private handleKeyUp = (e: KeyboardEvent): void => { 
+    this.keysPressed.delete(e.key.toLowerCase()); 
+  };
 }
