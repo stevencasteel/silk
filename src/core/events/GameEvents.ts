@@ -10,6 +10,7 @@ export enum GameEvent {
   ROPE_LENGTH_CHANGE = "ROPE_LENGTH_CHANGE",
   WARDEN_STATE_CHANGE = "WARDEN_STATE_CHANGE",
   WARDEN_DAMAGED = "WARDEN_DAMAGED",
+  WARDEN_HEALTH_CHANGED = "WARDEN_HEALTH_CHANGED",
   WARDEN_DIED = "WARDEN_DIED",
   CAMERA_SHAKE_TRIGGERED = "CAMERA_SHAKE_TRIGGERED",
   GAME_OVER = "GAME_OVER",
@@ -29,6 +30,7 @@ export interface GameEventMap {
   [GameEvent.ROPE_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WARDEN_STATE_CHANGE]: { state: string; hue: string };
   [GameEvent.WARDEN_DAMAGED]: { amount: number; source: string };
+  [GameEvent.WARDEN_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.WARDEN_DIED]: void;
   [GameEvent.CAMERA_SHAKE_TRIGGERED]: { amplitude: number; duration: number };
   [GameEvent.GAME_OVER]: void;

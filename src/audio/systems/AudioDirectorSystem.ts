@@ -14,6 +14,7 @@ export class AudioDirectorSystem implements ISystem {
   private unsub: (() => void) | null = null;
   private unsubImpact: (() => void) | null = null;
   private unsubWardenHit: (() => void) | null = null;
+  private unsubState: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
 
@@ -43,6 +44,12 @@ export class AudioDirectorSystem implements ISystem {
 
     this.unsubWardenHit = this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
       if (this.initialized && this.impactSynth) this.impactSynth.triggerAttackRelease("E3", "16n");
+    });
+
+    this.unsubState = this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => {
+      if (this.initialized && this.tensionSynth) {
+        this.tensionSynth.handleStateChange(payload.state);
+      }
     });
   }
 
@@ -76,6 +83,7 @@ export class AudioDirectorSystem implements ISystem {
     if (this.unsub) this.unsub();
     if (this.unsubImpact) this.unsubImpact();
     if (this.unsubWardenHit) this.unsubWardenHit();
+    if (this.unsubState) this.unsubState();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();

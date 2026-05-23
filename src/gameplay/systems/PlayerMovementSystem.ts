@@ -1,7 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { InputIntentComponent, PlayerStatsComponent, TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { InputIntentComponent, PlayerStatsComponent, TetherComponent, TraversalStateComponent, TransformComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -19,6 +19,7 @@ export class PlayerMovementSystem implements ISystem {
     private stats: ComponentStore<PlayerStatsComponent>,
     private tethers: ComponentStore<TetherComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
+    private transforms: ComponentStore<TransformComponent>,
     private commands: CommandBus,
     private broker: EventBroker
   ) {}
@@ -28,18 +29,55 @@ export class PlayerMovementSystem implements ISystem {
     const stats = this.stats.get(this.refs.player);
     const tether = this.tethers.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
-    if (!input || !stats || !tether || !trav) return;
+    const playerTrans = this.transforms.get(this.refs.player);
+    if (!input || !stats || !tether || !trav || !playerTrans) return;
 
     if (input.detach && !this.detachWasPressed) {
-      tether.isAttached = !tether.isAttached;
-      this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: tether.isAttached });
+      if (!tether.isAttached) {
+        let anchorY = 28.0; 
+        const playerX = playerTrans.x;
+        const playerY = playerTrans.y;
+
+        if (playerX >= -15.0 && playerX <= -7.0 && playerY < 11.5) {
+          anchorY = 11.5;
+        } else if (playerX >= 7.0 && playerX <= 15.0 && playerY < 17.5) {
+          anchorY = 17.5;
+        }
+
+        const anchorTrans = this.transforms.get(this.refs.anchor);
+        if (anchorTrans) {
+          anchorTrans.x = playerX;
+          anchorTrans.y = anchorY;
+          anchorTrans.z = 0;
+        }
+
+        tether.anchorX = playerX;
+        tether.anchorY = anchorY;
+        tether.anchorZ = 0;
+        
+        const dx = playerTrans.x - playerX;
+        const dy = playerTrans.y - anchorY;
+        tether.maxLength = Math.max(stats.minRope, Math.sqrt(dx * dx + dy * dy));
+        tether.isAttached = true;
+
+        this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: true });
+        this.commands.dispatch<SetRopeMaxLengthCommand>({ type: "SET_ROPE_MAX_LENGTH", length: tether.maxLength });
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.15, duration: 0.15 });
+      } else {
+        tether.isAttached = false;
+        this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: false });
+      }
     }
     this.detachWasPressed = input.detach;
 
     if (input.jump && !this.spaceWasPressed) {
       if (trav.state === "WALL_SLIDING") {
-        const launchX = trav.wallNormalX * 18.0;
-        const launchY = 14.0;
+        const chargeMultiplier = 1.0 + trav.charge * 1.5;
+        const launchX = trav.wallNormalX * 15.0 * chargeMultiplier;
+        const launchY = 11.0 * chargeMultiplier;
+        
+        trav.charge = 0.0;
+
         this.commands.dispatch<ApplyImpulseCommand>({
           type: "APPLY_IMPULSE",
           entityId: this.refs.player,
@@ -47,7 +85,9 @@ export class PlayerMovementSystem implements ISystem {
           y: launchY,
           z: 0
         });
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.3, duration: 0.2 });
+
+        const shakeAmplitude = 0.2 + (chargeMultiplier - 1.0) * 0.4;
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: shakeAmplitude, duration: 0.25 });
       }
     }
     this.spaceWasPressed = input.jump;

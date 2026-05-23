@@ -1,10 +1,10 @@
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent } from "../../core/ecs/Components";
+import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type WardenStateType = "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY";
+export type WardenStateType = "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY" | "FAKE_DEATH" | "FINAL_PHASE";
 
 export interface AIContext {
   wardenId: EntityId;
@@ -12,6 +12,7 @@ export interface AIContext {
   ai: WardenAIComponent;
   transforms: ComponentStore<TransformComponent>;
   wardenTraversal: ComponentStore<WardenTraversalComponent>;
+  healths: ComponentStore<HealthComponent>;
   commands: CommandBus;
   broker: EventBroker;
 }

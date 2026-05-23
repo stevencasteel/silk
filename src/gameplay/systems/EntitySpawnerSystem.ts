@@ -55,7 +55,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
     this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 5, swingForce: 20, minRope: 4, maxRope: 20 });
     this.playerTags.add(playerId, {});
-    this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0 });
+    this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, charge: 0.0 });
     this.iframes.add(playerId, { timeRemaining: 0 });
     this.refs.player = playerId;
 
@@ -70,7 +70,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.transforms.add(wardenId, { x: 5, y: 5, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, prevX: 5, prevY: 5, prevZ: 0, prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 });
     this.velocities.add(wardenId, { x: 0, y: 0, z: 0 });
     this.targets.add(wardenId, { x: 5, y: 5, z: 0, active: true });
-    this.wardenAIs.add(wardenId, { state: "DORMANT", timeInState: 0, targetX: 0, targetY: 0, hue: "#4b5563" });
+    this.wardenAIs.add(wardenId, { state: "DORMANT", timeInState: 0, targetX: 0, targetY: 0, hue: "#4b5563", hasFakedDeath: false });
     this.healths.add(wardenId, { current: 100, max: 100 });
     this.wardenTags.add(wardenId, {});
     this.wardenTraversal.add(wardenId, { velX: 0, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });

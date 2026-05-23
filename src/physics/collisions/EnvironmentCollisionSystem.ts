@@ -7,8 +7,8 @@ import { PLATFORM_AABBS } from "./EnvironmentColliders";
 
 export class EnvironmentCollisionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  private borderX = 14.0;
-  private minY = 1.0;
+  private borderX = 15.0;
+  private minY = 0.0;
   private maxY = 28.0;
 
   constructor(
@@ -33,8 +33,8 @@ export class EnvironmentCollisionSystem implements ISystem {
 
     let nextX = target.x;
     let nextY = target.y;
-    const playerHalfW = 0.5;
-    const playerHalfH = 1.0;
+    const playerHalfW = 0.4;
+    const playerHalfH = 0.9;
 
     for (const plat of PLATFORM_AABBS) {
       const overlapX = (nextX + playerHalfW > plat.minX) && (nextX - playerHalfW < plat.maxX);
@@ -64,10 +64,10 @@ export class EnvironmentCollisionSystem implements ISystem {
       }
     }
 
-    if (nextX < -this.borderX) { nextX = -this.borderX; tether.dynamicVelX = 0; }
-    if (nextX > this.borderX) { nextX = this.borderX; tether.dynamicVelX = 0; }
-    if (nextY < this.minY) { nextY = this.minY; tether.dynamicVelY = 0; }
-    if (nextY > this.maxY) { nextY = this.maxY; tether.dynamicVelY = 0; }
+    if (nextX - playerHalfW < -this.borderX) { nextX = -this.borderX + playerHalfW; tether.dynamicVelX = 0; }
+    if (nextX + playerHalfW > this.borderX) { nextX = this.borderX - playerHalfW; tether.dynamicVelX = 0; }
+    if (nextY - playerHalfH < this.minY) { nextY = this.minY + playerHalfH; tether.dynamicVelY = 0; }
+    if (nextY + playerHalfH > this.maxY) { nextY = this.maxY - playerHalfH; tether.dynamicVelY = 0; }
 
     target.x = nextX;
     target.y = nextY;

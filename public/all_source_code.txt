@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 12:17:35 PM
+ [SYSTEM] Generated: 5/23/2026, 12:30:43 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -88,6 +88,8 @@
 │   │   │   ├── WardenChargeAttackState.ts
 │   │   │   ├── WardenChargePrepState.ts
 │   │   │   ├── WardenDormantState.ts
+│   │   │   ├── WardenFakeDeathState.ts
+│   │   │   ├── WardenFinalPhaseState.ts
 │   │   │   ├── WardenHuntingState.ts
 │   │   │   └── WardenRecoveryState.ts
 │   │   ├── systems/
@@ -293,149 +295,233 @@ protocol based on scope:
 ● ./docs/SILK_MASTER_ENGINEERING_DOCUMENT.txt
 ────────────────────────────────────────────────────
 ===============================================================================
-SILK — MASTER ENGINEERING & ARCHITECTURE DOCUMENT
-Data-Oriented ECS, Command Pipeline & Zero-Allocation Edition
-Target Stack: React 19 + TypeScript 6 + Vite 8 + Babylon.js + Rapier 3D WASM Compat
+SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
+Vertical Slice / Game Jam Production Framework
+Version: Overhauled Architecture Edition
+Target Stack: React + TypeScript + Vite + Babylon.js + Rapier
+Reference Baseline: BOX BATTLE ENGINE
 ===============================================================================
 
-1. EXECUTIVE SUMMARY & DESIGN PHILOSOPHY
+PURPOSE
 -------------------------------------------------------------------------------
-SILK is a vertical arena action game built around dynamic movement. The architecture
-is founded on a lightweight, data-oriented Entity-Component-System (ECS), strict
-unidirectional data flow, phased system orchestration, and zero-allocation rendering.
+This document is the authoritative engineering and architectural blueprint for
+SILK. It is designed as a complete AI handoff package for future build sessions.
 
-Core Pillars:
-- Phased System Orchestration: Systems are ordered deterministically by designated 
-  SystemPhase layers rather than registration sequence, eliminating single-frame lags 
-  and initialization races.
-- Data-Oriented ECS: Pure data components decoupled from logic. Dynamic aspect queries 
-  and tag component stores (PlayerTag, WardenTag, AnchorTag) replace rigid hardcoded 
-  entity reference lookups.
-- Deferred Command Buffering: Systems issue commands to a buffered queue. Commands are 
-  deferred and flushed atomically at the entry boundary of the physics step, ensuring 
-  unidirectional state mutations and preventing frame-loop side effects.
-- Zero-Allocation Rendering: High-refresh-rate stability is guaranteed by 
-  utilizing class-level scratchpad vectors, quaternions, and optional lifecycle hooks 
-  (e.g., rendering-only systems have no update stubs), eliminating garbage collection pressure.
-- Out-of-the-Box Compilation: Employs rapier3d-compat to integrate the WebAssembly 
-  physics engine directly into standard ESM bundles, bypassing complex bundler loaders.
+This is NOT a lightweight game jam architecture.
+This is a production-minded vertical slice framework optimized for:
+- maintainability
+- iteration speed
+- modularity
+- deterministic gameplay systems
+- extensibility
+- debugging clarity
+- future scalability
 
+The design philosophy intentionally avoids:
+- god objects
+- giant manager classes
+- hidden mutable state
+- monolithic gameplay files
+- brittle inheritance chains
+- tightly coupled gameplay logic
+- architecture that collapses under feature expansion
 
-2. THE NERVOUS SYSTEM: FRAME EXECUTION PIPELINE
+The system is intentionally designed around:
+- composition over inheritance
+- event-oriented communication
+- explicit ownership boundaries
+- feature encapsulation
+- deterministic fixed-step simulation
+- dependency inversion
+- observable runtime systems
+- isolated feature modules
+- testable subsystems
+- low-risk refactors
+
+SILK boots directly into gameplay.
+There is:
+- NO title screen
+- NO settings menu
+- NO save/load
+- NO multiplayer
+- NO profile management
+- NO account systems
+- NO network abstraction
+
+The game starts in the arena immediately.
+
+===============================================================================
+HIGH LEVEL GAME SUMMARY
+===============================================================================
+
+SILK is a vertical arena predator-prey combat game focused on:
+- momentum
+- tension
+- elastic traversal
+- wall slide charging
+- silk rope physics
+- psychological boss AI pressure
+- environmental control
+
+Core loop:
+1. Player wall-slides to build slide charge (visually glowing emissive color)
+2. Player launches using silk momentum, with jump velocities scaling by charge
+3. Dynamic anchors hook dynamically to platform undersides or ceilings
+4. Warden AI responds dynamically with emotional state and light-pulse shifts
+5. Player lands strikes during Warden recovery or Frenzied state windows
+6. Boss battle intensifies with a Fake-Death phase and Berserk Overdrive rage
+
+Movement quality is the focal priority of the experience.
+
+===============================================================================
+NON-NEGOTIABLE DESIGN PILLARS
+===============================================================================
+
+NEVER CUT:
+- Wall slide charge and launch
+- Dynamic grapple acquisition
+- Warden emotional lighting shifts
+- Fake-out final boss phase (Berserk Overdrive)
+- Dynamic tension audio drone escalation
+- Deterministic fixed-step gameplay loop
+- Clear visual readability of velocity and danger
+
+CUT FIRST:
+- Advanced alternate anchor types
+- Environmental FX polish
+- Secondary enemy variants
+- Cinematic transitions
+- High fidelity shaders
+
+===============================================================================
+CORE ENGINEERING PHILOSOPHY
+===============================================================================
+
+1. SYSTEMS OWN THEIR DATA
 -------------------------------------------------------------------------------
-The GameLoop enforces a strict, phase-sorted pipeline separating gameplay updates 
-from presentation render cycles. Systems are registered to specific SystemPhase 
-layers and sorted during engine bootstrap.
+Avoid shared mutable state whenever possible.
 
-A. SYSTEMPHASE PIPELINE LAYERS
-1. Phase 0: SystemPhase.Input
-   - PlayerInputSystem: Polls keyboard/mouse inputs, writing directly to the 
-     InputIntentComponent of active player-tagged entities.
-2. Phase 1: SystemPhase.Intents
-   - PlayerMovementSystem: Evaluates inputs, dispatching SetKinematicVelocity and 
-     SetRopeMaxLength commands to the CommandBus.
-   - WardenBrainSystem: Drives Warden finite state machine actions and transitions, 
-     dispatching movement commands based on sensory states.
-3. Phase 2: SystemPhase.Kinematics
-   - PlayerKinematicsSystem: Applies gravity, swing mechanics, and tether length 
-     constraints, updating kinematic targets.
-4. Phase 3: SystemPhase.Collision
-   - EnvironmentCollisionSystem: Adjusts movement targets based on platform AABB 
-     overlapping to resolve environment collisions prior to physics stepping.
-5. Phase 4: SystemPhase.PhysicsStep
-   - RapierWorldSystem: First flushes all deferred commands from the CommandBus. 
-     Next, updates Rapier kinematic body translations to match kinematic targets, 
-     steps the C++ WASM physics simulation, and synchronizes resulting body transforms 
-     back to ECS TransformComponents.
-6. Phase 5: SystemPhase.RenderSync
-   - TransformSyncSystem: Interpolates prev/curr TransformComponents using alpha ratios 
-     and slerp calculations to update visual Babylon nodes.
-   - RopeVisualizerSystem: Regenerates procedural rope sag ribbons based on player 
-     and anchor transforms.
-   - CameraSystem: Tracks players and applies spring-mass-damper smoothing with camera shake.
-   - Audio/UI Systems: Direct Tone.js FM synthesis and DOM HUD updates.
+Every major subsystem owns:
+- its lifecycle
+- its update path
+- its runtime data
+- its configuration
+- its teardown logic
 
+Other systems communicate through:
+- events
+- readonly interfaces
+- explicit contracts
 
-3. ARCHITECTURAL PATTERNS & SOLID COMPLIANCE
+2. COMPOSITION OVER INHERITANCE
 -------------------------------------------------------------------------------
-- Single Responsibility Principle (SRP): Systems hold pure execution logic. Physics 
-  stepping, collision math, and input capturing are kept strictly isolated.
-- Interface Segregation Principle (ISP): The ISystem contract features optional 
-  update, render, and initialization lifecycles. Rendering-only systems (such as 
-  RopeVisualizerSystem) do not require empty update stubs.
-- Open/Closed Principle (OCP): State AI utilizes modular Warden states that read and 
-  evaluate contextual components. New behaviors can be introduced with zero changes 
-  to the central brain system.
-- Liskov Substitution Principle (LSP): SystemManager handles general systems, sorting 
-  and stepping execution sequences based on their phase properties.
-- Dependency Inversion Principle (DIP): Gameplay systems write to decoupled CommandBus 
-  and ComponentStores, completely isolated from direct physics or WebGL rendering drivers.
+Do NOT build deep entity inheritance trees.
 
-
-4. DATA-ORIENTED ECS & SUBSYSTEM BREAKDOWN
+3. NO GLOBAL MANAGER SPRAWL
 -------------------------------------------------------------------------------
-- EntityRefs: Backed by dynamic tag ComponentStore lookups (PlayerTag, WardenTag, AnchorTag). 
-  Resolves entity IDs dynamically at runtime, allowing fallback assignments for backwards 
-  compatibility while keeping the design open to multiple enemies or players.
-- CommandBus: Buffered queue that collects imperative actions. By deferring command execution 
-  to a dedicated flush boundary in the physics step, frame loop race conditions are avoided.
-- EventBroker: Synchronous event dispatcher used for upward UI alerts, camera shakes, 
-  lighting transitions, and acoustic updates.
+Use narrow orchestration layers and isolated systems.
 
-
-5. OBSERVABILITY, TOOLING & DETERMINISM
+4. EVENT-ORIENTED COMMUNICATION
 -------------------------------------------------------------------------------
-- Profiler: Tracks timing latency per phase and records rendering frame rates.
-- DebugWireframeSystem: Renders visual wireframes of collision boxes and constraints, 
-  implementing the RenderSync phase.
-- DebugTelemetryOverlay: Direct diagnostic overlay displaying system profiling metrics and 
-  active entity states.
-- Void-Eval Safety: Unused fields in skeletal diagnostic classes are evaluated with standard 
-  TS "void" operators, satisfying compiler checks while maintaining zero-overhead declarations.
+Systems communicate via a strongly typed EventBroker.
 
-
-6. EXHAUSTIVE DIRECTORY MAP
+5. DETERMINISTIC GAMEPLAY
 -------------------------------------------------------------------------------
-src/
-├── app/                   Bootstrap, CompositionRoot (Dependency wiring and registry)
-├── contracts/             System interface phase definitions, registries, and data boundaries:
-│   ├── ISystem.ts         (ISystem interface with optional update/render methods)
-│   └── SystemPhase.ts     (Deterministic numeric stage order definitions)
-├── core/                  Loop orchestration, ECS, commands, events, and diagnostics:
-│   ├── clock/             (IClock, PerformanceClock definitions)
-│   ├── commands/          (Deferred CommandBus with atomic flush capabilities)
-│   ├── diagnostics/       (Profiler, DebugWireframe, Telemetry overlays)
-│   ├── ecs/               (Entity registry, dynamic EntityRefs, ComponentStores)
-│   ├── engine/            (Clean dependency-injected Engine lifecycle)
-│   ├── events/            (EventBroker and GameEvents payload definitions)
-│   ├── loop/              (Fixed-timestep dual-threaded GameLoop)
-│   └── systems/           (SystemManager with phase sorting logic)
-├── physics/               Physics constraints, collisions, and WASM integration:
-│   ├── collisions/        (Environment collisions and platform AABBs)
-│   ├── commands/          (Physics and rope action payloads)
-│   ├── constraints/       (Tether and custom pendulum kinematics math)
-│   ├── rapier/            (Rapier Compatibility base64 integrated physics engine)
-│   └── sync/              (Dual-buffered zero-allocation rendering interpolation)
-├── gameplay/              Gameplay behavior state machine and spawners:
-│   ├── states/            (Unused parameters prefixed for state machine safety)
-│   └── systems/           (Input, movement, brain, spawner, and visual systems)
-├── babylon/               Graphics pipelines and visual components:
-│   ├── scene/             (WebGL rendering system implementation)
-│   ├── cameras/           (Spring-damped camera tracking system)
-│   ├── meshBuilders/      (Procedural geometry builder for walls/floors)
-│   └── lighting/          (Event-driven color transitions)
-├── audio/                 Procedural synthesized acoustics and director controls
-├── ui/                    DOM managers and React HUD overlay modules
-└── vite-env.d.ts          Vite environment type declarations and side-effect CSS definitions
+Core gameplay simulation runs at a fixed 60Hz step. Rendering interpolates.
 
-
-7. DEVELOPMENT WORKFLOW & TESTING
+6. OBSERVABILITY FIRST
 -------------------------------------------------------------------------------
-- Standard physical updates run at a fixed 60Hz step. Ensure all visual interpolation 
-  code uses pre-allocated scratchpad arrays to prevent garbage collection spikes.
-- Always run "npm run build" to verify type safety across all system files prior to deployment.
-- Diagnostic systems should declare all structural references, using standard "void" reads 
-  to satisfy compiler checks without adding operational complexity.
+Every major runtime system must expose:
+- debug metrics
+- runtime status
+- profiling hooks
+- validation helpers
+
+The engine should be inspectable while running.
+
+===============================================================================
+TECH STACK
+===============================================================================
+
+Framework: React 19 + TypeScript + Vite
+3D: Babylon.js
+Physics: Rapier 3D WASM Compat
+Audio: Tone.js
+State: Zustand
+
+===============================================================================
+ABSOLUTE ARCHITECTURAL RULES
+===============================================================================
+
+RULE 1: Gameplay systems NEVER directly touch React state.
+RULE 2: Babylon scene objects NEVER become source-of-truth gameplay state.
+RULE 3: React is presentation only.
+RULE 4: Physics/Kinematics owns authoritative movement truth.
+RULE 5: Visuals read gameplay state. Gameplay never reads visuals.
+RULE 6: Every system has: init(), update(), dispose().
+RULE 7: No runtime circular dependencies.
+RULE 8: All cross-system communication must be explicit.
+RULE 9: Every feature module must be removable without catastrophic rewrites.
+RULE 10: No hidden side effects inside getters/setters.
+
+===============================================================================
+STATE MANAGEMENT STRATEGY
+===============================================================================
+
+Zustand is NOT the simulation engine. Zustand manages only HUD overlay triggers,
+debug toggles, and readonly snapshots. Simulation state remains fully encapsulated
+inside ECS systems and dynamic ComponentStores.
+
+===============================================================================
+GAME LOOP ARCHITECTURE
+===============================================================================
+
+Simulation: 60Hz fixed timestep.
+Rendering: Uncapped with alpha interpolation.
+
+Pipeline:
+Input -> Fixed Simulation -> Physics -> Gameplay Systems -> Events -> Render Sync -> Babylon Render
+
+===============================================================================
+REFINED PLAY AREA & ALIGNMENT SPECIFICATIONS
+===============================================================================
+
+Logical limits must align perfectly to prevent collision sticking and clipping:
+- Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
+- Left Wall Visual center: -16, width 2 (spans -17 to -15)
+- Right Wall Visual center: 16, width 2 (spans 15 to 17)
+- Player mesh: Capsule radius 0.4, height 1.8 (clamping coordinates playerHalfW = 0.4, playerHalfH = 0.9)
+- Warden mesh: Sphere radius 1.0 (clamping coordinates wHalfW = 1.0, wHalfH = 1.0)
+
+===============================================================================
+ROPE SYSTEM & DYNAMIC GRAPPLING
+===============================================================================
+
+Dynamic overhead grapples target the ceiling (Y = 28) or the undersides of Left
+and Right platforms depending on the player's lateral coordinate:
+- Left Platform underside: Y = 11.5 (spans X: [-15, -7])
+- Right Platform underside: Y = 17.5 (spans X: [7, 15])
+
+Tension synthesizer scales audio pitch based on tension, escalating to high-frequency
+screeches when the Warden enters BERSERK OVERDRIVE and dropping to eerie lows on DEFEATED?.
+
+===============================================================================
+WARDEN AI BEHAVIOR PHASES
+===============================================================================
+
+State cycle:
+1. PHASE 1: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY
+2. FAKE DEATH: Hit 0% HP -> enters FAKE_DEATH (dazed, light turns off, low pitch audio drone)
+3. PHASE 2 (BERSERK OVERDRIVE): Revives with 50% HP, bright orange glow, relentless pursuit speed, screeching synth drone escalation. Permanently dies on next 0% HP.
+
+===============================================================================
+EDITOR + TOOLING ERGONOMICS
+===============================================================================
+
+- Hot reload stability
+- Deterministic resets via keyboard 'R' key trigger
+- Clean render loop visibility and FPS telemetry
+
 ===============================================================================
 END OF DOCUMENT
 ===============================================================================
@@ -907,12 +993,12 @@ export class CompositionRoot {
     const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, wardenAIs, playerStats, playerTags, wardenTags, anchorTags, renderSystem, traversal, iframes, wardenTraversal);
     const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, tethers);
     const inputSystem = new PlayerInputSystem(refs, inputs);
-    const movementSystem = new PlayerMovementSystem(refs, inputs, playerStats, tethers, traversal, commands, broker);
-    const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, broker, commands);
+    const movementSystem = new PlayerMovementSystem(refs, inputs, playerStats, tethers, traversal, transforms, commands, broker);
+    const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
     const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
     const playerKinematics = new PlayerKinematicsSystem(refs, tethers, velocities, targets, traversal);
     const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, transforms, velocities);
-    const syncSystem = new TransformSyncSystem(transforms, renderSystem);
+    const syncSystem = new TransformSyncSystem(refs, transforms, traversal, renderSystem);
     const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
     const lightingSystem = new LightingSystem(broker, renderSystem);
     const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
@@ -971,6 +1057,7 @@ export class AudioDirectorSystem implements ISystem {
   private unsub: (() => void) | null = null;
   private unsubImpact: (() => void) | null = null;
   private unsubWardenHit: (() => void) | null = null;
+  private unsubState: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
 
@@ -1000,6 +1087,12 @@ export class AudioDirectorSystem implements ISystem {
 
     this.unsubWardenHit = this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
       if (this.initialized && this.impactSynth) this.impactSynth.triggerAttackRelease("E3", "16n");
+    });
+
+    this.unsubState = this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => {
+      if (this.initialized && this.tensionSynth) {
+        this.tensionSynth.handleStateChange(payload.state);
+      }
     });
   }
 
@@ -1033,6 +1126,7 @@ export class AudioDirectorSystem implements ISystem {
     if (this.unsub) this.unsub();
     if (this.unsubImpact) this.unsubImpact();
     if (this.unsubWardenHit) this.unsubWardenHit();
+    if (this.unsubState) this.unsubState();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
@@ -1095,6 +1189,25 @@ export class TensionSynthesizer {
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, 0.1);
     this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, 0.1);
     this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
+  }
+
+  public handleStateChange(state: string): void {
+    if (!this.fmOsc || !this.lfo || !this.lowpassFilter) return;
+    const now = Tone.now();
+
+    if (state === "BERSERK OVERDRIVE") {
+      this.fmOsc.frequency.setTargetAtTime(110, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(4.0, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(2.5, now, 0.5);
+    } else if (state === "DEFEATED?") {
+      this.fmOsc.frequency.setTargetAtTime(30, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(0.05, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(1.0, now, 0.5);
+    } else {
+      this.fmOsc.frequency.setTargetAtTime(55, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(0.2, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(1.5, now, 0.5);
+    }
   }
 
   public dispose(): void {
@@ -1900,7 +2013,14 @@ export interface TetherComponent {
 }
 export interface HealthComponent { current: number; max: number; }
 export interface InputIntentComponent { x: number; y: number; jump: boolean; fire: boolean; detach: boolean; }
-export interface WardenAIComponent { state: string; timeInState: number; targetX: number; targetY: number; hue: string; }
+export interface WardenAIComponent { 
+  state: string; 
+  timeInState: number; 
+  targetX: number; 
+  targetY: number; 
+  hue: string; 
+  hasFakedDeath: boolean;
+}
 export interface PlayerStatsComponent { moveSpeed: number; climbSpeed: number; swingForce: number; minRope: number; maxRope: number; }
 export interface PlayerTag {}
 export interface WardenTag {}
@@ -1911,6 +2031,7 @@ export interface TraversalStateComponent {
   state: TraversalState; 
   wallNormalX: number; 
   wallNormalY: number; 
+  charge: number;
 }
 export interface WardenTraversalComponent {
   velX: number;
@@ -2114,6 +2235,7 @@ export enum GameEvent {
   ROPE_LENGTH_CHANGE = "ROPE_LENGTH_CHANGE",
   WARDEN_STATE_CHANGE = "WARDEN_STATE_CHANGE",
   WARDEN_DAMAGED = "WARDEN_DAMAGED",
+  WARDEN_HEALTH_CHANGED = "WARDEN_HEALTH_CHANGED",
   WARDEN_DIED = "WARDEN_DIED",
   CAMERA_SHAKE_TRIGGERED = "CAMERA_SHAKE_TRIGGERED",
   GAME_OVER = "GAME_OVER",
@@ -2133,6 +2255,7 @@ export interface GameEventMap {
   [GameEvent.ROPE_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WARDEN_STATE_CHANGE]: { state: string; hue: string };
   [GameEvent.WARDEN_DAMAGED]: { amount: number; source: string };
+  [GameEvent.WARDEN_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.WARDEN_DIED]: void;
   [GameEvent.CAMERA_SHAKE_TRIGGERED]: { amplitude: number; duration: number };
   [GameEvent.GAME_OVER]: void;
@@ -2354,12 +2477,12 @@ export const PlayerConfig = {
 ● ./src/gameplay/states/IWardenState.ts
 ────────────────────────────────────────────────────
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent } from "../../core/ecs/Components";
+import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type WardenStateType = "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY";
+export type WardenStateType = "DORMANT" | "HUNTING" | "CHARGE_PREP" | "CHARGE_ATTACK" | "RECOVERY" | "FAKE_DEATH" | "FINAL_PHASE";
 
 export interface AIContext {
   wardenId: EntityId;
@@ -2367,6 +2490,7 @@ export interface AIContext {
   ai: WardenAIComponent;
   transforms: ComponentStore<TransformComponent>;
   wardenTraversal: ComponentStore<WardenTraversalComponent>;
+  healths: ComponentStore<HealthComponent>;
   commands: CommandBus;
   broker: EventBroker;
 }
@@ -2498,6 +2622,95 @@ export class WardenDormantState implements IWardenState {
         ctx.ai.timeInState += dt;
         return ctx.ai.timeInState > 3.0 ? "HUNTING" : null;
     }
+}
+
+
+
+● ./src/gameplay/states/WardenFakeDeathState.ts
+────────────────────────────────────────────────────
+import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
+import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
+import { GameEvent } from "../../core/events/GameEvents";
+
+export class WardenFakeDeathState implements IWardenState {
+  public readonly type: WardenStateType = "FAKE_DEATH";
+  public readonly name = "DEFEATED?";
+  public readonly hue = "#1f2937";
+
+  public enter(ctx: AIContext): void {
+    ctx.ai.timeInState = 0;
+    ctx.commands.dispatch<SetKinematicVelocityCommand>({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.wardenId,
+      x: 0,
+      y: 0,
+      z: 0
+    });
+    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.6, duration: 0.8 });
+  }
+
+  public exit(_ctx: AIContext): void {}
+
+  public update(ctx: AIContext, dt: number): WardenStateType | null {
+    ctx.ai.timeInState += dt;
+    return ctx.ai.timeInState > 3.0 ? "FINAL_PHASE" : null;
+  }
+}
+
+
+
+● ./src/gameplay/states/WardenFinalPhaseState.ts
+────────────────────────────────────────────────────
+import { IWardenState, WardenStateType, AIContext } from "./IWardenState";
+import { SetKinematicVelocityCommand } from "../../physics/commands/PhysicsCommands";
+import { GameEvent } from "../../core/events/GameEvents";
+
+export class WardenFinalPhaseState implements IWardenState {
+  public readonly type: WardenStateType = "FINAL_PHASE";
+  public readonly name = "BERSERK OVERDRIVE";
+  public readonly hue = "#f97316";
+
+  public enter(ctx: AIContext): void {
+    ctx.ai.timeInState = 0;
+
+    const wHealth = ctx.healths.get(ctx.wardenId);
+    if (wHealth) {
+      wHealth.current = wHealth.max * 0.5;
+      ctx.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
+    }
+
+    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.0, duration: 1.2 });
+  }
+
+  public exit(_ctx: AIContext): void {}
+
+  public update(ctx: AIContext, dt: number): WardenStateType | null {
+    ctx.ai.timeInState += dt;
+
+    const p = ctx.transforms.get(ctx.playerId);
+    const w = ctx.transforms.get(ctx.wardenId);
+
+    if (p && w) {
+      const dx = p.x - w.x;
+      const dy = p.y - w.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      const finalPhaseSpeed = 15.0;
+      ctx.commands.dispatch<SetKinematicVelocityCommand>({
+        type: "SET_KINEMATIC_VELOCITY",
+        entityId: ctx.wardenId,
+        x: (dx / dist) * finalPhaseSpeed,
+        y: (dy / dist) * finalPhaseSpeed,
+        z: 0
+      });
+
+      if (dist < 6.0 && Math.random() < 0.2) {
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.15, duration: 0.1 });
+      }
+    }
+
+    return null;
+  }
 }
 
 
@@ -2640,18 +2853,21 @@ export class CombatSystem implements ISystem {
     const isColliding = distSq < (hitDist * hitDist);
 
     if (isColliding) {
-      if (wAI.state === "RECOVERY" || wAI.state === "DAZED RECOVERY") {
+      if (wAI.state === "DAZED RECOVERY" || wAI.state === "BERSERK OVERDRIVE") {
         const dmg = this.playerAttackDamage * dt;
         wHealth.current -= dmg;
         this.broker.publish(GameEvent.WARDEN_DAMAGED, { amount: dmg, source: "PLAYER" });
+        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.2, duration: 0.1 });
         
         if (wHealth.current <= 0) {
           wHealth.current = 0;
-          this.broker.publish(GameEvent.WARDEN_DIED, undefined);
+          if (wAI.hasFakedDeath) {
+            this.broker.publish(GameEvent.WARDEN_DIED, undefined);
+          }
         }
       } 
-      else if (pIframe.timeRemaining <= 0 && (wAI.state === "CHARGE_ATTACK" || wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING")) {
+      else if (pIframe.timeRemaining <= 0 && (wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING")) {
         pHealth.current -= this.wardenDamage;
         pIframe.timeRemaining = this.playerIframeDuration;
         
@@ -2669,6 +2885,7 @@ export class CombatSystem implements ISystem {
         });
 
         this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: this.wardenDamage, source: "WARDEN" });
+        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
 
         if (pHealth.current <= 0) {
@@ -2741,7 +2958,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
     this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 5, swingForce: 20, minRope: 4, maxRope: 20 });
     this.playerTags.add(playerId, {});
-    this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0 });
+    this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, charge: 0.0 });
     this.iframes.add(playerId, { timeRemaining: 0 });
     this.refs.player = playerId;
 
@@ -2756,7 +2973,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.transforms.add(wardenId, { x: 5, y: 5, z: 0, qx: 0, qy: 0, qz: 0, qw: 1, prevX: 5, prevY: 5, prevZ: 0, prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1 });
     this.velocities.add(wardenId, { x: 0, y: 0, z: 0 });
     this.targets.add(wardenId, { x: 5, y: 5, z: 0, active: true });
-    this.wardenAIs.add(wardenId, { state: "DORMANT", timeInState: 0, targetX: 0, targetY: 0, hue: "#4b5563" });
+    this.wardenAIs.add(wardenId, { state: "DORMANT", timeInState: 0, targetX: 0, targetY: 0, hue: "#4b5563", hasFakedDeath: false });
     this.healths.add(wardenId, { current: 100, max: 100 });
     this.wardenTags.add(wardenId, {});
     this.wardenTraversal.add(wardenId, { velX: 0, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
@@ -2858,12 +3075,18 @@ export class GameDirectorSystem implements ISystem {
 
     if (wTrans) { wTrans.x = 5; wTrans.y = 5; wTrans.z = 0; }
     if (wHealth) { wHealth.current = wHealth.max; }
-    if (wAI) { wAI.state = "DORMANT"; wAI.timeInState = 0; wAI.hue = "#4b5563"; }
+    if (wAI) { 
+      wAI.state = "DORMANT"; 
+      wAI.timeInState = 0; 
+      wAI.hue = "#4b5563"; 
+      wAI.hasFakedDeath = false;
+    }
     if (wVel) { wVel.x = 0; wVel.y = 0; wVel.z = 0; }
 
     this.broker.publish(GameEvent.GAME_RESET, undefined);
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
     this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "DORMANT", hue: "#4b5563" });
+    this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
   }
 
   public dispose(): void {
@@ -2924,7 +3147,7 @@ export class PlayerInputSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { InputIntentComponent, PlayerStatsComponent, TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { InputIntentComponent, PlayerStatsComponent, TetherComponent, TraversalStateComponent, TransformComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -2942,6 +3165,7 @@ export class PlayerMovementSystem implements ISystem {
     private stats: ComponentStore<PlayerStatsComponent>,
     private tethers: ComponentStore<TetherComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
+    private transforms: ComponentStore<TransformComponent>,
     private commands: CommandBus,
     private broker: EventBroker
   ) {}
@@ -2951,18 +3175,55 @@ export class PlayerMovementSystem implements ISystem {
     const stats = this.stats.get(this.refs.player);
     const tether = this.tethers.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
-    if (!input || !stats || !tether || !trav) return;
+    const playerTrans = this.transforms.get(this.refs.player);
+    if (!input || !stats || !tether || !trav || !playerTrans) return;
 
     if (input.detach && !this.detachWasPressed) {
-      tether.isAttached = !tether.isAttached;
-      this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: tether.isAttached });
+      if (!tether.isAttached) {
+        let anchorY = 28.0; 
+        const playerX = playerTrans.x;
+        const playerY = playerTrans.y;
+
+        if (playerX >= -15.0 && playerX <= -7.0 && playerY < 11.5) {
+          anchorY = 11.5;
+        } else if (playerX >= 7.0 && playerX <= 15.0 && playerY < 17.5) {
+          anchorY = 17.5;
+        }
+
+        const anchorTrans = this.transforms.get(this.refs.anchor);
+        if (anchorTrans) {
+          anchorTrans.x = playerX;
+          anchorTrans.y = anchorY;
+          anchorTrans.z = 0;
+        }
+
+        tether.anchorX = playerX;
+        tether.anchorY = anchorY;
+        tether.anchorZ = 0;
+        
+        const dx = playerTrans.x - playerX;
+        const dy = playerTrans.y - anchorY;
+        tether.maxLength = Math.max(stats.minRope, Math.sqrt(dx * dx + dy * dy));
+        tether.isAttached = true;
+
+        this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: true });
+        this.commands.dispatch<SetRopeMaxLengthCommand>({ type: "SET_ROPE_MAX_LENGTH", length: tether.maxLength });
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.15, duration: 0.15 });
+      } else {
+        tether.isAttached = false;
+        this.commands.dispatch<SetRopeAttachedCommand>({ type: "SET_ROPE_ATTACHED", attached: false });
+      }
     }
     this.detachWasPressed = input.detach;
 
     if (input.jump && !this.spaceWasPressed) {
       if (trav.state === "WALL_SLIDING") {
-        const launchX = trav.wallNormalX * 18.0;
-        const launchY = 14.0;
+        const chargeMultiplier = 1.0 + trav.charge * 1.5;
+        const launchX = trav.wallNormalX * 15.0 * chargeMultiplier;
+        const launchY = 11.0 * chargeMultiplier;
+        
+        trav.charge = 0.0;
+
         this.commands.dispatch<ApplyImpulseCommand>({
           type: "APPLY_IMPULSE",
           entityId: this.refs.player,
@@ -2970,7 +3231,9 @@ export class PlayerMovementSystem implements ISystem {
           y: launchY,
           z: 0
         });
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.3, duration: 0.2 });
+
+        const shakeAmplitude = 0.2 + (chargeMultiplier - 1.0) * 0.4;
+        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: shakeAmplitude, duration: 0.25 });
       }
     }
     this.spaceWasPressed = input.jump;
@@ -3113,7 +3376,7 @@ export class RopeVisualizerSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent } from "../../core/ecs/Components";
+import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IWardenState, WardenStateType, AIContext } from "../states/IWardenState";
 import { WardenDormantState } from "../states/WardenDormantState";
@@ -3121,6 +3384,8 @@ import { WardenHuntingState } from "../states/WardenHuntingState";
 import { WardenChargePrepState } from "../states/WardenChargePrepState";
 import { WardenChargeAttackState } from "../states/WardenChargeAttackState";
 import { WardenRecoveryState } from "../states/WardenRecoveryState";
+import { WardenFakeDeathState } from "../states/WardenFakeDeathState";
+import { WardenFinalPhaseState } from "../states/WardenFinalPhaseState";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
@@ -3137,6 +3402,7 @@ export class WardenBrainSystem implements ISystem {
     private ai: ComponentStore<WardenAIComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private wardenTraversal: ComponentStore<WardenTraversalComponent>,
+    private healths: ComponentStore<HealthComponent>,
     private broker: EventBroker,
     private commands: CommandBus
   ) {
@@ -3145,8 +3411,20 @@ export class WardenBrainSystem implements ISystem {
     this.states.set("CHARGE_PREP", new WardenChargePrepState());
     this.states.set("CHARGE_ATTACK", new WardenChargeAttackState());
     this.states.set("RECOVERY", new WardenRecoveryState());
+    this.states.set("FAKE_DEATH", new WardenFakeDeathState());
+    this.states.set("FINAL_PHASE", new WardenFinalPhaseState());
+
     this.currentState = this.states.get("DORMANT") as IWardenState;
-    this.ctx = { wardenId: -1, playerId: -1, ai: null as any, transforms: this.transforms, wardenTraversal: this.wardenTraversal, commands: this.commands, broker: this.broker };
+    this.ctx = { 
+      wardenId: -1, 
+      playerId: -1, 
+      ai: null as any, 
+      transforms: this.transforms, 
+      wardenTraversal: this.wardenTraversal, 
+      healths: this.healths,
+      commands: this.commands, 
+      broker: this.broker 
+    };
   }
 
   public init(): void {
@@ -3166,17 +3444,29 @@ export class WardenBrainSystem implements ISystem {
 
   public update(dt: number): void {
     if (!this.ctx.ai) this.ctx.ai = this.ai.get(this.refs.warden)!;
+
+    const wHealth = this.healths.get(this.refs.warden);
+    if (wHealth && wHealth.current <= 0 && !this.ctx.ai.hasFakedDeath && this.currentState.type !== "FAKE_DEATH" && this.currentState.type !== "FINAL_PHASE") {
+      this.ctx.ai.hasFakedDeath = true;
+      this.transitionTo("FAKE_DEATH");
+      return;
+    }
+
     const nextStateType = this.currentState.update(this.ctx, dt);
     if (nextStateType && nextStateType !== this.currentState.type) {
-      this.currentState.exit(this.ctx);
-      const nextState = this.states.get(nextStateType);
-      if (!nextState) throw new Error(`Warden state not found: ${nextStateType}`);
-      this.currentState = nextState;
-      this.currentState.enter(this.ctx);
-      this.ctx.ai.state = this.currentState.name;
-      this.ctx.ai.hue = this.currentState.hue;
-      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: this.currentState.name, hue: this.currentState.hue });
+      this.transitionTo(nextStateType);
     }
+  }
+
+  private transitionTo(nextStateType: WardenStateType): void {
+    this.currentState.exit(this.ctx);
+    const nextState = this.states.get(nextStateType);
+    if (!nextState) throw new Error(`Warden state not found: ${nextStateType}`);
+    this.currentState = nextState;
+    this.currentState.enter(this.ctx);
+    this.ctx.ai.state = this.currentState.name;
+    this.ctx.ai.hue = this.currentState.hue;
+    this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: this.currentState.name, hue: this.currentState.hue });
   }
 
   public dispose(): void {
@@ -3336,10 +3626,10 @@ export const PLATFORM_AABBS: AABB[] = [
     { minX: 7.0, maxX: 15.0, minY: 17.5, maxY: 18.5, minZ: -2, maxZ: 2 }
 ];
 export const BORDER_AABBS: AABB[] = [
-    { minX: -15, maxX: -14, minY: 0, maxY: 30, minZ: -2, maxZ: 2 },
-    { minX: 14, maxX: 15, minY: 0, maxY: 30, minZ: -2, maxZ: 2 },
-    { minX: -15, maxX: 15, minY: 0, maxY: 1, minZ: -2, maxZ: 2 },
-    { minX: -15, maxX: 15, minY: 28, maxY: 30, minZ: -2, maxZ: 2 }
+    { minX: -17.0, maxX: -15.0, minY: 0.0, maxY: 28.0, minZ: -2, maxZ: 2 }, // Left Wall (visual inner edge -15)
+    { minX: 15.0, maxX: 17.0, minY: 0.0, maxY: 28.0, minZ: -2, maxZ: 2 },  // Right Wall (visual inner edge 15)
+    { minX: -17.0, maxX: 17.0, minY: -2.0, maxY: 0.0, minZ: -2, maxZ: 2 },  // Floor (visual inner edge 0)
+    { minX: -17.0, maxX: 17.0, minY: 28.0, maxY: 30.0, minZ: -2, maxZ: 2 }  // Ceiling (visual inner edge 28)
 ];
 
 
@@ -3355,8 +3645,8 @@ import { PLATFORM_AABBS } from "./EnvironmentColliders";
 
 export class EnvironmentCollisionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  private borderX = 14.0;
-  private minY = 1.0;
+  private borderX = 15.0;
+  private minY = 0.0;
   private maxY = 28.0;
 
   constructor(
@@ -3381,8 +3671,8 @@ export class EnvironmentCollisionSystem implements ISystem {
 
     let nextX = target.x;
     let nextY = target.y;
-    const playerHalfW = 0.5;
-    const playerHalfH = 1.0;
+    const playerHalfW = 0.4;
+    const playerHalfH = 0.9;
 
     for (const plat of PLATFORM_AABBS) {
       const overlapX = (nextX + playerHalfW > plat.minX) && (nextX - playerHalfW < plat.maxX);
@@ -3412,10 +3702,10 @@ export class EnvironmentCollisionSystem implements ISystem {
       }
     }
 
-    if (nextX < -this.borderX) { nextX = -this.borderX; tether.dynamicVelX = 0; }
-    if (nextX > this.borderX) { nextX = this.borderX; tether.dynamicVelX = 0; }
-    if (nextY < this.minY) { nextY = this.minY; tether.dynamicVelY = 0; }
-    if (nextY > this.maxY) { nextY = this.maxY; tether.dynamicVelY = 0; }
+    if (nextX - playerHalfW < -this.borderX) { nextX = -this.borderX + playerHalfW; tether.dynamicVelX = 0; }
+    if (nextX + playerHalfW > this.borderX) { nextX = this.borderX - playerHalfW; tether.dynamicVelX = 0; }
+    if (nextY - playerHalfH < this.minY) { nextY = this.minY + playerHalfH; tether.dynamicVelY = 0; }
+    if (nextY + playerHalfH > this.maxY) { nextY = this.maxY - playerHalfH; tether.dynamicVelY = 0; }
 
     target.x = nextX;
     target.y = nextY;
@@ -3483,7 +3773,6 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TetherComponent, KinematicVelocityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { PLATFORM_AABBS, BORDER_AABBS } from "../collisions/EnvironmentColliders";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -3554,29 +3843,22 @@ export class PlayerKinematicsSystem implements ISystem {
       }
       tether.currentLength = nextDist;
       trav.state = "AIRBORNE";
+      trav.charge = Math.max(0.0, trav.charge - dt * 2.0);
     } else {
       let currentGravity = this.gravity;
       let isWallSliding = false;
       let wallNormalX = 0;
 
-      const pHalfW = 0.5;
-      const pHalfH = 1.0;
-      const allColliders = [...PLATFORM_AABBS, ...BORDER_AABBS];
-      
-      for (const aabb of allColliders) {
-        const overlapX = (nextX + pHalfW > aabb.minX) && (nextX - pHalfW < aabb.maxX);
-        const overlapY = (nextY + pHalfH > aabb.minY) && (nextY - pHalfH < aabb.maxY);
-        
-        if (!overlapX && overlapY) {
-           const distLeft = Math.abs((nextX - pHalfW) - aabb.maxX);
-           const distRight = Math.abs((nextX + pHalfW) - aabb.minX);
-           if (distLeft < 0.2 || distRight < 0.2) {
-             if (tether.dynamicVelY < 0) {
-               isWallSliding = true;
-               wallNormalX = distLeft < 0.2 ? 1 : -1;
-               break;
-             }
-           }
+      const pHalfW = 0.4;
+      if (nextX <= -15.0 + pHalfW + 0.05) {
+        if (tether.dynamicVelY < 0) {
+          isWallSliding = true;
+          wallNormalX = 1;
+        }
+      } else if (nextX >= 15.0 - pHalfW - 0.05) {
+        if (tether.dynamicVelY < 0) {
+          isWallSliding = true;
+          wallNormalX = -1;
         }
       }
 
@@ -3585,11 +3867,13 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.state = "WALL_SLIDING";
         trav.wallNormalX = wallNormalX;
         tether.dynamicVelX = 0;
+        trav.charge = Math.min(1.0, trav.charge + dt * 1.5);
       } else {
         trav.state = "AIRBORNE";
         trav.wallNormalX = 0;
         tether.dynamicVelX += vel.x * dt;
         tether.dynamicVelX *= Math.pow(0.95, dt * 60);
+        trav.charge = Math.max(0.0, trav.charge - dt * 2.0);
       }
 
       tether.dynamicVelY += currentGravity * dt;
@@ -3670,7 +3954,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
 
       const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 10, 0));
       this.rigidBodies.set(this.refs.player, pBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.5, 1.0, 0.5), pBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
 
       const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(5, 5, 0));
       this.rigidBodies.set(this.refs.warden, wBody);
@@ -3774,7 +4058,8 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent } from "../../core/ecs/Components";
+import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
@@ -3783,7 +4068,9 @@ export class TransformSyncSystem implements ISystem {
     private scratchCurrQuat = new BABYLON.Quaternion();
 
     constructor(
+        private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>, 
+        private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry
     ) {}
 
@@ -3806,6 +4093,21 @@ export class TransformSyncSystem implements ISystem {
             }
             
             BABYLON.Quaternion.SlerpToRef(this.scratchPrevQuat, this.scratchCurrQuat, alpha, node.rotationQuaternion);
+
+            if (id === this.refs.player) {
+                const trav = this.traversal.get(id);
+                if (trav) {
+                    const mesh = node as BABYLON.AbstractMesh;
+                    if (mesh && mesh.material) {
+                        const mat = mesh.material as BABYLON.StandardMaterial;
+                        if (mat) {
+                            mat.emissiveColor.r = 0.05 + trav.charge * 0.95;
+                            mat.emissiveColor.g = 0.15 + trav.charge * 0.85;
+                            mat.emissiveColor.b = 0.05;
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -3830,6 +4132,8 @@ export class DomHudSystem implements ISystem {
   private hpValue: HTMLElement | null = null;
   private bossStateText: HTMLElement | null = null;
   private bossPhaseText: HTMLElement | null = null;
+  private wardenHpBar: HTMLElement | null = null;
+  private wardenHpValue: HTMLElement | null = null;
   private overlay: HTMLElement | null = null;
   private overlayTitle: HTMLElement | null = null;
 
@@ -3852,6 +4156,8 @@ export class DomHudSystem implements ISystem {
     this.hpValue = document.getElementById("player-hp-value");
     this.bossStateText = document.getElementById("boss-state-text");
     this.bossPhaseText = document.getElementById("boss-state-phase");
+    this.wardenHpBar = document.getElementById("warden-hp-bar");
+    this.wardenHpValue = document.getElementById("warden-hp-value");
     this.overlay = document.getElementById("game-state-overlay");
     this.overlayTitle = document.getElementById("game-state-title");
   }
@@ -3868,6 +4174,9 @@ export class DomHudSystem implements ISystem {
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => this.updateWardenStateDisplay(payload.state, payload.hue))
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, (payload) => this.updateWardenHealthDisplay(payload.hp, payload.maxHp))
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("GAME OVER", "#ef4444"))
@@ -3908,6 +4217,17 @@ export class DomHudSystem implements ISystem {
     }
   }
 
+  private updateWardenHealthDisplay(hp: number, maxHp: number): void {
+    const percentage = maxHp > 0 ? (hp / maxHp) : 0;
+    const pctString = (percentage * 100).toFixed(0) + "%";
+    if (this.wardenHpValue) {
+      this.wardenHpValue.textContent = `HP: ${hp.toFixed(0)} / ${maxHp.toFixed(0)}`;
+    }
+    if (this.wardenHpBar) {
+      this.wardenHpBar.style.width = pctString;
+    }
+  }
+
   private updateWardenStateDisplay(state: string, hue: string): void {
     if (this.bossStateText) {
       this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
@@ -3916,6 +4236,7 @@ export class DomHudSystem implements ISystem {
     if (this.bossPhaseText) {
       this.bossPhaseText.style.borderColor = hue;
       this.bossPhaseText.style.color = hue;
+      this.bossPhaseText.textContent = state === "BERSERK OVERDRIVE" ? "FINAL PHASE" : "PHASE 01";
     }
   }
 
@@ -3968,6 +4289,16 @@ export const HudOverlay: React.FC = () => {
             </div>
             <div style={{ width: "100%", height: "8px", background: "#1f2937", borderRadius: "4px", overflow: "hidden" }}>
               <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "var(--signal-green, #22c55e)", transition: "width 0.15s ease" }} />
+            </div>
+          </div>
+
+          <div id="warden-hp-container" style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(12, 14, 18, 0.85)", padding: "12px 24px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "320px", alignItems: "center" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "11px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.1em" }}>
+              <span>THE WARDEN</span>
+              <span id="warden-hp-value">HP: 100 / 100</span>
+            </div>
+            <div style={{ width: "100%", height: "6px", background: "#1f2937", borderRadius: "3px", overflow: "hidden" }}>
+              <div id="warden-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.1s ease" }} />
             </div>
           </div>
 

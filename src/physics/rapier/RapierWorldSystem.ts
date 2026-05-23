@@ -57,7 +57,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
 
       const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 10, 0));
       this.rigidBodies.set(this.refs.player, pBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.5, 1.0, 0.5), pBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
 
       const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(5, 5, 0));
       this.rigidBodies.set(this.refs.warden, wBody);

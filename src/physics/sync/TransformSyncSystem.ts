@@ -2,7 +2,8 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent } from "../../core/ecs/Components";
+import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
@@ -11,7 +12,9 @@ export class TransformSyncSystem implements ISystem {
     private scratchCurrQuat = new BABYLON.Quaternion();
 
     constructor(
+        private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>, 
+        private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry
     ) {}
 
@@ -34,6 +37,21 @@ export class TransformSyncSystem implements ISystem {
             }
             
             BABYLON.Quaternion.SlerpToRef(this.scratchPrevQuat, this.scratchCurrQuat, alpha, node.rotationQuaternion);
+
+            if (id === this.refs.player) {
+                const trav = this.traversal.get(id);
+                if (trav) {
+                    const mesh = node as BABYLON.AbstractMesh;
+                    if (mesh && mesh.material) {
+                        const mat = mesh.material as BABYLON.StandardMaterial;
+                        if (mat) {
+                            mat.emissiveColor.r = 0.05 + trav.charge * 0.95;
+                            mat.emissiveColor.g = 0.15 + trav.charge * 0.85;
+                            mat.emissiveColor.b = 0.05;
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -3,7 +3,6 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TetherComponent, KinematicVelocityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { PLATFORM_AABBS, BORDER_AABBS } from "../collisions/EnvironmentColliders";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -74,29 +73,22 @@ export class PlayerKinematicsSystem implements ISystem {
       }
       tether.currentLength = nextDist;
       trav.state = "AIRBORNE";
+      trav.charge = Math.max(0.0, trav.charge - dt * 2.0);
     } else {
       let currentGravity = this.gravity;
       let isWallSliding = false;
       let wallNormalX = 0;
 
-      const pHalfW = 0.5;
-      const pHalfH = 1.0;
-      const allColliders = [...PLATFORM_AABBS, ...BORDER_AABBS];
-      
-      for (const aabb of allColliders) {
-        const overlapX = (nextX + pHalfW > aabb.minX) && (nextX - pHalfW < aabb.maxX);
-        const overlapY = (nextY + pHalfH > aabb.minY) && (nextY - pHalfH < aabb.maxY);
-        
-        if (!overlapX && overlapY) {
-           const distLeft = Math.abs((nextX - pHalfW) - aabb.maxX);
-           const distRight = Math.abs((nextX + pHalfW) - aabb.minX);
-           if (distLeft < 0.2 || distRight < 0.2) {
-             if (tether.dynamicVelY < 0) {
-               isWallSliding = true;
-               wallNormalX = distLeft < 0.2 ? 1 : -1;
-               break;
-             }
-           }
+      const pHalfW = 0.4;
+      if (nextX <= -15.0 + pHalfW + 0.05) {
+        if (tether.dynamicVelY < 0) {
+          isWallSliding = true;
+          wallNormalX = 1;
+        }
+      } else if (nextX >= 15.0 - pHalfW - 0.05) {
+        if (tether.dynamicVelY < 0) {
+          isWallSliding = true;
+          wallNormalX = -1;
         }
       }
 
@@ -105,11 +97,13 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.state = "WALL_SLIDING";
         trav.wallNormalX = wallNormalX;
         tether.dynamicVelX = 0;
+        trav.charge = Math.min(1.0, trav.charge + dt * 1.5);
       } else {
         trav.state = "AIRBORNE";
         trav.wallNormalX = 0;
         tether.dynamicVelX += vel.x * dt;
         tether.dynamicVelX *= Math.pow(0.95, dt * 60);
+        trav.charge = Math.max(0.0, trav.charge - dt * 2.0);
       }
 
       tether.dynamicVelY += currentGravity * dt;

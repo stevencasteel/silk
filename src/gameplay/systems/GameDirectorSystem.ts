@@ -80,12 +80,18 @@ export class GameDirectorSystem implements ISystem {
 
     if (wTrans) { wTrans.x = 5; wTrans.y = 5; wTrans.z = 0; }
     if (wHealth) { wHealth.current = wHealth.max; }
-    if (wAI) { wAI.state = "DORMANT"; wAI.timeInState = 0; wAI.hue = "#4b5563"; }
+    if (wAI) { 
+      wAI.state = "DORMANT"; 
+      wAI.timeInState = 0; 
+      wAI.hue = "#4b5563"; 
+      wAI.hasFakedDeath = false;
+    }
     if (wVel) { wVel.x = 0; wVel.y = 0; wVel.z = 0; }
 
     this.broker.publish(GameEvent.GAME_RESET, undefined);
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
     this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "DORMANT", hue: "#4b5563" });
+    this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
   }
 
   public dispose(): void {

@@ -1,147 +1,231 @@
 ===============================================================================
-SILK — MASTER ENGINEERING & ARCHITECTURE DOCUMENT
-Data-Oriented ECS, Command Pipeline & Zero-Allocation Edition
-Target Stack: React 19 + TypeScript 6 + Vite 8 + Babylon.js + Rapier 3D WASM Compat
+SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
+Vertical Slice / Game Jam Production Framework
+Version: Overhauled Architecture Edition
+Target Stack: React + TypeScript + Vite + Babylon.js + Rapier
+Reference Baseline: BOX BATTLE ENGINE
 ===============================================================================
 
-1. EXECUTIVE SUMMARY & DESIGN PHILOSOPHY
+PURPOSE
 -------------------------------------------------------------------------------
-SILK is a vertical arena action game built around dynamic movement. The architecture
-is founded on a lightweight, data-oriented Entity-Component-System (ECS), strict
-unidirectional data flow, phased system orchestration, and zero-allocation rendering.
+This document is the authoritative engineering and architectural blueprint for
+SILK. It is designed as a complete AI handoff package for future build sessions.
 
-Core Pillars:
-- Phased System Orchestration: Systems are ordered deterministically by designated 
-  SystemPhase layers rather than registration sequence, eliminating single-frame lags 
-  and initialization races.
-- Data-Oriented ECS: Pure data components decoupled from logic. Dynamic aspect queries 
-  and tag component stores (PlayerTag, WardenTag, AnchorTag) replace rigid hardcoded 
-  entity reference lookups.
-- Deferred Command Buffering: Systems issue commands to a buffered queue. Commands are 
-  deferred and flushed atomically at the entry boundary of the physics step, ensuring 
-  unidirectional state mutations and preventing frame-loop side effects.
-- Zero-Allocation Rendering: High-refresh-rate stability is guaranteed by 
-  utilizing class-level scratchpad vectors, quaternions, and optional lifecycle hooks 
-  (e.g., rendering-only systems have no update stubs), eliminating garbage collection pressure.
-- Out-of-the-Box Compilation: Employs rapier3d-compat to integrate the WebAssembly 
-  physics engine directly into standard ESM bundles, bypassing complex bundler loaders.
+This is NOT a lightweight game jam architecture.
+This is a production-minded vertical slice framework optimized for:
+- maintainability
+- iteration speed
+- modularity
+- deterministic gameplay systems
+- extensibility
+- debugging clarity
+- future scalability
 
+The design philosophy intentionally avoids:
+- god objects
+- giant manager classes
+- hidden mutable state
+- monolithic gameplay files
+- brittle inheritance chains
+- tightly coupled gameplay logic
+- architecture that collapses under feature expansion
 
-2. THE NERVOUS SYSTEM: FRAME EXECUTION PIPELINE
+The system is intentionally designed around:
+- composition over inheritance
+- event-oriented communication
+- explicit ownership boundaries
+- feature encapsulation
+- deterministic fixed-step simulation
+- dependency inversion
+- observable runtime systems
+- isolated feature modules
+- testable subsystems
+- low-risk refactors
+
+SILK boots directly into gameplay.
+There is:
+- NO title screen
+- NO settings menu
+- NO save/load
+- NO multiplayer
+- NO profile management
+- NO account systems
+- NO network abstraction
+
+The game starts in the arena immediately.
+
+===============================================================================
+HIGH LEVEL GAME SUMMARY
+===============================================================================
+
+SILK is a vertical arena predator-prey combat game focused on:
+- momentum
+- tension
+- elastic traversal
+- wall slide charging
+- silk rope physics
+- psychological boss AI pressure
+- environmental control
+
+Core loop:
+1. Player wall-slides to build slide charge (visually glowing emissive color)
+2. Player launches using silk momentum, with jump velocities scaling by charge
+3. Dynamic anchors hook dynamically to platform undersides or ceilings
+4. Warden AI responds dynamically with emotional state and light-pulse shifts
+5. Player lands strikes during Warden recovery or Frenzied state windows
+6. Boss battle intensifies with a Fake-Death phase and Berserk Overdrive rage
+
+Movement quality is the focal priority of the experience.
+
+===============================================================================
+NON-NEGOTIABLE DESIGN PILLARS
+===============================================================================
+
+NEVER CUT:
+- Wall slide charge and launch
+- Dynamic grapple acquisition
+- Warden emotional lighting shifts
+- Fake-out final boss phase (Berserk Overdrive)
+- Dynamic tension audio drone escalation
+- Deterministic fixed-step gameplay loop
+- Clear visual readability of velocity and danger
+
+CUT FIRST:
+- Advanced alternate anchor types
+- Environmental FX polish
+- Secondary enemy variants
+- Cinematic transitions
+- High fidelity shaders
+
+===============================================================================
+CORE ENGINEERING PHILOSOPHY
+===============================================================================
+
+1. SYSTEMS OWN THEIR DATA
 -------------------------------------------------------------------------------
-The GameLoop enforces a strict, phase-sorted pipeline separating gameplay updates 
-from presentation render cycles. Systems are registered to specific SystemPhase 
-layers and sorted during engine bootstrap.
+Avoid shared mutable state whenever possible.
 
-A. SYSTEMPHASE PIPELINE LAYERS
-1. Phase 0: SystemPhase.Input
-   - PlayerInputSystem: Polls keyboard/mouse inputs, writing directly to the 
-     InputIntentComponent of active player-tagged entities.
-2. Phase 1: SystemPhase.Intents
-   - PlayerMovementSystem: Evaluates inputs, dispatching SetKinematicVelocity and 
-     SetRopeMaxLength commands to the CommandBus.
-   - WardenBrainSystem: Drives Warden finite state machine actions and transitions, 
-     dispatching movement commands based on sensory states.
-3. Phase 2: SystemPhase.Kinematics
-   - PlayerKinematicsSystem: Applies gravity, swing mechanics, and tether length 
-     constraints, updating kinematic targets.
-4. Phase 3: SystemPhase.Collision
-   - EnvironmentCollisionSystem: Adjusts movement targets based on platform AABB 
-     overlapping to resolve environment collisions prior to physics stepping.
-5. Phase 4: SystemPhase.PhysicsStep
-   - RapierWorldSystem: First flushes all deferred commands from the CommandBus. 
-     Next, updates Rapier kinematic body translations to match kinematic targets, 
-     steps the C++ WASM physics simulation, and synchronizes resulting body transforms 
-     back to ECS TransformComponents.
-6. Phase 5: SystemPhase.RenderSync
-   - TransformSyncSystem: Interpolates prev/curr TransformComponents using alpha ratios 
-     and slerp calculations to update visual Babylon nodes.
-   - RopeVisualizerSystem: Regenerates procedural rope sag ribbons based on player 
-     and anchor transforms.
-   - CameraSystem: Tracks players and applies spring-mass-damper smoothing with camera shake.
-   - Audio/UI Systems: Direct Tone.js FM synthesis and DOM HUD updates.
+Every major subsystem owns:
+- its lifecycle
+- its update path
+- its runtime data
+- its configuration
+- its teardown logic
 
+Other systems communicate through:
+- events
+- readonly interfaces
+- explicit contracts
 
-3. ARCHITECTURAL PATTERNS & SOLID COMPLIANCE
+2. COMPOSITION OVER INHERITANCE
 -------------------------------------------------------------------------------
-- Single Responsibility Principle (SRP): Systems hold pure execution logic. Physics 
-  stepping, collision math, and input capturing are kept strictly isolated.
-- Interface Segregation Principle (ISP): The ISystem contract features optional 
-  update, render, and initialization lifecycles. Rendering-only systems (such as 
-  RopeVisualizerSystem) do not require empty update stubs.
-- Open/Closed Principle (OCP): State AI utilizes modular Warden states that read and 
-  evaluate contextual components. New behaviors can be introduced with zero changes 
-  to the central brain system.
-- Liskov Substitution Principle (LSP): SystemManager handles general systems, sorting 
-  and stepping execution sequences based on their phase properties.
-- Dependency Inversion Principle (DIP): Gameplay systems write to decoupled CommandBus 
-  and ComponentStores, completely isolated from direct physics or WebGL rendering drivers.
+Do NOT build deep entity inheritance trees.
 
-
-4. DATA-ORIENTED ECS & SUBSYSTEM BREAKDOWN
+3. NO GLOBAL MANAGER SPRAWL
 -------------------------------------------------------------------------------
-- EntityRefs: Backed by dynamic tag ComponentStore lookups (PlayerTag, WardenTag, AnchorTag). 
-  Resolves entity IDs dynamically at runtime, allowing fallback assignments for backwards 
-  compatibility while keeping the design open to multiple enemies or players.
-- CommandBus: Buffered queue that collects imperative actions. By deferring command execution 
-  to a dedicated flush boundary in the physics step, frame loop race conditions are avoided.
-- EventBroker: Synchronous event dispatcher used for upward UI alerts, camera shakes, 
-  lighting transitions, and acoustic updates.
+Use narrow orchestration layers and isolated systems.
 
-
-5. OBSERVABILITY, TOOLING & DETERMINISM
+4. EVENT-ORIENTED COMMUNICATION
 -------------------------------------------------------------------------------
-- Profiler: Tracks timing latency per phase and records rendering frame rates.
-- DebugWireframeSystem: Renders visual wireframes of collision boxes and constraints, 
-  implementing the RenderSync phase.
-- DebugTelemetryOverlay: Direct diagnostic overlay displaying system profiling metrics and 
-  active entity states.
-- Void-Eval Safety: Unused fields in skeletal diagnostic classes are evaluated with standard 
-  TS "void" operators, satisfying compiler checks while maintaining zero-overhead declarations.
+Systems communicate via a strongly typed EventBroker.
 
-
-6. EXHAUSTIVE DIRECTORY MAP
+5. DETERMINISTIC GAMEPLAY
 -------------------------------------------------------------------------------
-src/
-├── app/                   Bootstrap, CompositionRoot (Dependency wiring and registry)
-├── contracts/             System interface phase definitions, registries, and data boundaries:
-│   ├── ISystem.ts         (ISystem interface with optional update/render methods)
-│   └── SystemPhase.ts     (Deterministic numeric stage order definitions)
-├── core/                  Loop orchestration, ECS, commands, events, and diagnostics:
-│   ├── clock/             (IClock, PerformanceClock definitions)
-│   ├── commands/          (Deferred CommandBus with atomic flush capabilities)
-│   ├── diagnostics/       (Profiler, DebugWireframe, Telemetry overlays)
-│   ├── ecs/               (Entity registry, dynamic EntityRefs, ComponentStores)
-│   ├── engine/            (Clean dependency-injected Engine lifecycle)
-│   ├── events/            (EventBroker and GameEvents payload definitions)
-│   ├── loop/              (Fixed-timestep dual-threaded GameLoop)
-│   └── systems/           (SystemManager with phase sorting logic)
-├── physics/               Physics constraints, collisions, and WASM integration:
-│   ├── collisions/        (Environment collisions and platform AABBs)
-│   ├── commands/          (Physics and rope action payloads)
-│   ├── constraints/       (Tether and custom pendulum kinematics math)
-│   ├── rapier/            (Rapier Compatibility base64 integrated physics engine)
-│   └── sync/              (Dual-buffered zero-allocation rendering interpolation)
-├── gameplay/              Gameplay behavior state machine and spawners:
-│   ├── states/            (Unused parameters prefixed for state machine safety)
-│   └── systems/           (Input, movement, brain, spawner, and visual systems)
-├── babylon/               Graphics pipelines and visual components:
-│   ├── scene/             (WebGL rendering system implementation)
-│   ├── cameras/           (Spring-damped camera tracking system)
-│   ├── meshBuilders/      (Procedural geometry builder for walls/floors)
-│   └── lighting/          (Event-driven color transitions)
-├── audio/                 Procedural synthesized acoustics and director controls
-├── ui/                    DOM managers and React HUD overlay modules
-└── vite-env.d.ts          Vite environment type declarations and side-effect CSS definitions
+Core gameplay simulation runs at a fixed 60Hz step. Rendering interpolates.
 
-
-7. DEVELOPMENT WORKFLOW & TESTING
+6. OBSERVABILITY FIRST
 -------------------------------------------------------------------------------
-- Standard physical updates run at a fixed 60Hz step. Ensure all visual interpolation 
-  code uses pre-allocated scratchpad arrays to prevent garbage collection spikes.
-- Always run "npm run build" to verify type safety across all system files prior to deployment.
-- Diagnostic systems should declare all structural references, using standard "void" reads 
-  to satisfy compiler checks without adding operational complexity.
+Every major runtime system must expose:
+- debug metrics
+- runtime status
+- profiling hooks
+- validation helpers
+
+The engine should be inspectable while running.
+
+===============================================================================
+TECH STACK
+===============================================================================
+
+Framework: React 19 + TypeScript + Vite
+3D: Babylon.js
+Physics: Rapier 3D WASM Compat
+Audio: Tone.js
+State: Zustand
+
+===============================================================================
+ABSOLUTE ARCHITECTURAL RULES
+===============================================================================
+
+RULE 1: Gameplay systems NEVER directly touch React state.
+RULE 2: Babylon scene objects NEVER become source-of-truth gameplay state.
+RULE 3: React is presentation only.
+RULE 4: Physics/Kinematics owns authoritative movement truth.
+RULE 5: Visuals read gameplay state. Gameplay never reads visuals.
+RULE 6: Every system has: init(), update(), dispose().
+RULE 7: No runtime circular dependencies.
+RULE 8: All cross-system communication must be explicit.
+RULE 9: Every feature module must be removable without catastrophic rewrites.
+RULE 10: No hidden side effects inside getters/setters.
+
+===============================================================================
+STATE MANAGEMENT STRATEGY
+===============================================================================
+
+Zustand is NOT the simulation engine. Zustand manages only HUD overlay triggers,
+debug toggles, and readonly snapshots. Simulation state remains fully encapsulated
+inside ECS systems and dynamic ComponentStores.
+
+===============================================================================
+GAME LOOP ARCHITECTURE
+===============================================================================
+
+Simulation: 60Hz fixed timestep.
+Rendering: Uncapped with alpha interpolation.
+
+Pipeline:
+Input -> Fixed Simulation -> Physics -> Gameplay Systems -> Events -> Render Sync -> Babylon Render
+
+===============================================================================
+REFINED PLAY AREA & ALIGNMENT SPECIFICATIONS
+===============================================================================
+
+Logical limits must align perfectly to prevent collision sticking and clipping:
+- Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [0.0, 28.0]
+- Left Wall Visual center: -16, width 2 (spans -17 to -15)
+- Right Wall Visual center: 16, width 2 (spans 15 to 17)
+- Player mesh: Capsule radius 0.4, height 1.8 (clamping coordinates playerHalfW = 0.4, playerHalfH = 0.9)
+- Warden mesh: Sphere radius 1.0 (clamping coordinates wHalfW = 1.0, wHalfH = 1.0)
+
+===============================================================================
+ROPE SYSTEM & DYNAMIC GRAPPLING
+===============================================================================
+
+Dynamic overhead grapples target the ceiling (Y = 28) or the undersides of Left
+and Right platforms depending on the player's lateral coordinate:
+- Left Platform underside: Y = 11.5 (spans X: [-15, -7])
+- Right Platform underside: Y = 17.5 (spans X: [7, 15])
+
+Tension synthesizer scales audio pitch based on tension, escalating to high-frequency
+screeches when the Warden enters BERSERK OVERDRIVE and dropping to eerie lows on DEFEATED?.
+
+===============================================================================
+WARDEN AI BEHAVIOR PHASES
+===============================================================================
+
+State cycle:
+1. PHASE 1: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY
+2. FAKE DEATH: Hit 0% HP -> enters FAKE_DEATH (dazed, light turns off, low pitch audio drone)
+3. PHASE 2 (BERSERK OVERDRIVE): Revives with 50% HP, bright orange glow, relentless pursuit speed, screeching synth drone escalation. Permanently dies on next 0% HP.
+
+===============================================================================
+EDITOR + TOOLING ERGONOMICS
+===============================================================================
+
+- Hot reload stability
+- Deterministic resets via keyboard 'R' key trigger
+- Clean render loop visibility and FPS telemetry
+
 ===============================================================================
 END OF DOCUMENT
 ===============================================================================

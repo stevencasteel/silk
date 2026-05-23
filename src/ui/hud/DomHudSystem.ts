@@ -14,6 +14,8 @@ export class DomHudSystem implements ISystem {
   private hpValue: HTMLElement | null = null;
   private bossStateText: HTMLElement | null = null;
   private bossPhaseText: HTMLElement | null = null;
+  private wardenHpBar: HTMLElement | null = null;
+  private wardenHpValue: HTMLElement | null = null;
   private overlay: HTMLElement | null = null;
   private overlayTitle: HTMLElement | null = null;
 
@@ -36,6 +38,8 @@ export class DomHudSystem implements ISystem {
     this.hpValue = document.getElementById("player-hp-value");
     this.bossStateText = document.getElementById("boss-state-text");
     this.bossPhaseText = document.getElementById("boss-state-phase");
+    this.wardenHpBar = document.getElementById("warden-hp-bar");
+    this.wardenHpValue = document.getElementById("warden-hp-value");
     this.overlay = document.getElementById("game-state-overlay");
     this.overlayTitle = document.getElementById("game-state-title");
   }
@@ -52,6 +56,9 @@ export class DomHudSystem implements ISystem {
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => this.updateWardenStateDisplay(payload.state, payload.hue))
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, (payload) => this.updateWardenHealthDisplay(payload.hp, payload.maxHp))
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => this.showOverlay("GAME OVER", "#ef4444"))
@@ -92,6 +99,17 @@ export class DomHudSystem implements ISystem {
     }
   }
 
+  private updateWardenHealthDisplay(hp: number, maxHp: number): void {
+    const percentage = maxHp > 0 ? (hp / maxHp) : 0;
+    const pctString = (percentage * 100).toFixed(0) + "%";
+    if (this.wardenHpValue) {
+      this.wardenHpValue.textContent = `HP: ${hp.toFixed(0)} / ${maxHp.toFixed(0)}`;
+    }
+    if (this.wardenHpBar) {
+      this.wardenHpBar.style.width = pctString;
+    }
+  }
+
   private updateWardenStateDisplay(state: string, hue: string): void {
     if (this.bossStateText) {
       this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
@@ -100,6 +118,7 @@ export class DomHudSystem implements ISystem {
     if (this.bossPhaseText) {
       this.bossPhaseText.style.borderColor = hue;
       this.bossPhaseText.style.color = hue;
+      this.bossPhaseText.textContent = state === "BERSERK OVERDRIVE" ? "FINAL PHASE" : "PHASE 01";
     }
   }
 

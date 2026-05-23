@@ -52,6 +52,25 @@ export class TensionSynthesizer {
     this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
   }
 
+  public handleStateChange(state: string): void {
+    if (!this.fmOsc || !this.lfo || !this.lowpassFilter) return;
+    const now = Tone.now();
+
+    if (state === "BERSERK OVERDRIVE") {
+      this.fmOsc.frequency.setTargetAtTime(110, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(4.0, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(2.5, now, 0.5);
+    } else if (state === "DEFEATED?") {
+      this.fmOsc.frequency.setTargetAtTime(30, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(0.05, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(1.0, now, 0.5);
+    } else {
+      this.fmOsc.frequency.setTargetAtTime(55, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(0.2, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(1.5, now, 0.5);
+    }
+  }
+
   public dispose(): void {
     if (this.fmOsc) {
       this.fmOsc.stop();

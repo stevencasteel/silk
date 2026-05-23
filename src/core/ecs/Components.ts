@@ -14,7 +14,14 @@ export interface TetherComponent {
 }
 export interface HealthComponent { current: number; max: number; }
 export interface InputIntentComponent { x: number; y: number; jump: boolean; fire: boolean; detach: boolean; }
-export interface WardenAIComponent { state: string; timeInState: number; targetX: number; targetY: number; hue: string; }
+export interface WardenAIComponent { 
+  state: string; 
+  timeInState: number; 
+  targetX: number; 
+  targetY: number; 
+  hue: string; 
+  hasFakedDeath: boolean;
+}
 export interface PlayerStatsComponent { moveSpeed: number; climbSpeed: number; swingForce: number; minRope: number; maxRope: number; }
 export interface PlayerTag {}
 export interface WardenTag {}
@@ -25,6 +32,7 @@ export interface TraversalStateComponent {
   state: TraversalState; 
   wallNormalX: number; 
   wallNormalY: number; 
+  charge: number;
 }
 export interface WardenTraversalComponent {
   velX: number;

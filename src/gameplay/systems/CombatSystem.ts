@@ -53,18 +53,21 @@ export class CombatSystem implements ISystem {
     const isColliding = distSq < (hitDist * hitDist);
 
     if (isColliding) {
-      if (wAI.state === "RECOVERY" || wAI.state === "DAZED RECOVERY") {
+      if (wAI.state === "DAZED RECOVERY" || wAI.state === "BERSERK OVERDRIVE") {
         const dmg = this.playerAttackDamage * dt;
         wHealth.current -= dmg;
         this.broker.publish(GameEvent.WARDEN_DAMAGED, { amount: dmg, source: "PLAYER" });
+        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth.current, maxHp: wHealth.max });
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.2, duration: 0.1 });
         
         if (wHealth.current <= 0) {
           wHealth.current = 0;
-          this.broker.publish(GameEvent.WARDEN_DIED, undefined);
+          if (wAI.hasFakedDeath) {
+            this.broker.publish(GameEvent.WARDEN_DIED, undefined);
+          }
         }
       } 
-      else if (pIframe.timeRemaining <= 0 && (wAI.state === "CHARGE_ATTACK" || wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING")) {
+      else if (pIframe.timeRemaining <= 0 && (wAI.state === "RUSH ATTACK" || wAI.state === "HUNTING")) {
         pHealth.current -= this.wardenDamage;
         pIframe.timeRemaining = this.playerIframeDuration;
         
@@ -82,6 +85,7 @@ export class CombatSystem implements ISystem {
         });
 
         this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: this.wardenDamage, source: "WARDEN" });
+        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
 
         if (pHealth.current <= 0) {

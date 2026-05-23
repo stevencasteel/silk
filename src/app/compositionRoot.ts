@@ -61,12 +61,12 @@ export class CompositionRoot {
     const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, wardenAIs, playerStats, playerTags, wardenTags, anchorTags, renderSystem, traversal, iframes, wardenTraversal);
     const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, tethers);
     const inputSystem = new PlayerInputSystem(refs, inputs);
-    const movementSystem = new PlayerMovementSystem(refs, inputs, playerStats, tethers, traversal, commands, broker);
-    const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, broker, commands);
+    const movementSystem = new PlayerMovementSystem(refs, inputs, playerStats, tethers, traversal, transforms, commands, broker);
+    const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
     const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets);
     const playerKinematics = new PlayerKinematicsSystem(refs, tethers, velocities, targets, traversal);
     const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, transforms, velocities);
-    const syncSystem = new TransformSyncSystem(transforms, renderSystem);
+    const syncSystem = new TransformSyncSystem(refs, transforms, traversal, renderSystem);
     const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
     const lightingSystem = new LightingSystem(broker, renderSystem);
     const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);

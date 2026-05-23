@@ -27,6 +27,16 @@ export const HudOverlay: React.FC = () => {
             </div>
           </div>
 
+          <div id="warden-hp-container" style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(12, 14, 18, 0.85)", padding: "12px 24px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "320px", alignItems: "center" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "11px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.1em" }}>
+              <span>THE WARDEN</span>
+              <span id="warden-hp-value">HP: 100 / 100</span>
+            </div>
+            <div style={{ width: "100%", height: "6px", background: "#1f2937", borderRadius: "3px", overflow: "hidden" }}>
+              <div id="warden-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.1s ease" }} />
+            </div>
+          </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "rgba(12, 14, 18, 0.85)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)", width: "240px", alignItems: "flex-end" }}>
             <span id="boss-state-text" style={{ fontSize: "13px", fontWeight: "bold", color: "#f3f4f6" }}>WARDEN: DORMANT</span>
             <div id="boss-state-phase" style={{ fontSize: "10px", color: "#9ca3af", border: "1px solid #374151", padding: "4px 8px", borderRadius: "4px" }}>
