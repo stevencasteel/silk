@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 6:08:58 PM
+ [SYSTEM] Generated: 5/23/2026, 6:29:47 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -743,7 +743,7 @@ console.log('Manifest and dynamic source assets compiled successfully.');
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: #030305;
+  background: rgb(0, 0, 0);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -753,18 +753,9 @@ console.log('Manifest and dynamic source assets compiled successfully.');
   width: min(56.25vh, 95vw);
   height: min(95vh, 168.89vw);
   position: relative;
-  border: 4px solid #14161f;
-  border-radius: 12px;
-  background: #020204;
-  box-shadow: 0 12px 45px rgba(0, 0, 0, 0.9);
+  border: 2px solid rgb(22, 22, 26);
+  background: rgb(5, 5, 6);
   overflow: hidden;
-}
-
-.hud-overlay-container {
-  position: absolute;
-  inset: 12px;
-  z-index: 10;
-  pointer-events: none;
 }
 
 
@@ -1271,41 +1262,44 @@ export class LightingSystem implements ISystem {
 import * as BABYLON from "@babylonjs/core";
 
 export class ArenaGeometry {
-    constructor(private scene: BABYLON.Scene) {}
+constructor(private scene: BABYLON.Scene) {}
 
-    public generateElevatorShaft(): void {
-        const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
-        wallMaterial.albedoColor = new BABYLON.Color3(0.05, 0.06, 0.08);
-        wallMaterial.metallic = 0.4;
-        wallMaterial.roughness = 0.6; 
+public generateElevatorShaft(): void {
+const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
+wallMaterial.albedoColor = new BABYLON.Color3(0.06, 0.06, 0.07);
+wallMaterial.metallic = 0.1;
+wallMaterial.roughness = 0.85;
 
-        const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 40, depth: 4 }, this.scene);
-        leftWall.position.set(-16, 14, 0);
-        leftWall.material = wallMaterial;
+const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 140, depth: 4 }, this.scene);
+leftWall.position.set(-16, 14, 0);
+leftWall.material = wallMaterial;
+leftWall.receiveShadows = true;
 
-        const rightWall = BABYLON.MeshBuilder.CreateBox("rightWall", { width: 2, height: 40, depth: 4 }, this.scene);
-        rightWall.position.set(16, 14, 0);
-        rightWall.material = wallMaterial;
+const rightWall = BABYLON.MeshBuilder.CreateBox("rightWall", { width: 2, height: 140, depth: 4 }, this.scene);
+rightWall.position.set(16, 14, 0);
+rightWall.material = wallMaterial;
+rightWall.receiveShadows = true;
 
-        const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
-        tickMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
-        tickMat.emissiveColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-        tickMat.emissiveIntensity = 3.5; 
-        tickMat.disableLighting = true;
+const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
+tickMat.albedoColor = new BABYLON.Color3(0.05, 0.08, 0.12);
+tickMat.metallic = 0.0;
+tickMat.roughness = 0.5;
+tickMat.emissiveColor = new BABYLON.Color3(0.15, 0.4, 0.8);
+tickMat.emissiveIntensity = 1.5;
 
-        const tickCount = 18;
-        for (let i = 0; i < tickCount; i++) {
-            const leftTick = BABYLON.MeshBuilder.CreateBox(`leftTick_${i}`, { width: 0.35, height: 0.08, depth: 2.1 }, this.scene);
-            leftTick.position.set(-14.9, i * 2.0, 0);
-            leftTick.material = tickMat;
-            leftTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 };
+const tickCount = 70;
+for (let i = 0; i < tickCount; i++) {
+const leftTick = BABYLON.MeshBuilder.CreateBox(`leftTick_${i}`, { width: 0.2, height: 0.08, depth: 2.1 }, this.scene);
+leftTick.position.set(-14.9, i * 2.0 - 56.0, 0);
+leftTick.material = tickMat;
+leftTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 - 56.0 };
 
-            const rightTick = BABYLON.MeshBuilder.CreateBox(`rightTick_${i}`, { width: 0.35, height: 0.08, depth: 2.1 }, this.scene);
-            rightTick.position.set(14.9, i * 2.0, 0);
-            rightTick.material = tickMat;
-            rightTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 };
-        }
-    }
+const rightTick = BABYLON.MeshBuilder.CreateBox(`rightTick_${i}`, { width: 0.2, height: 0.08, depth: 2.1 }, this.scene);
+rightTick.position.set(14.9, i * 2.0 - 56.0, 0);
+rightTick.material = tickMat;
+rightTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 - 56.0 };
+}
+}
 }
 
 
@@ -1554,80 +1548,88 @@ import { EntityId } from "../../core/ecs/Entity";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem, IVisualRegistry {
-  readonly phase = SystemPhase.RenderSync;
-  readonly initPhase = InitPhase.Bootstrap;
-  
-  private engine: BABYLON.Engine | null = null;
-  private scene: BABYLON.Scene | null = null;
-  private canvas: HTMLCanvasElement;
-  private visualNodes = new Map<EntityId, BABYLON.TransformNode>();
+readonly phase = SystemPhase.RenderSync;
+readonly initPhase = InitPhase.Bootstrap;
+private engine: BABYLON.Engine | null = null;
+private scene: BABYLON.Scene | null = null;
+private canvas: HTMLCanvasElement;
+private visualNodes = new Map<EntityId, BABYLON.TransformNode>();
+private shadowGen: BABYLON.ShadowGenerator | null = null;
 
-  constructor(canvas: HTMLCanvasElement) { 
-    this.canvas = canvas; 
-  }
+constructor(canvas: HTMLCanvasElement) {
+this.canvas = canvas;
+}
 
-  public async init(): Promise<void> {
-    this.engine = new BABYLON.Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
-    this.scene = new BABYLON.Scene(this.engine);
-    
-    this.scene.clearColor = new BABYLON.Color4(0.005, 0.006, 0.008, 1.0);
-    
-    const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -38), this.scene);
-    camera.setTarget(new BABYLON.Vector3(0, 14, 0));
-    camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
-    
-    const ambientLight = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
-    ambientLight.intensity = 0.12;
-    
-    const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.4, -0.6, 0.8), this.scene);
-    dirLight.intensity = 2.8;
-    dirLight.specular = new BABYLON.Color3(1, 0.9, 0.82);
+public async init(): Promise<void> {
+this.engine = new BABYLON.Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
+this.scene = new BABYLON.Scene(this.engine);
+this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.012, 1.0);
 
-    const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [camera]);
-    pipeline.samples = 4;
-    pipeline.fxaaEnabled = true;
-    
-    pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.75;
-    pipeline.bloomWeight = 0.7;
+const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -38), this.scene);
+camera.setTarget(new BABYLON.Vector3(0, 14, 0));
+camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
 
-    pipeline.imageProcessingEnabled = true;
-    pipeline.imageProcessing.vignetteEnabled = true;
-    pipeline.imageProcessing.vignetteWeight = 2.2;
-    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
-    
-    pipeline.imageProcessing.exposure = 0.95;
-    pipeline.imageProcessing.contrast = 1.35;
+const ambientLight = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
+ambientLight.intensity = 0.08;
 
-    pipeline.chromaticAberrationEnabled = true;
-    pipeline.chromaticAberration.aberrationAmount = 2.4;
+const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.3, -0.8, 0.5), this.scene);
+dirLight.intensity = 3.2;
+dirLight.specular = new BABYLON.Color3(0.9, 0.9, 0.95);
 
-    const arenaGeo = new ArenaGeometry(this.scene);
-    arenaGeo.generateElevatorShaft();
+const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [camera]);
+pipeline.samples = 4;
+pipeline.fxaaEnabled = true;
+pipeline.bloomEnabled = true;
+pipeline.bloomThreshold = 0.6;
+pipeline.bloomWeight = 1.2;
+pipeline.bloomKernel = 64;
+pipeline.imageProcessingEnabled = true;
+pipeline.imageProcessing.vignetteEnabled = true;
+pipeline.imageProcessing.vignetteWeight = 2.8;
+pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
+pipeline.imageProcessing.exposure = 0.9;
+pipeline.imageProcessing.contrast = 1.45;
+pipeline.chromaticAberrationEnabled = false;
 
-    window.addEventListener("resize", this.handleResize);
-  }
+const shadowGen = new BABYLON.ShadowGenerator(1024, dirLight);
+shadowGen.useBlurExponentialShadowMap = true;
+shadowGen.blurKernel = 16;
+shadowGen.darkness = 0.6;
+this.shadowGen = shadowGen;
 
-  public update(): void { }
-  
-  public render(): void { 
-    if (this.scene) this.scene.render();
-  }
+const arenaGeo = new ArenaGeometry(this.scene);
+arenaGeo.generateElevatorShaft();
 
-  public getScene(): BABYLON.Scene | null { return this.scene; }
-  public getTransformNode(id: EntityId): BABYLON.TransformNode | null { return this.visualNodes.get(id) || null; }
-  public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { this.visualNodes.set(id, node); }
-  public unregisterTransformNode(id: EntityId): void { 
-    const node = this.visualNodes.get(id); 
-    if (node) { node.dispose(); this.visualNodes.delete(id); } 
-  }
+window.addEventListener("resize", this.handleResize);
+}
 
-  private handleResize = () => { if (this.engine) this.engine.resize(); };
-  public dispose(): void { 
-    window.removeEventListener("resize", this.handleResize); 
-    if (this.scene) this.scene.dispose(); 
-    if (this.engine) this.engine.dispose(); 
-  }
+public update(): void { }
+
+public render(): void {
+if (this.scene) this.scene.render();
+}
+
+public getScene(): BABYLON.Scene | null { return this.scene; }
+public getTransformNode(id: EntityId): BABYLON.TransformNode | null { return this.visualNodes.get(id) || null; }
+public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { 
+    this.visualNodes.set(id, node); 
+    if (this.shadowGen && node instanceof BABYLON.AbstractMesh) {
+        this.shadowGen.addShadowCaster(node);
+        node.receiveShadows = true;
+    }
+}
+public unregisterTransformNode(id: EntityId): void {
+const node = this.visualNodes.get(id);
+if (node) { node.dispose(); this.visualNodes.delete(id); }
+}
+
+private handleResize = () => { if (this.engine) this.engine.resize(); };
+
+public dispose(): void {
+window.removeEventListener("resize", this.handleResize);
+if (this.scene) this.scene.dispose();
+if (this.engine) this.engine.dispose();
+}
 }
 
 
@@ -2451,246 +2453,223 @@ export interface IWeaverState {
 import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
 import { GameEvent } from "../../core/events/GameEvents";
 
+const HASH = String.fromCharCode(35);
+
 export class WeaverSweepingState implements IWeaverState {
-  public readonly type: WeaverStateType = "SWEEPING";
-  public readonly name = "SWEEPING CEILING";
-  public readonly hue = "#ef4444";
+public readonly type: WeaverStateType = "SWEEPING";
+public readonly name = "SWEEPING CEILING";
+public readonly hue = HASH + "ef4444";
+private shootTimer = 0.0;
+private hasTelegraphed = false;
 
-  private shootTimer = 0.0;
-  private hasTelegraphed = false;
+public enter(ctx: AIContext): void {
+this.shootTimer = 0.0;
+this.hasTelegraphed = false;
+ctx.ai.timeInState = 0;
+ctx.ai.hue = this.hue;
+const health = ctx.healths.get(ctx.weaverId);
+const isBerserk = health ? (health.current < health.max * 0.5) : false;
+const patrolSpeed = isBerserk ? 9.0 : 4.5;
+ctx.commands.dispatch({
+type: "SET_KINEMATIC_VELOCITY",
+entityId: ctx.weaverId,
+x: patrolSpeed, y: 0, z: 0
+});
+}
 
-  public enter(ctx: AIContext): void {
-    this.shootTimer = 0.0;
-    this.hasTelegraphed = false;
-    ctx.ai.timeInState = 0;
-    ctx.ai.hue = this.hue;
-    
-    const health = ctx.healths.get(ctx.weaverId);
-    const isBerserk = health ? (health.current < health.max * 0.5) : false;
-    const patrolSpeed = isBerserk ? 9.0 : 4.5;
+public exit(): void {}
 
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
-      x: patrolSpeed,
-      y: 0,
-      z: 0
-    });
-  }
-
-  public exit(): void {}
-
-  public update(ctx: AIContext, dt: number): WeaverStateType | null {
-    ctx.ai.timeInState += dt;
-    this.shootTimer += dt;
-
-    const telegraphThreshold = 1.8;
-    if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
-      this.hasTelegraphed = true;
-      ctx.ai.hue = "#eab308"; 
-      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
-    }
-
-    if (this.shootTimer >= 2.4) {
-      this.shootTimer = 0.0;
-      this.hasTelegraphed = false;
-      ctx.ai.hue = this.hue; 
-
-      const playerTrans = ctx.transforms.get(ctx.playerId);
-      const wTrans = ctx.transforms.get(ctx.weaverId);
-      if (playerTrans && wTrans) {
-        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-          x: wTrans.x,
-          y: wTrans.y - 1.8,
-          tx: playerTrans.x,
-          ty: playerTrans.y
-        });
-      }
-    }
-    return null;
-  }
+public update(ctx: AIContext, dt: number): WeaverStateType | null {
+ctx.ai.timeInState += dt;
+this.shootTimer += dt;
+const telegraphThreshold = 1.8;
+if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
+this.hasTelegraphed = true;
+ctx.ai.hue = HASH + "eab308";
+ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
+}
+if (this.shootTimer >= 2.4) {
+this.shootTimer = 0.0;
+this.hasTelegraphed = false;
+ctx.ai.hue = this.hue;
+const playerTrans = ctx.transforms.get(ctx.playerId);
+const wTrans = ctx.transforms.get(ctx.weaverId);
+if (playerTrans && wTrans) {
+ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+x: wTrans.x,
+y: wTrans.y - 1.8,
+tx: playerTrans.x,
+ty: playerTrans.y
+});
+}
+}
+return null;
+}
 }
 
 export class WeaverDashingState implements IWeaverState {
-  public readonly type: WeaverStateType = "DASHING";
-  public readonly name = "WEAVER DASH";
-  public readonly hue = "#f59e0b";
+public readonly type: WeaverStateType = "DASHING";
+public readonly name = "WEAVER DASH";
+public readonly hue = HASH + "f59e0b";
+private dashCount = 0;
+private maxDashes = 2;
+private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
+private phaseTimer = 0.0;
+private targetPos = { x: 0, y: 0 };
+private thrustVelocity = { x: 0, y: 0 };
 
-  private dashCount = 0;
-  private maxDashes = 2;
-  private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
-  private phaseTimer = 0.0;
-  private targetPos = { x: 0, y: 0 };
-  private thrustVelocity = { x: 0, y: 0 };
+public enter(ctx: AIContext): void {
+const health = ctx.healths.get(ctx.weaverId);
+const isBerserk = health ? (health.current < health.max * 0.5) : false;
+this.dashCount = 0;
+this.maxDashes = isBerserk ? 3 : 2;
+this.startPrep(ctx);
+}
 
-  public enter(ctx: AIContext): void {
-    const health = ctx.healths.get(ctx.weaverId);
-    const isBerserk = health ? (health.current < health.max * 0.5) : false;
-    
-    this.dashCount = 0;
-    this.maxDashes = isBerserk ? 3 : 2;
-    this.startPrep(ctx);
-  }
+public exit(): void {}
 
-  public exit(): void {}
+private startPrep(ctx: AIContext): void {
+this.currentPhase = "PREP";
+this.phaseTimer = 0.6;
+ctx.ai.hue = HASH + "eab308";
+ctx.commands.dispatch({
+type: "SET_KINEMATIC_VELOCITY",
+entityId: ctx.weaverId,
+x: 0, y: 0, z: 0
+});
+const playerTrans = ctx.transforms.get(ctx.playerId);
+if (playerTrans) {
+this.targetPos.x = playerTrans.x;
+this.targetPos.y = playerTrans.y;
+} else {
+this.targetPos.x = 0;
+this.targetPos.y = 14;
+}
+}
 
-  private startPrep(ctx: AIContext): void {
-    this.currentPhase = "PREP";
-    this.phaseTimer = 0.6;
-    ctx.ai.hue = "#eab308";
-    
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
-      x: 0, y: 0, z: 0
-    });
+private startThrust(ctx: AIContext): void {
+this.currentPhase = "THRUST";
+this.phaseTimer = 0.8;
+ctx.ai.hue = HASH + "ef4444";
+const weaverTrans = ctx.transforms.get(ctx.weaverId);
+if (weaverTrans) {
+const dx = this.targetPos.x - weaverTrans.x;
+const dy = this.targetPos.y - weaverTrans.y;
+const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+const speed = this.maxDashes === 3 ? 36.0 : 28.0;
+this.thrustVelocity.x = (dx / dist) * speed;
+this.thrustVelocity.y = (dy / dist) * speed;
+ctx.commands.dispatch({
+type: "SET_KINEMATIC_VELOCITY",
+entityId: ctx.weaverId,
+x: this.thrustVelocity.x,
+y: this.thrustVelocity.y,
+z: 0
+});
+}
+}
 
-    const playerTrans = ctx.transforms.get(ctx.playerId);
-    if (playerTrans) {
-      this.targetPos.x = playerTrans.x;
-      this.targetPos.y = playerTrans.y;
-    } else {
-      this.targetPos.x = 0;
-      this.targetPos.y = 14;
-    }
-  }
+private startRecover(ctx: AIContext): void {
+this.currentPhase = "RECOVER";
+this.phaseTimer = 0.5;
+ctx.ai.hue = HASH + "a5f3fc";
+ctx.commands.dispatch({
+type: "SET_KINEMATIC_VELOCITY",
+entityId: ctx.weaverId,
+x: 0, y: 0, z: 0
+});
+ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
+}
 
-  private startThrust(ctx: AIContext): void {
-    this.currentPhase = "THRUST";
-    this.phaseTimer = 0.8;
-    ctx.ai.hue = "#ef4444";
-
-    const weaverTrans = ctx.transforms.get(ctx.weaverId);
-    if (weaverTrans) {
-      const dx = this.targetPos.x - weaverTrans.x;
-      const dy = this.targetPos.y - weaverTrans.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-      
-      const speed = this.maxDashes === 3 ? 36.0 : 28.0;
-      this.thrustVelocity.x = (dx / dist) * speed;
-      this.thrustVelocity.y = (dy / dist) * speed;
-
-      ctx.commands.dispatch({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.weaverId,
-        x: this.thrustVelocity.x,
-        y: this.thrustVelocity.y,
-        z: 0
-      });
-    }
-  }
-
-  private startRecover(ctx: AIContext): void {
-    this.currentPhase = "RECOVER";
-    this.phaseTimer = 0.5;
-    ctx.ai.hue = "#a5f3fc";
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
-      x: 0, y: 0, z: 0
-    });
-
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
-  }
-
-  public update(ctx: AIContext, dt: number): WeaverStateType | null {
-    this.phaseTimer -= dt;
-
-    if (this.currentPhase === "PREP") {
-      const StrobeHz = 16.0;
-      const step = Math.floor(this.phaseTimer * StrobeHz);
-      ctx.ai.hue = step % 2 === 0 ? "#ef4444" : "#eab308";
-
-      if (Math.random() < 0.4) {
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.08, duration: 0.05 });
-      }
-      if (this.phaseTimer <= 0) {
-        this.startThrust(ctx);
-      }
-    } else if (this.currentPhase === "THRUST") {
-      const trav = ctx.weaverTraversal.get(ctx.weaverId);
-      const hitWallOrGround = trav ? (trav.isWallClinging || trav.isGrounded) : false;
-
-      if (this.phaseTimer <= 0 || hitWallOrGround) {
-        this.startRecover(ctx);
-      }
-    } else if (this.currentPhase === "RECOVER") {
-      if (this.phaseTimer <= 0) {
-        this.dashCount++;
-        if (this.dashCount >= this.maxDashes) {
-          return "RETURNING";
-        } else {
-          this.startPrep(ctx);
-        }
-      }
-    }
-
-    return null;
-  }
+public update(ctx: AIContext, dt: number): WeaverStateType | null {
+this.phaseTimer -= dt;
+if (this.currentPhase === "PREP") {
+const StrobeHz = 16.0;
+const step = Math.floor(this.phaseTimer * StrobeHz);
+ctx.ai.hue = step % 2 === 0 ? (HASH + "ef4444") : (HASH + "eab308");
+if (Math.random() < 0.4) {
+ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.08, duration: 0.05 });
+}
+if (this.phaseTimer <= 0) {
+this.startThrust(ctx);
+}
+} else if (this.currentPhase === "THRUST") {
+const trav = ctx.weaverTraversal.get(ctx.weaverId);
+const hitWallOrGround = trav ? (trav.isWallClinging || trav.isGrounded) : false;
+if (this.phaseTimer <= 0 || hitWallOrGround) {
+this.startRecover(ctx);
+}
+} else if (this.currentPhase === "RECOVER") {
+if (this.phaseTimer <= 0) {
+this.dashCount++;
+if (this.dashCount >= this.maxDashes) {
+return "RETURNING";
+} else {
+this.startPrep(ctx);
+}
+}
+}
+return null;
+}
 }
 
 export class WeaverReturningState implements IWeaverState {
-  public readonly type: WeaverStateType = "RETURNING";
-  public readonly name = "RETURNING TO CEILING";
-  public readonly hue = "#4b5563";
+public readonly type: WeaverStateType = "RETURNING";
+public readonly name = "RETURNING TO CEILING";
+public readonly hue = HASH + "4b5563";
 
-  public enter(ctx: AIContext): void {
-    ctx.ai.timeInState = 0;
-    ctx.ai.hue = this.hue;
-  }
+public enter(ctx: AIContext): void {
+ctx.ai.timeInState = 0;
+ctx.ai.hue = this.hue;
+}
 
-  public exit(): void {}
+public exit(): void {}
 
-  public update(ctx: AIContext, dt: number): WeaverStateType | null {
-    ctx.ai.timeInState += dt;
-
-    const wTrans = ctx.transforms.get(ctx.weaverId);
-    if (wTrans) {
-      const targetY = 27.2;
-      const dy = targetY - wTrans.y;
-
-      if (Math.abs(dy) < 0.3) {
-        return "SWEEPING";
-      }
-
-      const speed = 12.0;
-      ctx.commands.dispatch({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.weaverId,
-        x: 0,
-        y: speed,
-        z: 0
-      });
-    }
-
-    return null;
-  }
+public update(ctx: AIContext, dt: number): WeaverStateType | null {
+ctx.ai.timeInState += dt;
+const wTrans = ctx.transforms.get(ctx.weaverId);
+if (wTrans) {
+const targetY = 28.0;
+const dy = targetY - wTrans.y;
+if (Math.abs(dy) < 0.3) {
+return "SWEEPING";
+}
+const speed = 12.0;
+ctx.commands.dispatch({
+type: "SET_KINEMATIC_VELOCITY",
+entityId: ctx.weaverId,
+x: 0,
+y: speed,
+z: 0
+});
+}
+return null;
+}
 }
 
 export class WeaverDefeatedState implements IWeaverState {
-  public readonly type: WeaverStateType = "DEFEATED";
-  public readonly name = "WEAVER DEFEATED";
-  public readonly hue = "#111317";
+public readonly type: WeaverStateType = "DEFEATED";
+public readonly name = "WEAVER DEFEATED";
+public readonly hue = HASH + "111317";
 
-  public enter(ctx: AIContext): void {
-    ctx.ai.timeInState = 0;
-    ctx.ai.hue = this.hue;
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
-      x: 0, y: 0, z: 0
-    });
-    ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
-    ctx.broker.publish(GameEvent.GAME_WIN, undefined);
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
-  }
+public enter(ctx: AIContext): void {
+ctx.ai.timeInState = 0;
+ctx.ai.hue = this.hue;
+ctx.commands.dispatch({
+type: "SET_KINEMATIC_VELOCITY",
+entityId: ctx.weaverId,
+x: 0, y: 0, z: 0
+});
+ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
+ctx.broker.publish(GameEvent.GAME_WIN, undefined);
+ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
+}
 
-  public exit(): void {}
+public exit(): void {}
 
-  public update(): WeaverStateType | null {
-    return null;
-  }
+public update(): WeaverStateType | null {
+return null;
+}
 }
 
 
@@ -2848,105 +2827,99 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { EntityRegistry } from "../../core/ecs/Entity";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { 
-    TransformComponent, 
-    KinematicVelocityComponent, 
-    KinematicTargetComponent, 
-    SilkComponent, 
-    HealthComponent, 
-    InputIntentComponent, 
-    WeaverAIComponent, 
-    PlayerTag, 
-    WeaverTag, 
-    TraversalStateComponent, 
-    InvulnerabilityComponent, 
-    WeaverTraversalComponent 
-} from "../../core/ecs/Components";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent, HealthComponent, InputIntentComponent, WeaverAIComponent, PlayerTag, WeaverTag, TraversalStateComponent, InvulnerabilityComponent, WeaverTraversalComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import * as BABYLON from "@babylonjs/core";
 
+const HASH = String.fromCharCode(35);
+
 export class EntitySpawnerSystem implements ISystem {
-    readonly phase = SystemPhase.Intents;
-    readonly initPhase = InitPhase.World;
+readonly phase = SystemPhase.Intents;
+readonly initPhase = InitPhase.World;
 
-    constructor(
-        private refs: EntityRefs,
-        private entities: EntityRegistry,
-        private transforms: ComponentStore<TransformComponent>,
-        private velocities: ComponentStore<KinematicVelocityComponent>,
-        private targets: ComponentStore<KinematicTargetComponent>,
-        private silks: ComponentStore<SilkComponent>,
-        private healths: ComponentStore<HealthComponent>,
-        private inputs: ComponentStore<InputIntentComponent>,
-        private weaverAIs: ComponentStore<WeaverAIComponent>,
-        private playerTags: ComponentStore<PlayerTag>,
-        private weaverTags: ComponentStore<WeaverTag>,
-        private visualRegistry: IVisualRegistry,
-        private traversal: ComponentStore<TraversalStateComponent>,
-        private iframes: ComponentStore<InvulnerabilityComponent>,
-        private weaverTraversal: ComponentStore<WeaverTraversalComponent>
-    ) {}
+constructor(
+private refs: EntityRefs,
+private entities: EntityRegistry,
+private transforms: ComponentStore<TransformComponent>,
+private velocities: ComponentStore<KinematicVelocityComponent>,
+private targets: ComponentStore<KinematicTargetComponent>,
+private silks: ComponentStore<SilkComponent>,
+private healths: ComponentStore<HealthComponent>,
+private inputs: ComponentStore<InputIntentComponent>,
+private weaverAIs: ComponentStore<WeaverAIComponent>,
+private playerTags: ComponentStore<PlayerTag>,
+private weaverTags: ComponentStore<WeaverTag>,
+private visualRegistry: IVisualRegistry,
+private traversal: ComponentStore<TraversalStateComponent>,
+private iframes: ComponentStore<InvulnerabilityComponent>,
+private weaverTraversal: ComponentStore<WeaverTraversalComponent>
+) {}
 
-    public init(): void {
-        const scene = this.visualRegistry.getScene();
-        if (!scene) return;
+public init(): void {
+const scene = this.visualRegistry.getScene();
+if (!scene) return;
 
-        const weaverId = this.entities.create();
-        this.transforms.add(weaverId, {
-            x: 0, y: 27.2, z: 0,
-            qx: 0, qy: 0, qz: 0, qw: 1,
-            prevX: 0, prevY: 27.2, prevZ: 0,
-            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-        });
-        this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
-        this.targets.add(weaverId, { x: 0, y: 27.2, z: 0, active: true });
-        this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: "#ef4444" });
-        this.healths.add(weaverId, { current: 100, max: 100 });
-        this.weaverTags.add(weaverId, {});
-        this.weaverTraversal.add(weaverId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
-        this.refs.weaver = weaverId;
-        const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("weaverVisual", { radius: 2.4, subdivisions: 3 }, scene);
-        const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
-        wMat.albedoColor = new BABYLON.Color3(0.95, 0.1, 0.1);
-        wMat.emissiveColor = new BABYLON.Color3(0.8, 0.04, 0.04);
-        wMat.emissiveIntensity = 2.5;
-        wMat.metallic = 0.3;
-        wMat.roughness = 0.6;
-        wMesh.material = wMat;
-        this.visualRegistry.registerTransformNode(weaverId, wMesh);
+const weaverId = this.entities.create();
+this.transforms.add(weaverId, {
+x: 0, y: 28.0, z: 0,
+qx: 0, qy: 0, qz: 0, qw: 1,
+prevX: 0, prevY: 28.0, prevZ: 0,
+prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+});
+this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
+this.targets.add(weaverId, { x: 0, y: 28.0, z: 0, active: true });
+this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + "ef4444" });
+this.healths.add(weaverId, { current: 100, max: 100 });
+this.weaverTags.add(weaverId, {});
+this.weaverTraversal.add(weaverId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
+this.refs.weaver = weaverId;
 
-        const playerId = this.entities.create();
-        this.transforms.add(playerId, {
-            x: 0, y: 15.2, z: 0,
-            qx: 0, qy: 0, qz: 0, qw: 1,
-            prevX: 0, prevY: 15.2, prevZ: 0,
-            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-        });
-        this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-        this.targets.add(playerId, { x: 0, y: 15.2, z: 0, active: true });
-        this.silks.add(playerId, {
-            anchorX: 0, anchorY: 27.2, anchorZ: 0,
-            maxLength: 12.0, currentLength: 12.0,
-            isAttached: true, tension: 0.0,
-            dynamicVelX: 0.0, dynamicVelY: 0.0
-        });
-        this.healths.add(playerId, { current: 5, max: 5 });
-        this.inputs.add(playerId, { x: 0, y: 0, jump: false });
-        this.playerTags.add(playerId, {});
-        this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
-        this.iframes.add(playerId, { timeRemaining: 0 });
-        this.refs.player = playerId;
-        const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
-        const pMat = new BABYLON.PBRMaterial("playerMat", scene);
-        pMat.albedoColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-        pMat.emissiveColor = new BABYLON.Color3(0.02, 0.16, 0.02);
-        pMat.emissiveIntensity = 2.0;
-        pMat.metallic = 0.0;
-        pMat.roughness = 0.5;
-        pMesh.material = pMat;
-        this.visualRegistry.registerTransformNode(playerId, pMesh);
-    }
+const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("weaverVisual", { radius: 2.2, subdivisions: 3 }, scene);
+const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
+wMat.albedoColor = new BABYLON.Color3(0.15, 0.15, 0.18);
+wMat.metallic = 0.3;
+wMat.roughness = 0.5;
+wMat.clearCoat.isEnabled = true;
+wMat.clearCoat.intensity = 0.4;
+wMat.clearCoat.roughness = 0.2;
+wMesh.material = wMat;
+this.visualRegistry.registerTransformNode(weaverId, wMesh);
+
+const playerId = this.entities.create();
+this.transforms.add(playerId, {
+x: 0, y: 10.0, z: 0,
+qx: 0, qy: 0, qz: 0, qw: 1,
+prevX: 0, prevY: 10.0, prevZ: 0,
+prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+});
+this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
+this.targets.add(playerId, { x: 0, y: 10.0, z: 0, active: true });
+this.silks.add(playerId, {
+anchorX: 0, anchorY: 28.0, anchorZ: 0,
+maxLength: 12.0, currentLength: 12.0,
+isAttached: true, tension: 0.0,
+dynamicVelX: 0.0, dynamicVelY: 0.0
+});
+this.healths.add(playerId, { current: 5, max: 5 });
+this.inputs.add(playerId, { x: 0, y: 0, jump: false });
+this.playerTags.add(playerId, {});
+this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
+this.iframes.add(playerId, { timeRemaining: 0 });
+this.refs.player = playerId;
+
+const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
+const pMat = new BABYLON.PBRMaterial("playerMat", scene);
+pMat.albedoColor = new BABYLON.Color3(0.88, 0.90, 0.92);
+pMat.metallic = 0.0;
+pMat.roughness = 0.85;
+pMat.sheen.isEnabled = true;
+pMat.sheen.intensity = 0.5;
+pMat.sheen.roughness = 0.4;
+pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
+pMesh.material = pMat;
+this.visualRegistry.registerTransformNode(playerId, pMesh);
+}
 }
 
 
@@ -2962,126 +2935,118 @@ import { TransformComponent, HealthComponent, SilkComponent, WeaverAIComponent, 
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
-    readonly phase = SystemPhase.Gameplay;
-    private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
-    private resetRequested = false;
+readonly phase = SystemPhase.Gameplay;
+private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
+private resetRequested = false;
+private HASH = String.fromCharCode(35);
 
-    constructor(
-        private broker: EventBroker,
-        private refs: EntityRefs,
-        private transforms: ComponentStore<TransformComponent>,
-        private healths: ComponentStore<HealthComponent>,
-        private silks: ComponentStore<SilkComponent>,
-        private weaverAIs: ComponentStore<WeaverAIComponent>,
-        private velocities: ComponentStore<KinematicVelocityComponent>,
-        private iframes: ComponentStore<InvulnerabilityComponent>,
-        private targets: ComponentStore<KinematicTargetComponent>,
-        private traversal: ComponentStore<TraversalStateComponent>
-    ) {}
+constructor(
+private broker: EventBroker,
+private refs: EntityRefs,
+private transforms: ComponentStore<TransformComponent>,
+private healths: ComponentStore<HealthComponent>,
+private silks: ComponentStore<SilkComponent>,
+private weaverAIs: ComponentStore<WeaverAIComponent>,
+private velocities: ComponentStore<KinematicVelocityComponent>,
+private iframes: ComponentStore<InvulnerabilityComponent>,
+private targets: ComponentStore<KinematicTargetComponent>,
+private traversal: ComponentStore<TraversalStateComponent>
+) {}
 
-    public init(): void {
-        this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-            if (this.gameState === "PLAYING") {
-                this.gameState = "GAME_OVER";
-                this.broker.publish(GameEvent.GAME_OVER, undefined);
-            }
-        });
-        window.addEventListener("keydown", this.handleKeyDown);
-    }
+public init(): void {
+this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+if (this.gameState === "PLAYING") {
+this.gameState = "GAME_OVER";
+this.broker.publish(GameEvent.GAME_OVER, undefined);
+}
+});
+this.broker.subscribe(GameEvent.GAME_WIN, () => {
+if (this.gameState === "PLAYING") {
+this.gameState = "VICTORY";
+}
+});
+window.addEventListener("keydown", this.handleKeyDown);
+}
 
-    private handleKeyDown = (e: KeyboardEvent): void => {
-        if (e.key.toLowerCase() === "r" && this.gameState !== "PLAYING") {
-            this.resetRequested = true;
-        }
-    };
+private handleKeyDown = (e: KeyboardEvent): void => {
+if (e.key.toLowerCase() === "r" && this.gameState !== "PLAYING") {
+this.resetRequested = true;
+}
+};
 
-    public update(): void {
-        if (this.resetRequested) {
-            this.resetGame();
-            this.resetRequested = false;
-        }
-    }
+public update(): void {
+if (this.resetRequested) {
+this.resetGame();
+this.resetRequested = false;
+}
+}
 
-    private resetGame(): void {
-        this.gameState = "PLAYING";
-        
-        const pTrans = this.transforms.get(this.refs.player);
-        const pHealth = this.healths.get(this.refs.player);
-        const pSilk = this.silks.get(this.refs.player);
-        const pVel = this.velocities.get(this.refs.player);
-        const pIframe = this.iframes.get(this.refs.player);
-        const pTarget = this.targets.get(this.refs.player);
-        const pTrav = this.traversal.get(this.refs.player);
+private resetGame(): void {
+this.gameState = "PLAYING";
+const pTrans = this.transforms.get(this.refs.player);
+const pHealth = this.healths.get(this.refs.player);
+const pSilk = this.silks.get(this.refs.player);
+const pVel = this.velocities.get(this.refs.player);
+const pIframe = this.iframes.get(this.refs.player);
+const pTarget = this.targets.get(this.refs.player);
+const pTrav = this.traversal.get(this.refs.player);
 
-        if (pTrans) {
-            pTrans.x = 0; pTrans.y = 16; pTrans.z = 0;
-            pTrans.prevX = 0; pTrans.prevY = 16; pTrans.prevZ = 0;
-        }
-        if (pTarget) {
-            pTarget.x = 0; pTarget.y = 16; pTarget.z = 0; pTarget.active = true;
-        }
-        if (pHealth) {
-            pHealth.current = pHealth.max;
-        }
-        if (pSilk) {
-            pSilk.isAttached = true;
-            pSilk.maxLength = 10.0;
-            pSilk.currentLength = 10.0;
-            pSilk.dynamicVelX = 0;
-            pSilk.dynamicVelY = 0;
-            pSilk.tension = 0.0;
-            pSilk.anchorX = 0;
-            pSilk.anchorY = 26;
-        }
-        if (pVel) {
-            pVel.x = 0; pVel.y = 0; pVel.z = 0;
-        }
-        if (pIframe) {
-            pIframe.timeRemaining = 0;
-        }
-        if (pTrav) {
-            pTrav.state = "AIRBORNE";
-            pTrav.wallNormalX = 0;
-            pTrav.wallNormalY = 0;
-            pTrav.wallDir = 0;
-            pTrav.launchTimer = 0;
-            pTrav.launchPower = 0;
-        }
+if (pTrans) {
+pTrans.x = 0; pTrans.y = 10.0; pTrans.z = 0;
+pTrans.prevX = 0; pTrans.prevY = 10.0; pTrans.prevZ = 0;
+}
+if (pTarget) {
+pTarget.x = 0; pTarget.y = 10.0; pTarget.z = 0; pTarget.active = true;
+}
+if (pHealth) pHealth.current = pHealth.max;
+if (pSilk) {
+pSilk.isAttached = true;
+pSilk.maxLength = 12.0;
+pSilk.currentLength = 12.0;
+pSilk.dynamicVelX = 0;
+pSilk.dynamicVelY = 0;
+pSilk.tension = 0.0;
+pSilk.anchorX = 0;
+pSilk.anchorY = 28.0;
+}
+if (pVel) { pVel.x = 0; pVel.y = 0; pVel.z = 0; }
+if (pIframe) pIframe.timeRemaining = 0;
+if (pTrav) {
+pTrav.state = "AIRBORNE";
+pTrav.wallNormalX = 0; pTrav.wallNormalY = 0; pTrav.wallDir = 0;
+pTrav.launchTimer = 0; pTrav.launchPower = 0;
+}
 
-        const wTrans = this.transforms.get(this.refs.weaver);
-        const wHealth = this.healths.get(this.refs.weaver);
-        const wAI = this.weaverAIs.get(this.refs.weaver);
-        const wVel = this.velocities.get(this.refs.weaver);
-        const wTarget = this.targets.get(this.refs.weaver);
+const wTrans = this.transforms.get(this.refs.weaver);
+const wHealth = this.healths.get(this.refs.weaver);
+const wAI = this.weaverAIs.get(this.refs.weaver);
+const wVel = this.velocities.get(this.refs.weaver);
+const wTarget = this.targets.get(this.refs.weaver);
 
-        if (wTrans) {
-            wTrans.x = 0; wTrans.y = 26; wTrans.z = 0;
-            wTrans.prevX = 0; wTrans.prevY = 26; wTrans.prevZ = 0;
-        }
-        if (wTarget) {
-            wTarget.x = 0; wTarget.y = 26; wTarget.z = 0; wTarget.active = true;
-        }
-        if (wHealth) {
-            wHealth.current = wHealth.max;
-        }
-        if (wAI) {
-            wAI.state = "SWEEPING";
-            wAI.timeInState = 0;
-            wAI.hue = "#ef4444";
-        }
-        if (wVel) {
-            wVel.x = 4.0; wVel.y = 0; wVel.z = 0;
-        }
+if (wTrans) {
+wTrans.x = 0; wTrans.y = 28.0; wTrans.z = 0;
+wTrans.prevX = 0; wTrans.prevY = 28.0; wTrans.prevZ = 0;
+}
+if (wTarget) {
+wTarget.x = 0; wTarget.y = 28.0; wTarget.z = 0; wTarget.active = true;
+}
+if (wHealth) wHealth.current = wHealth.max;
+if (wAI) {
+wAI.state = "SWEEPING";
+wAI.timeInState = 0;
+wAI.hue = this.HASH + "ef4444";
+}
+if (wVel) { wVel.x = 4.5; wVel.y = 0; wVel.z = 0; }
 
-        this.broker.publish(GameEvent.GAME_RESET, undefined);
-        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
-        this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
-        this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
-    }
+this.broker.publish(GameEvent.GAME_RESET, undefined);
+this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
+this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, { state: "SWEEPING", hue: this.HASH + "ef4444" });
+this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
+}
 
-    public dispose(): void {
-        window.removeEventListener("keydown", this.handleKeyDown);
-    }
+public dispose(): void {
+window.removeEventListener("keydown", this.handleKeyDown);
+}
 }
 
 
@@ -3176,11 +3141,15 @@ export class ProjectileSystem implements ISystem {
         if (!scene) return;
 
         this.projMat = new BABYLON.PBRMaterial("projectileMat", scene);
-        this.projMat.albedoColor = new BABYLON.Color3(0, 0, 0);
-        this.projMat.emissiveColor = new BABYLON.Color3(1.0, 0.4, 0.1); 
-        this.projMat.emissiveIntensity = 4.0;
-        this.projMat.metallic = 0.1;
-        this.projMat.roughness = 0.5;
+        this.projMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
+this.projMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
+this.projMat.emissiveIntensity = 0.0;
+this.projMat.metallic = 0.0;
+this.projMat.roughness = 0.8;
+this.projMat.sheen.isEnabled = true;
+this.projMat.sheen.intensity = 0.6;
+this.projMat.sheen.roughness = 0.4;
+this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
 
         this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
             this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
@@ -3355,12 +3324,14 @@ export class SilkVisualizerSystem implements ISystem {
 
         this.silkMat = new BABYLON.PBRMaterial("silkMat", scene);
         this.silkMat.metallic = 0.0;
-        this.silkMat.roughness = 0.4;
-        this.silkMat.emissiveIntensity = 3.0;
-        this.silkMat.albedoColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
-        this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-        
-        this.silkMat.disableLighting = false;
+this.silkMat.roughness = 0.6;
+this.silkMat.sheen.isEnabled = true;
+this.silkMat.sheen.intensity = 0.8;
+this.silkMat.sheen.roughness = 0.3;
+this.silkMat.emissiveIntensity = 2.5;
+this.silkMat.albedoColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
+this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+this.silkMat.disableLighting = false;
 
         this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
             path: this.points,
@@ -3609,94 +3580,88 @@ import { KinematicVelocityComponent, WeaverTraversalComponent, TransformComponen
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class WeaverTraversalSystem implements ISystem {
-  readonly phase = SystemPhase.Kinematics;
-  private minX = -12.0;
-  private maxX = 12.0;
+readonly phase = SystemPhase.Kinematics;
+private minX = -13.0;
+private maxX = 13.0;
 
-  constructor(
-    private refs: EntityRefs,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private traversal: ComponentStore<WeaverTraversalComponent>,
-    private transforms: ComponentStore<TransformComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private aiStore: ComponentStore<WeaverAIComponent>,
-    private healths: ComponentStore<HealthComponent>
-  ) {}
+constructor(
+private refs: EntityRefs,
+private velocities: ComponentStore<KinematicVelocityComponent>,
+private traversal: ComponentStore<WeaverTraversalComponent>,
+private transforms: ComponentStore<TransformComponent>,
+private targets: ComponentStore<KinematicTargetComponent>,
+private aiStore: ComponentStore<WeaverAIComponent>,
+private healths: ComponentStore<HealthComponent>
+) {}
 
-  public update(dt: number): void {
-    const vel = this.velocities.get(this.refs.weaver);
-    const trav = this.traversal.get(this.refs.weaver);
-    const trans = this.transforms.get(this.refs.weaver);
-    const target = this.targets.get(this.refs.weaver);
-    const ai = this.aiStore.get(this.refs.weaver);
-    const health = this.healths.get(this.refs.weaver);
-    
-    if (!vel || !trav || !trans || !target) return;
+public update(dt: number): void {
+const vel = this.velocities.get(this.refs.weaver);
+const trav = this.traversal.get(this.refs.weaver);
+const trans = this.transforms.get(this.refs.weaver);
+const target = this.targets.get(this.refs.weaver);
+const ai = this.aiStore.get(this.refs.weaver);
+const health = this.healths.get(this.refs.weaver);
 
-    const isSweeping = !ai || ai.state === "SWEEPING";
+if (!vel || !trav || !trans || !target) return;
 
-    if (isSweeping) {
-      let nextX = trans.x + vel.x * dt;
-      
-      const isBerserk = health ? (health.current < health.max * 0.5) : false;
-      const sweepSpeed = isBerserk ? 9.0 : 4.5;
+const isSweeping = !ai || ai.state === "SWEEPING";
+if (isSweeping) {
+let nextX = trans.x + vel.x * dt;
+const isBerserk = health ? (health.current < health.max * 0.5) : false;
+const sweepSpeed = isBerserk ? 9.0 : 4.5;
+if (nextX >= this.maxX) {
+nextX = this.maxX;
+vel.x = -sweepSpeed;
+} else if (nextX <= this.minX) {
+nextX = this.minX;
+vel.x = sweepSpeed;
+}
+target.x = nextX;
+target.y = 28.0;
+target.active = true;
+trav.velX = vel.x;
+trav.velY = 0;
+} else {
+target.x = trans.x + vel.x * dt;
+target.y = trans.y + vel.y * dt;
+target.active = true;
+trav.velX = vel.x;
+trav.velY = vel.y;
+}
 
-      if (nextX >= this.maxX) {
-        nextX = this.maxX;
-        vel.x = -sweepSpeed;
-      } else if (nextX <= this.minX) {
-        nextX = this.minX;
-        vel.x = sweepSpeed;
-      }
+const wallLimit = 13.8;
+if (target.x > wallLimit) {
+target.x = wallLimit;
+if (vel.x > 0) vel.x = 0;
+} else if (target.x < -wallLimit) {
+target.x = -wallLimit;
+if (vel.x < 0) vel.x = 0;
+}
 
-      target.x = nextX;
-      target.y = 27.2;
-      target.active = true;
-
-      trav.velX = vel.x;
-      trav.velY = 0;
-    } else {
-      target.x = trans.x + vel.x * dt;
-      target.y = trans.y + vel.y * dt;
-      target.active = true;
-
-      trav.velX = vel.x;
-      trav.velY = vel.y;
-    }
-
-    const wallLimit = 14.0;
-    if (target.x > wallLimit) {
-      target.x = wallLimit;
-      if (vel.x > 0) vel.x = 0;
-    } else if (target.x < -wallLimit) {
-      target.x = -wallLimit;
-      if (vel.x < 0) vel.x = 0;
-    }
-
-    const ceilingLimit = 27.5;
-    const floorLimit = 1.0;
-    if (target.y > ceilingLimit) {
-      target.y = ceilingLimit;
-      if (vel.y > 0) vel.y = 0;
-      trav.isGrounded = false;
-      trav.isWallClinging = false;
-    } else if (target.y < floorLimit) {
-      target.y = floorLimit;
-      if (vel.y < 0) vel.y = 0;
-      trav.isGrounded = true;
-      trav.isWallClinging = false;
-    } else {
-      trav.isGrounded = false;
-      const wallThreshold = 13.8;
-      if (Math.abs(target.x) >= wallThreshold) {
-        trav.isWallClinging = true;
-        trav.wallNormalX = target.x > 0 ? -1 : 1;
-      } else {
-        trav.isWallClinging = false;
-        trav.wallNormalX = 0;
-      }
-    }
-  }
+const ceilingLimit = 32.0;
+const floorLimit = -8.0;
+if (target.y > ceilingLimit) {
+target.y = ceilingLimit;
+if (vel.y > 0) vel.y = 0;
+trav.isGrounded = false;
+trav.isWallClinging = false;
+} else if (target.y < floorLimit) {
+target.y = floorLimit;
+if (vel.y < 0) vel.y = 0;
+trav.isGrounded = true;
+trav.isWallClinging = false;
+} else {
+trav.isGrounded = false;
+const wallThreshold = 13.6;
+if (Math.abs(target.x) >= wallThreshold) {
+trav.isWallClinging = true;
+trav.wallNormalX = target.x > 0 ? -1 : 1;
+} else {
+trav.isWallClinging = false;
+trav.wallNormalX = 0;
+}
+}
+}
 }
 
 
@@ -3704,21 +3669,16 @@ export class WeaverTraversalSystem implements ISystem {
 ● ./src/index.css
 ────────────────────────────────────────────────────
 :root {
-  --void-bg: #07080b;
-  --surface-bg: #0c0e12;
-  --surface-elevated: #141820;
-  --surface-highlight: #1d222d;
-  --signal-green: #22c55e;
-  --signal-green-glow: rgba(34, 197, 94, 0.45);
-  --signal-red: #ef4444;
-  --signal-red-glow: rgba(239, 68, 68, 0.45);
-  --signal-yellow: #eab308;
-  --signal-yellow-glow: rgba(234, 179, 8, 0.45);
-
-  --shadow-light: -4px -4px 12px rgba(255, 255, 255, 0.03);
-  --shadow-dark: 6px 6px 18px rgba(0, 0, 0, 0.75);
-  --shadow-inset-light: inset -2px -2px 6px rgba(255, 255, 255, 0.01);
-  --shadow-inset-dark: inset 3px 3px 10px rgba(0, 0, 0, 0.9);
+  --bg-void: rgb(5, 5, 6);
+  --bg-surface: rgb(14, 14, 17);
+  --bg-elevated: rgb(22, 22, 26);
+  --border-subtle: rgb(39, 39, 42);
+  --border-strong: rgb(63, 63, 70);
+  --text-main: rgb(244, 244, 245);
+  --text-muted: rgb(161, 161, 170);
+  --accent-tension: rgb(245, 158, 11);
+  --accent-danger: rgb(239, 68, 68);
+  --accent-success: rgb(16, 185, 129);
 }
 
 html, body, #root {
@@ -3726,93 +3686,138 @@ html, body, #root {
   padding: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #030305;
+  background-color: var(--bg-void);
   overflow: hidden;
   font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  color: var(--text-main);
 }
 
-.neo-elevated {
-  background: var(--surface-elevated);
-  box-shadow: var(--shadow-light), var(--shadow-dark);
-  border: 1px solid rgba(255, 255, 255, 0.02);
-}
-
-.neo-pressed {
-  background: var(--surface-bg);
-  box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark);
-  border: 1px solid rgba(0, 0, 0, 0.3);
-}
-
-.neo-btn {
-  background: var(--surface-elevated);
-  box-shadow: var(--shadow-light), var(--shadow-dark);
-  border: 1px solid rgba(255, 255, 255, 0.02);
-  color: #a0aec0;
-  padding: 12px 24px;
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.1s cubic-bezier(0.25, 0.8, 0.25, 1);
-  outline: none;
+.hud-root {
+  position: absolute;
+  inset: 16px;
   display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+}
+
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.hud-bottom {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  -webkit-tap-highlight-color: transparent;
 }
 
-.neo-btn:hover {
-  background: var(--surface-highlight);
-  color: #ffffff;
+.hud-panel {
+  background: rgba(14, 14, 17, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
 }
 
-.neo-btn:active {
-  transform: scale(0.97);
-  background: var(--surface-bg);
+.hud-right {
+  align-items: flex-end;
 }
 
-.neo-btn-focused {
-  background: var(--surface-bg);
-  box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark);
-  color: var(--signal-green);
-  border-color: rgba(34, 197, 94, 0.25);
-  text-shadow: 0 0 8px var(--signal-green-glow);
+.hud-center {
+  min-width: 260px;
 }
 
-.led-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 4px;
-  background-color: #141722;
+.hud-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.hud-label-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+}
+
+.hud-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.hud-subtext {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.hud-hp-row {
+  display: flex;
+  gap: 6px;
+}
+
+.hp-block {
+  width: 16px;
+  height: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
   transition: all 0.2s ease;
-  border: 1px solid rgba(0, 0, 0, 0.4);
 }
 
-.led-green {
-  background-color: var(--signal-green);
-  box-shadow: 0 0 8px var(--signal-green), 0 0 16px var(--signal-green-glow);
+.hp-active {
+  background: var(--accent-success);
+  border-color: var(--accent-success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
 }
 
-.led-red {
-  background-color: var(--signal-red);
-  box-shadow: 0 0 8px var(--signal-red), 0 0 16px var(--signal-red-glow);
+.hud-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-void);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
 }
 
-.led-yellow {
-  background-color: var(--signal-yellow);
-  box-shadow: 0 0 8px var(--signal-yellow), 0 0 16px var(--signal-yellow-glow);
+.hud-bar-fill {
+  height: 100%;
+  background: var(--accent-danger);
+  transition: width 0.15s ease, background-color 0.15s ease;
 }
 
-.gameover-overlay {
+.hud-state-text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+.hud-hint {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  text-align: center;
+  font-weight: 700;
+}
+
+.overlay-root {
   position: absolute;
   inset: 0;
-  background: rgba(4, 5, 8, 0.94);
+  background: rgba(5, 5, 6, 0.92);
   backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
@@ -3821,39 +3826,69 @@ html, body, #root {
   z-index: 99;
   padding: 24px;
   box-sizing: border-box;
-  opacity: 1;
 }
 
-.gameover-box {
+.overlay-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  border-radius: 20px;
-  background: rgba(12, 14, 18, 0.95);
-  max-width: 440px;
+  padding: 48px 32px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  max-width: 400px;
   width: 85%;
   box-sizing: border-box;
   text-align: center;
 }
 
-.cursor-arrow {
-  color: var(--signal-green);
-  font-weight: bold;
-  display: inline-block;
-  animation: arrow-blink 0.4s infinite alternate;
+.overlay-title {
+  font-size: 28px;
+  margin: 0;
+  letter-spacing: 0.2em;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
-@keyframes arrow-blink {
-  0% {
-    opacity: 0.3;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
+.overlay-divider {
+  height: 2px;
+  width: 48px;
+  background: var(--border-strong);
+  margin: 24px 0;
+}
+
+.overlay-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 32px 0;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.overlay-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-main);
+  padding: 14px 32px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  pointer-events: auto;
+  font-family: inherit;
+}
+
+.overlay-btn:hover {
+  background: var(--text-main);
+  color: var(--bg-void);
+  border-color: var(--text-main);
+}
+
+.overlay-btn:active {
+  transform: scale(0.98);
 }
 
 
@@ -3878,106 +3913,81 @@ createRoot(document.getElementById('root')!).render(
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import {
-    SilkComponent,
-    KinematicTargetComponent,
-    HealthComponent,
-    TraversalStateComponent
-} from "../../core/ecs/Components";
+import { SilkComponent, KinematicTargetComponent, HealthComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class EnvironmentCollisionSystem implements ISystem {
-    readonly phase = SystemPhase.Collision;
+readonly phase = SystemPhase.Collision;
+private readonly FLOOR_Y            = -8.0;
+private readonly CEILING_Y          = 32.0;
+private readonly PLAYER_HALF_HEIGHT = 0.9;
+private readonly SNAP_THRESHOLD     = 0.90;
+private readonly SNAP_BREAK_TIME    = 2.6;
+private readonly SNAP_DECAY_RATE    = 2.5;
+private strainAccum = 0.0;
 
-    private readonly FLOOR_Y            = 1.0;
-    private readonly CEILING_Y          = 27.4;
-    private readonly PLAYER_HALF_HEIGHT = 0.9;
+constructor(
+private refs: EntityRefs,
+private silks: ComponentStore<SilkComponent>,
+private targets: ComponentStore<KinematicTargetComponent>,
+private healths: ComponentStore<HealthComponent>,
+private traversal: ComponentStore<TraversalStateComponent>,
+private broker: EventBroker
+) {}
 
-    private readonly SNAP_THRESHOLD     = 0.90;
-    private readonly SNAP_BREAK_TIME    = 2.6;   
-    private readonly SNAP_DECAY_RATE    = 2.5;   
+public update(dt: number): void {
+const silk = this.silks.get(this.refs.player);
+const target  = this.targets.get(this.refs.player);
+const health  = this.healths.get(this.refs.player);
+const trav    = this.traversal.get(this.refs.player);
+if (!silk || !target || !health || !trav) return;
+this.clampToArenaBounds(target, silk);
+this.updateStrainMeter(dt, silk, health, trav);
+}
 
-    private strainAccum = 0.0;
+private clampToArenaBounds(target: KinematicTargetComponent, silk: SilkComponent): void {
+const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
+const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
+if (target.y < minY) {
+target.y = minY;
+silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
+} else if (target.y > maxY) {
+target.y = maxY;
+silk.dynamicVelY = Math.min(0, silk.dynamicVelY);
+}
+}
 
-    constructor(
-        private refs: EntityRefs,
-        private silks: ComponentStore<SilkComponent>,
-        private targets: ComponentStore<KinematicTargetComponent>,
-        private healths: ComponentStore<HealthComponent>,
-        private traversal: ComponentStore<TraversalStateComponent>,
-        private broker: EventBroker
-    ) {}
+private updateStrainMeter(dt: number, silk: SilkComponent, health: HealthComponent, trav: TraversalStateComponent): void {
+const overloaded = silk.tension >= this.SNAP_THRESHOLD && trav.state === "WALL_SLIDING";
+if (overloaded) {
+this.strainAccum += dt;
+const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
+if (Math.random() < strainRatio * 0.25) {
+this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+amplitude: 0.1 + strainRatio * 0.25,
+duration: 0.08
+});
+}
+if (this.strainAccum >= this.SNAP_BREAK_TIME) {
+this.snapSilk(silk, health);
+}
+} else {
+this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
+}
+}
 
-    public update(dt: number): void {
-        const silk = this.silks.get(this.refs.player);
-        const target  = this.targets.get(this.refs.player);
-        const health  = this.healths.get(this.refs.player);
-        const trav    = this.traversal.get(this.refs.player);
-
-        if (!silk || !target || !health || !trav) return;
-
-        this.clampToArenaBounds(target, silk);
-        this.updateStrainMeter(dt, silk, health, trav);
-    }
-
-    private clampToArenaBounds(
-        target: KinematicTargetComponent,
-        silk: SilkComponent
-    ): void {
-        const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
-        const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
-
-        if (target.y < minY) {
-            target.y = minY;
-            silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
-        } else if (target.y > maxY) {
-            target.y = maxY;
-            silk.dynamicVelY = Math.min(0, silk.dynamicVelY);
-        }
-    }
-
-    private updateStrainMeter(
-        dt: number,
-        silk: SilkComponent,
-        health: HealthComponent,
-        trav: TraversalStateComponent
-    ): void {
-        const overloaded = silk.tension >= this.SNAP_THRESHOLD
-            && trav.state === "WALL_SLIDING";
-
-        if (overloaded) {
-            this.strainAccum += dt;
-
-            const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
-            if (Math.random() < strainRatio * 0.25) {
-                this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                    amplitude: 0.1 + strainRatio * 0.25,
-                    duration: 0.08
-                });
-            }
-
-            if (this.strainAccum >= this.SNAP_BREAK_TIME) {
-                this.snapSilk(silk, health);
-            }
-        } else {
-            this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
-        }
-    }
-
-    private snapSilk(silk: SilkComponent, health: HealthComponent): void {
-        silk.isAttached = false;
-        silk.tension    = 0.0;
-        this.strainAccum  = 0.0;
-        health.current    = 0;
-
-        this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "SILK_SNAP" });
-        this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
-        this.broker.publish(GameEvent.PLAYER_DIED,           undefined);
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
-    }
-
+private snapSilk(silk: SilkComponent, health: HealthComponent): void {
+silk.isAttached = false;
+silk.tension    = 0.0;
+this.strainAccum  = 0.0;
+health.current    = 0;
+this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "SILK_SNAP" });
+this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
+this.broker.publish(GameEvent.PLAYER_DIED,           undefined);
+this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
+}
 }
 
 
@@ -4279,117 +4289,106 @@ import * as BABYLON from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
 
 export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
-  readonly phase = SystemPhase.PhysicsStep;
-  readonly initPhase = InitPhase.Bootstrap;
-  
-  private havokPlugin: BABYLON.HavokPlugin | null = null;
+readonly phase = SystemPhase.PhysicsStep;
+readonly initPhase = InitPhase.Bootstrap;
+private havokPlugin: BABYLON.HavokPlugin | null = null;
 
-  constructor(
-    private broker: EventBroker,
-    private commands: CommandBus,
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private silks: ComponentStore<SilkComponent>,
-    private visualRegistry: IVisualRegistry
-  ) {}
+constructor(
+private broker: EventBroker,
+private commands: CommandBus,
+private refs: EntityRefs,
+private transforms: ComponentStore<TransformComponent>,
+private velocities: ComponentStore<KinematicVelocityComponent>,
+private targets: ComponentStore<KinematicTargetComponent>,
+private silks: ComponentStore<SilkComponent>,
+private visualRegistry: IVisualRegistry
+) {}
 
-  public async init(): Promise<void> {
-    this.registerCommands();
-    const scene = this.visualRegistry.getScene();
-    
-    if (scene) {
-      try {
-        const havokInstance = await HavokPhysics({
-            locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
-        });
-        
-        this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
-        scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
-        console.log("[HavokPhysicsSystem] Havok initialized successfully from CDN.");
+public async init(): Promise<void> {
+this.registerCommands();
+const scene = this.visualRegistry.getScene();
+if (scene) {
+try {
+const havokInstance = await HavokPhysics({
+locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+});
+this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
+scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
+console.log("[HavokPhysicsSystem] Havok initialized successfully from CDN.");
 
-        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: 34, height: 1.0, depth: 6 }, scene);
-        physFloor.position.set(0, 0.5, 0); 
-        physFloor.isVisible = false;
-        new BABYLON.PhysicsAggregate(physFloor, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8, restitution: 0.2 }, scene);
+const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: 34, height: 1.0, depth: 6 }, scene);
+physFloor.position.set(0, -8.5, 0);
+physFloor.isVisible = false;
+new BABYLON.PhysicsAggregate(physFloor, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8, restitution: 0.2 }, scene);
 
-        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: 1.0, height: 40, depth: 6 }, scene);
-        physLeft.position.set(-15.5, 14, 0);
-        physLeft.isVisible = false;
-        new BABYLON.PhysicsAggregate(physLeft, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
+const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: 1.0, height: 140, depth: 6 }, scene);
+physLeft.position.set(-15.5, 14, 0);
+physLeft.isVisible = false;
+new BABYLON.PhysicsAggregate(physLeft, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
 
-        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: 1.0, height: 40, depth: 6 }, scene);
-        physRight.position.set(15.5, 14, 0);
-        physRight.isVisible = false;
-        new BABYLON.PhysicsAggregate(physRight, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
+const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: 1.0, height: 140, depth: 6 }, scene);
+physRight.position.set(15.5, 14, 0);
+physRight.isVisible = false;
+new BABYLON.PhysicsAggregate(physRight, BABYLON.PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, scene);
+} catch (err) {
+console.warn("[HavokPhysicsSystem] Failed to load Havok WASM. Standing by with visual physics fallback.", err);
+}
+}
+}
 
-      } catch (err) {
-        console.warn("[HavokPhysicsSystem] Failed to load Havok WASM. Standing by with visual physics fallback.", err);
-      }
-    }
-  }
+private registerCommands(): void {
+this.commands.register<SetKinematicVelocityCommand>("SET_KINEMATIC_VELOCITY", (cmd) => {
+const vel = this.velocities.get(cmd.entityId);
+if (vel) { vel.x = cmd.x; vel.y = cmd.y; vel.z = cmd.z; }
+});
+this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
+if (cmd.entityId === this.refs.player) {
+const silk = this.silks.get(this.refs.player);
+if (silk) { silk.dynamicVelX += cmd.x; silk.dynamicVelY += cmd.y; }
+}
+});
+this.commands.register<SetSilkMaxLengthCommand>("SET_SILK_MAX_LENGTH", (cmd) => {
+const silk = this.silks.get(this.refs.player);
+if (silk) silk.maxLength = cmd.length;
+});
+this.commands.register<SetSilkAttachedCommand>("SET_SILK_ATTACHED", (cmd) => {
+const silk = this.silks.get(this.refs.player);
+if (silk) silk.isAttached = cmd.attached;
+});
+}
 
-  private registerCommands(): void {
-    this.commands.register<SetKinematicVelocityCommand>("SET_KINEMATIC_VELOCITY", (cmd) => {
-      const vel = this.velocities.get(cmd.entityId);
-      if (vel) { vel.x = cmd.x; vel.y = cmd.y; vel.z = cmd.z; }
-    });
+public update(): void {
+this.commands.flush();
+for (const [, curr] of this.transforms.entries()) {
+curr.prevX = curr.x; curr.prevY = curr.y; curr.prevZ = curr.z;
+curr.prevQx = curr.qx; curr.prevQy = curr.qy; curr.prevQz = curr.qz; curr.prevQw = curr.qw;
+}
+const pTarget = this.targets.get(this.refs.player);
+const pTrans = this.transforms.get(this.refs.player);
+if (pTrans && pTarget && pTarget.active) {
+pTrans.x = pTarget.x; pTrans.y = pTarget.y; pTrans.z = pTarget.z;
+}
+const wTarget = this.targets.get(this.refs.weaver);
+const wTrans = this.transforms.get(this.refs.weaver);
+if (wTrans && wTarget && wTarget.active) {
+wTrans.x = wTarget.x; wTrans.y = wTarget.y; wTrans.z = wTarget.z;
+}
+const silk = this.silks.get(this.refs.player);
+if (silk) {
+this.broker.publish(GameEvent.SILK_TENSION_CHANGE, { tension: silk.tension });
+this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, { length: silk.currentLength, maxLength: silk.maxLength });
+}
+}
 
-    this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
-      if (cmd.entityId === this.refs.player) {
-        const silk = this.silks.get(this.refs.player);
-        if (silk) { silk.dynamicVelX += cmd.x; silk.dynamicVelY += cmd.y; }
-      }
-    });
+public getTransform(id: EntityId): PhysicsTransform | null {
+const t = this.transforms.get(id);
+return t ? { x: t.x, y: t.y, z: t.z, qx: t.qx, qy: t.qy, qz: t.qz, qw: t.qw } : null;
+}
 
-    this.commands.register<SetSilkMaxLengthCommand>("SET_SILK_MAX_LENGTH", (cmd) => {
-      const silk = this.silks.get(this.refs.player);
-      if (silk) silk.maxLength = cmd.length;
-    });
-
-    this.commands.register<SetSilkAttachedCommand>("SET_SILK_ATTACHED", (cmd) => {
-      const silk = this.silks.get(this.refs.player);
-      if (silk) silk.isAttached = cmd.attached;
-    });
-  }
-
-  public update(): void {
-    this.commands.flush();
-
-    for (const [, curr] of this.transforms.entries()) {
-      curr.prevX = curr.x; curr.prevY = curr.y; curr.prevZ = curr.z;
-      curr.prevQx = curr.qx; curr.prevQy = curr.qy; curr.prevQz = curr.qz; curr.prevQw = curr.qw;
-    }
-
-    const pTarget = this.targets.get(this.refs.player);
-    const pTrans = this.transforms.get(this.refs.player);
-    if (pTrans && pTarget && pTarget.active) { 
-        pTrans.x = pTarget.x; pTrans.y = pTarget.y; pTrans.z = pTarget.z; 
-    }
-
-    const wTarget = this.targets.get(this.refs.weaver);
-    const wTrans = this.transforms.get(this.refs.weaver);
-    if (wTrans && wTarget && wTarget.active) { 
-        wTrans.x = wTarget.x; wTrans.y = wTarget.y; wTrans.z = wTarget.z; 
-    }
-
-    const silk = this.silks.get(this.refs.player);
-    if (silk) {
-      this.broker.publish(GameEvent.SILK_TENSION_CHANGE, { tension: silk.tension });
-      this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, { length: silk.currentLength, maxLength: silk.maxLength });
-    }
-  }
-
-  public getTransform(id: EntityId): PhysicsTransform | null {
-    const t = this.transforms.get(id);
-    return t ? { x: t.x, y: t.y, z: t.z, qx: t.qx, qy: t.qy, qz: t.qz, qw: t.qw } : null;
-  }
-
-  public getPreviousTransform(id: EntityId): PhysicsTransform | null {
-    const t = this.transforms.get(id);
-    return t ? { x: t.prevX, y: t.prevY, z: t.prevZ, qx: t.prevQx, qy: t.prevQy, qz: t.prevQz, qw: t.prevQw } : null;
-  }
+public getPreviousTransform(id: EntityId): PhysicsTransform | null {
+const t = this.transforms.get(id);
+return t ? { x: t.prevX, y: t.prevY, z: t.prevZ, qx: t.prevQx, qy: t.prevQy, qz: t.prevQz, qw: t.prevQw } : null;
+}
 }
 
 
@@ -4405,148 +4404,140 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
-    readonly phase = SystemPhase.RenderSync;
+readonly phase = SystemPhase.RenderSync;
+private scratchPrevQuat = new BABYLON.Quaternion();
+private scratchCurrQuat = new BABYLON.Quaternion();
+private scrollOffset    = 0.0;
+private scrollSpeed     = 5.0;
+private currentEmissiveR = 0.05;
+private currentEmissiveG = 0.15;
+private currentEmissiveB = 0.05;
 
-    private scratchPrevQuat = new BABYLON.Quaternion();
-    private scratchCurrQuat = new BABYLON.Quaternion();
-    private scrollOffset    = 0.0;
-    private scrollSpeed     = 5.0;
+constructor(
+private refs: EntityRefs,
+private transforms: ComponentStore<TransformComponent>,
+private silks: ComponentStore<SilkComponent>,
+private traversal: ComponentStore<TraversalStateComponent>,
+private visualRegistry: IVisualRegistry,
+private weaverAIs: ComponentStore<WeaverAIComponent>,
+private healthStore: ComponentStore<HealthComponent>
+) {}
 
-    private currentEmissiveR = 0.05;
-    private currentEmissiveG = 0.15;
-    private currentEmissiveB = 0.05;
+public render(alpha: number): void {
+this.scrollTicks();
+this.syncTransforms(alpha);
+}
 
-    constructor(
-        private refs: EntityRefs,
-        private transforms: ComponentStore<TransformComponent>,
-        private silks: ComponentStore<SilkComponent>,
-        private traversal: ComponentStore<TraversalStateComponent>,
-        private visualRegistry: IVisualRegistry,
-        private weaverAIs: ComponentStore<WeaverAIComponent>,
-        private healthStore: ComponentStore<HealthComponent>
-    ) {}
+private scrollTicks(): void {
+const scene = this.visualRegistry.getScene();
+if (!scene) return;
 
-    public render(alpha: number): void {
-        this.scrollTicks();
-        this.syncTransforms(alpha);
-    }
+const wAI = this.weaverAIs.get(this.refs.weaver);
+const wHealth = this.healthStore.get(this.refs.weaver);
 
-    private scrollTicks(): void {
-        const scene = this.visualRegistry.getScene();
-        if (!scene) return;
+let targetScrollSpeed = 5.0;
+if (wHealth && wHealth.current <= 0) {
+targetScrollSpeed = 0.0;
+} else if (wAI) {
+if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
+targetScrollSpeed = 0.0;
+} else if (wHealth && wHealth.current < wHealth.max * 0.5) {
+targetScrollSpeed = 9.0;
+}
+}
 
-        const wAI = this.weaverAIs.get(this.refs.weaver);
-        const wHealth = this.healthStore.get(this.refs.weaver);
+this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.1);
+const totalRange  = 140.0;
+this.scrollOffset += this.scrollSpeed * (1 / 60);
+if (this.scrollOffset > totalRange) {
+this.scrollOffset -= totalRange;
+}
 
-        let targetScrollSpeed = 5.0;
-        if (wHealth && wHealth.current <= 0) {
-            targetScrollSpeed = 0.0;
-        } else if (wAI) {
-            if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
-                targetScrollSpeed = 0.0;
-            } else if (wHealth && wHealth.current < wHealth.max * 0.5) {
-                targetScrollSpeed = 9.0;
-            }
-        }
+const ticks = scene.meshes.filter(m => m.metadata?.type === "scrolling_tick");
+for (const tick of ticks) {
+let y = tick.metadata.initialY - this.scrollOffset;
+while (y < -56.0) y += totalRange;
+tick.position.y = y;
+}
+}
 
-        this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.1);
+private syncTransforms(alpha: number): void {
+const silk = this.silks.get(this.refs.player);
+const trav   = this.traversal.get(this.refs.player);
+const wAI    = this.weaverAIs.get(this.refs.weaver);
 
-        const totalRange  = 36.0;
-        this.scrollOffset += this.scrollSpeed * (1 / 60);
-        if (this.scrollOffset > totalRange) {
-            this.scrollOffset -= totalRange;
-        }
+for (const [id, curr] of this.transforms.entries()) {
+const node = this.visualRegistry.getTransformNode(id);
+if (!node) continue;
 
-        const ticks = scene.meshes.filter(m => m.metadata?.type === "scrolling_tick");
-        for (const tick of ticks) {
-            let y = tick.metadata.initialY - this.scrollOffset;
-            while (y < -2.0) y += totalRange;
-            tick.position.y = y;
-        }
-    }
+node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
+node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
+node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
-    private syncTransforms(alpha: number): void {
-        const silk = this.silks.get(this.refs.player);
-        const trav   = this.traversal.get(this.refs.player);
-        const wAI    = this.weaverAIs.get(this.refs.weaver);
+this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
+this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
 
-        for (const [id, curr] of this.transforms.entries()) {
-            const node = this.visualRegistry.getTransformNode(id);
-            if (!node) continue;
+if (!node.rotationQuaternion) {
+node.rotationQuaternion = new BABYLON.Quaternion();
+}
+BABYLON.Quaternion.SlerpToRef(
+this.scratchPrevQuat,
+this.scratchCurrQuat,
+alpha,
+node.rotationQuaternion
+);
 
-            node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
-            node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
-            node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
+if (id === this.refs.player && silk && trav) {
+const mesh = node as BABYLON.AbstractMesh;
+const mat  = mesh?.material as BABYLON.PBRMaterial | null;
+if (mat) {
+this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
+}
+}
 
-            this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
-            this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
-            if (!node.rotationQuaternion) {
-                node.rotationQuaternion = new BABYLON.Quaternion();
-            }
-            BABYLON.Quaternion.SlerpToRef(
-                this.scratchPrevQuat,
-                this.scratchCurrQuat,
-                alpha,
-                node.rotationQuaternion
-            );
+if (id === this.refs.weaver && wAI) {
+const mesh = node as BABYLON.AbstractMesh;
+const mat  = mesh?.material as BABYLON.PBRMaterial | null;
+if (mat) {
+const hex = wAI.hue.replace(String.fromCharCode(35), "");
+const r = parseInt(hex.substring(0, 2), 16) / 255;
+const g = parseInt(hex.substring(2, 4), 16) / 255;
+const b = parseInt(hex.substring(4, 6), 16) / 255;
+const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
+const emissiveScale = 0.4;
+mat.emissiveColor.set(r * emissiveScale + pulse, g * emissiveScale, b * emissiveScale);
+}
+}
+}
+}
 
-            if (id === this.refs.player && silk && trav) {
-                const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
-                if (mat) {
-                    this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
-                }
-            }
+private updatePlayerEmissive(mat: BABYLON.PBRMaterial, tension: number, state: string, _alpha: number): void {
+void _alpha;
+let targetR: number;
+let targetG: number;
+let targetB: number;
 
-            if (id === this.refs.weaver && wAI) {
-                const mesh = node as BABYLON.AbstractMesh;
-                const mat  = mesh?.material as BABYLON.PBRMaterial | null;
-                if (mat) {
-                    const hex = wAI.hue.replace("#", "");
-                    const r = parseInt(hex.substring(0, 2), 16) / 255;
-                    const g = parseInt(hex.substring(2, 4), 16) / 255;
-                    const b = parseInt(hex.substring(4, 6), 16) / 255;
-                    
-                    const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
-                    mat.emissiveColor.set(r + pulse, g, b);
-                }
-            }
-        }
-    }
+if (state === "WALL_SLIDING") {
+targetR = 0.1 + tension * 0.9;
+targetG = 0.1 + (1.0 - tension) * 0.1;
+targetB = 0.1 * (1.0 - tension);
+} else if (state === "LAUNCHING") {
+targetR = 0.9;
+targetG = 0.9;
+targetB = 0.9;
+} else {
+targetR = 0.05;
+targetG = 0.05;
+targetB = 0.05;
+}
 
-    private updatePlayerEmissive(
-        mat: BABYLON.PBRMaterial,
-        tension: number,
-        state: string,
-        _alpha: number
-    ): void {
-        void _alpha;
-
-        let targetR: number;
-        let targetG: number;
-        let targetB: number;
-
-        if (state === "WALL_SLIDING") {
-            targetR = 0.05 + tension * 0.95;
-            targetG = 0.15 + (1.0 - tension) * 0.40;
-            targetB = 0.05 * (1.0 - tension);
-        } else if (state === "LAUNCHING") {
-            targetR = 0.9;
-            targetG = 0.9;
-            targetB = 0.9;
-        } else {
-            targetR = 0.05;
-            targetG = 0.12;
-            targetB = 0.05;
-        }
-
-        const lerpRate = 0.18;
-        this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
-        this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
-        this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
-
-        mat.emissiveColor.set(this.currentEmissiveR, this.currentEmissiveG, this.currentEmissiveB);
-    }
+const lerpRate = 0.18;
+this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
+this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
+this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
+const emissiveScale = 0.2;
+mat.emissiveColor.set(this.currentEmissiveR * emissiveScale, this.currentEmissiveG * emissiveScale, this.currentEmissiveB * emissiveScale);
+}
 }
 
 
@@ -4561,208 +4552,201 @@ import { GameEvent } from "../../core/events/GameEvents";
 type HintLevel = "none" | "charging" | "ready" | "maxout";
 
 export class DomHudSystem implements ISystem {
-    readonly phase = SystemPhase.RenderSync;
+readonly phase = SystemPhase.RenderSync;
+private unsubscribes: (() => void)[] = [];
+private tensionBar     : HTMLElement | null = null;
+private tensionText    : HTMLElement | null = null;
+private playerHpText   : HTMLElement | null = null;
+private weaverHpBar    : HTMLElement | null = null;
+private weaverHpValue  : HTMLElement | null = null;
+private weaverStateText: HTMLElement | null = null;
+private traversalHint  : HTMLElement | null = null;
+private overlay        : HTMLElement | null = null;
+private overlayTitle   : HTMLElement | null = null;
+private overlaySubtitle: HTMLElement | null = null;
+private lastHintLevel : HintLevel = "none";
+private currentState  : string = "AIRBORNE";
 
-    private unsubscribes: (() => void)[] = [];
+constructor(private broker: EventBroker) {}
 
-    private tensionBar     : HTMLElement | null = null;
-    private tensionText    : HTMLElement | null = null;
-    private playerHpText   : HTMLElement | null = null;
-    private weaverHpBar    : HTMLElement | null = null;
-    private weaverHpValue  : HTMLElement | null = null;
-    private weaverStateText: HTMLElement | null = null;
-    private traversalHint  : HTMLElement | null = null;
-    private overlay        : HTMLElement | null = null;
-    private overlayTitle   : HTMLElement | null = null;
-    private overlaySubtitle: HTMLElement | null = null;
+public init(): void {
+this.cacheDomElements();
+this.registerSubscriptions();
+}
 
-    private lastHintLevel : HintLevel = "none";
-    private currentState  : string = "AIRBORNE";
+private cacheDomElements(): void {
+if (typeof document === "undefined") return;
+this.tensionBar     = document.getElementById("tension-meter-bar");
+this.tensionText    = document.getElementById("tension-meter-text");
+this.playerHpText   = document.getElementById("player-hp-text");
+this.weaverHpBar    = document.getElementById("weaver-hp-bar");
+this.weaverHpValue  = document.getElementById("weaver-hp-value");
+this.weaverStateText = document.getElementById("weaver-state-text");
+this.traversalHint  = document.getElementById("traversal-hint");
+this.overlay        = document.getElementById("game-state-overlay");
+this.overlayTitle   = document.getElementById("game-state-title");
+this.overlaySubtitle = document.getElementById("game-state-subtitle");
+}
 
-    constructor(private broker: EventBroker) {}
+private registerSubscriptions(): void {
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
+this.updateTensionBar(tension);
+this.updateHint(tension);
+})
+);
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
+this.currentState = state;
+if (state !== "WALL_SLIDING") {
+this.setHint("none");
+}
+})
+);
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
+this.updatePlayerHp(hp, maxHp);
+})
+);
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
+this.updateWeaverHp(hp, maxHp);
+})
+);
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
+this.updateWeaverStateLabel(state, hue);
+})
+);
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.GAME_OVER, () => {
+this.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
+})
+);
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.GAME_WIN, () => {
+this.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
+})
+);
+this.unsubscribes.push(
+this.broker.subscribe(GameEvent.GAME_RESET, () => {
+this.hideOverlay();
+this.setHint("none");
+})
+);
+}
 
-    public init(): void {
-        this.cacheDomElements();
-        this.registerSubscriptions();
-    }
+private updateTensionBar(tension: number): void {
+const clamped = Math.max(0, Math.min(1, tension));
+const pct     = (clamped * 100).toFixed(1) + "%";
+if (this.tensionBar) {
+this.tensionBar.style.width = pct;
+if (clamped >= 0.98) {
+this.tensionBar.style.backgroundColor = "rgb(239, 68, 68)";
+} else if (clamped >= 0.75) {
+this.tensionBar.style.backgroundColor = "rgb(245, 158, 11)";
+} else {
+this.tensionBar.style.backgroundColor = "rgb(16, 185, 129)";
+}
+}
+if (this.tensionText) {
+this.tensionText.textContent = (clamped * 100).toFixed(0) + "%";
+this.tensionText.style.color = clamped >= 0.9 ? "rgb(245, 158, 11)" : "rgb(244, 244, 245)";
+}
+}
 
-    private cacheDomElements(): void {
-        if (typeof document === "undefined") return;
-        this.tensionBar     = document.getElementById("tension-meter-bar");
-        this.tensionText    = document.getElementById("tension-meter-text");
-        this.playerHpText   = document.getElementById("player-hp-text");
-        this.weaverHpBar    = document.getElementById("weaver-hp-bar");
-        this.weaverHpValue  = document.getElementById("weaver-hp-value");
-        this.weaverStateText = document.getElementById("weaver-state-text");
-        this.traversalHint  = document.getElementById("traversal-hint");
-        this.overlay        = document.getElementById("game-state-overlay");
-        this.overlayTitle   = document.getElementById("game-state-title");
-        this.overlaySubtitle = document.getElementById("game-state-subtitle");
-    }
+private updateHint(tension: number): void {
+if (this.currentState !== "WALL_SLIDING") return;
+if (tension >= 0.98) {
+this.setHint("maxout");
+} else if (tension >= 0.88) {
+this.setHint("ready");
+} else if (tension > 0.02) {
+this.setHint("charging");
+} else {
+this.setHint("none");
+}
+}
 
-    private registerSubscriptions(): void {
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
-                this.updateTensionBar(tension);
-                this.updateHint(tension);
-            })
-        );
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
-                this.currentState = state;
-                if (state !== "WALL_SLIDING") {
-                    this.setHint("none");
-                }
-            })
-        );
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-                this.updatePlayerHp(hp, maxHp);
-            })
-        );
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-                this.updateWeaverHp(hp, maxHp);
-            })
-        );
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
-                this.updateWeaverStateLabel(state, hue);
-            })
-        );
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.GAME_OVER, () => {
-                this.showOverlay("DEFEATED", "var(--signal-red)", "PRESS KEY [R] TO RECONNECT THE LINE");
-            })
-        );
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.GAME_WIN, () => {
-                this.showOverlay("VICTORY", "var(--signal-green)", "PRESS KEY [R] TO RESTART THE HARNESS");
-            })
-        );
-        this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.GAME_RESET, () => {
-                this.hideOverlay();
-                this.setHint("none");
-            })
-        );
-    }
+private setHint(level: HintLevel): void {
+if (!this.traversalHint || level === this.lastHintLevel) return;
+this.lastHintLevel = level;
+switch (level) {
+case "none":
+this.traversalHint.style.opacity = "0";
+this.traversalHint.textContent   = "";
+break;
+case "charging":
+this.traversalHint.style.opacity = "1";
+this.traversalHint.style.color   = "rgb(161, 161, 170)";
+this.traversalHint.textContent   = "HOLD — CHARGING SILK";
+break;
+case "ready":
+this.traversalHint.style.opacity = "1";
+this.traversalHint.style.color   = "rgb(245, 158, 11)";
+this.traversalHint.textContent   = "RELEASE TO FLING";
+break;
+case "maxout":
+this.traversalHint.style.opacity = "1";
+this.traversalHint.style.color   = "rgb(239, 68, 68)";
+this.traversalHint.textContent   = "MAX TENSION — FLING NOW";
+break;
+}
+}
 
-    private updateTensionBar(tension: number): void {
-        const clamped = Math.max(0, Math.min(1, tension));
-        const pct     = (clamped * 100).toFixed(1) + "%";
+private updatePlayerHp(hp: number, maxHp: number): void {
+if (this.playerHpText) {
+this.playerHpText.textContent = `${hp} / ${maxHp}`;
+}
+for (let i = 0; i < 5; i++) {
+const led = document.getElementById(`player-hp-led-${i}`);
+if (led) {
+if (i < hp) {
+led.className = "hp-block hp-active";
+} else {
+led.className = "hp-block";
+}
+}
+}
+}
 
-        if (this.tensionBar) {
-            this.tensionBar.style.width = pct;
-            if (clamped >= 0.98) {
-                this.tensionBar.style.backgroundColor = "var(--signal-red)";
-            } else if (clamped >= 0.75) {
-                this.tensionBar.style.backgroundColor = "var(--signal-yellow)";
-            } else {
-                this.tensionBar.style.backgroundColor = "var(--signal-green)";
-            }
-        }
-        if (this.tensionText) {
-            this.tensionText.textContent = (clamped * 100).toFixed(0) + "%";
-            this.tensionText.style.color = clamped >= 0.9 ? "var(--signal-yellow)" : "#94a3b8";
-        }
-    }
+private updateWeaverHp(hp: number, maxHp: number): void {
+if (this.weaverHpValue) {
+this.weaverHpValue.textContent = `${hp}/${maxHp}`;
+}
+if (this.weaverHpBar) {
+const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
+this.weaverHpBar.style.width = pct;
+this.weaverHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "rgb(245, 158, 11)" : "rgb(239, 68, 68)";
+}
+}
 
-    private updateHint(tension: number): void {
-        if (this.currentState !== "WALL_SLIDING") return;
+private updateWeaverStateLabel(state: string, hue: string): void {
+if (this.weaverStateText) {
+this.weaverStateText.textContent = state.toUpperCase();
+this.weaverStateText.style.color  = hue;
+}
+}
 
-        if (tension >= 0.98) {
-            this.setHint("maxout");
-        } else if (tension >= 0.88) {
-            this.setHint("ready");
-        } else if (tension > 0.02) {
-            this.setHint("charging");
-        } else {
-            this.setHint("none");
-        }
-    }
+private showOverlay(layoutTheme: string, color: string, subText: string): void {
+if (this.overlay) this.overlay.style.display = "flex";
+if (this.overlayTitle) {
+this.overlayTitle.textContent = layoutTheme;
+this.overlayTitle.style.color = color;
+}
+if (this.overlaySubtitle) {
+this.overlaySubtitle.textContent = subText;
+}
+}
 
-    private setHint(level: HintLevel): void {
-        if (!this.traversalHint || level === this.lastHintLevel) return;
-        this.lastHintLevel = level;
+private hideOverlay(): void {
+if (this.overlay) this.overlay.style.display = "none";
+}
 
-        switch (level) {
-            case "none":
-                this.traversalHint.style.opacity = "0";
-                this.traversalHint.textContent   = "";
-                break;
-            case "charging":
-                this.traversalHint.style.opacity = "1";
-                this.traversalHint.style.color   = "#94a3b8";
-                this.traversalHint.textContent   = "HOLD — CHARGING SILK";
-                break;
-            case "ready":
-                this.traversalHint.style.opacity = "1";
-                this.traversalHint.style.color   = "var(--signal-yellow)";
-                this.traversalHint.textContent   = "RELEASE TO FLING";
-                break;
-            case "maxout":
-                this.traversalHint.style.opacity = "1";
-                this.traversalHint.style.color   = "var(--signal-red)";
-                this.traversalHint.textContent   = "MAX TENSION — FLING NOW";
-                break;
-        }
-    }
-
-    private updatePlayerHp(hp: number, maxHp: number): void {
-        if (this.playerHpText) {
-            this.playerHpText.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
-        }
-        for (let i = 0; i < 5; i++) {
-            const led = document.getElementById(`player-hp-led-${i}`);
-            if (led) {
-                if (i < hp) {
-                    led.className = "led-dot led-green";
-                } else {
-                    led.className = "led-dot";
-                }
-            }
-        }
-    }
-
-    private updateWeaverHp(hp: number, maxHp: number): void {
-        if (this.weaverHpValue) {
-            this.weaverHpValue.textContent = `${hp}/${maxHp}`;
-        }
-        if (this.weaverHpBar) {
-            const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
-            this.weaverHpBar.style.width = pct;
-            this.weaverHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "var(--signal-yellow)" : "var(--signal-red)";
-        }
-    }
-
-    private updateWeaverStateLabel(state: string, hue: string): void {
-        if (this.weaverStateText) {
-            this.weaverStateText.textContent = state.toUpperCase();
-            this.weaverStateText.style.color  = hue;
-        }
-    }
-
-    private showOverlay(layoutTheme: string, color: string, subText: string): void {
-        if (this.overlay) this.overlay.style.display = "flex";
-        if (this.overlayTitle) {
-            this.overlayTitle.textContent = layoutTheme;
-            this.overlayTitle.style.color = color;
-            this.overlayTitle.style.textShadow = `0 0 15px ${color}`;
-        }
-        if (this.overlaySubtitle) {
-            this.overlaySubtitle.textContent = subText;
-        }
-    }
-
-    private hideOverlay(): void {
-        if (this.overlay) this.overlay.style.display = "none";
-    }
-
-    public dispose(): void {
-        this.unsubscribes.forEach(u => u());
-        this.unsubscribes = [];
-    }
+public dispose(): void {
+this.unsubscribes.forEach(u => u());
+this.unsubscribes = [];
+}
 }
 
 
@@ -4774,135 +4758,55 @@ import React from "react";
 export const HudOverlay: React.FC = () => {
   const handleRetryClick = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "R" }));
   };
 
   return (
     <>
-      <div
-        className="hud-overlay-container"
-        style={{
-          position: "absolute",
-          inset: "16px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          pointerEvents: "none",
-          fontFamily: "'Courier New', Courier, monospace",
-          color: "#e2e8f0"
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          
-          <div 
-            className="neo-pressed"
-            style={{
-              display: "flex", flexDirection: "column", gap: "6px",
-              padding: "10px 14px",
-              borderRadius: "10px",
-              minWidth: "175px"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: "bold", letterSpacing: "0.15em", opacity: 0.85 }}>
-              <span>PILOT INTEGRITY</span>
-            </div>
-            
-            <div style={{ display: "flex", gap: "6px", margin: "4px 0" }}>
+      <div className="hud-root">
+        <div className="hud-top">
+          <div className="hud-panel">
+            <div className="hud-label">PILOT INTEGRITY</div>
+            <div className="hud-hp-row">
               {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  id={`player-hp-led-${i}`}
-                  className="led-dot led-green"
-                  style={{ width: "12px", height: "12px" }}
-                />
+                <div key={i} id={`player-hp-led-${i}`} className="hp-block hp-active" />
               ))}
             </div>
-
-            <div style={{ fontSize: "9px", color: "#64748b", letterSpacing: "0.08em" }} id="player-hp-text">
-              INTEGRITY: 5 / 5
-            </div>
+            <div id="player-hp-text" className="hud-subtext">5 / 5</div>
           </div>
 
-          <div 
-            className="neo-pressed"
-            style={{
-              display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
-              padding: "10px 14px",
-              borderRadius: "10px",
-              minWidth: "175px"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "10px", fontWeight: "bold", letterSpacing: "0.15em", opacity: 0.85 }}>
-              <span>WEAVER CORE</span>
-              <span id="weaver-hp-value" style={{ color: "var(--signal-red)" }}>100/100</span>
+          <div className="hud-panel hud-right">
+            <div className="hud-label-row">
+              <span className="hud-label">WEAVER CORE</span>
+              <span id="weaver-hp-value" className="hud-value">100/100</span>
             </div>
-            <div className="neo-pressed" style={{ width: "100%", height: "8px", borderRadius: "4px", padding: "1px", boxSizing: "border-box", overflow: "hidden", background: "#050608" }}>
-              <div id="weaver-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "var(--signal-red)", transition: "width 0.2s ease" }} />
+            <div className="hud-bar-track">
+              <div id="weaver-hp-bar" className="hud-bar-fill" />
             </div>
-            <span id="weaver-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
+            <span id="weaver-state-text" className="hud-state-text" style={{ color: "rgb(239, 68, 68)" }}>SWEEPING</span>
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-
-          <div id="traversal-hint" style={{
-            fontSize: "9px", letterSpacing: "0.12em", color: "#94a3b8",
-            opacity: 0, transition: "opacity 0.2s ease",
-            textAlign: "center"
-          }} />
-
-          <div 
-            className="neo-pressed"
-            style={{
-              display: "flex", flexDirection: "column", gap: "6px",
-              padding: "12px 16px",
-              borderRadius: "10px",
-              minWidth: "240px"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", letterSpacing: "0.15em", fontWeight: "bold" }}>
-              <span style={{ opacity: 0.8 }}>SILK TENSION</span>
-              <span id="tension-meter-text" style={{ color: "#94a3b8" }}>0.0%</span>
+        <div className="hud-bottom">
+          <div id="traversal-hint" className="hud-hint" />
+          <div className="hud-panel hud-center">
+            <div className="hud-label-row">
+              <span className="hud-label">SILK TENSION</span>
+              <span id="tension-meter-text" className="hud-value">0%</span>
             </div>
-            <div className="neo-pressed" style={{ width: "100%", height: "9px", borderRadius: "4px", padding: "1px", boxSizing: "border-box", overflow: "hidden", background: "#050608" }}>
-              <div id="tension-meter-bar" style={{
-                width: "0%", height: "100%",
-                backgroundColor: "var(--signal-green)",
-                transition: "width 0.1s ease, background-color 0.15s ease",
-                borderRadius: "3px"
-              }} />
+            <div className="hud-bar-track">
+              <div id="tension-meter-bar" className="hud-bar-fill" style={{ backgroundColor: "rgb(16, 185, 129)" }} />
             </div>
           </div>
         </div>
       </div>
 
-      <div id="game-state-overlay" className="gameover-overlay" style={{ display: "none" }}>
-        <div className="gameover-box neo-elevated">
-          <h1 id="game-state-title" style={{ fontSize: "32px", margin: 0, letterSpacing: "0.22em", fontWeight: 900, textTransform: "uppercase" }}>
-            SILK SNAPPED
-          </h1>
-          
-          <div style={{ height: "1px", width: "60px", background: "rgba(255,255,255,0.08)", margin: "24px 0" }} />
-
-          <p id="game-state-subtitle" style={{ fontSize: "11px", color: "#718096", margin: "0 0 24px 0", letterSpacing: "0.12em" }}>
-            PRESS KEY [R] TO RECONNECT THE LINE
-          </p>
-
-          <button
-            onClick={handleRetryClick}
-            className="neo-btn neo-btn-focused"
-            style={{ 
-              padding: "14px 28px", 
-              fontSize: "12px", 
-              borderRadius: "8px", 
-              width: "100%", 
-              maxWidth: "200px",
-              pointerEvents: "auto"
-            }}
-          >
-            <span className="cursor-arrow">▶</span>
-            RECONNECT
-            <span className="cursor-arrow">◀</span>
+      <div id="game-state-overlay" className="overlay-root" style={{ display: "none" }}>
+        <div className="overlay-modal">
+          <h1 id="game-state-title" className="overlay-title">VICTORY</h1>
+          <div className="overlay-divider" />
+          <p id="game-state-subtitle" className="overlay-subtitle">The shaft is clear.</p>
+          <button onClick={handleRetryClick} className="overlay-btn">
+            PLAY AGAIN
           </button>
         </div>
       </div>

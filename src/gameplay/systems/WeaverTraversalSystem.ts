@@ -42,7 +42,7 @@ nextX = this.minX;
 vel.x = sweepSpeed;
 }
 target.x = nextX;
-target.y = 28.0;
+target.y = 34.0;
 target.active = true;
 trav.velX = vel.x;
 trav.velY = 0;
@@ -63,7 +63,7 @@ target.x = -wallLimit;
 if (vel.x < 0) vel.x = 0;
 }
 
-const ceilingLimit = 32.0;
+const ceilingLimit = 38.0;
 const floorLimit = -8.0;
 if (target.y > ceilingLimit) {
 target.y = ceilingLimit;

@@ -9,7 +9,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 export class EnvironmentCollisionSystem implements ISystem {
 readonly phase = SystemPhase.Collision;
 private readonly FLOOR_Y            = -8.0;
-private readonly CEILING_Y          = 32.0;
+private readonly CEILING_Y          = 38.0;
 private readonly PLAYER_HALF_HEIGHT = 0.9;
 private readonly SNAP_THRESHOLD     = 0.90;
 private readonly SNAP_BREAK_TIME    = 2.6;

@@ -12,15 +12,19 @@ wallMaterial.roughness = 0.85;
 const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 140, depth: 4 }, this.scene);
 leftWall.position.set(-16, 14, 0);
 leftWall.material = wallMaterial;
+leftWall.receiveShadows = true;
 
 const rightWall = BABYLON.MeshBuilder.CreateBox("rightWall", { width: 2, height: 140, depth: 4 }, this.scene);
 rightWall.position.set(16, 14, 0);
 rightWall.material = wallMaterial;
+rightWall.receiveShadows = true;
 
 const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
-tickMat.albedoColor = new BABYLON.Color3(0.02, 0.02, 0.025);
+tickMat.albedoColor = new BABYLON.Color3(0.05, 0.08, 0.12);
 tickMat.metallic = 0.0;
-tickMat.roughness = 0.95;
+tickMat.roughness = 0.5;
+tickMat.emissiveColor = new BABYLON.Color3(0.15, 0.4, 0.8);
+tickMat.emissiveIntensity = 1.5;
 
 const tickCount = 70;
 for (let i = 0; i < tickCount; i++) {

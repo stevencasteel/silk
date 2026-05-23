@@ -107,7 +107,8 @@ const r = parseInt(hex.substring(0, 2), 16) / 255;
 const g = parseInt(hex.substring(2, 4), 16) / 255;
 const b = parseInt(hex.substring(4, 6), 16) / 255;
 const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
-mat.emissiveColor.set(r + pulse, g, b);
+const emissiveScale = 0.4;
+mat.emissiveColor.set(r * emissiveScale + pulse, g * emissiveScale, b * emissiveScale);
 }
 }
 }
@@ -137,6 +138,7 @@ const lerpRate = 0.18;
 this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
 this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
 this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
-mat.emissiveColor.set(this.currentEmissiveR, this.currentEmissiveG, this.currentEmissiveB);
+const emissiveScale = 0.2;
+mat.emissiveColor.set(this.currentEmissiveR * emissiveScale, this.currentEmissiveG * emissiveScale, this.currentEmissiveB * emissiveScale);
 }
 }

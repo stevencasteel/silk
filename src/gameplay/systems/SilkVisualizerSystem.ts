@@ -42,12 +42,14 @@ export class SilkVisualizerSystem implements ISystem {
 
         this.silkMat = new BABYLON.PBRMaterial("silkMat", scene);
         this.silkMat.metallic = 0.0;
-        this.silkMat.roughness = 0.4;
-        this.silkMat.emissiveIntensity = 3.0;
-        this.silkMat.albedoColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
-        this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-        
-        this.silkMat.disableLighting = false;
+this.silkMat.roughness = 0.6;
+this.silkMat.sheen.isEnabled = true;
+this.silkMat.sheen.intensity = 0.8;
+this.silkMat.sheen.roughness = 0.3;
+this.silkMat.emissiveIntensity = 2.5;
+this.silkMat.albedoColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
+this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+this.silkMat.disableLighting = false;
 
         this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
             path: this.points,

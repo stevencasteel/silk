@@ -79,7 +79,7 @@ pSilk.dynamicVelX = 0;
 pSilk.dynamicVelY = 0;
 pSilk.tension = 0.0;
 pSilk.anchorX = 0;
-pSilk.anchorY = 28.0;
+pSilk.anchorY = 34.0;
 }
 if (pVel) { pVel.x = 0; pVel.y = 0; pVel.z = 0; }
 if (pIframe) pIframe.timeRemaining = 0;
@@ -96,11 +96,11 @@ const wVel = this.velocities.get(this.refs.weaver);
 const wTarget = this.targets.get(this.refs.weaver);
 
 if (wTrans) {
-wTrans.x = 0; wTrans.y = 28.0; wTrans.z = 0;
+wTrans.x = 0; wTrans.y = 34.0; wTrans.z = 0;
 wTrans.prevX = 0; wTrans.prevY = 28.0; wTrans.prevZ = 0;
 }
 if (wTarget) {
-wTarget.x = 0; wTarget.y = 28.0; wTarget.z = 0; wTarget.active = true;
+wTarget.x = 0; wTarget.y = 34.0; wTarget.z = 0; wTarget.active = true;
 }
 if (wHealth) wHealth.current = wHealth.max;
 if (wAI) {

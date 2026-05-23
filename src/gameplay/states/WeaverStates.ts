@@ -177,7 +177,7 @@ public update(ctx: AIContext, dt: number): WeaverStateType | null {
 ctx.ai.timeInState += dt;
 const wTrans = ctx.transforms.get(ctx.weaverId);
 if (wTrans) {
-const targetY = 28.0;
+const targetY = 34.0;
 const dy = targetY - wTrans.y;
 if (Math.abs(dy) < 0.3) {
 return "SWEEPING";

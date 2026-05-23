@@ -12,6 +12,7 @@ private engine: BABYLON.Engine | null = null;
 private scene: BABYLON.Scene | null = null;
 private canvas: HTMLCanvasElement;
 private visualNodes = new Map<EntityId, BABYLON.TransformNode>();
+private shadowGen: BABYLON.ShadowGenerator | null = null;
 
 constructor(canvas: HTMLCanvasElement) {
 this.canvas = canvas;
@@ -36,7 +37,10 @@ dirLight.specular = new BABYLON.Color3(0.9, 0.9, 0.95);
 const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [camera]);
 pipeline.samples = 4;
 pipeline.fxaaEnabled = true;
-pipeline.bloomEnabled = false;
+pipeline.bloomEnabled = true;
+pipeline.bloomThreshold = 0.6;
+pipeline.bloomWeight = 1.2;
+pipeline.bloomKernel = 64;
 pipeline.imageProcessingEnabled = true;
 pipeline.imageProcessing.vignetteEnabled = true;
 pipeline.imageProcessing.vignetteWeight = 2.8;
@@ -44,6 +48,12 @@ pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
 pipeline.imageProcessing.exposure = 0.9;
 pipeline.imageProcessing.contrast = 1.45;
 pipeline.chromaticAberrationEnabled = false;
+
+const shadowGen = new BABYLON.ShadowGenerator(1024, dirLight);
+shadowGen.useBlurExponentialShadowMap = true;
+shadowGen.blurKernel = 16;
+shadowGen.darkness = 0.6;
+this.shadowGen = shadowGen;
 
 const arenaGeo = new ArenaGeometry(this.scene);
 arenaGeo.generateElevatorShaft();
@@ -59,7 +69,13 @@ if (this.scene) this.scene.render();
 
 public getScene(): BABYLON.Scene | null { return this.scene; }
 public getTransformNode(id: EntityId): BABYLON.TransformNode | null { return this.visualNodes.get(id) || null; }
-public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { this.visualNodes.set(id, node); }
+public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void { 
+    this.visualNodes.set(id, node); 
+    if (this.shadowGen && node instanceof BABYLON.AbstractMesh) {
+        this.shadowGen.addShadowCaster(node);
+        node.receiveShadows = true;
+    }
+}
 public unregisterTransformNode(id: EntityId): void {
 const node = this.visualNodes.get(id);
 if (node) { node.dispose(); this.visualNodes.delete(id); }
