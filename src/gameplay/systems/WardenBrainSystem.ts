@@ -43,7 +43,7 @@ export class WardenBrainSystem implements ISystem {
     this.ctx = { 
       wardenId: -1, 
       playerId: -1, 
-      ai: null as any, 
+      ai: { state: "DORMANT", timeInState: 0, targetX: 0, targetY: 0, hue: "#4b5563", hasFakedDeath: false },
       transforms: this.transforms, 
       wardenTraversal: this.wardenTraversal, 
       healths: this.healths,

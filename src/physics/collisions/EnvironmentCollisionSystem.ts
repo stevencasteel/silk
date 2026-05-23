@@ -22,6 +22,7 @@ export class EnvironmentCollisionSystem implements ISystem {
   }
 
   public update(_dt: number): void {
+    void _dt;
     this.resolvePlayerCollisions();
     this.resolveWardenBounds();
   }

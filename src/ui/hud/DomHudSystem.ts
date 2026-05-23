@@ -26,7 +26,9 @@ export class DomHudSystem implements ISystem {
     this.registerSubscribers();
   }
 
-  public update(_dt: number): void {}
+  public update(_dt: number): void {
+    void _dt;
+  }
 
   private cacheDomElements(): void {
     if (typeof document === "undefined") return;

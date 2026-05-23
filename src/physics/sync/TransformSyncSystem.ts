@@ -18,7 +18,9 @@ export class TransformSyncSystem implements ISystem {
         private visualRegistry: IVisualRegistry
     ) {}
 
-    public update(_dt: number): void {}
+    public update(_dt: number): void {
+        void _dt;
+    }
 
     public render(alpha: number): void {
         for (const [id, curr] of this.transforms.entries()) {

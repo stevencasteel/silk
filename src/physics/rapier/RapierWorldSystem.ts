@@ -10,14 +10,15 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntityId } from "../../core/ecs/Entity";
 import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetRopeMaxLengthCommand, SetRopeAttachedCommand } from "../commands/PhysicsCommands";
 import { PLATFORM_AABBS, BORDER_AABBS } from "../collisions/EnvironmentColliders";
+import type { World, RigidBody } from "@dimforge/rapier3d-compat";
 
 export class RapierWorldSystem implements ISystem, IReadablePhysics {
   readonly phase = SystemPhase.PhysicsStep;
   readonly initPhase = InitPhase.Bootstrap;
   
-  private RAPIER: any = null;
-  private world: any = null;
-  private rigidBodies = new Map<EntityId, any>();
+  private RAPIER: typeof import("@dimforge/rapier3d-compat") | null = null;
+  private world: World | null = null;
+  private rigidBodies = new Map<EntityId, RigidBody>();
 
   constructor(
     private broker: EventBroker,
@@ -96,6 +97,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
   }
 
   public update(_dt: number): void {
+    void _dt;
     this.commands.flush();
 
     for (const [, curr] of this.transforms.entries()) {
