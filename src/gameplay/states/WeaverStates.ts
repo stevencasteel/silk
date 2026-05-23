@@ -7,10 +7,13 @@ export class WeaverSweepingState implements IWeaverState {
   public readonly hue = "#ef4444";
 
   private shootTimer = 0.0;
+  private hasTelegraphed = false;
 
   public enter(ctx: AIContext): void {
     this.shootTimer = 0.0;
+    this.hasTelegraphed = false;
     ctx.ai.timeInState = 0;
+    ctx.ai.hue = this.hue;
     
     const health = ctx.healths.get(ctx.weaverId);
     const isBerserk = health ? (health.current < health.max * 0.5) : false;
@@ -31,8 +34,18 @@ export class WeaverSweepingState implements IWeaverState {
     ctx.ai.timeInState += dt;
     this.shootTimer += dt;
 
+    const telegraphThreshold = 1.8;
+    if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
+      this.hasTelegraphed = true;
+      ctx.ai.hue = "#eab308"; 
+      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
+    }
+
     if (this.shootTimer >= 2.4) {
       this.shootTimer = 0.0;
+      this.hasTelegraphed = false;
+      ctx.ai.hue = this.hue; 
+
       const playerTrans = ctx.transforms.get(ctx.playerId);
       const wTrans = ctx.transforms.get(ctx.weaverId);
       if (playerTrans && wTrans) {
@@ -74,7 +87,7 @@ export class WeaverDashingState implements IWeaverState {
   private startPrep(ctx: AIContext): void {
     this.currentPhase = "PREP";
     this.phaseTimer = 0.6;
-    ctx.ai.hue = "#f59e0b";
+    ctx.ai.hue = "#eab308";
     
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
@@ -95,7 +108,7 @@ export class WeaverDashingState implements IWeaverState {
   private startThrust(ctx: AIContext): void {
     this.currentPhase = "THRUST";
     this.phaseTimer = 0.8;
-    ctx.ai.hue = "#dc2626";
+    ctx.ai.hue = "#ef4444";
 
     const weaverTrans = ctx.transforms.get(ctx.weaverId);
     if (weaverTrans) {
@@ -135,8 +148,12 @@ export class WeaverDashingState implements IWeaverState {
     this.phaseTimer -= dt;
 
     if (this.currentPhase === "PREP") {
-      if (Math.random() < 0.3) {
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.05, duration: 0.05 });
+      const StrobeHz = 16.0;
+      const step = Math.floor(this.phaseTimer * StrobeHz);
+      ctx.ai.hue = step % 2 === 0 ? "#ef4444" : "#eab308";
+
+      if (Math.random() < 0.4) {
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.08, duration: 0.05 });
       }
       if (this.phaseTimer <= 0) {
         this.startThrust(ctx);
@@ -170,6 +187,7 @@ export class WeaverReturningState implements IWeaverState {
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
+    ctx.ai.hue = this.hue;
   }
 
   public exit(_ctx: AIContext): void {}
@@ -207,6 +225,7 @@ export class WeaverDefeatedState implements IWeaverState {
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
+    ctx.ai.hue = this.hue;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.weaverId,

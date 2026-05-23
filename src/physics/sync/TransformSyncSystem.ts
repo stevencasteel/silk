@@ -70,6 +70,7 @@ export class TransformSyncSystem implements ISystem {
     private syncTransforms(alpha: number): void {
         const silk = this.silks.get(this.refs.player);
         const trav   = this.traversal.get(this.refs.player);
+        const wAI    = this.weaverAIs.get(this.refs.weaver);
 
         for (const [id, curr] of this.transforms.entries()) {
             const node = this.visualRegistry.getTransformNode(id);
@@ -99,12 +100,17 @@ export class TransformSyncSystem implements ISystem {
                 }
             }
 
-            if (id === this.refs.weaver) {
+            if (id === this.refs.weaver && wAI) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.PBRMaterial | null;
                 if (mat) {
-                    const pulse = 0.02 + Math.sin(Date.now() * 0.003) * 0.015;
-                    mat.emissiveColor.set(0.4 + pulse, 0.02, 0.02);
+                    const hex = wAI.hue.replace("#", "");
+                    const r = parseInt(hex.substring(0, 2), 16) / 255;
+                    const g = parseInt(hex.substring(2, 4), 16) / 255;
+                    const b = parseInt(hex.substring(4, 6), 16) / 255;
+                    
+                    const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
+                    mat.emissiveColor.set(r + pulse, g, b);
                 }
             }
         }

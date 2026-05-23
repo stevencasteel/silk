@@ -5,9 +5,9 @@ export class ArenaGeometry {
 
     public generateElevatorShaft(): void {
         const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
-        wallMaterial.albedoColor = new BABYLON.Color3(0.07, 0.08, 0.11);
-        wallMaterial.metallic = 0.2;
-        wallMaterial.roughness = 0.8; 
+        wallMaterial.albedoColor = new BABYLON.Color3(0.05, 0.06, 0.08);
+        wallMaterial.metallic = 0.4;
+        wallMaterial.roughness = 0.6; 
 
         const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 40, depth: 4 }, this.scene);
         leftWall.position.set(-16, 14, 0);
@@ -19,8 +19,8 @@ export class ArenaGeometry {
 
         const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
         tickMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
-        tickMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.7);
-        tickMat.emissiveIntensity = 2.0; 
+        tickMat.emissiveColor = new BABYLON.Color3(0.13, 0.77, 0.36);
+        tickMat.emissiveIntensity = 3.5; 
         tickMat.disableLighting = true;
 
         const tickCount = 18;

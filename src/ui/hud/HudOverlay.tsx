@@ -1,13 +1,18 @@
 import React from "react";
 
 export const HudOverlay: React.FC = () => {
+  const handleRetryClick = () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "R" }));
+  };
+
   return (
     <>
       <div
         className="hud-overlay-container"
         style={{
           position: "absolute",
-          inset: "14px",
+          inset: "16px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -17,34 +22,51 @@ export const HudOverlay: React.FC = () => {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-
-          <div style={{
-            display: "flex", flexDirection: "column", gap: "5px",
-            background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
-            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
-            minWidth: "170px"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
-              <span>PILOT</span>
-              <span id="player-hp-value">INTEGRITY: 5 / 5</span>
+          
+          <div 
+            className="neo-pressed"
+            style={{
+              display: "flex", flexDirection: "column", gap: "6px",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              minWidth: "175px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: "bold", letterSpacing: "0.15em", opacity: 0.85 }}>
+              <span>PILOT INTEGRITY</span>
             </div>
-            <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#22c55e", transition: "width 0.15s ease, background-color 0.3s ease" }} />
+            
+            <div style={{ display: "flex", gap: "6px", margin: "4px 0" }}>
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  id={`player-hp-led-${i}`}
+                  className="led-dot led-green"
+                  style={{ width: "12px", height: "12px" }}
+                />
+              ))}
+            </div>
+
+            <div style={{ fontSize: "9px", color: "#64748b", letterSpacing: "0.08em" }} id="player-hp-text">
+              INTEGRITY: 5 / 5
             </div>
           </div>
 
-          <div style={{
-            display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
-            background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
-            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
-            minWidth: "175px"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
-              <span>WEAVER</span>
-              <span id="weaver-hp-value">100 / 100</span>
+          <div 
+            className="neo-pressed"
+            style={{
+              display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              minWidth: "175px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "10px", fontWeight: "bold", letterSpacing: "0.15em", opacity: 0.85 }}>
+              <span>WEAVER CORE</span>
+              <span id="weaver-hp-value" style={{ color: "var(--signal-red)" }}>100/100</span>
             </div>
-            <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="weaver-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
+            <div className="neo-pressed" style={{ width: "100%", height: "8px", borderRadius: "4px", padding: "1px", boxSizing: "border-box", overflow: "hidden", background: "#050608" }}>
+              <div id="weaver-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "var(--signal-red)", transition: "width 0.2s ease" }} />
             </div>
             <span id="weaver-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
@@ -58,42 +80,60 @@ export const HudOverlay: React.FC = () => {
             textAlign: "center"
           }} />
 
-          <div style={{
-            display: "flex", flexDirection: "column", gap: "5px",
-            background: "rgba(8, 9, 14, 0.92)", padding: "10px 14px",
-            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
-            minWidth: "230px"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", letterSpacing: "0.1em" }}>
-              <span style={{ opacity: 0.7 }}>SILK TENSION</span>
+          <div 
+            className="neo-pressed"
+            style={{
+              display: "flex", flexDirection: "column", gap: "6px",
+              padding: "12px 16px",
+              borderRadius: "10px",
+              minWidth: "240px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", letterSpacing: "0.15em", fontWeight: "bold" }}>
+              <span style={{ opacity: 0.8 }}>SILK TENSION</span>
               <span id="tension-meter-text" style={{ color: "#94a3b8" }}>0.0%</span>
             </div>
-            <div style={{ width: "100%", height: "7px", background: "#0d1117", borderRadius: "4px", overflow: "hidden" }}>
+            <div className="neo-pressed" style={{ width: "100%", height: "9px", borderRadius: "4px", padding: "1px", boxSizing: "border-box", overflow: "hidden", background: "#050608" }}>
               <div id="tension-meter-bar" style={{
                 width: "0%", height: "100%",
-                backgroundColor: "#22c55e",
-                transition: "background-color 0.1s ease",
-                borderRadius: "4px"
+                backgroundColor: "var(--signal-green)",
+                transition: "width 0.1s ease, background-color 0.15s ease",
+                borderRadius: "3px"
               }} />
             </div>
           </div>
         </div>
       </div>
 
-      <div id="game-state-overlay" style={{
-        position: "absolute", inset: 0,
-        display: "none", flexDirection: "column",
-        justifyContent: "center", alignItems: "center",
-        background: "rgba(0,0,0,0.88)", zIndex: 100,
-        pointerEvents: "auto", fontFamily: "'Courier New', Courier, monospace",
-        gap: "16px"
-      }}>
-        <h1 id="game-state-title" style={{ fontSize: "32px", color: "#ef4444", margin: 0, letterSpacing: "0.18em" }}>
-          SILK SNAPPED
-        </h1>
-        <p id="game-state-subtitle" style={{ fontSize: "12px", color: "#64748b", margin: 0, letterSpacing: "0.12em" }}>
-          PRESS [R] TO RECONNECT
-        </p>
+      <div id="game-state-overlay" className="gameover-overlay" style={{ display: "none" }}>
+        <div className="gameover-box neo-elevated">
+          <h1 id="game-state-title" style={{ fontSize: "32px", margin: 0, letterSpacing: "0.22em", fontWeight: 900, textTransform: "uppercase" }}>
+            SILK SNAPPED
+          </h1>
+          
+          <div style={{ height: "1px", width: "60px", background: "rgba(255,255,255,0.08)", margin: "24px 0" }} />
+
+          <p id="game-state-subtitle" style={{ fontSize: "11px", color: "#718096", margin: "0 0 24px 0", letterSpacing: "0.12em" }}>
+            PRESS KEY [R] TO RECONNECT THE LINE
+          </p>
+
+          <button
+            onClick={handleRetryClick}
+            className="neo-btn neo-btn-focused"
+            style={{ 
+              padding: "14px 28px", 
+              fontSize: "12px", 
+              borderRadius: "8px", 
+              width: "100%", 
+              maxWidth: "200px",
+              pointerEvents: "auto"
+            }}
+          >
+            <span className="cursor-arrow">▶</span>
+            RECONNECT
+            <span className="cursor-arrow">◀</span>
+          </button>
+        </div>
       </div>
     </>
   );

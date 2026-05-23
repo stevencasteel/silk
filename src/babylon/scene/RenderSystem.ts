@@ -22,40 +22,37 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     this.engine = new BABYLON.Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
     this.scene = new BABYLON.Scene(this.engine);
     
-    // 1. True deep black void to prevent milky wash-out
-    this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.015, 1.0);
+    this.scene.clearColor = new BABYLON.Color4(0.005, 0.006, 0.008, 1.0);
     
     const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -38), this.scene);
     camera.setTarget(new BABYLON.Vector3(0, 14, 0));
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
     
-    // 2. STARK LIGHTING: Very dim ambient, strong directional spotlight
     const ambientLight = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
-    ambientLight.intensity = 0.2; // Keep shadows incredibly dark
+    ambientLight.intensity = 0.12;
     
     const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.4, -0.6, 0.8), this.scene);
-    dirLight.intensity = 2.5; // Strong rim/key light
-    dirLight.specular = new BABYLON.Color3(1, 0.9, 0.8);
+    dirLight.intensity = 2.8;
+    dirLight.specular = new BABYLON.Color3(1, 0.9, 0.82);
 
-    // 3. Post-Processing: Fix exposure and contrast
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [camera]);
     pipeline.samples = 4;
     pipeline.fxaaEnabled = true;
     
     pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.8; // Only let the brightest neon parts glow
-    pipeline.bloomWeight = 0.6;
+    pipeline.bloomThreshold = 0.75;
+    pipeline.bloomWeight = 0.7;
 
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
-    pipeline.imageProcessing.vignetteWeight = 2.0;
+    pipeline.imageProcessing.vignetteWeight = 2.2;
     pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
     
-    pipeline.imageProcessing.exposure = 1.0; // Restored from 1.2 to prevent wash-out
-    pipeline.imageProcessing.contrast = 1.2; // Bumped contrast to make the lighting punchy
+    pipeline.imageProcessing.exposure = 0.95;
+    pipeline.imageProcessing.contrast = 1.35;
 
     pipeline.chromaticAberrationEnabled = true;
-    pipeline.chromaticAberration.aberrationAmount = 2.0;
+    pipeline.chromaticAberration.aberrationAmount = 2.4;
 
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();

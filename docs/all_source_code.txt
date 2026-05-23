@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 5:39:41 PM
+ [SYSTEM] Generated: 5/23/2026, 5:49:37 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1268,9 +1268,9 @@ export class ArenaGeometry {
 
     public generateElevatorShaft(): void {
         const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
-        wallMaterial.albedoColor = new BABYLON.Color3(0.07, 0.08, 0.11);
-        wallMaterial.metallic = 0.2;
-        wallMaterial.roughness = 0.8; 
+        wallMaterial.albedoColor = new BABYLON.Color3(0.05, 0.06, 0.08);
+        wallMaterial.metallic = 0.4;
+        wallMaterial.roughness = 0.6; 
 
         const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", { width: 2, height: 40, depth: 4 }, this.scene);
         leftWall.position.set(-16, 14, 0);
@@ -1282,8 +1282,8 @@ export class ArenaGeometry {
 
         const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
         tickMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
-        tickMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.7);
-        tickMat.emissiveIntensity = 2.0; 
+        tickMat.emissiveColor = new BABYLON.Color3(0.13, 0.77, 0.36);
+        tickMat.emissiveIntensity = 3.5; 
         tickMat.disableLighting = true;
 
         const tickCount = 18;
@@ -1563,40 +1563,37 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     this.engine = new BABYLON.Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
     this.scene = new BABYLON.Scene(this.engine);
     
-    // 1. True deep black void to prevent milky wash-out
-    this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.015, 1.0);
+    this.scene.clearColor = new BABYLON.Color4(0.005, 0.006, 0.008, 1.0);
     
     const camera = new BABYLON.FreeCamera("renderCamera", new BABYLON.Vector3(0, 14, -38), this.scene);
     camera.setTarget(new BABYLON.Vector3(0, 14, 0));
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
     
-    // 2. STARK LIGHTING: Very dim ambient, strong directional spotlight
     const ambientLight = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), this.scene);
-    ambientLight.intensity = 0.2; // Keep shadows incredibly dark
+    ambientLight.intensity = 0.12;
     
     const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.4, -0.6, 0.8), this.scene);
-    dirLight.intensity = 2.5; // Strong rim/key light
-    dirLight.specular = new BABYLON.Color3(1, 0.9, 0.8);
+    dirLight.intensity = 2.8;
+    dirLight.specular = new BABYLON.Color3(1, 0.9, 0.82);
 
-    // 3. Post-Processing: Fix exposure and contrast
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [camera]);
     pipeline.samples = 4;
     pipeline.fxaaEnabled = true;
     
     pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.8; // Only let the brightest neon parts glow
-    pipeline.bloomWeight = 0.6;
+    pipeline.bloomThreshold = 0.75;
+    pipeline.bloomWeight = 0.7;
 
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
-    pipeline.imageProcessing.vignetteWeight = 2.0;
+    pipeline.imageProcessing.vignetteWeight = 2.2;
     pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
     
-    pipeline.imageProcessing.exposure = 1.0; // Restored from 1.2 to prevent wash-out
-    pipeline.imageProcessing.contrast = 1.2; // Bumped contrast to make the lighting punchy
+    pipeline.imageProcessing.exposure = 0.95;
+    pipeline.imageProcessing.contrast = 1.35;
 
     pipeline.chromaticAberrationEnabled = true;
-    pipeline.chromaticAberration.aberrationAmount = 2.0;
+    pipeline.chromaticAberration.aberrationAmount = 2.4;
 
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
@@ -2453,10 +2450,13 @@ export class WeaverSweepingState implements IWeaverState {
   public readonly hue = "#ef4444";
 
   private shootTimer = 0.0;
+  private hasTelegraphed = false;
 
   public enter(ctx: AIContext): void {
     this.shootTimer = 0.0;
+    this.hasTelegraphed = false;
     ctx.ai.timeInState = 0;
+    ctx.ai.hue = this.hue;
     
     const health = ctx.healths.get(ctx.weaverId);
     const isBerserk = health ? (health.current < health.max * 0.5) : false;
@@ -2477,8 +2477,18 @@ export class WeaverSweepingState implements IWeaverState {
     ctx.ai.timeInState += dt;
     this.shootTimer += dt;
 
+    const telegraphThreshold = 1.8;
+    if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
+      this.hasTelegraphed = true;
+      ctx.ai.hue = "#eab308"; 
+      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
+    }
+
     if (this.shootTimer >= 2.4) {
       this.shootTimer = 0.0;
+      this.hasTelegraphed = false;
+      ctx.ai.hue = this.hue; 
+
       const playerTrans = ctx.transforms.get(ctx.playerId);
       const wTrans = ctx.transforms.get(ctx.weaverId);
       if (playerTrans && wTrans) {
@@ -2520,7 +2530,7 @@ export class WeaverDashingState implements IWeaverState {
   private startPrep(ctx: AIContext): void {
     this.currentPhase = "PREP";
     this.phaseTimer = 0.6;
-    ctx.ai.hue = "#f59e0b";
+    ctx.ai.hue = "#eab308";
     
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
@@ -2541,7 +2551,7 @@ export class WeaverDashingState implements IWeaverState {
   private startThrust(ctx: AIContext): void {
     this.currentPhase = "THRUST";
     this.phaseTimer = 0.8;
-    ctx.ai.hue = "#dc2626";
+    ctx.ai.hue = "#ef4444";
 
     const weaverTrans = ctx.transforms.get(ctx.weaverId);
     if (weaverTrans) {
@@ -2581,8 +2591,12 @@ export class WeaverDashingState implements IWeaverState {
     this.phaseTimer -= dt;
 
     if (this.currentPhase === "PREP") {
-      if (Math.random() < 0.3) {
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.05, duration: 0.05 });
+      const StrobeHz = 16.0;
+      const step = Math.floor(this.phaseTimer * StrobeHz);
+      ctx.ai.hue = step % 2 === 0 ? "#ef4444" : "#eab308";
+
+      if (Math.random() < 0.4) {
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.08, duration: 0.05 });
       }
       if (this.phaseTimer <= 0) {
         this.startThrust(ctx);
@@ -2616,6 +2630,7 @@ export class WeaverReturningState implements IWeaverState {
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
+    ctx.ai.hue = this.hue;
   }
 
   public exit(_ctx: AIContext): void {}
@@ -2653,6 +2668,7 @@ export class WeaverDefeatedState implements IWeaverState {
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
+    ctx.ai.hue = this.hue;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.weaverId,
@@ -3681,11 +3697,21 @@ export class WeaverTraversalSystem implements ISystem {
 ● ./src/index.css
 ────────────────────────────────────────────────────
 :root {
-  --void-bg:      #050508;
-  --surface-bg:   #0c0e14;
+  --void-bg: #07080b;
+  --surface-bg: #0c0e12;
+  --surface-elevated: #141820;
+  --surface-highlight: #1d222d;
   --signal-green: #22c55e;
-  --signal-red:   #ef4444;
-  --text-dim:     #64748b;
+  --signal-green-glow: rgba(34, 197, 94, 0.45);
+  --signal-red: #ef4444;
+  --signal-red-glow: rgba(239, 68, 68, 0.45);
+  --signal-yellow: #eab308;
+  --signal-yellow-glow: rgba(234, 179, 8, 0.45);
+
+  --shadow-light: -4px -4px 12px rgba(255, 255, 255, 0.03);
+  --shadow-dark: 6px 6px 18px rgba(0, 0, 0, 0.75);
+  --shadow-inset-light: inset -2px -2px 6px rgba(255, 255, 255, 0.01);
+  --shadow-inset-dark: inset 3px 3px 10px rgba(0, 0, 0, 0.9);
 }
 
 html, body, #root {
@@ -3693,18 +3719,134 @@ html, body, #root {
   padding: 0;
   width: 100vw;
   height: 100vh;
-  background-color: var(--void-bg);
+  background-color: #030305;
   overflow: hidden;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-@keyframes tensionPulse {
-  0%, 100% { box-shadow: 0 0 6px 1px rgba(255, 69, 0, 0.6); }
-  50%       { box-shadow: 0 0 14px 3px rgba(255, 69, 0, 0.9); }
+.neo-elevated {
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-light), var(--shadow-dark);
+  border: 1px solid rgba(255, 255, 255, 0.02);
 }
 
-.tension-pulse {
-  animation: tensionPulse 0.28s ease-in-out infinite;
+.neo-pressed {
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.neo-btn {
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-light), var(--shadow-dark);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  color: #a0aec0;
+  padding: 12px 24px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.1s cubic-bezier(0.25, 0.8, 0.25, 1);
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.neo-btn:hover {
+  background: var(--surface-highlight);
+  color: #ffffff;
+}
+
+.neo-btn:active {
+  transform: scale(0.97);
+  background: var(--surface-bg);
+}
+
+.neo-btn-focused {
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark);
+  color: var(--signal-green);
+  border-color: rgba(34, 197, 94, 0.25);
+  text-shadow: 0 0 8px var(--signal-green-glow);
+}
+
+.led-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+  background-color: #141722;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.led-green {
+  background-color: var(--signal-green);
+  box-shadow: 0 0 8px var(--signal-green), 0 0 16px var(--signal-green-glow);
+}
+
+.led-red {
+  background-color: var(--signal-red);
+  box-shadow: 0 0 8px var(--signal-red), 0 0 16px var(--signal-red-glow);
+}
+
+.led-yellow {
+  background-color: var(--signal-yellow);
+  box-shadow: 0 0 8px var(--signal-yellow), 0 0 16px var(--signal-yellow-glow);
+}
+
+.gameover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 5, 8, 0.94);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+  padding: 24px;
+  box-sizing: border-box;
+  opacity: 1;
+}
+
+.gameover-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  border-radius: 20px;
+  background: rgba(12, 14, 18, 0.95);
+  max-width: 440px;
+  width: 85%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.cursor-arrow {
+  color: var(--signal-green);
+  font-weight: bold;
+  display: inline-block;
+  animation: arrow-blink 0.4s infinite alternate;
+}
+
+@keyframes arrow-blink {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
 }
 
 
@@ -4321,6 +4463,7 @@ export class TransformSyncSystem implements ISystem {
     private syncTransforms(alpha: number): void {
         const silk = this.silks.get(this.refs.player);
         const trav   = this.traversal.get(this.refs.player);
+        const wAI    = this.weaverAIs.get(this.refs.weaver);
 
         for (const [id, curr] of this.transforms.entries()) {
             const node = this.visualRegistry.getTransformNode(id);
@@ -4350,12 +4493,17 @@ export class TransformSyncSystem implements ISystem {
                 }
             }
 
-            if (id === this.refs.weaver) {
+            if (id === this.refs.weaver && wAI) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.PBRMaterial | null;
                 if (mat) {
-                    const pulse = 0.02 + Math.sin(Date.now() * 0.003) * 0.015;
-                    mat.emissiveColor.set(0.4 + pulse, 0.02, 0.02);
+                    const hex = wAI.hue.replace("#", "");
+                    const r = parseInt(hex.substring(0, 2), 16) / 255;
+                    const g = parseInt(hex.substring(2, 4), 16) / 255;
+                    const b = parseInt(hex.substring(4, 6), 16) / 255;
+                    
+                    const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
+                    mat.emissiveColor.set(r + pulse, g, b);
                 }
             }
         }
@@ -4414,14 +4562,14 @@ export class DomHudSystem implements ISystem {
 
     private tensionBar     : HTMLElement | null = null;
     private tensionText    : HTMLElement | null = null;
-    private playerHpBar    : HTMLElement | null = null;
-    private playerHpValue  : HTMLElement | null = null;
+    private playerHpText   : HTMLElement | null = null;
     private weaverHpBar    : HTMLElement | null = null;
     private weaverHpValue  : HTMLElement | null = null;
     private weaverStateText: HTMLElement | null = null;
     private traversalHint  : HTMLElement | null = null;
     private overlay        : HTMLElement | null = null;
     private overlayTitle   : HTMLElement | null = null;
+    private overlaySubtitle: HTMLElement | null = null;
 
     private lastHintLevel : HintLevel = "none";
     private currentState  : string = "AIRBORNE";
@@ -4437,14 +4585,14 @@ export class DomHudSystem implements ISystem {
         if (typeof document === "undefined") return;
         this.tensionBar     = document.getElementById("tension-meter-bar");
         this.tensionText    = document.getElementById("tension-meter-text");
-        this.playerHpBar    = document.getElementById("player-hp-bar");
-        this.playerHpValue  = document.getElementById("player-hp-value");
+        this.playerHpText   = document.getElementById("player-hp-text");
         this.weaverHpBar    = document.getElementById("weaver-hp-bar");
         this.weaverHpValue  = document.getElementById("weaver-hp-value");
         this.weaverStateText = document.getElementById("weaver-state-text");
         this.traversalHint  = document.getElementById("traversal-hint");
         this.overlay        = document.getElementById("game-state-overlay");
         this.overlayTitle   = document.getElementById("game-state-title");
+        this.overlaySubtitle = document.getElementById("game-state-subtitle");
     }
 
     private registerSubscriptions(): void {
@@ -4479,12 +4627,12 @@ export class DomHudSystem implements ISystem {
         );
         this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_OVER, () => {
-                this.showOverlay("SILK SNAPPED", "#ef4444");
+                this.showOverlay("DEFEATED", "var(--signal-red)", "PRESS KEY [R] TO RECONNECT THE LINE");
             })
         );
         this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_WIN, () => {
-                this.showOverlay("WEAVER DEFEATED", "#10b981");
+                this.showOverlay("VICTORY", "var(--signal-green)", "PRESS KEY [R] TO RESTART THE HARNESS");
             })
         );
         this.unsubscribes.push(
@@ -4502,22 +4650,16 @@ export class DomHudSystem implements ISystem {
         if (this.tensionBar) {
             this.tensionBar.style.width = pct;
             if (clamped >= 0.98) {
-                this.tensionBar.style.backgroundColor = "#ff4500";
-                this.tensionBar.classList.add("tension-pulse");
+                this.tensionBar.style.backgroundColor = "var(--signal-red)";
             } else if (clamped >= 0.75) {
-                this.tensionBar.style.backgroundColor = "#f59e0b";
-                this.tensionBar.classList.remove("tension-pulse");
-            } else if (clamped >= 0.40) {
-                this.tensionBar.style.backgroundColor = "#eab308";
-                this.tensionBar.classList.remove("tension-pulse");
+                this.tensionBar.style.backgroundColor = "var(--signal-yellow)";
             } else {
-                this.tensionBar.style.backgroundColor = "#22c55e";
-                this.tensionBar.classList.remove("tension-pulse");
+                this.tensionBar.style.backgroundColor = "var(--signal-green)";
             }
         }
         if (this.tensionText) {
             this.tensionText.textContent = (clamped * 100).toFixed(0) + "%";
-            this.tensionText.style.color = clamped >= 0.9 ? "#fbbf24" : "#94a3b8";
+            this.tensionText.style.color = clamped >= 0.9 ? "var(--signal-yellow)" : "#94a3b8";
         }
     }
 
@@ -4551,35 +4693,41 @@ export class DomHudSystem implements ISystem {
                 break;
             case "ready":
                 this.traversalHint.style.opacity = "1";
-                this.traversalHint.style.color   = "#fbbf24";
+                this.traversalHint.style.color   = "var(--signal-yellow)";
                 this.traversalHint.textContent   = "RELEASE TO FLING";
                 break;
             case "maxout":
                 this.traversalHint.style.opacity = "1";
-                this.traversalHint.style.color   = "#ff4500";
+                this.traversalHint.style.color   = "var(--signal-red)";
                 this.traversalHint.textContent   = "MAX TENSION — FLING NOW";
                 break;
         }
     }
 
     private updatePlayerHp(hp: number, maxHp: number): void {
-        if (this.playerHpValue) {
-            this.playerHpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+        if (this.playerHpText) {
+            this.playerHpText.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
         }
-        if (this.playerHpBar) {
-            this.playerHpBar.style.width           = ((hp / maxHp) * 100).toFixed(0) + "%";
-            this.playerHpBar.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
+        for (let i = 0; i < 5; i++) {
+            const led = document.getElementById(`player-hp-led-${i}`);
+            if (led) {
+                if (i < hp) {
+                    led.className = "led-dot led-green";
+                } else {
+                    led.className = "led-dot";
+                }
+            }
         }
     }
 
     private updateWeaverHp(hp: number, maxHp: number): void {
         if (this.weaverHpValue) {
-            this.weaverHpValue.textContent = `${hp} / ${maxHp}`;
+            this.weaverHpValue.textContent = `${hp}/${maxHp}`;
         }
         if (this.weaverHpBar) {
             const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
             this.weaverHpBar.style.width = pct;
-            this.weaverHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
+            this.weaverHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "var(--signal-yellow)" : "var(--signal-red)";
         }
     }
 
@@ -4590,12 +4738,15 @@ export class DomHudSystem implements ISystem {
         }
     }
 
-    private showOverlay(title: string, color: string): void {
+    private showOverlay(layoutTheme: string, color: string, subText: string): void {
         if (this.overlay) this.overlay.style.display = "flex";
         if (this.overlayTitle) {
-            this.overlayTitle.textContent              = title;
-            this.overlayTitle.style.color              = color;
-            this.overlayTitle.style.textShadow         = `0 0 24px ${color}80`;
+            this.overlayTitle.textContent = layoutTheme;
+            this.overlayTitle.style.color = color;
+            this.overlayTitle.style.textShadow = `0 0 15px ${color}`;
+        }
+        if (this.overlaySubtitle) {
+            this.overlaySubtitle.textContent = subText;
         }
     }
 
@@ -4616,13 +4767,18 @@ export class DomHudSystem implements ISystem {
 import React from "react";
 
 export const HudOverlay: React.FC = () => {
+  const handleRetryClick = () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "R" }));
+  };
+
   return (
     <>
       <div
         className="hud-overlay-container"
         style={{
           position: "absolute",
-          inset: "14px",
+          inset: "16px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -4632,34 +4788,51 @@ export const HudOverlay: React.FC = () => {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-
-          <div style={{
-            display: "flex", flexDirection: "column", gap: "5px",
-            background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
-            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
-            minWidth: "170px"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
-              <span>PILOT</span>
-              <span id="player-hp-value">INTEGRITY: 5 / 5</span>
+          
+          <div 
+            className="neo-pressed"
+            style={{
+              display: "flex", flexDirection: "column", gap: "6px",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              minWidth: "175px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: "bold", letterSpacing: "0.15em", opacity: 0.85 }}>
+              <span>PILOT INTEGRITY</span>
             </div>
-            <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="player-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#22c55e", transition: "width 0.15s ease, background-color 0.3s ease" }} />
+            
+            <div style={{ display: "flex", gap: "6px", margin: "4px 0" }}>
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  id={`player-hp-led-${i}`}
+                  className="led-dot led-green"
+                  style={{ width: "12px", height: "12px" }}
+                />
+              ))}
+            </div>
+
+            <div style={{ fontSize: "9px", color: "#64748b", letterSpacing: "0.08em" }} id="player-hp-text">
+              INTEGRITY: 5 / 5
             </div>
           </div>
 
-          <div style={{
-            display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
-            background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
-            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
-            minWidth: "175px"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
-              <span>WEAVER</span>
-              <span id="weaver-hp-value">100 / 100</span>
+          <div 
+            className="neo-pressed"
+            style={{
+              display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              minWidth: "175px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "10px", fontWeight: "bold", letterSpacing: "0.15em", opacity: 0.85 }}>
+              <span>WEAVER CORE</span>
+              <span id="weaver-hp-value" style={{ color: "var(--signal-red)" }}>100/100</span>
             </div>
-            <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="weaver-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
+            <div className="neo-pressed" style={{ width: "100%", height: "8px", borderRadius: "4px", padding: "1px", boxSizing: "border-box", overflow: "hidden", background: "#050608" }}>
+              <div id="weaver-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "var(--signal-red)", transition: "width 0.2s ease" }} />
             </div>
             <span id="weaver-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
@@ -4673,42 +4846,60 @@ export const HudOverlay: React.FC = () => {
             textAlign: "center"
           }} />
 
-          <div style={{
-            display: "flex", flexDirection: "column", gap: "5px",
-            background: "rgba(8, 9, 14, 0.92)", padding: "10px 14px",
-            borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
-            minWidth: "230px"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", letterSpacing: "0.1em" }}>
-              <span style={{ opacity: 0.7 }}>SILK TENSION</span>
+          <div 
+            className="neo-pressed"
+            style={{
+              display: "flex", flexDirection: "column", gap: "6px",
+              padding: "12px 16px",
+              borderRadius: "10px",
+              minWidth: "240px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", letterSpacing: "0.15em", fontWeight: "bold" }}>
+              <span style={{ opacity: 0.8 }}>SILK TENSION</span>
               <span id="tension-meter-text" style={{ color: "#94a3b8" }}>0.0%</span>
             </div>
-            <div style={{ width: "100%", height: "7px", background: "#0d1117", borderRadius: "4px", overflow: "hidden" }}>
+            <div className="neo-pressed" style={{ width: "100%", height: "9px", borderRadius: "4px", padding: "1px", boxSizing: "border-box", overflow: "hidden", background: "#050608" }}>
               <div id="tension-meter-bar" style={{
                 width: "0%", height: "100%",
-                backgroundColor: "#22c55e",
-                transition: "background-color 0.1s ease",
-                borderRadius: "4px"
+                backgroundColor: "var(--signal-green)",
+                transition: "width 0.1s ease, background-color 0.15s ease",
+                borderRadius: "3px"
               }} />
             </div>
           </div>
         </div>
       </div>
 
-      <div id="game-state-overlay" style={{
-        position: "absolute", inset: 0,
-        display: "none", flexDirection: "column",
-        justifyContent: "center", alignItems: "center",
-        background: "rgba(0,0,0,0.88)", zIndex: 100,
-        pointerEvents: "auto", fontFamily: "'Courier New', Courier, monospace",
-        gap: "16px"
-      }}>
-        <h1 id="game-state-title" style={{ fontSize: "32px", color: "#ef4444", margin: 0, letterSpacing: "0.18em" }}>
-          SILK SNAPPED
-        </h1>
-        <p id="game-state-subtitle" style={{ fontSize: "12px", color: "#64748b", margin: 0, letterSpacing: "0.12em" }}>
-          PRESS [R] TO RECONNECT
-        </p>
+      <div id="game-state-overlay" className="gameover-overlay" style={{ display: "none" }}>
+        <div className="gameover-box neo-elevated">
+          <h1 id="game-state-title" style={{ fontSize: "32px", margin: 0, letterSpacing: "0.22em", fontWeight: 900, textTransform: "uppercase" }}>
+            SILK SNAPPED
+          </h1>
+          
+          <div style={{ height: "1px", width: "60px", background: "rgba(255,255,255,0.08)", margin: "24px 0" }} />
+
+          <p id="game-state-subtitle" style={{ fontSize: "11px", color: "#718096", margin: "0 0 24px 0", letterSpacing: "0.12em" }}>
+            PRESS KEY [R] TO RECONNECT THE LINE
+          </p>
+
+          <button
+            onClick={handleRetryClick}
+            className="neo-btn neo-btn-focused"
+            style={{ 
+              padding: "14px 28px", 
+              fontSize: "12px", 
+              borderRadius: "8px", 
+              width: "100%", 
+              maxWidth: "200px",
+              pointerEvents: "auto"
+            }}
+          >
+            <span className="cursor-arrow">▶</span>
+            RECONNECT
+            <span className="cursor-arrow">◀</span>
+          </button>
+        </div>
       </div>
     </>
   );

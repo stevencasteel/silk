@@ -12,14 +12,14 @@ export class DomHudSystem implements ISystem {
 
     private tensionBar     : HTMLElement | null = null;
     private tensionText    : HTMLElement | null = null;
-    private playerHpBar    : HTMLElement | null = null;
-    private playerHpValue  : HTMLElement | null = null;
+    private playerHpText   : HTMLElement | null = null;
     private weaverHpBar    : HTMLElement | null = null;
     private weaverHpValue  : HTMLElement | null = null;
     private weaverStateText: HTMLElement | null = null;
     private traversalHint  : HTMLElement | null = null;
     private overlay        : HTMLElement | null = null;
     private overlayTitle   : HTMLElement | null = null;
+    private overlaySubtitle: HTMLElement | null = null;
 
     private lastHintLevel : HintLevel = "none";
     private currentState  : string = "AIRBORNE";
@@ -35,14 +35,14 @@ export class DomHudSystem implements ISystem {
         if (typeof document === "undefined") return;
         this.tensionBar     = document.getElementById("tension-meter-bar");
         this.tensionText    = document.getElementById("tension-meter-text");
-        this.playerHpBar    = document.getElementById("player-hp-bar");
-        this.playerHpValue  = document.getElementById("player-hp-value");
+        this.playerHpText   = document.getElementById("player-hp-text");
         this.weaverHpBar    = document.getElementById("weaver-hp-bar");
         this.weaverHpValue  = document.getElementById("weaver-hp-value");
         this.weaverStateText = document.getElementById("weaver-state-text");
         this.traversalHint  = document.getElementById("traversal-hint");
         this.overlay        = document.getElementById("game-state-overlay");
         this.overlayTitle   = document.getElementById("game-state-title");
+        this.overlaySubtitle = document.getElementById("game-state-subtitle");
     }
 
     private registerSubscriptions(): void {
@@ -77,12 +77,12 @@ export class DomHudSystem implements ISystem {
         );
         this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_OVER, () => {
-                this.showOverlay("SILK SNAPPED", "#ef4444");
+                this.showOverlay("DEFEATED", "var(--signal-red)", "PRESS KEY [R] TO RECONNECT THE LINE");
             })
         );
         this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_WIN, () => {
-                this.showOverlay("WEAVER DEFEATED", "#10b981");
+                this.showOverlay("VICTORY", "var(--signal-green)", "PRESS KEY [R] TO RESTART THE HARNESS");
             })
         );
         this.unsubscribes.push(
@@ -100,22 +100,16 @@ export class DomHudSystem implements ISystem {
         if (this.tensionBar) {
             this.tensionBar.style.width = pct;
             if (clamped >= 0.98) {
-                this.tensionBar.style.backgroundColor = "#ff4500";
-                this.tensionBar.classList.add("tension-pulse");
+                this.tensionBar.style.backgroundColor = "var(--signal-red)";
             } else if (clamped >= 0.75) {
-                this.tensionBar.style.backgroundColor = "#f59e0b";
-                this.tensionBar.classList.remove("tension-pulse");
-            } else if (clamped >= 0.40) {
-                this.tensionBar.style.backgroundColor = "#eab308";
-                this.tensionBar.classList.remove("tension-pulse");
+                this.tensionBar.style.backgroundColor = "var(--signal-yellow)";
             } else {
-                this.tensionBar.style.backgroundColor = "#22c55e";
-                this.tensionBar.classList.remove("tension-pulse");
+                this.tensionBar.style.backgroundColor = "var(--signal-green)";
             }
         }
         if (this.tensionText) {
             this.tensionText.textContent = (clamped * 100).toFixed(0) + "%";
-            this.tensionText.style.color = clamped >= 0.9 ? "#fbbf24" : "#94a3b8";
+            this.tensionText.style.color = clamped >= 0.9 ? "var(--signal-yellow)" : "#94a3b8";
         }
     }
 
@@ -149,35 +143,41 @@ export class DomHudSystem implements ISystem {
                 break;
             case "ready":
                 this.traversalHint.style.opacity = "1";
-                this.traversalHint.style.color   = "#fbbf24";
+                this.traversalHint.style.color   = "var(--signal-yellow)";
                 this.traversalHint.textContent   = "RELEASE TO FLING";
                 break;
             case "maxout":
                 this.traversalHint.style.opacity = "1";
-                this.traversalHint.style.color   = "#ff4500";
+                this.traversalHint.style.color   = "var(--signal-red)";
                 this.traversalHint.textContent   = "MAX TENSION — FLING NOW";
                 break;
         }
     }
 
     private updatePlayerHp(hp: number, maxHp: number): void {
-        if (this.playerHpValue) {
-            this.playerHpValue.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
+        if (this.playerHpText) {
+            this.playerHpText.textContent = `INTEGRITY: ${hp} / ${maxHp}`;
         }
-        if (this.playerHpBar) {
-            this.playerHpBar.style.width           = ((hp / maxHp) * 100).toFixed(0) + "%";
-            this.playerHpBar.style.backgroundColor = hp <= 1 ? "#ef4444" : "#22c55e";
+        for (let i = 0; i < 5; i++) {
+            const led = document.getElementById(`player-hp-led-${i}`);
+            if (led) {
+                if (i < hp) {
+                    led.className = "led-dot led-green";
+                } else {
+                    led.className = "led-dot";
+                }
+            }
         }
     }
 
     private updateWeaverHp(hp: number, maxHp: number): void {
         if (this.weaverHpValue) {
-            this.weaverHpValue.textContent = `${hp} / ${maxHp}`;
+            this.weaverHpValue.textContent = `${hp}/${maxHp}`;
         }
         if (this.weaverHpBar) {
             const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
             this.weaverHpBar.style.width = pct;
-            this.weaverHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
+            this.weaverHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "var(--signal-yellow)" : "var(--signal-red)";
         }
     }
 
@@ -188,12 +188,15 @@ export class DomHudSystem implements ISystem {
         }
     }
 
-    private showOverlay(title: string, color: string): void {
+    private showOverlay(layoutTheme: string, color: string, subText: string): void {
         if (this.overlay) this.overlay.style.display = "flex";
         if (this.overlayTitle) {
-            this.overlayTitle.textContent              = title;
-            this.overlayTitle.style.color              = color;
-            this.overlayTitle.style.textShadow         = `0 0 24px ${color}80`;
+            this.overlayTitle.textContent = layoutTheme;
+            this.overlayTitle.style.color = color;
+            this.overlayTitle.style.textShadow = `0 0 15px ${color}`;
+        }
+        if (this.overlaySubtitle) {
+            this.overlaySubtitle.textContent = subText;
         }
     }
 
