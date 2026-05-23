@@ -81,6 +81,11 @@ export class DomHudSystem implements ISystem {
             })
         );
         this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.GAME_WIN, () => {
+                this.showOverlay("WEAVER DEFEATED", "#10b981");
+            })
+        );
+        this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_RESET, () => {
                 this.hideOverlay();
                 this.setHint("none");

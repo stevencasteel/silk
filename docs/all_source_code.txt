@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 5:31:50 PM
+ [SYSTEM] Generated: 5/23/2026, 5:39:41 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -896,7 +896,7 @@ export class CompositionRoot {
         
         const projectileSystem = new ProjectileSystem(broker, refs, transforms, healths, iframes, renderSystem);
         const audioSystem = new AudioDirectorSystem(broker);
-        const juiceSystem = new JuiceSystem(broker, renderSystem);
+        const juiceSystem = new JuiceSystem(broker, refs, renderSystem); // Fixed: refs injected
         const hudSystem = new DomHudSystem(broker);
         const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, silks, velocities);
 
@@ -1310,6 +1310,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledParticle {
@@ -1340,6 +1341,7 @@ export class JuiceSystem implements ISystem {
 
   constructor(
     private broker: EventBroker,
+    private refs: EntityRefs,
     private visualRegistry: IVisualRegistry
   ) {}
 
@@ -1389,9 +1391,9 @@ export class JuiceSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
-        const weaverMesh = scene.getMeshByName("weaverVisual");
-        if (weaverMesh) {
-          this.spawnBurst(weaverMesh.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
+        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        if (weaverNode) {
+          this.spawnBurst(weaverNode.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
         }
       })
     );
@@ -1400,9 +1402,10 @@ export class JuiceSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
-        const weaverMesh = scene.getMeshByName("weaverVisual");
-        if (weaverMesh) {
-          this.spawnDeathDebris(weaverMesh.position, scene);
+        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        if (weaverNode) {
+          this.spawnDeathDebris(weaverNode.position, scene);
+          weaverNode.setEnabled(false); 
         }
       })
     );
@@ -1410,6 +1413,10 @@ export class JuiceSystem implements ISystem {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearDebris();
+        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        if (weaverNode) {
+          weaverNode.setEnabled(true);
+        }
       })
     );
   }
@@ -1442,7 +1449,6 @@ export class JuiceSystem implements ISystem {
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
     if (!this.debrisMat) return;
 
-    // CRASH PROTECTION FALLBACK: If Havok failed to load, spawn a massive visual red particle shower
     if (!scene.isPhysicsEnabled()) {
         this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
         return;
@@ -3883,10 +3889,10 @@ export class PlayerKinematicsSystem implements ISystem {
     private readonly WALL_SLIDE_SPEED    = -3.0;
     private readonly DRAG_DAMPING        = 0.99;
 
-    private readonly TENSION_CHARGE_RATE = 0.38;
+    private readonly TENSION_CHARGE_RATE = 0.38; // Upgraded: charges slower
     private readonly MIN_FLING_TENSION   = 0.06;
 
-    private readonly FLING_IMPULSE       = 76.0; 
+    private readonly FLING_IMPULSE       = 76.0; // Upgraded: launches with massive speed
     private readonly LAUNCH_DURATION     = 0.70;
     private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
@@ -3993,7 +3999,6 @@ export class PlayerKinematicsSystem implements ISystem {
             silk.dynamicVelX = 0;
             silk.dynamicVelY = Math.max(silk.dynamicVelY, this.WALL_SLIDE_SPEED);
 
-            // Distance ONLY gained by wall sliding
             silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
             const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
             silk.maxLength = this.BASE_SILK_LENGTH + silk.tension * maxStretch;
@@ -4035,7 +4040,11 @@ export class PlayerKinematicsSystem implements ISystem {
             return;
         }
 
-        trav.state   = "AIRBORNE";
+        // --- FIXED FALLBACK PROTECTION ---
+        // Only fall back to AIRBORNE if we are not actively in the middle of a LAUNCH
+        if (trav.state !== "LAUNCHING") {
+            trav.state = "AIRBORNE";
+        }
         trav.wallDir = 0;
         silk.tension = Math.max(0, silk.tension - 4.0 * dt);
         target.x = nextX;
@@ -4070,8 +4079,6 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.launchPower = storedTension;
         trav.wallDir     = 0;
 
-        // Note: We NO LONGER grant artificial slack here.
-        // maxLength remains exactly what it stretched to on the wall.
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.25 + storedTension * 0.35,
             duration: 0.2
@@ -4083,22 +4090,17 @@ export class PlayerKinematicsSystem implements ISystem {
         const dy = target.y - silk.anchorY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-        // INSTANT REEL IN: Distance can only be gained by sliding.
-        // If we swing or fling closer than maxLength, instantly shrink maxLength to match.
         if (dist < silk.maxLength) {
             silk.maxLength = Math.max(this.BASE_SILK_LENGTH, dist);
         }
 
-        // ABSOLUTE CONSTRAINT: Never let dist exceed the current maxLength.
         if (dist > silk.maxLength) {
             const nx = dx / dist;
             const ny = dy / dist;
 
-            // Lock position strictly to the end of the allowed radius
             target.x = silk.anchorX + nx * silk.maxLength;
             target.y = silk.anchorY + ny * silk.maxLength;
 
-            // Project velocity onto the circle tangent (true pendulum arc)
             const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
             if (dot > 0) {
                 silk.dynamicVelX -= dot * nx;
@@ -4478,6 +4480,11 @@ export class DomHudSystem implements ISystem {
         this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_OVER, () => {
                 this.showOverlay("SILK SNAPPED", "#ef4444");
+            })
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.GAME_WIN, () => {
+                this.showOverlay("WEAVER DEFEATED", "#10b981");
             })
         );
         this.unsubscribes.push(

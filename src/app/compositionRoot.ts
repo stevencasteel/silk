@@ -71,7 +71,7 @@ export class CompositionRoot {
         
         const projectileSystem = new ProjectileSystem(broker, refs, transforms, healths, iframes, renderSystem);
         const audioSystem = new AudioDirectorSystem(broker);
-        const juiceSystem = new JuiceSystem(broker, renderSystem);
+        const juiceSystem = new JuiceSystem(broker, refs, renderSystem); // Fixed: refs injected
         const hudSystem = new DomHudSystem(broker);
         const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, silks, velocities);
 

@@ -3,6 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledParticle {
@@ -33,6 +34,7 @@ export class JuiceSystem implements ISystem {
 
   constructor(
     private broker: EventBroker,
+    private refs: EntityRefs,
     private visualRegistry: IVisualRegistry
   ) {}
 
@@ -82,9 +84,9 @@ export class JuiceSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
-        const weaverMesh = scene.getMeshByName("weaverVisual");
-        if (weaverMesh) {
-          this.spawnBurst(weaverMesh.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
+        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        if (weaverNode) {
+          this.spawnBurst(weaverNode.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
         }
       })
     );
@@ -93,9 +95,10 @@ export class JuiceSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
-        const weaverMesh = scene.getMeshByName("weaverVisual");
-        if (weaverMesh) {
-          this.spawnDeathDebris(weaverMesh.position, scene);
+        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        if (weaverNode) {
+          this.spawnDeathDebris(weaverNode.position, scene);
+          weaverNode.setEnabled(false); 
         }
       })
     );
@@ -103,6 +106,10 @@ export class JuiceSystem implements ISystem {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearDebris();
+        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        if (weaverNode) {
+          weaverNode.setEnabled(true);
+        }
       })
     );
   }
@@ -135,7 +142,6 @@ export class JuiceSystem implements ISystem {
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
     if (!this.debrisMat) return;
 
-    // CRASH PROTECTION FALLBACK: If Havok failed to load, spawn a massive visual red particle shower
     if (!scene.isPhysicsEnabled()) {
         this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
         return;
