@@ -1,21 +1,21 @@
-import { IWardenState, AIContext, WardenStateType } from "./IWardenState";
+import { ISpiderState, AIContext, SpiderStateType } from "./ISpiderState";
 import { GameEvent } from "../../core/events/GameEvents";
 
-export class WardenSweepingState implements IWardenState {
-  public readonly type: WardenStateType = "SWEEPING";
+export class SpiderSweepingState implements ISpiderState {
+  public readonly type: SpiderStateType = "SWEEPING";
   public readonly name = "SWEEPING CEILING";
   public readonly hue = "#ef4444";
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
     
-    const health = ctx.healths.get(ctx.wardenId);
+    const health = ctx.healths.get(ctx.spiderId);
     const isBerserk = health ? (health.current < health.max * 0.5) : false;
     const patrolSpeed = isBerserk ? 9.0 : 4.5;
 
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: patrolSpeed,
       y: 0,
       z: 0
@@ -26,15 +26,15 @@ export class WardenSweepingState implements IWardenState {
     void ctx;
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     ctx.ai.timeInState += dt;
     return null;
   }
 }
 
-export class WardenDashingState implements IWardenState {
-  public readonly type: WardenStateType = "DASHING";
-  public readonly name = "WARDEN DASH";
+export class SpiderDashingState implements ISpiderState {
+  public readonly type: SpiderStateType = "DASHING";
+  public readonly name = "SPIDER DASH";
   public readonly hue = "#f59e0b";
 
   private dashCount = 0;
@@ -45,7 +45,7 @@ export class WardenDashingState implements IWardenState {
   private thrustVelocity = { x: 0, y: 0 };
 
   public enter(ctx: AIContext): void {
-    const health = ctx.healths.get(ctx.wardenId);
+    const health = ctx.healths.get(ctx.spiderId);
     const isBerserk = health ? (health.current < health.max * 0.5) : false;
     
     this.dashCount = 0;
@@ -64,7 +64,7 @@ export class WardenDashingState implements IWardenState {
     
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: 0, y: 0, z: 0
     });
 
@@ -83,10 +83,10 @@ export class WardenDashingState implements IWardenState {
     this.phaseTimer = 0.8;
     ctx.ai.hue = "#dc2626";
 
-    const wardenTrans = ctx.transforms.get(ctx.wardenId);
-    if (wardenTrans) {
-      const dx = this.targetPos.x - wardenTrans.x;
-      const dy = this.targetPos.y - wardenTrans.y;
+    const spiderTrans = ctx.transforms.get(ctx.spiderId);
+    if (spiderTrans) {
+      const dx = this.targetPos.x - spiderTrans.x;
+      const dy = this.targetPos.y - spiderTrans.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
       
       const speed = this.maxDashes === 3 ? 36.0 : 28.0;
@@ -95,7 +95,7 @@ export class WardenDashingState implements IWardenState {
 
       ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.wardenId,
+        entityId: ctx.spiderId,
         x: this.thrustVelocity.x,
         y: this.thrustVelocity.y,
         z: 0
@@ -110,14 +110,14 @@ export class WardenDashingState implements IWardenState {
 
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: 0, y: 0, z: 0
     });
 
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     this.phaseTimer -= dt;
 
     if (this.currentPhase === "PREP") {
@@ -128,7 +128,7 @@ export class WardenDashingState implements IWardenState {
         this.startThrust(ctx);
       }
     } else if (this.currentPhase === "THRUST") {
-      const trav = ctx.wardenTraversal.get(ctx.wardenId);
+      const trav = ctx.spiderTraversal.get(ctx.spiderId);
       const hitWallOrGround = trav ? (trav.isWallClinging || trav.isGrounded) : false;
 
       if (this.phaseTimer <= 0 || hitWallOrGround) {
@@ -149,8 +149,8 @@ export class WardenDashingState implements IWardenState {
   }
 }
 
-export class WardenReturningState implements IWardenState {
-  public readonly type: WardenStateType = "RETURNING";
+export class SpiderReturningState implements ISpiderState {
+  public readonly type: SpiderStateType = "RETURNING";
   public readonly name = "RETURNING TO CEILING";
   public readonly hue = "#4b5563";
 
@@ -162,13 +162,13 @@ export class WardenReturningState implements IWardenState {
     void ctx;
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     ctx.ai.timeInState += dt;
 
-    const wTrans = ctx.transforms.get(ctx.wardenId);
-    if (wTrans) {
+    const sTrans = ctx.transforms.get(ctx.spiderId);
+    if (sTrans) {
       const targetY = 27.2;
-      const dy = targetY - wTrans.y;
+      const dy = targetY - sTrans.y;
 
       if (Math.abs(dy) < 0.3) {
         return "SWEEPING";
@@ -177,7 +177,7 @@ export class WardenReturningState implements IWardenState {
       const speed = 12.0;
       ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.wardenId,
+        entityId: ctx.spiderId,
         x: 0,
         y: speed,
         z: 0
@@ -188,19 +188,19 @@ export class WardenReturningState implements IWardenState {
   }
 }
 
-export class WardenDefeatedState implements IWardenState {
-  public readonly type: WardenStateType = "DEFEATED";
-  public readonly name = "WARDEN DEFEATED";
+export class SpiderDefeatedState implements ISpiderState {
+  public readonly type: SpiderStateType = "DEFEATED";
+  public readonly name = "SPIDER DEFEATED";
   public readonly hue = "#111317";
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: 0, y: 0, z: 0
     });
-    ctx.broker.publish(GameEvent.WARDEN_DIED, undefined);
+    ctx.broker.publish(GameEvent.SPIDER_DIED, undefined);
     ctx.broker.publish(GameEvent.GAME_WIN, undefined);
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
   }
@@ -209,7 +209,7 @@ export class WardenDefeatedState implements IWardenState {
     void ctx;
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     void ctx;
     void dt;
     return null;

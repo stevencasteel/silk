@@ -1,15 +1,15 @@
 import { EntityId } from "./Entity";
 import { ComponentStore } from "./ComponentStore";
-import { PlayerTag, WardenTag, AnchorTag } from "./Components";
+import { PlayerTag, SpiderTag, AnchorTag } from "./Components";
 
 export class EntityRefs {
     private _player: EntityId = -1;
-    private _warden: EntityId = -1;
+    private _spider: EntityId = -1;
     private _anchor: EntityId = -1;
 
     constructor(
         private playerTags: ComponentStore<PlayerTag>,
-        private wardenTags: ComponentStore<WardenTag>,
+        private spiderTags: ComponentStore<SpiderTag>,
         private anchorTags: ComponentStore<AnchorTag>
     ) {}
 
@@ -25,16 +25,16 @@ export class EntityRefs {
         this._player = id;
     }
 
-    public get warden(): EntityId {
-        if (this._warden !== -1) return this._warden;
-        for (const [id] of this.wardenTags.entries()) {
+    public get spider(): EntityId {
+        if (this._spider !== -1) return this._spider;
+        for (const [id] of this.spiderTags.entries()) {
             return id;
         }
         return -1;
     }
 
-    public set warden(id: EntityId) {
-        this._warden = id;
+    public set spider(id: EntityId) {
+        this._spider = id;
     }
 
     public get anchor(): EntityId {

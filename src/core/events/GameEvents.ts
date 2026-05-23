@@ -9,10 +9,10 @@ export enum GameEvent {
   PLAYER_STATE_CHANGE       = "PLAYER_STATE_CHANGE",
   ROPE_TENSION_CHANGE       = "ROPE_TENSION_CHANGE",
   ROPE_LENGTH_CHANGE        = "ROPE_LENGTH_CHANGE",
-  WARDEN_STATE_CHANGE       = "WARDEN_STATE_CHANGE",
-  WARDEN_DAMAGED            = "WARDEN_DAMAGED",
-  WARDEN_HEALTH_CHANGED     = "WARDEN_HEALTH_CHANGED",
-  WARDEN_DIED               = "WARDEN_DIED",
+  SPIDER_STATE_CHANGE       = "SPIDER_STATE_CHANGE",
+  SPIDER_DAMAGED            = "SPIDER_DAMAGED",
+  SPIDER_HEALTH_CHANGED     = "SPIDER_HEALTH_CHANGED",
+  SPIDER_DIED               = "SPIDER_DIED",
   CAMERA_SHAKE_TRIGGERED    = "CAMERA_SHAKE_TRIGGERED",
   GAME_OVER                 = "GAME_OVER",
   GAME_WIN                  = "GAME_WIN",
@@ -30,10 +30,10 @@ export interface GameEventMap {
   [GameEvent.PLAYER_STATE_CHANGE]:     { state: string };
   [GameEvent.ROPE_TENSION_CHANGE]:     { tension: number };
   [GameEvent.ROPE_LENGTH_CHANGE]:      { length: number; maxLength: number };
-  [GameEvent.WARDEN_STATE_CHANGE]:     { state: string; hue: string };
-  [GameEvent.WARDEN_DAMAGED]:          { amount: number; source: string };
-  [GameEvent.WARDEN_HEALTH_CHANGED]:   { hp: number; maxHp: number };
-  [GameEvent.WARDEN_DIED]:             void;
+  [GameEvent.SPIDER_STATE_CHANGE]:     { state: string; hue: string };
+  [GameEvent.SPIDER_DAMAGED]:          { amount: number; source: string };
+  [GameEvent.SPIDER_HEALTH_CHANGED]:   { hp: number; maxHp: number };
+  [GameEvent.SPIDER_DIED]:             void;
   [GameEvent.CAMERA_SHAKE_TRIGGERED]:  { amplitude: number; duration: number };
   [GameEvent.GAME_OVER]:               void;
   [GameEvent.GAME_WIN]:                void;

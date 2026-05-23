@@ -63,12 +63,12 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
+      this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
-        const wardenMesh = scene.getMeshByName("wardenVisual");
-        if (wardenMesh) {
-          this.spawnBurst(wardenMesh.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
+        const spiderMesh = scene.getMeshByName("spiderVisual");
+        if (spiderMesh) {
+          this.spawnBurst(spiderMesh.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
         }
       })
     );

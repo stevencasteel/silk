@@ -67,7 +67,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     if (!this.world || !this.RAPIER) return;
     
     const playerEntity = this.refs.player;
-    const wardenEntity = this.refs.warden;
+    const spiderEntity = this.refs.spider;
 
     if (playerEntity !== -1 && !this.rigidBodies.has(playerEntity)) {
       const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 16, 0));
@@ -75,9 +75,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
     }
 
-    if (wardenEntity !== -1 && !this.rigidBodies.has(wardenEntity)) {
+    if (spiderEntity !== -1 && !this.rigidBodies.has(spiderEntity)) {
       const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
-      this.rigidBodies.set(wardenEntity, wBody);
+      this.rigidBodies.set(spiderEntity, wBody);
       this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), wBody); // Match massive size
     }
 
@@ -127,8 +127,8 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       pBody.setNextKinematicTranslation({ x: pTarget.x, y: pTarget.y, z: pTarget.z });
     }
 
-    const wTarget = this.targets.get(this.refs.warden);
-    const wBody = this.rigidBodies.get(this.refs.warden);
+    const wTarget = this.targets.get(this.refs.spider);
+    const wBody = this.rigidBodies.get(this.refs.spider);
     if (wTarget && wTarget.active && wBody) {
       wBody.setNextKinematicTranslation({ x: wTarget.x, y: wTarget.y, z: wTarget.z });
     }
@@ -150,9 +150,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     if (!this.world) {
       const pTrans = this.transforms.get(this.refs.player);
       if (pTrans && pTarget) { pTrans.x = pTarget.x; pTrans.y = pTarget.y; }
-      const wTrans = this.transforms.get(this.refs.warden);
-      const wTargetFallback = this.targets.get(this.refs.warden);
-      if (wTrans && wTargetFallback) { wTrans.x = wTargetFallback.x; wTrans.y = wTargetFallback.y; }
+      const sTrans = this.transforms.get(this.refs.spider);
+      const sTargetFallback = this.targets.get(this.refs.spider);
+      if (sTrans && sTargetFallback) { sTrans.x = sTargetFallback.x; sTrans.y = sTargetFallback.y; }
     }
 
     const tether = this.tethers.get(this.refs.player);

@@ -1,40 +1,40 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import { SpiderAIComponent, TransformComponent, SpiderTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
-import { IWardenState, AIContext, WardenStateType } from "../states/IWardenState";
-import { WardenSweepingState, WardenDashingState, WardenReturningState, WardenDefeatedState } from "../states/WardenStates";
+import { ISpiderState, AIContext, SpiderStateType } from "../states/ISpiderState";
+import { SpiderSweepingState, SpiderDashingState, SpiderReturningState, SpiderDefeatedState } from "../states/SpiderStates";
 
-export class WardenBrainSystem implements ISystem {
+export class SpiderBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
-  private states = new Map<WardenStateType, IWardenState>();
-  private activeState: IWardenState | null = null;
+  private states = new Map<SpiderStateType, ISpiderState>();
+  private activeState: ISpiderState | null = null;
   private contextCache: AIContext | null = null;
   private unsubDamage: (() => void) | null = null;
 
   constructor(
     private refs: EntityRefs,
-    private ai: ComponentStore<WardenAIComponent>,
+    private ai: ComponentStore<SpiderAIComponent>,
     private transforms: ComponentStore<TransformComponent>,
-    private wardenTraversal: ComponentStore<WardenTraversalComponent>,
+    private spiderTraversal: ComponentStore<SpiderTraversalComponent>,
     private healths: ComponentStore<HealthComponent>,
     private broker: EventBroker,
     private commands: CommandBus
   ) {
-    this.states.set("SWEEPING", new WardenSweepingState());
-    this.states.set("DASHING", new WardenDashingState());
-    this.states.set("RETURNING", new WardenReturningState());
-    this.states.set("DEFEATED", new WardenDefeatedState());
+    this.states.set("SWEEPING", new SpiderSweepingState());
+    this.states.set("DASHING", new SpiderDashingState());
+    this.states.set("RETURNING", new SpiderReturningState());
+    this.states.set("DEFEATED", new SpiderDefeatedState());
   }
 
   public init(): void {
-    const aiComp = this.ai.get(this.refs.warden);
+    const aiComp = this.ai.get(this.refs.spider);
     if (aiComp) {
-      const startState = aiComp.state as WardenStateType;
+      const startState = aiComp.state as SpiderStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
       
       aiComp.state = stateObj.type;
@@ -44,23 +44,23 @@ export class WardenBrainSystem implements ISystem {
       this.activeState = stateObj;
       
       this.contextCache = {
-        wardenId: this.refs.warden,
+        spiderId: this.refs.spider,
         playerId: this.refs.player,
         ai: aiComp,
         transforms: this.transforms,
-        wardenTraversal: this.wardenTraversal,
+        spiderTraversal: this.spiderTraversal,
         healths: this.healths,
         commands: this.commands,
         broker: this.broker
       };
 
       this.activeState.enter(this.contextCache);
-      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
+      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
     }
 
-    this.unsubDamage = this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
-      const aiComp = this.ai.get(this.refs.warden);
-      const health = this.healths.get(this.refs.warden);
+    this.unsubDamage = this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
+      const aiComp = this.ai.get(this.refs.spider);
+      const health = this.healths.get(this.refs.spider);
       if (aiComp && health) {
         if (health.current <= 0) {
           this.transitionTo("DEFEATED");
@@ -71,8 +71,8 @@ export class WardenBrainSystem implements ISystem {
     });
   }
 
-  private transitionTo(nextStateKey: WardenStateType): void {
-    const aiComp = this.ai.get(this.refs.warden);
+  private transitionTo(nextStateKey: SpiderStateType): void {
+    const aiComp = this.ai.get(this.refs.spider);
     if (!aiComp || !this.contextCache || !this.activeState) return;
 
     const nextStateObj = this.states.get(nextStateKey);
@@ -86,7 +86,7 @@ export class WardenBrainSystem implements ISystem {
       this.activeState = nextStateObj;
       this.activeState.enter(this.contextCache);
 
-      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { 
+      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { 
         state: nextStateObj.name, 
         hue: nextStateObj.hue 
       });
@@ -94,16 +94,16 @@ export class WardenBrainSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const aiComp = this.ai.get(this.refs.warden);
+    const aiComp = this.ai.get(this.refs.spider);
     if (!aiComp || !this.activeState) return;
 
     if (!this.contextCache) {
       this.contextCache = {
-        wardenId: this.refs.warden,
+        spiderId: this.refs.spider,
         playerId: this.refs.player,
         ai: aiComp,
         transforms: this.transforms,
-        wardenTraversal: this.wardenTraversal,
+        spiderTraversal: this.spiderTraversal,
         healths: this.healths,
         commands: this.commands,
         broker: this.broker

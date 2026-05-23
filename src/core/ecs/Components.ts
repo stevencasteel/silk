@@ -27,7 +27,7 @@ export interface InputIntentComponent {
     detach: boolean;
 }
 
-export interface WardenAIComponent {
+export interface SpiderAIComponent {
     state: string;
     timeInState: number;
     targetX: number;
@@ -45,7 +45,7 @@ export interface PlayerStatsComponent {
 }
 
 export interface PlayerTag { readonly tag?: "player"; }
-export interface WardenTag { readonly tag?: "warden"; }
+export interface SpiderTag { readonly tag?: "spider"; }
 export interface AnchorTag { readonly tag?: "anchor"; }
 export interface InvulnerabilityComponent { timeRemaining: number; }
 
@@ -60,7 +60,7 @@ export interface TraversalStateComponent {
     launchPower: number;
 }
 
-export interface WardenTraversalComponent {
+export interface SpiderTraversalComponent {
     velX: number;
     velY: number;
     isGrounded: boolean;

@@ -4,7 +4,7 @@ import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
     TransformComponent,
     HealthComponent,
-    WardenAIComponent,
+    SpiderAIComponent,
     TetherComponent,
     InvulnerabilityComponent,
     TraversalStateComponent
@@ -20,8 +20,8 @@ export class CombatSystem implements ISystem {
 
     private readonly FLING_DAMAGE_THRESHOLD = 0.80;
     private readonly PLAYER_HIT_RADIUS      = 0.8;
-    private readonly WARDEN_HIT_RADIUS      = 2.4;
-    private readonly WARDEN_CONTACT_DAMAGE  = 1;
+    private readonly SPIDER_HIT_RADIUS      = 2.4;
+    private readonly SPIDER_CONTACT_DAMAGE  = 1;
     private readonly PLAYER_IFRAME_DURATION = 1.2;
     private readonly PLAYER_FLING_DAMAGE    = 35;
 
@@ -29,7 +29,7 @@ export class CombatSystem implements ISystem {
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
-        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private spiderAIs: ComponentStore<SpiderAIComponent>,
         private tethers: ComponentStore<TetherComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
@@ -39,62 +39,62 @@ export class CombatSystem implements ISystem {
 
     public update(dt: number): void {
         const pTrans  = this.transforms.get(this.refs.player);
-        const wTrans  = this.transforms.get(this.refs.warden);
+        const sTrans  = this.transforms.get(this.refs.spider);
         const pHealth = this.healths.get(this.refs.player);
-        const wHealth = this.healths.get(this.refs.warden);
-        const wAI     = this.wardenAIs.get(this.refs.warden);
+        const sHealth = this.healths.get(this.refs.spider);
+        const sAI     = this.spiderAIs.get(this.refs.spider);
         const pIframe = this.iframes.get(this.refs.player);
         const tether  = this.tethers.get(this.refs.player);
         const pTrav   = this.traversal.get(this.refs.player);
 
-        if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
+        if (!pTrans || !sTrans || !pHealth || !sHealth || !sAI || !pIframe || !tether || !pTrav) return;
 
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
         }
 
-        const dx    = pTrans.x - wTrans.x;
-        const dy    = pTrans.y - wTrans.y;
+        const dx    = pTrans.x - sTrans.x;
+        const dy    = pTrans.y - sTrans.y;
         const distSq = dx * dx + dy * dy;
-        const hitDist = this.PLAYER_HIT_RADIUS + this.WARDEN_HIT_RADIUS;
+        const hitDist = this.PLAYER_HIT_RADIUS + this.SPIDER_HIT_RADIUS;
 
         if (distSq >= hitDist * hitDist) return;
 
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
-            this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, tether, pTrav, dx, dy, distSq);
+            this.resolvePlayerFlingHit(pTrans, sTrans, sHealth, sAI, tether, pTrav, dx, dy, distSq);
             return;
         }
 
-        const wardenIsHostile = wAI.state === "DASHING";
+        const spiderIsHostile = sAI.state === "DASHING";
 
-        if (pIframe.timeRemaining <= 0 && wardenIsHostile) {
-            this.resolveWardenContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
+        if (pIframe.timeRemaining <= 0 && spiderIsHostile) {
+            this.resolveSpiderContactHit(pTrans, sTrans, pHealth, pIframe, dx, dy, distSq);
         }
     }
 
     private resolvePlayerFlingHit(
         _pTrans: TransformComponent,
-        _wTrans: TransformComponent,
-        wHealth: HealthComponent,
-        wAI: WardenAIComponent,
+        _sTrans: TransformComponent,
+        sHealth: HealthComponent,
+        sAI: SpiderAIComponent,
         tether: TetherComponent,
         pTrav: TraversalStateComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void _pTrans; void _wTrans; void wAI;
+        void _pTrans; void _sTrans; void sAI;
 
-        wHealth.current -= this.PLAYER_FLING_DAMAGE;
+        sHealth.current -= this.PLAYER_FLING_DAMAGE;
         
-        this.broker.publish(GameEvent.WARDEN_DAMAGED, {
+        this.broker.publish(GameEvent.SPIDER_DAMAGED, {
             amount: this.PLAYER_FLING_DAMAGE,
             source: "PLAYER_FLING"
         });
         
-        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, {
-            hp: Math.max(0, wHealth.current),
-            maxHp: wHealth.max
+        this.broker.publish(GameEvent.SPIDER_HEALTH_CHANGED, {
+            hp: Math.max(0, sHealth.current),
+            maxHp: sHealth.max
         });
         
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
@@ -107,18 +107,18 @@ export class CombatSystem implements ISystem {
         pTrav.launchTimer  = 0;
     }
 
-    private resolveWardenContactHit(
+    private resolveSpiderContactHit(
         pTrans: TransformComponent,
-        wTrans: TransformComponent,
+        sTrans: TransformComponent,
         pHealth: HealthComponent,
         pIframe: InvulnerabilityComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void pTrans; void wTrans;
+        void pTrans; void sTrans;
 
-        pHealth.current -= this.WARDEN_CONTACT_DAMAGE;
+        pHealth.current -= this.SPIDER_CONTACT_DAMAGE;
         pIframe.timeRemaining = this.PLAYER_IFRAME_DURATION;
 
         const dist = Math.sqrt(distSq) || 1;
@@ -131,8 +131,8 @@ export class CombatSystem implements ISystem {
         });
 
         this.broker.publish(GameEvent.PLAYER_DAMAGED, {
-            amount: this.WARDEN_CONTACT_DAMAGE,
-            source: "WARDEN"
+            amount: this.SPIDER_CONTACT_DAMAGE,
+            source: "SPIDER"
         });
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
             hp: pHealth.current,

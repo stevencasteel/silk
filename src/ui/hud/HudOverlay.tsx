@@ -16,10 +16,8 @@ export const HudOverlay: React.FC = () => {
           color: "#e2e8f0"
         }}
       >
-        {/* ── Top row ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
 
-          {/* Player HP */}
           <div style={{
             display: "flex", flexDirection: "column", gap: "5px",
             background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
@@ -35,7 +33,6 @@ export const HudOverlay: React.FC = () => {
             </div>
           </div>
 
-          {/* Warden status */}
           <div style={{
             display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
             background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
@@ -43,20 +40,18 @@ export const HudOverlay: React.FC = () => {
             minWidth: "175px"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
-              <span>WARDEN</span>
-              <span id="warden-hp-value">100 / 100</span>
+              <span>SPIDER</span>
+              <span id="spider-hp-value">100 / 100</span>
             </div>
             <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="warden-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
+              <div id="spider-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
             </div>
             <span id="boss-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
         </div>
 
-        {/* ── Bottom centre: Tension meter + hint ── */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
 
-          {/* Hint line */}
           <div id="traversal-hint" style={{
             fontSize: "9px", letterSpacing: "0.12em", color: "#94a3b8",
             opacity: 0, transition: "opacity 0.2s ease",
@@ -85,7 +80,6 @@ export const HudOverlay: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Game-state overlay ── */}
       <div id="game-state-overlay" style={{
         position: "absolute", inset: 0,
         display: "none", flexDirection: "column",

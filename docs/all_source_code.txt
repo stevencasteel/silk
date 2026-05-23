@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 3:08:44 PM
+ [SYSTEM] Generated: 5/23/2026, 3:52:09 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -83,20 +83,20 @@
 │   │   ├── player/
 │   │   │   └── PlayerConfig.ts
 │   │   ├── rope/
+│   │   ├── spider/
+│   │   │   └── SpiderConfig.ts
 │   │   ├── states/
-│   │   │   ├── IWardenState.ts
-│   │   │   └── WardenStates.ts
-│   │   ├── systems/
-│   │   │   ├── CombatSystem.ts
-│   │   │   ├── EntitySpawnerSystem.ts
-│   │   │   ├── GameDirectorSystem.ts
-│   │   │   ├── PlayerInputSystem.ts
-│   │   │   ├── PlayerMovementSystem.ts
-│   │   │   ├── RopeVisualizerSystem.ts
-│   │   │   ├── WardenBrainSystem.ts
-│   │   │   └── WardenTraversalSystem.ts
-│   │   └── warden/
-│   │       └── WardenConfig.ts
+│   │   │   ├── ISpiderState.ts
+│   │   │   └── SpiderStates.ts
+│   │   └── systems/
+│   │       ├── CombatSystem.ts
+│   │       ├── EntitySpawnerSystem.ts
+│   │       ├── GameDirectorSystem.ts
+│   │       ├── PlayerInputSystem.ts
+│   │       ├── PlayerMovementSystem.ts
+│   │       ├── RopeVisualizerSystem.ts
+│   │       ├── SpiderBrainSystem.ts
+│   │       └── SpiderTraversalSystem.ts
 │   ├── physics/
 │   │   ├── colliders/
 │   │   ├── collisions/
@@ -317,14 +317,14 @@ REALIZED PLAY AREA & ALIGNMENT SPECIFICATIONS
 ===============================================================================
 REALIZED COREtraversal PHYSICS SKELETON
 ===============================================================================
-1. WARDEN CEILING SWEEP (ANCHOR)
+1. SPIDER CEILING SWEEP (ANCHOR)
    - Spawned as a giant mechanical sphere (radius = 2.4, 3x capsule width) 
      patrolling autonomously back and forth along Y = 26.0 between X = [-12, 12].
    - The top end of the silk string (tether anchor coordinate) locks dynamically 
-     to the Warden's real-time position.
+     to the Spider's real-time position.
 
 2. PENDULUM SWING & STEERING
-   - The player capsule (radius 0.4, height 1.8) is suspended below the Warden.
+   - The player capsule (radius 0.4, height 1.8) is suspended below the Spider.
    - Left/Right arrow keys directly steer the pendulum to build momentum.
 
 3. WALL SLIDE FRICTION & ELONGATION
@@ -342,11 +342,11 @@ These systems are pruned from the initial integration pass to guarantee the
 absolute stability of the core physical swing, wall-drag, and tension loops. 
 They remain documented below as direct blueprints for future development phases.
 
-1. WARDEN EMOTIONAL & ATTACK PHASES
+1. SPIDER EMOTIONAL & ATTACK PHASES
 -------------------------------------------------------------------------------
 - PHASE 1 CYCLE: DORMANT -> HUNTING -> CHARGE_PREP -> CHARGE_ATTACK -> RECOVERY.
 - FAKE DEATH STATE: Transition triggers at 0% HP. Emissive lights turn off, 
-  audio synthesizers scale down to low-frequency drones, and the Warden is 
+  audio synthesizers scale down to low-frequency drones, and the Spider is 
   dazed for a 3.0s window.
 - PHASE 2 (BERSERK OVERDRIVE): Revives at 50% HP. Visuals switch to a intense
   high-emissive orange glow, movement sweep speeds double, and the audio drone 
@@ -361,7 +361,7 @@ They remain documented below as direct blueprints for future development phases.
   temporarily along horizontal coordinate offsets.
 - PROCEDURAL PARTICLES: Burst pools of geometric boxes tracking velocity vectors 
   with linear gravity decay, color-coded by event source (green for player, red 
-  for Warden).
+  for Spider).
 
 3. EXPANDED AUDIO DIRECTOR
 -------------------------------------------------------------------------------
@@ -370,7 +370,7 @@ They remain documented below as direct blueprints for future development phases.
 - IMPACT SYNTHS: Membrane synthesizers to deliver low-end kick thuds during player 
   damage events, and pink-noise synthesizers for high-frequency hit-flashes.
 - STATE-BASED DRONES: Tension drone modulations that scale oscillator harmonics and 
-  low-pass filter Q-factors in sync with the Warden's active state.
+  low-pass filter Q-factors in sync with the Spider's active state.
 
 4. USER MENU & CONFIGURATION
 -------------------------------------------------------------------------------
@@ -800,7 +800,7 @@ import { CommandBus } from "../core/commands/CommandBus";
 import { EntityRegistry } from "../core/ecs/Entity";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent, HealthComponent, InputIntentComponent, WardenAIComponent, PlayerStatsComponent, PlayerTag, WardenTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, WardenTraversalComponent } from "../core/ecs/Components";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent, HealthComponent, InputIntentComponent, SpiderAIComponent, PlayerStatsComponent, PlayerTag, SpiderTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, SpiderTraversalComponent } from "../core/ecs/Components";
 import { RenderSystem } from "../babylon/scene/RenderSystem";
 import { CameraSystem } from "../babylon/cameras/CameraSystem";
 import { LightingSystem } from "../babylon/lighting/LightingSystem";
@@ -809,8 +809,8 @@ import { DomHudSystem } from "../ui/hud/DomHudSystem";
 import { EntitySpawnerSystem } from "../gameplay/systems/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
 import { PlayerMovementSystem } from "../gameplay/systems/PlayerMovementSystem";
-import { WardenBrainSystem } from "../gameplay/systems/WardenBrainSystem";
-import { WardenTraversalSystem } from "../gameplay/systems/WardenTraversalSystem";
+import { SpiderBrainSystem } from "../gameplay/systems/SpiderBrainSystem";
+import { SpiderTraversalSystem } from "../gameplay/systems/SpiderTraversalSystem";
 import { RopeVisualizerSystem } from "../gameplay/systems/RopeVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
@@ -839,34 +839,34 @@ export class CompositionRoot {
         const tethers = new ComponentStore<TetherComponent>();
         const healths = new ComponentStore<HealthComponent>();
         const inputs = new ComponentStore<InputIntentComponent>();
-        const wardenAIs = new ComponentStore<WardenAIComponent>();
+        const spiderAIs = new ComponentStore<SpiderAIComponent>();
         const playerStats = new ComponentStore<PlayerStatsComponent>();
         const traversal = new ComponentStore<TraversalStateComponent>();
         const iframes = new ComponentStore<InvulnerabilityComponent>();
-        const wardenTraversal = new ComponentStore<WardenTraversalComponent>();
+        const spiderTraversal = new ComponentStore<SpiderTraversalComponent>();
         
         const playerTags = new ComponentStore<PlayerTag>();
-        const wardenTags = new ComponentStore<WardenTag>();
+        const spiderTags = new ComponentStore<SpiderTag>();
         const anchorTags = new ComponentStore<AnchorTag>();
-        const refs = new EntityRefs(playerTags, wardenTags, anchorTags);
+        const refs = new EntityRefs(playerTags, spiderTags, anchorTags);
 
         const renderSystem = new RenderSystem(canvas);
-        const cameraSystem = new CameraSystem(refs, transforms, wardenAIs, renderSystem, broker);
-        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, wardenAIs, playerStats, playerTags, wardenTags, anchorTags, renderSystem, traversal, iframes, wardenTraversal);
+        const cameraSystem = new CameraSystem(refs, transforms, spiderAIs, renderSystem, broker);
+        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, spiderAIs, playerStats, playerTags, spiderTags, anchorTags, renderSystem, traversal, iframes, spiderTraversal);
         const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, tethers);
         const inputSystem = new PlayerInputSystem(refs, inputs);
         const movementSystem = new PlayerMovementSystem();
-        const wardenBrain = new WardenBrainSystem(refs, wardenAIs, transforms, wardenTraversal, healths, broker, commands);
-        const wardenTraversalSystem = new WardenTraversalSystem(refs, velocities, wardenTraversal, transforms, targets, wardenAIs, healths);
+        const spiderBrain = new SpiderBrainSystem(refs, spiderAIs, transforms, spiderTraversal, healths, broker, commands);
+        const spiderTraversalSystem = new SpiderTraversalSystem(refs, velocities, spiderTraversal, transforms, targets, spiderAIs, healths);
         
         const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
         const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
         
-        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem, wardenAIs, healths);
+        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem, spiderAIs, healths);
         const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
         const lightingSystem = new LightingSystem(broker, renderSystem);
-        const combatSystem = new CombatSystem(refs, transforms, healths, wardenAIs, tethers, iframes, traversal, broker, commands);
-        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, wardenAIs, velocities, iframes, targets, traversal);
+        const combatSystem = new CombatSystem(refs, transforms, healths, spiderAIs, tethers, iframes, traversal, broker, commands);
+        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, spiderAIs, velocities, iframes, targets, traversal);
         
         const audioSystem = new AudioDirectorSystem(broker);
         const juiceSystem = new JuiceSystem(broker, renderSystem);
@@ -879,9 +879,9 @@ export class CompositionRoot {
         systemManager.register(physicsSystem);
         systemManager.register(inputSystem);
         systemManager.register(movementSystem);
-        systemManager.register(wardenBrain);
+        systemManager.register(spiderBrain);
         systemManager.register(playerKinematics);
-        systemManager.register(wardenTraversalSystem);
+        systemManager.register(spiderTraversalSystem);
         systemManager.register(environmentCollision);
         systemManager.register(syncSystem);
         systemManager.register(ropeVisualizer);
@@ -921,7 +921,7 @@ export class AudioDirectorSystem implements ISystem {
   private initialized: boolean = false;
   private unsub: (() => void) | null = null;
   private unsubImpact: (() => void) | null = null;
-  private unsubWardenHit: (() => void) | null = null;
+  private unsubSpiderHit: (() => void) | null = null;
   private unsubState: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
@@ -950,11 +950,11 @@ export class AudioDirectorSystem implements ISystem {
       if (this.initialized && this.noiseSynth) this.noiseSynth.triggerAttackRelease("16n");
     });
 
-    this.unsubWardenHit = this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
+    this.unsubSpiderHit = this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
       if (this.initialized && this.impactSynth) this.impactSynth.triggerAttackRelease("E3", "16n");
     });
 
-    this.unsubState = this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => {
+    this.unsubState = this.broker.subscribe(GameEvent.SPIDER_STATE_CHANGE, (payload) => {
       if (this.initialized && this.tensionSynth) {
         this.tensionSynth.handleStateChange(payload.state);
       }
@@ -995,7 +995,7 @@ export class AudioDirectorSystem implements ISystem {
   public dispose(): void {
     if (this.unsub) this.unsub();
     if (this.unsubImpact) this.unsubImpact();
-    if (this.unsubWardenHit) this.unsubWardenHit();
+    if (this.unsubSpiderHit) this.unsubSpiderHit();
     if (this.unsubState) this.unsubState();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
@@ -1108,7 +1108,7 @@ import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, WardenAIComponent } from "../../core/ecs/Components";
+import { TransformComponent, SpiderAIComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -1123,13 +1123,13 @@ export class CameraSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private wardenAIs: ComponentStore<WardenAIComponent>,
+    private spiderAIs: ComponentStore<SpiderAIComponent>,
     private visualRegistry: IVisualRegistry,
     private broker: EventBroker
   ) {
     void this.refs;
     void this.transforms;
-    void this.wardenAIs;
+    void this.spiderAIs;
   }
 
   public init(): void {
@@ -1198,7 +1198,7 @@ export class LightingSystem implements ISystem {
   readonly initPhase = InitPhase.World;
   
   private unsub: (() => void) | null = null;
-  private wardenLight: BABYLON.PointLight | null = null;
+  private spiderLight: BABYLON.PointLight | null = null;
   private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
   private currentColor = new BABYLON.Color3(0.3, 0.3, 0.4);
 
@@ -1211,25 +1211,25 @@ export class LightingSystem implements ISystem {
     const scene = this.visualRegistry.getScene();
     if (!scene) return;
 
-    this.wardenLight = new BABYLON.PointLight("wardenEmotionLight", new BABYLON.Vector3(0, 5, -2), scene);
-    this.wardenLight.intensity = 1.5;
-    this.wardenLight.diffuse = this.currentColor;
-    this.wardenLight.specular = this.currentColor;
+    this.spiderLight = new BABYLON.PointLight("spiderEmotionLight", new BABYLON.Vector3(0, 5, -2), scene);
+    this.spiderLight.intensity = 1.5;
+    this.spiderLight.diffuse = this.currentColor;
+    this.spiderLight.specular = this.currentColor;
 
-    this.unsub = this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => {
-      this.setWardenPhaseHue(payload.hue);
+    this.unsub = this.broker.subscribe(GameEvent.SPIDER_STATE_CHANGE, (payload) => {
+      this.setSpiderPhaseHue(payload.hue);
     });
   }
 
   public update(dt: number): void {
-    if (!this.wardenLight) return;
+    if (!this.spiderLight) return;
     
     BABYLON.Color3.LerpToRef(this.currentColor, this.targetColor, Math.min(1, dt * 4), this.currentColor);
-    this.wardenLight.diffuse.copyFrom(this.currentColor);
-    this.wardenLight.specular.copyFrom(this.currentColor);
+    this.spiderLight.diffuse.copyFrom(this.currentColor);
+    this.spiderLight.specular.copyFrom(this.currentColor);
   }
 
-  private setWardenPhaseHue(colorHex: string): void {
+  private setSpiderPhaseHue(colorHex: string): void {
     const hex = colorHex.replace("#", "");
     const r = parseInt(hex.substring(0, 2), 16) / 255;
     const g = parseInt(hex.substring(2, 4), 16) / 255;
@@ -1239,7 +1239,7 @@ export class LightingSystem implements ISystem {
 
   public dispose(): void {
     if (this.unsub) this.unsub();
-    if (this.wardenLight) this.wardenLight.dispose();
+    if (this.spiderLight) this.spiderLight.dispose();
   }
 }
 
@@ -1369,12 +1369,12 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
+      this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
-        const wardenMesh = scene.getMeshByName("wardenVisual");
-        if (wardenMesh) {
-          this.spawnBurst(wardenMesh.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
+        const spiderMesh = scene.getMeshByName("spiderVisual");
+        if (spiderMesh) {
+          this.spawnBurst(spiderMesh.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
         }
       })
     );
@@ -1749,8 +1749,8 @@ export class DebugTelemetryOverlay implements ISystem {
 
     const playerTrans = this._transforms.get(this._refs.player);
     const playerTether = this._tethers.get(this._refs.player);
-    const wardenTrans = this._transforms.get(this._refs.warden);
-    const wardenVel = this._velocities.get(this._refs.warden);
+    const spiderTrans = this._transforms.get(this._refs.spider);
+    const spiderVel = this._velocities.get(this._refs.spider);
 
     let info = `=== PROJECT SILK DIAGNOSTICS ===\n`;
     info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
@@ -1768,10 +1768,10 @@ export class DebugTelemetryOverlay implements ISystem {
       info += `Load/Tens  : ${(playerTether.tension * 100).toFixed(1)}%\n`;
     }
 
-    if (wardenTrans && wardenVel) {
-      info += `\n=== WARDEN CEILING ANCHOR ===\n`;
-      info += `Pos X/Y    : ${wardenTrans.x.toFixed(2)}, ${wardenTrans.y.toFixed(2)}\n`;
-      info += `Vel X      : ${wardenVel.x.toFixed(2)} units/s\n`;
+    if (spiderTrans && spiderVel) {
+      info += `\n=== SPIDER CEILING ANCHOR ===\n`;
+      info += `Pos X/Y    : ${spiderTrans.x.toFixed(2)}, ${spiderTrans.y.toFixed(2)}\n`;
+      info += `Vel X      : ${spiderVel.x.toFixed(2)} units/s\n`;
     }
 
     info += `\n=== SYSTEM SHORTCUTS ===\n`;
@@ -1928,7 +1928,7 @@ export interface InputIntentComponent {
     detach: boolean;
 }
 
-export interface WardenAIComponent {
+export interface SpiderAIComponent {
     state: string;
     timeInState: number;
     targetX: number;
@@ -1946,7 +1946,7 @@ export interface PlayerStatsComponent {
 }
 
 export interface PlayerTag { readonly tag?: "player"; }
-export interface WardenTag { readonly tag?: "warden"; }
+export interface SpiderTag { readonly tag?: "spider"; }
 export interface AnchorTag { readonly tag?: "anchor"; }
 export interface InvulnerabilityComponent { timeRemaining: number; }
 
@@ -1961,7 +1961,7 @@ export interface TraversalStateComponent {
     launchPower: number;
 }
 
-export interface WardenTraversalComponent {
+export interface SpiderTraversalComponent {
     velX: number;
     velY: number;
     isGrounded: boolean;
@@ -2008,16 +2008,16 @@ export class EntityRegistry {
 ────────────────────────────────────────────────────
 import { EntityId } from "./Entity";
 import { ComponentStore } from "./ComponentStore";
-import { PlayerTag, WardenTag, AnchorTag } from "./Components";
+import { PlayerTag, SpiderTag, AnchorTag } from "./Components";
 
 export class EntityRefs {
     private _player: EntityId = -1;
-    private _warden: EntityId = -1;
+    private _spider: EntityId = -1;
     private _anchor: EntityId = -1;
 
     constructor(
         private playerTags: ComponentStore<PlayerTag>,
-        private wardenTags: ComponentStore<WardenTag>,
+        private spiderTags: ComponentStore<SpiderTag>,
         private anchorTags: ComponentStore<AnchorTag>
     ) {}
 
@@ -2033,16 +2033,16 @@ export class EntityRefs {
         this._player = id;
     }
 
-    public get warden(): EntityId {
-        if (this._warden !== -1) return this._warden;
-        for (const [id] of this.wardenTags.entries()) {
+    public get spider(): EntityId {
+        if (this._spider !== -1) return this._spider;
+        for (const [id] of this.spiderTags.entries()) {
             return id;
         }
         return -1;
     }
 
-    public set warden(id: EntityId) {
-        this._warden = id;
+    public set spider(id: EntityId) {
+        this._spider = id;
     }
 
     public get anchor(): EntityId {
@@ -2164,10 +2164,10 @@ export enum GameEvent {
   PLAYER_STATE_CHANGE       = "PLAYER_STATE_CHANGE",
   ROPE_TENSION_CHANGE       = "ROPE_TENSION_CHANGE",
   ROPE_LENGTH_CHANGE        = "ROPE_LENGTH_CHANGE",
-  WARDEN_STATE_CHANGE       = "WARDEN_STATE_CHANGE",
-  WARDEN_DAMAGED            = "WARDEN_DAMAGED",
-  WARDEN_HEALTH_CHANGED     = "WARDEN_HEALTH_CHANGED",
-  WARDEN_DIED               = "WARDEN_DIED",
+  SPIDER_STATE_CHANGE       = "SPIDER_STATE_CHANGE",
+  SPIDER_DAMAGED            = "SPIDER_DAMAGED",
+  SPIDER_HEALTH_CHANGED     = "SPIDER_HEALTH_CHANGED",
+  SPIDER_DIED               = "SPIDER_DIED",
   CAMERA_SHAKE_TRIGGERED    = "CAMERA_SHAKE_TRIGGERED",
   GAME_OVER                 = "GAME_OVER",
   GAME_WIN                  = "GAME_WIN",
@@ -2185,10 +2185,10 @@ export interface GameEventMap {
   [GameEvent.PLAYER_STATE_CHANGE]:     { state: string };
   [GameEvent.ROPE_TENSION_CHANGE]:     { tension: number };
   [GameEvent.ROPE_LENGTH_CHANGE]:      { length: number; maxLength: number };
-  [GameEvent.WARDEN_STATE_CHANGE]:     { state: string; hue: string };
-  [GameEvent.WARDEN_DAMAGED]:          { amount: number; source: string };
-  [GameEvent.WARDEN_HEALTH_CHANGED]:   { hp: number; maxHp: number };
-  [GameEvent.WARDEN_DIED]:             void;
+  [GameEvent.SPIDER_STATE_CHANGE]:     { state: string; hue: string };
+  [GameEvent.SPIDER_DAMAGED]:          { amount: number; source: string };
+  [GameEvent.SPIDER_HEALTH_CHANGED]:   { hp: number; maxHp: number };
+  [GameEvent.SPIDER_DIED]:             void;
   [GameEvent.CAMERA_SHAKE_TRIGGERED]:  { amplitude: number; duration: number };
   [GameEvent.GAME_OVER]:               void;
   [GameEvent.GAME_WIN]:                void;
@@ -2406,58 +2406,67 @@ export const PlayerConfig = {
 
 
 
-● ./src/gameplay/states/IWardenState.ts
+● ./src/gameplay/spider/SpiderConfig.ts
+────────────────────────────────────────────────────
+export const SpiderConfig = {
+  phase2Threshold: 0.6,
+  attackChargeSpeed: 800,
+};
+
+
+
+● ./src/gameplay/states/ISpiderState.ts
 ────────────────────────────────────────────────────
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import { SpiderAIComponent, TransformComponent, SpiderTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type WardenStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
+export type SpiderStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
 
 export interface AIContext {
-  wardenId: EntityId;
+  spiderId: EntityId;
   playerId: EntityId;
-  ai: WardenAIComponent;
+  ai: SpiderAIComponent;
   transforms: ComponentStore<TransformComponent>;
-  wardenTraversal: ComponentStore<WardenTraversalComponent>;
+  spiderTraversal: ComponentStore<SpiderTraversalComponent>;
   healths: ComponentStore<HealthComponent>;
   commands: CommandBus;
   broker: EventBroker;
 }
 
-export interface IWardenState {
-  readonly type: WardenStateType;
+export interface ISpiderState {
+  readonly type: SpiderStateType;
   readonly name: string;
   readonly hue: string;
   enter(ctx: AIContext): void;
   exit(ctx: AIContext): void;
-  update(ctx: AIContext, dt: number): WardenStateType | null;
+  update(ctx: AIContext, dt: number): SpiderStateType | null;
 }
 
 
 
-● ./src/gameplay/states/WardenStates.ts
+● ./src/gameplay/states/SpiderStates.ts
 ────────────────────────────────────────────────────
-import { IWardenState, AIContext, WardenStateType } from "./IWardenState";
+import { ISpiderState, AIContext, SpiderStateType } from "./ISpiderState";
 import { GameEvent } from "../../core/events/GameEvents";
 
-export class WardenSweepingState implements IWardenState {
-  public readonly type: WardenStateType = "SWEEPING";
+export class SpiderSweepingState implements ISpiderState {
+  public readonly type: SpiderStateType = "SWEEPING";
   public readonly name = "SWEEPING CEILING";
   public readonly hue = "#ef4444";
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
     
-    const health = ctx.healths.get(ctx.wardenId);
+    const health = ctx.healths.get(ctx.spiderId);
     const isBerserk = health ? (health.current < health.max * 0.5) : false;
     const patrolSpeed = isBerserk ? 9.0 : 4.5;
 
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: patrolSpeed,
       y: 0,
       z: 0
@@ -2468,15 +2477,15 @@ export class WardenSweepingState implements IWardenState {
     void ctx;
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     ctx.ai.timeInState += dt;
     return null;
   }
 }
 
-export class WardenDashingState implements IWardenState {
-  public readonly type: WardenStateType = "DASHING";
-  public readonly name = "WARDEN DASH";
+export class SpiderDashingState implements ISpiderState {
+  public readonly type: SpiderStateType = "DASHING";
+  public readonly name = "SPIDER DASH";
   public readonly hue = "#f59e0b";
 
   private dashCount = 0;
@@ -2487,7 +2496,7 @@ export class WardenDashingState implements IWardenState {
   private thrustVelocity = { x: 0, y: 0 };
 
   public enter(ctx: AIContext): void {
-    const health = ctx.healths.get(ctx.wardenId);
+    const health = ctx.healths.get(ctx.spiderId);
     const isBerserk = health ? (health.current < health.max * 0.5) : false;
     
     this.dashCount = 0;
@@ -2506,7 +2515,7 @@ export class WardenDashingState implements IWardenState {
     
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: 0, y: 0, z: 0
     });
 
@@ -2525,10 +2534,10 @@ export class WardenDashingState implements IWardenState {
     this.phaseTimer = 0.8;
     ctx.ai.hue = "#dc2626";
 
-    const wardenTrans = ctx.transforms.get(ctx.wardenId);
-    if (wardenTrans) {
-      const dx = this.targetPos.x - wardenTrans.x;
-      const dy = this.targetPos.y - wardenTrans.y;
+    const spiderTrans = ctx.transforms.get(ctx.spiderId);
+    if (spiderTrans) {
+      const dx = this.targetPos.x - spiderTrans.x;
+      const dy = this.targetPos.y - spiderTrans.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
       
       const speed = this.maxDashes === 3 ? 36.0 : 28.0;
@@ -2537,7 +2546,7 @@ export class WardenDashingState implements IWardenState {
 
       ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.wardenId,
+        entityId: ctx.spiderId,
         x: this.thrustVelocity.x,
         y: this.thrustVelocity.y,
         z: 0
@@ -2552,14 +2561,14 @@ export class WardenDashingState implements IWardenState {
 
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: 0, y: 0, z: 0
     });
 
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     this.phaseTimer -= dt;
 
     if (this.currentPhase === "PREP") {
@@ -2570,7 +2579,7 @@ export class WardenDashingState implements IWardenState {
         this.startThrust(ctx);
       }
     } else if (this.currentPhase === "THRUST") {
-      const trav = ctx.wardenTraversal.get(ctx.wardenId);
+      const trav = ctx.spiderTraversal.get(ctx.spiderId);
       const hitWallOrGround = trav ? (trav.isWallClinging || trav.isGrounded) : false;
 
       if (this.phaseTimer <= 0 || hitWallOrGround) {
@@ -2591,8 +2600,8 @@ export class WardenDashingState implements IWardenState {
   }
 }
 
-export class WardenReturningState implements IWardenState {
-  public readonly type: WardenStateType = "RETURNING";
+export class SpiderReturningState implements ISpiderState {
+  public readonly type: SpiderStateType = "RETURNING";
   public readonly name = "RETURNING TO CEILING";
   public readonly hue = "#4b5563";
 
@@ -2604,13 +2613,13 @@ export class WardenReturningState implements IWardenState {
     void ctx;
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     ctx.ai.timeInState += dt;
 
-    const wTrans = ctx.transforms.get(ctx.wardenId);
-    if (wTrans) {
+    const sTrans = ctx.transforms.get(ctx.spiderId);
+    if (sTrans) {
       const targetY = 27.2;
-      const dy = targetY - wTrans.y;
+      const dy = targetY - sTrans.y;
 
       if (Math.abs(dy) < 0.3) {
         return "SWEEPING";
@@ -2619,7 +2628,7 @@ export class WardenReturningState implements IWardenState {
       const speed = 12.0;
       ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.wardenId,
+        entityId: ctx.spiderId,
         x: 0,
         y: speed,
         z: 0
@@ -2630,19 +2639,19 @@ export class WardenReturningState implements IWardenState {
   }
 }
 
-export class WardenDefeatedState implements IWardenState {
-  public readonly type: WardenStateType = "DEFEATED";
-  public readonly name = "WARDEN DEFEATED";
+export class SpiderDefeatedState implements ISpiderState {
+  public readonly type: SpiderStateType = "DEFEATED";
+  public readonly name = "SPIDER DEFEATED";
   public readonly hue = "#111317";
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.wardenId,
+      entityId: ctx.spiderId,
       x: 0, y: 0, z: 0
     });
-    ctx.broker.publish(GameEvent.WARDEN_DIED, undefined);
+    ctx.broker.publish(GameEvent.SPIDER_DIED, undefined);
     ctx.broker.publish(GameEvent.GAME_WIN, undefined);
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
   }
@@ -2651,7 +2660,7 @@ export class WardenDefeatedState implements IWardenState {
     void ctx;
   }
 
-  public update(ctx: AIContext, dt: number): WardenStateType | null {
+  public update(ctx: AIContext, dt: number): SpiderStateType | null {
     void ctx;
     void dt;
     return null;
@@ -2668,7 +2677,7 @@ import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
     TransformComponent,
     HealthComponent,
-    WardenAIComponent,
+    SpiderAIComponent,
     TetherComponent,
     InvulnerabilityComponent,
     TraversalStateComponent
@@ -2684,8 +2693,8 @@ export class CombatSystem implements ISystem {
 
     private readonly FLING_DAMAGE_THRESHOLD = 0.80;
     private readonly PLAYER_HIT_RADIUS      = 0.8;
-    private readonly WARDEN_HIT_RADIUS      = 2.4;
-    private readonly WARDEN_CONTACT_DAMAGE  = 1;
+    private readonly SPIDER_HIT_RADIUS      = 2.4;
+    private readonly SPIDER_CONTACT_DAMAGE  = 1;
     private readonly PLAYER_IFRAME_DURATION = 1.2;
     private readonly PLAYER_FLING_DAMAGE    = 35;
 
@@ -2693,7 +2702,7 @@ export class CombatSystem implements ISystem {
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
-        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private spiderAIs: ComponentStore<SpiderAIComponent>,
         private tethers: ComponentStore<TetherComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
@@ -2703,62 +2712,62 @@ export class CombatSystem implements ISystem {
 
     public update(dt: number): void {
         const pTrans  = this.transforms.get(this.refs.player);
-        const wTrans  = this.transforms.get(this.refs.warden);
+        const sTrans  = this.transforms.get(this.refs.spider);
         const pHealth = this.healths.get(this.refs.player);
-        const wHealth = this.healths.get(this.refs.warden);
-        const wAI     = this.wardenAIs.get(this.refs.warden);
+        const sHealth = this.healths.get(this.refs.spider);
+        const sAI     = this.spiderAIs.get(this.refs.spider);
         const pIframe = this.iframes.get(this.refs.player);
         const tether  = this.tethers.get(this.refs.player);
         const pTrav   = this.traversal.get(this.refs.player);
 
-        if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
+        if (!pTrans || !sTrans || !pHealth || !sHealth || !sAI || !pIframe || !tether || !pTrav) return;
 
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
         }
 
-        const dx    = pTrans.x - wTrans.x;
-        const dy    = pTrans.y - wTrans.y;
+        const dx    = pTrans.x - sTrans.x;
+        const dy    = pTrans.y - sTrans.y;
         const distSq = dx * dx + dy * dy;
-        const hitDist = this.PLAYER_HIT_RADIUS + this.WARDEN_HIT_RADIUS;
+        const hitDist = this.PLAYER_HIT_RADIUS + this.SPIDER_HIT_RADIUS;
 
         if (distSq >= hitDist * hitDist) return;
 
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
-            this.resolvePlayerFlingHit(pTrans, wTrans, wHealth, wAI, tether, pTrav, dx, dy, distSq);
+            this.resolvePlayerFlingHit(pTrans, sTrans, sHealth, sAI, tether, pTrav, dx, dy, distSq);
             return;
         }
 
-        const wardenIsHostile = wAI.state === "DASHING";
+        const spiderIsHostile = sAI.state === "DASHING";
 
-        if (pIframe.timeRemaining <= 0 && wardenIsHostile) {
-            this.resolveWardenContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
+        if (pIframe.timeRemaining <= 0 && spiderIsHostile) {
+            this.resolveSpiderContactHit(pTrans, sTrans, pHealth, pIframe, dx, dy, distSq);
         }
     }
 
     private resolvePlayerFlingHit(
         _pTrans: TransformComponent,
-        _wTrans: TransformComponent,
-        wHealth: HealthComponent,
-        wAI: WardenAIComponent,
+        _sTrans: TransformComponent,
+        sHealth: HealthComponent,
+        sAI: SpiderAIComponent,
         tether: TetherComponent,
         pTrav: TraversalStateComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void _pTrans; void _wTrans; void wAI;
+        void _pTrans; void _sTrans; void sAI;
 
-        wHealth.current -= this.PLAYER_FLING_DAMAGE;
+        sHealth.current -= this.PLAYER_FLING_DAMAGE;
         
-        this.broker.publish(GameEvent.WARDEN_DAMAGED, {
+        this.broker.publish(GameEvent.SPIDER_DAMAGED, {
             amount: this.PLAYER_FLING_DAMAGE,
             source: "PLAYER_FLING"
         });
         
-        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, {
-            hp: Math.max(0, wHealth.current),
-            maxHp: wHealth.max
+        this.broker.publish(GameEvent.SPIDER_HEALTH_CHANGED, {
+            hp: Math.max(0, sHealth.current),
+            maxHp: sHealth.max
         });
         
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
@@ -2771,18 +2780,18 @@ export class CombatSystem implements ISystem {
         pTrav.launchTimer  = 0;
     }
 
-    private resolveWardenContactHit(
+    private resolveSpiderContactHit(
         pTrans: TransformComponent,
-        wTrans: TransformComponent,
+        sTrans: TransformComponent,
         pHealth: HealthComponent,
         pIframe: InvulnerabilityComponent,
         dx: number,
         dy: number,
         distSq: number
     ): void {
-        void pTrans; void wTrans;
+        void pTrans; void sTrans;
 
-        pHealth.current -= this.WARDEN_CONTACT_DAMAGE;
+        pHealth.current -= this.SPIDER_CONTACT_DAMAGE;
         pIframe.timeRemaining = this.PLAYER_IFRAME_DURATION;
 
         const dist = Math.sqrt(distSq) || 1;
@@ -2795,8 +2804,8 @@ export class CombatSystem implements ISystem {
         });
 
         this.broker.publish(GameEvent.PLAYER_DAMAGED, {
-            amount: this.WARDEN_CONTACT_DAMAGE,
-            source: "WARDEN"
+            amount: this.SPIDER_CONTACT_DAMAGE,
+            source: "SPIDER"
         });
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
             hp: pHealth.current,
@@ -2819,7 +2828,22 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { EntityRegistry } from "../../core/ecs/Entity";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent, HealthComponent, InputIntentComponent, WardenAIComponent, PlayerStatsComponent, PlayerTag, WardenTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, WardenTraversalComponent } from "../../core/ecs/Components";
+import { 
+    TransformComponent, 
+    KinematicVelocityComponent, 
+    KinematicTargetComponent, 
+    TetherComponent, 
+    HealthComponent, 
+    InputIntentComponent, 
+    SpiderAIComponent, 
+    PlayerStatsComponent, 
+    PlayerTag, 
+    SpiderTag, 
+    AnchorTag, 
+    TraversalStateComponent, 
+    InvulnerabilityComponent, 
+    SpiderTraversalComponent 
+} from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import * as BABYLON from "@babylonjs/core";
@@ -2837,91 +2861,91 @@ export class EntitySpawnerSystem implements ISystem {
         private tethers: ComponentStore<TetherComponent>,
         private healths: ComponentStore<HealthComponent>,
         private inputs: ComponentStore<InputIntentComponent>,
-        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private spiderAIs: ComponentStore<SpiderAIComponent>,
         private playerStats: ComponentStore<PlayerStatsComponent>,
         private playerTags: ComponentStore<PlayerTag>,
-        private wardenTags: ComponentStore<WardenTag>,
+        private spiderTags: ComponentStore<SpiderTag>,
         private anchorTags: ComponentStore<AnchorTag>,
         private visualRegistry: IVisualRegistry,
         private traversal: ComponentStore<TraversalStateComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
-        private wardenTraversal: ComponentStore<WardenTraversalComponent>
+        private spiderTraversal: ComponentStore<SpiderTraversalComponent>
     ) {}
 
-            public init(): void {
-                const scene = this.visualRegistry.getScene();
-                if (!scene) return;
+    public init(): void {
+        const scene = this.visualRegistry.getScene();
+        if (!scene) return;
 
-                const anchorId = this.entities.create();
-                this.transforms.add(anchorId, {
-                    x: 0, y: 27.2, z: 0,
-                    qx: 0, qy: 0, qz: 0, qw: 1,
-                    prevX: 0, prevY: 27.2, prevZ: 0,
-                    prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-                });
-                this.anchorTags.add(anchorId, {});
-                this.refs.anchor = anchorId;
-                const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
-                const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
-                anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-                anchorMesh.material = anchorMat;
-                this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
+        const anchorId = this.entities.create();
+        this.transforms.add(anchorId, {
+            x: 0, y: 27.2, z: 0,
+            qx: 0, qy: 0, qz: 0, qw: 1,
+            prevX: 0, prevY: 27.2, prevZ: 0,
+            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+        });
+        this.anchorTags.add(anchorId, {});
+        this.refs.anchor = anchorId;
+        const anchorMesh = BABYLON.MeshBuilder.CreateCylinder("anchorVisual", { height: 0.3, diameter: 0.5 }, scene);
+        const anchorMat = new BABYLON.StandardMaterial("anchorMat", scene);
+        anchorMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        anchorMesh.material = anchorMat;
+        this.visualRegistry.registerTransformNode(anchorId, anchorMesh);
 
-                const wardenId = this.entities.create();
-                this.transforms.add(wardenId, {
-                    x: 0, y: 27.2, z: 0,
-                    qx: 0, qy: 0, qz: 0, qw: 1,
-                    prevX: 0, prevY: 27.2, prevZ: 0,
-                    prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-                });
-                this.velocities.add(wardenId, { x: 4.5, y: 0, z: 0 });
-                this.targets.add(wardenId, { x: 0, y: 27.2, z: 0, active: true });
-                this.wardenAIs.add(wardenId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 27.2, hue: "#ef4444", hasFakedDeath: false });
-                this.healths.add(wardenId, { current: 100, max: 100 });
-                this.wardenTags.add(wardenId, {});
-                this.wardenTraversal.add(wardenId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
-                this.refs.warden = wardenId;
-                const wMesh = BABYLON.MeshBuilder.CreateIcoSphere("wardenVisual", { radius: 2.4, subdivisions: 3 }, scene);
-                const wMat = new BABYLON.StandardMaterial("wardenMat", scene);
-                wMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
-                wMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
-                wMesh.material = wMat;
-                this.visualRegistry.registerTransformNode(wardenId, wMesh);
+        const spiderId = this.entities.create();
+        this.transforms.add(spiderId, {
+            x: 0, y: 27.2, z: 0,
+            qx: 0, qy: 0, qz: 0, qw: 1,
+            prevX: 0, prevY: 27.2, prevZ: 0,
+            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+        });
+        this.velocities.add(spiderId, { x: 4.5, y: 0, z: 0 });
+        this.targets.add(spiderId, { x: 0, y: 27.2, z: 0, active: true });
+        this.spiderAIs.add(spiderId, { state: "SWEEPING", timeInState: 0, targetX: 0, targetY: 27.2, hue: "#ef4444", hasFakedDeath: false });
+        this.healths.add(spiderId, { current: 100, max: 100 });
+        this.spiderTags.add(spiderId, {});
+        this.spiderTraversal.add(spiderId, { velX: 4.5, velY: 0, isGrounded: false, isWallClinging: false, wallNormalX: 0 });
+        this.refs.spider = spiderId;
+        const sMesh = BABYLON.MeshBuilder.CreateIcoSphere("spiderVisual", { radius: 2.4, subdivisions: 3 }, scene);
+        const sMat = new BABYLON.StandardMaterial("spiderMat", scene);
+        sMat.diffuseColor = new BABYLON.Color3(0.95, 0.1, 0.1);
+        sMat.emissiveColor = new BABYLON.Color3(0.4, 0.02, 0.02);
+        sMesh.material = sMat;
+        this.visualRegistry.registerTransformNode(spiderId, sMesh);
 
-                const playerId = this.entities.create();
-                this.transforms.add(playerId, {
-                    x: 0, y: 15.2, z: 0,
-                    qx: 0, qy: 0, qz: 0, qw: 1,
-                    prevX: 0, prevY: 15.2, prevZ: 0,
-                    prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
-                });
-                this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-                this.targets.add(playerId, { x: 0, y: 15.2, z: 0, active: true });
-                this.tethers.add(playerId, {
-                    anchorX: 0, anchorY: 27.2, anchorZ: 0,
-                    maxLength: 12.0, currentLength: 12.0,
-                    isAttached: true, tension: 0.0,
-                    dynamicVelX: 0.0, dynamicVelY: 0.0
-                });
-                this.healths.add(playerId, { current: 5, max: 5 });
-                this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
-                this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 32, minRope: 4, maxRope: 24 });
-                this.playerTags.add(playerId, {});
-                this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
-                this.iframes.add(playerId, { timeRemaining: 0 });
-                this.refs.player = playerId;
-                const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
-                const pMat = new BABYLON.StandardMaterial("playerMat", scene);
-                pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
-                pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
-                pMesh.material = pMat;
-                this.visualRegistry.registerTransformNode(playerId, pMesh);
-            }
+        const playerId = this.entities.create();
+        this.transforms.add(playerId, {
+            x: 0, y: 15.2, z: 0,
+            qx: 0, qy: 0, qz: 0, qw: 1,
+            prevX: 0, prevY: 15.2, prevZ: 0,
+            prevQx: 0, prevQy: 0, prevQz: 0, prevQw: 1
+        });
+        this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
+        this.targets.add(playerId, { x: 0, y: 15.2, z: 0, active: true });
+        this.tethers.add(playerId, {
+            anchorX: 0, anchorY: 27.2, anchorZ: 0,
+            maxLength: 12.0, currentLength: 12.0,
+            isAttached: true, tension: 0.0,
+            dynamicVelX: 0.0, dynamicVelY: 0.0
+        });
+        this.healths.add(playerId, { current: 5, max: 5 });
+        this.inputs.add(playerId, { x: 0, y: 0, jump: false, fire: false, detach: false });
+        this.playerStats.add(playerId, { moveSpeed: 10, climbSpeed: 4, swingForce: 32, minRope: 4, maxRope: 24 });
+        this.playerTags.add(playerId, {});
+        this.traversal.add(playerId, { state: "AIRBORNE", wallNormalX: 0, wallNormalY: 0, wallDir: 0, launchTimer: 0.0, launchPower: 0.0 });
+        this.iframes.add(playerId, { timeRemaining: 0 });
+        this.refs.player = playerId;
+        const pMesh = BABYLON.MeshBuilder.CreateCapsule("playerVisual", { height: 1.8, radius: 0.4, subdivisions: 3 }, scene);
+        const pMat = new BABYLON.StandardMaterial("playerMat", scene);
+        pMat.diffuseColor = new BABYLON.Color3(0.13, 0.77, 0.36);
+        pMat.emissiveColor = new BABYLON.Color3(0.01, 0.08, 0.01);
+        pMesh.material = pMat;
+        this.visualRegistry.registerTransformNode(playerId, pMesh);
+    }
 
-            public update(_dt: number): void {
-                void _dt;
-            }
-        }
+    public update(_dt: number): void {
+        void _dt;
+    }
+}
 
 
 
@@ -2932,7 +2956,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, TetherComponent, WardenAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, HealthComponent, TetherComponent, SpiderAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
@@ -2946,7 +2970,7 @@ export class GameDirectorSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
         private tethers: ComponentStore<TetherComponent>,
-        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private spiderAIs: ComponentStore<SpiderAIComponent>,
         private velocities: ComponentStore<KinematicVelocityComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
@@ -3023,36 +3047,36 @@ export class GameDirectorSystem implements ISystem {
             pTrav.launchPower = 0;
         }
 
-        const wTrans = this.transforms.get(this.refs.warden);
-        const wHealth = this.healths.get(this.refs.warden);
-        const wAI = this.wardenAIs.get(this.refs.warden);
-        const wVel = this.velocities.get(this.refs.warden);
-        const wTarget = this.targets.get(this.refs.warden);
+        const sTrans = this.transforms.get(this.refs.spider);
+        const sHealth = this.healths.get(this.refs.spider);
+        const sAI = this.spiderAIs.get(this.refs.spider);
+        const sVel = this.velocities.get(this.refs.spider);
+        const sTarget = this.targets.get(this.refs.spider);
 
-        if (wTrans) {
-            wTrans.x = 0; wTrans.y = 26; wTrans.z = 0;
-            wTrans.prevX = 0; wTrans.prevY = 26; wTrans.prevZ = 0;
+        if (sTrans) {
+            sTrans.x = 0; sTrans.y = 26; sTrans.z = 0;
+            sTrans.prevX = 0; sTrans.prevY = 26; sTrans.prevZ = 0;
         }
-        if (wTarget) {
-            wTarget.x = 0; wTarget.y = 26; wTarget.z = 0; wTarget.active = true;
+        if (sTarget) {
+            sTarget.x = 0; sTarget.y = 26; sTarget.z = 0; sTarget.active = true;
         }
-        if (wHealth) {
-            wHealth.current = wHealth.max;
+        if (sHealth) {
+            sHealth.current = sHealth.max;
         }
-        if (wAI) {
-            wAI.state = "SWEEPING";
-            wAI.timeInState = 0;
-            wAI.hue = "#ef4444";
-            wAI.hasFakedDeath = false;
+        if (sAI) {
+            sAI.state = "SWEEPING";
+            sAI.timeInState = 0;
+            sAI.hue = "#ef4444";
+            sAI.hasFakedDeath = false;
         }
-        if (wVel) {
-            wVel.x = 4.0; wVel.y = 0; wVel.z = 0;
+        if (sVel) {
+            sVel.x = 4.0; sVel.y = 0; sVel.z = 0;
         }
 
         this.broker.publish(GameEvent.GAME_RESET, undefined);
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
-        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
-        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
+        this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
+        this.broker.publish(GameEvent.SPIDER_HEALTH_CHANGED, { hp: sHealth?.max || 100, maxHp: sHealth?.max || 100 });
     }
 
     public dispose(): void {
@@ -3293,45 +3317,45 @@ export class RopeVisualizerSystem implements ISystem {
 
 
 
-● ./src/gameplay/systems/WardenBrainSystem.ts
+● ./src/gameplay/systems/SpiderBrainSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import { SpiderAIComponent, TransformComponent, SpiderTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
-import { IWardenState, AIContext, WardenStateType } from "../states/IWardenState";
-import { WardenSweepingState, WardenDashingState, WardenReturningState, WardenDefeatedState } from "../states/WardenStates";
+import { ISpiderState, AIContext, SpiderStateType } from "../states/ISpiderState";
+import { SpiderSweepingState, SpiderDashingState, SpiderReturningState, SpiderDefeatedState } from "../states/SpiderStates";
 
-export class WardenBrainSystem implements ISystem {
+export class SpiderBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
-  private states = new Map<WardenStateType, IWardenState>();
-  private activeState: IWardenState | null = null;
+  private states = new Map<SpiderStateType, ISpiderState>();
+  private activeState: ISpiderState | null = null;
   private contextCache: AIContext | null = null;
   private unsubDamage: (() => void) | null = null;
 
   constructor(
     private refs: EntityRefs,
-    private ai: ComponentStore<WardenAIComponent>,
+    private ai: ComponentStore<SpiderAIComponent>,
     private transforms: ComponentStore<TransformComponent>,
-    private wardenTraversal: ComponentStore<WardenTraversalComponent>,
+    private spiderTraversal: ComponentStore<SpiderTraversalComponent>,
     private healths: ComponentStore<HealthComponent>,
     private broker: EventBroker,
     private commands: CommandBus
   ) {
-    this.states.set("SWEEPING", new WardenSweepingState());
-    this.states.set("DASHING", new WardenDashingState());
-    this.states.set("RETURNING", new WardenReturningState());
-    this.states.set("DEFEATED", new WardenDefeatedState());
+    this.states.set("SWEEPING", new SpiderSweepingState());
+    this.states.set("DASHING", new SpiderDashingState());
+    this.states.set("RETURNING", new SpiderReturningState());
+    this.states.set("DEFEATED", new SpiderDefeatedState());
   }
 
   public init(): void {
-    const aiComp = this.ai.get(this.refs.warden);
+    const aiComp = this.ai.get(this.refs.spider);
     if (aiComp) {
-      const startState = aiComp.state as WardenStateType;
+      const startState = aiComp.state as SpiderStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
       
       aiComp.state = stateObj.type;
@@ -3341,23 +3365,23 @@ export class WardenBrainSystem implements ISystem {
       this.activeState = stateObj;
       
       this.contextCache = {
-        wardenId: this.refs.warden,
+        spiderId: this.refs.spider,
         playerId: this.refs.player,
         ai: aiComp,
         transforms: this.transforms,
-        wardenTraversal: this.wardenTraversal,
+        spiderTraversal: this.spiderTraversal,
         healths: this.healths,
         commands: this.commands,
         broker: this.broker
       };
 
       this.activeState.enter(this.contextCache);
-      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
+      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
     }
 
-    this.unsubDamage = this.broker.subscribe(GameEvent.WARDEN_DAMAGED, () => {
-      const aiComp = this.ai.get(this.refs.warden);
-      const health = this.healths.get(this.refs.warden);
+    this.unsubDamage = this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
+      const aiComp = this.ai.get(this.refs.spider);
+      const health = this.healths.get(this.refs.spider);
       if (aiComp && health) {
         if (health.current <= 0) {
           this.transitionTo("DEFEATED");
@@ -3368,8 +3392,8 @@ export class WardenBrainSystem implements ISystem {
     });
   }
 
-  private transitionTo(nextStateKey: WardenStateType): void {
-    const aiComp = this.ai.get(this.refs.warden);
+  private transitionTo(nextStateKey: SpiderStateType): void {
+    const aiComp = this.ai.get(this.refs.spider);
     if (!aiComp || !this.contextCache || !this.activeState) return;
 
     const nextStateObj = this.states.get(nextStateKey);
@@ -3383,7 +3407,7 @@ export class WardenBrainSystem implements ISystem {
       this.activeState = nextStateObj;
       this.activeState.enter(this.contextCache);
 
-      this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { 
+      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { 
         state: nextStateObj.name, 
         hue: nextStateObj.hue 
       });
@@ -3391,16 +3415,16 @@ export class WardenBrainSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const aiComp = this.ai.get(this.refs.warden);
+    const aiComp = this.ai.get(this.refs.spider);
     if (!aiComp || !this.activeState) return;
 
     if (!this.contextCache) {
       this.contextCache = {
-        wardenId: this.refs.warden,
+        spiderId: this.refs.spider,
         playerId: this.refs.player,
         ai: aiComp,
         transforms: this.transforms,
-        wardenTraversal: this.wardenTraversal,
+        spiderTraversal: this.spiderTraversal,
         healths: this.healths,
         commands: this.commands,
         broker: this.broker
@@ -3423,15 +3447,15 @@ export class WardenBrainSystem implements ISystem {
 
 
 
-● ./src/gameplay/systems/WardenTraversalSystem.ts
+● ./src/gameplay/systems/SpiderTraversalSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { KinematicVelocityComponent, SpiderTraversalComponent, TransformComponent, KinematicTargetComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
-export class WardenTraversalSystem implements ISystem {
+export class SpiderTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -12.0;
   private maxX = 12.0;
@@ -3439,20 +3463,20 @@ export class WardenTraversalSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private velocities: ComponentStore<KinematicVelocityComponent>,
-    private traversal: ComponentStore<WardenTraversalComponent>,
+    private traversal: ComponentStore<SpiderTraversalComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private aiStore: ComponentStore<WardenAIComponent>,
+    private aiStore: ComponentStore<SpiderAIComponent>,
     private healths: ComponentStore<HealthComponent>
   ) {}
 
   public update(dt: number): void {
-    const vel = this.velocities.get(this.refs.warden);
-    const trav = this.traversal.get(this.refs.warden);
-    const trans = this.transforms.get(this.refs.warden);
-    const target = this.targets.get(this.refs.warden);
-    const ai = this.aiStore.get(this.refs.warden);
-    const health = this.healths.get(this.refs.warden);
+    const vel = this.velocities.get(this.refs.spider);
+    const trav = this.traversal.get(this.refs.spider);
+    const trans = this.transforms.get(this.refs.spider);
+    const target = this.targets.get(this.refs.spider);
+    const ai = this.aiStore.get(this.refs.spider);
+    const health = this.healths.get(this.refs.spider);
     
     if (!vel || !trav || !trans || !target) return;
 
@@ -3521,15 +3545,6 @@ export class WardenTraversalSystem implements ISystem {
     }
   }
 }
-
-
-
-● ./src/gameplay/warden/WardenConfig.ts
-────────────────────────────────────────────────────
-export const WardenConfig = {
-  phase2Threshold: 0.6,
-  attackChargeSpeed: 800,
-};
 
 
 
@@ -3798,14 +3813,14 @@ export class PlayerKinematicsSystem implements ISystem {
         const tether = this.tethers.get(this.refs.player);
         const target  = this.targets.get(this.refs.player);
         const trav    = this.traversal.get(this.refs.player);
-        const wTrans  = this.transforms.get(this.refs.warden);
+        const sTrans  = this.transforms.get(this.refs.spider);
         const input   = this.inputs.get(this.refs.player);
 
-        if (!tether || !target || !trav || !wTrans || !input) return;
+        if (!tether || !target || !trav || !sTrans || !input) return;
 
-        tether.anchorX = wTrans.x;
-        tether.anchorY = wTrans.y;
-        tether.anchorZ = wTrans.z;
+        tether.anchorX = sTrans.x;
+        tether.anchorY = sTrans.y;
+        tether.anchorZ = sTrans.z;
 
         if (trav.state === "LAUNCHING") {
             this.stepLaunching(dt, tether, target, trav, input);
@@ -4093,7 +4108,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     if (!this.world || !this.RAPIER) return;
     
     const playerEntity = this.refs.player;
-    const wardenEntity = this.refs.warden;
+    const spiderEntity = this.refs.spider;
 
     if (playerEntity !== -1 && !this.rigidBodies.has(playerEntity)) {
       const pBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 16, 0));
@@ -4101,9 +4116,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(0.4, 0.9, 0.4), pBody);
     }
 
-    if (wardenEntity !== -1 && !this.rigidBodies.has(wardenEntity)) {
+    if (spiderEntity !== -1 && !this.rigidBodies.has(spiderEntity)) {
       const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
-      this.rigidBodies.set(wardenEntity, wBody);
+      this.rigidBodies.set(spiderEntity, wBody);
       this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), wBody); // Match massive size
     }
 
@@ -4153,8 +4168,8 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       pBody.setNextKinematicTranslation({ x: pTarget.x, y: pTarget.y, z: pTarget.z });
     }
 
-    const wTarget = this.targets.get(this.refs.warden);
-    const wBody = this.rigidBodies.get(this.refs.warden);
+    const wTarget = this.targets.get(this.refs.spider);
+    const wBody = this.rigidBodies.get(this.refs.spider);
     if (wTarget && wTarget.active && wBody) {
       wBody.setNextKinematicTranslation({ x: wTarget.x, y: wTarget.y, z: wTarget.z });
     }
@@ -4176,9 +4191,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     if (!this.world) {
       const pTrans = this.transforms.get(this.refs.player);
       if (pTrans && pTarget) { pTrans.x = pTarget.x; pTrans.y = pTarget.y; }
-      const wTrans = this.transforms.get(this.refs.warden);
-      const wTargetFallback = this.targets.get(this.refs.warden);
-      if (wTrans && wTargetFallback) { wTrans.x = wTargetFallback.x; wTrans.y = wTargetFallback.y; }
+      const sTrans = this.transforms.get(this.refs.spider);
+      const sTargetFallback = this.targets.get(this.refs.spider);
+      if (sTrans && sTargetFallback) { sTrans.x = sTargetFallback.x; sTrans.y = sTargetFallback.y; }
     }
 
     const tether = this.tethers.get(this.refs.player);
@@ -4207,7 +4222,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent, TraversalStateComponent, WardenAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent, TraversalStateComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
@@ -4229,7 +4244,7 @@ export class TransformSyncSystem implements ISystem {
         private tethers: ComponentStore<TetherComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry,
-        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private spiderAIs: ComponentStore<SpiderAIComponent>,
         private healthStore: ComponentStore<HealthComponent>
     ) {}
 
@@ -4246,16 +4261,16 @@ export class TransformSyncSystem implements ISystem {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
 
-        const wAI = this.wardenAIs.get(this.refs.warden);
-        const wHealth = this.healthStore.get(this.refs.warden);
+        const sAI = this.spiderAIs.get(this.refs.spider);
+        const sHealth = this.healthStore.get(this.refs.spider);
 
         let targetScrollSpeed = 5.0;
-        if (wHealth && wHealth.current <= 0) {
+        if (sHealth && sHealth.current <= 0) {
             targetScrollSpeed = 0.0;
-        } else if (wAI) {
-            if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
+        } else if (sAI) {
+            if (sAI.state === "DASHING" || sAI.state === "RETURNING" || sAI.state === "DEFEATED") {
                 targetScrollSpeed = 0.0;
-            } else if (wHealth && wHealth.current < wHealth.max * 0.5) {
+            } else if (sHealth && sHealth.current < sHealth.max * 0.5) {
                 targetScrollSpeed = 9.0;
             }
         }
@@ -4308,7 +4323,7 @@ export class TransformSyncSystem implements ISystem {
                 }
             }
 
-            if (id === this.refs.warden) {
+            if (id === this.refs.spider) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
                 if (mat) {
@@ -4363,13 +4378,6 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
-// ---------------------------------------------------------------------------
-// DomHudSystem
-// Bridges the EventBroker to DOM elements rendered by HudOverlay.tsx.
-// Drives: tension meter, player HP, warden HP, warden state label,
-//         traversal hint text, and game-state overlay.
-// ---------------------------------------------------------------------------
-
 type HintLevel = "none" | "charging" | "ready" | "maxout";
 
 export class DomHudSystem implements ISystem {
@@ -4377,13 +4385,12 @@ export class DomHudSystem implements ISystem {
 
     private unsubscribes: (() => void)[] = [];
 
-    // Cached DOM refs
     private tensionBar     : HTMLElement | null = null;
     private tensionText    : HTMLElement | null = null;
     private playerHpBar    : HTMLElement | null = null;
     private playerHpValue  : HTMLElement | null = null;
-    private wardenHpBar    : HTMLElement | null = null;
-    private wardenHpValue  : HTMLElement | null = null;
+    private spiderHpBar    : HTMLElement | null = null;
+    private spiderHpValue  : HTMLElement | null = null;
     private bossStateText  : HTMLElement | null = null;
     private traversalHint  : HTMLElement | null = null;
     private overlay        : HTMLElement | null = null;
@@ -4403,15 +4410,14 @@ export class DomHudSystem implements ISystem {
         void _dt;
     }
 
-    // -----------------------------------------------------------------------
     private cacheDomElements(): void {
         if (typeof document === "undefined") return;
         this.tensionBar    = document.getElementById("tension-meter-bar");
         this.tensionText   = document.getElementById("tension-meter-text");
         this.playerHpBar   = document.getElementById("player-hp-bar");
         this.playerHpValue = document.getElementById("player-hp-value");
-        this.wardenHpBar   = document.getElementById("warden-hp-bar");
-        this.wardenHpValue = document.getElementById("warden-hp-value");
+        this.spiderHpBar    = document.getElementById("spider-hp-bar");
+        this.spiderHpValue = document.getElementById("spider-hp-value");
         this.bossStateText = document.getElementById("boss-state-text");
         this.traversalHint = document.getElementById("traversal-hint");
         this.overlay       = document.getElementById("game-state-overlay");
@@ -4439,13 +4445,13 @@ export class DomHudSystem implements ISystem {
             })
         );
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, ({ hp, maxHp }) => {
-                this.updateWardenHp(hp, maxHp);
+            this.broker.subscribe(GameEvent.SPIDER_HEALTH_CHANGED, ({ hp, maxHp }) => {
+                this.updateSpiderHp(hp, maxHp);
             })
         );
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, ({ state, hue }) => {
-                this.updateWardenStateLabel(state, hue);
+            this.broker.subscribe(GameEvent.SPIDER_STATE_CHANGE, ({ state, hue }) => {
+                this.updateSpiderStateLabel(state, hue);
             })
         );
         this.unsubscribes.push(
@@ -4461,7 +4467,6 @@ export class DomHudSystem implements ISystem {
         );
     }
 
-    // -----------------------------------------------------------------------
     private updateTensionBar(tension: number): void {
         const clamped = Math.max(0, Math.min(1, tension));
         const pct     = (clamped * 100).toFixed(1) + "%";
@@ -4539,18 +4544,18 @@ export class DomHudSystem implements ISystem {
         }
     }
 
-    private updateWardenHp(hp: number, maxHp: number): void {
-        if (this.wardenHpValue) {
-            this.wardenHpValue.textContent = `${hp} / ${maxHp}`;
+    private updateSpiderHp(hp: number, maxHp: number): void {
+        if (this.spiderHpValue) {
+            this.spiderHpValue.textContent = `${hp} / ${maxHp}`;
         }
-        if (this.wardenHpBar) {
+        if (this.spiderHpBar) {
             const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
-            this.wardenHpBar.style.width = pct;
-            this.wardenHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
+            this.spiderHpBar.style.width = pct;
+            this.spiderHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
         }
     }
 
-    private updateWardenStateLabel(state: string, hue: string): void {
+    private updateSpiderStateLabel(state: string, hue: string): void {
         if (this.bossStateText) {
             this.bossStateText.textContent = state.toUpperCase();
             this.bossStateText.style.color  = hue;
@@ -4598,10 +4603,8 @@ export const HudOverlay: React.FC = () => {
           color: "#e2e8f0"
         }}
       >
-        {/* ── Top row ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
 
-          {/* Player HP */}
           <div style={{
             display: "flex", flexDirection: "column", gap: "5px",
             background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
@@ -4617,7 +4620,6 @@ export const HudOverlay: React.FC = () => {
             </div>
           </div>
 
-          {/* Warden status */}
           <div style={{
             display: "flex", flexDirection: "column", gap: "5px", alignItems: "flex-end",
             background: "rgba(8, 9, 14, 0.92)", padding: "10px 12px",
@@ -4625,20 +4627,18 @@ export const HudOverlay: React.FC = () => {
             minWidth: "175px"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%", fontSize: "9px", letterSpacing: "0.1em", opacity: 0.7 }}>
-              <span>WARDEN</span>
-              <span id="warden-hp-value">100 / 100</span>
+              <span>SPIDER</span>
+              <span id="spider-hp-value">100 / 100</span>
             </div>
             <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
-              <div id="warden-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
+              <div id="spider-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
             </div>
             <span id="boss-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
         </div>
 
-        {/* ── Bottom centre: Tension meter + hint ── */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
 
-          {/* Hint line */}
           <div id="traversal-hint" style={{
             fontSize: "9px", letterSpacing: "0.12em", color: "#94a3b8",
             opacity: 0, transition: "opacity 0.2s ease",
@@ -4667,7 +4667,6 @@ export const HudOverlay: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Game-state overlay ── */}
       <div id="game-state-overlay" style={{
         position: "absolute", inset: 0,
         display: "none", flexDirection: "column",

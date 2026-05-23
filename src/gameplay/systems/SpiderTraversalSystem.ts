@@ -1,10 +1,10 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { KinematicVelocityComponent, WardenTraversalComponent, TransformComponent, KinematicTargetComponent, WardenAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { KinematicVelocityComponent, SpiderTraversalComponent, TransformComponent, KinematicTargetComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
-export class WardenTraversalSystem implements ISystem {
+export class SpiderTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -12.0;
   private maxX = 12.0;
@@ -12,20 +12,20 @@ export class WardenTraversalSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private velocities: ComponentStore<KinematicVelocityComponent>,
-    private traversal: ComponentStore<WardenTraversalComponent>,
+    private traversal: ComponentStore<SpiderTraversalComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private aiStore: ComponentStore<WardenAIComponent>,
+    private aiStore: ComponentStore<SpiderAIComponent>,
     private healths: ComponentStore<HealthComponent>
   ) {}
 
   public update(dt: number): void {
-    const vel = this.velocities.get(this.refs.warden);
-    const trav = this.traversal.get(this.refs.warden);
-    const trans = this.transforms.get(this.refs.warden);
-    const target = this.targets.get(this.refs.warden);
-    const ai = this.aiStore.get(this.refs.warden);
-    const health = this.healths.get(this.refs.warden);
+    const vel = this.velocities.get(this.refs.spider);
+    const trav = this.traversal.get(this.refs.spider);
+    const trans = this.transforms.get(this.refs.spider);
+    const target = this.targets.get(this.refs.spider);
+    const ai = this.aiStore.get(this.refs.spider);
+    const health = this.healths.get(this.refs.spider);
     
     if (!vel || !trav || !trans || !target) return;
 

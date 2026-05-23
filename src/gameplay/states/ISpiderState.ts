@@ -1,27 +1,27 @@
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WardenAIComponent, TransformComponent, WardenTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import { SpiderAIComponent, TransformComponent, SpiderTraversalComponent, HealthComponent } from "../../core/ecs/Components";
 import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";
 
-export type WardenStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
+export type SpiderStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
 
 export interface AIContext {
-  wardenId: EntityId;
+  spiderId: EntityId;
   playerId: EntityId;
-  ai: WardenAIComponent;
+  ai: SpiderAIComponent;
   transforms: ComponentStore<TransformComponent>;
-  wardenTraversal: ComponentStore<WardenTraversalComponent>;
+  spiderTraversal: ComponentStore<SpiderTraversalComponent>;
   healths: ComponentStore<HealthComponent>;
   commands: CommandBus;
   broker: EventBroker;
 }
 
-export interface IWardenState {
-  readonly type: WardenStateType;
+export interface ISpiderState {
+  readonly type: SpiderStateType;
   readonly name: string;
   readonly hue: string;
   enter(ctx: AIContext): void;
   exit(ctx: AIContext): void;
-  update(ctx: AIContext, dt: number): WardenStateType | null;
+  update(ctx: AIContext, dt: number): SpiderStateType | null;
 }

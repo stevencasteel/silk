@@ -47,14 +47,14 @@ export class PlayerKinematicsSystem implements ISystem {
         const tether = this.tethers.get(this.refs.player);
         const target  = this.targets.get(this.refs.player);
         const trav    = this.traversal.get(this.refs.player);
-        const wTrans  = this.transforms.get(this.refs.warden);
+        const sTrans  = this.transforms.get(this.refs.spider);
         const input   = this.inputs.get(this.refs.player);
 
-        if (!tether || !target || !trav || !wTrans || !input) return;
+        if (!tether || !target || !trav || !sTrans || !input) return;
 
-        tether.anchorX = wTrans.x;
-        tether.anchorY = wTrans.y;
-        tether.anchorZ = wTrans.z;
+        tether.anchorX = sTrans.x;
+        tether.anchorY = sTrans.y;
+        tether.anchorZ = sTrans.z;
 
         if (trav.state === "LAUNCHING") {
             this.stepLaunching(dt, tether, target, trav, input);

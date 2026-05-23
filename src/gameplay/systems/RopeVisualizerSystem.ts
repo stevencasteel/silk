@@ -83,7 +83,7 @@ export class RopeVisualizerSystem implements ISystem {
         const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
         this.scratchPlayer.set(px, py, 0);
 
-        // Anchor = warden position recorded on TetherComponent
+        // Anchor = spider position recorded on TetherComponent
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
 
         const tension = Math.max(0, Math.min(1, tether.tension));

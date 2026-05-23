@@ -3,7 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, TetherComponent, WardenAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, HealthComponent, TetherComponent, SpiderAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
@@ -17,7 +17,7 @@ export class GameDirectorSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
         private tethers: ComponentStore<TetherComponent>,
-        private wardenAIs: ComponentStore<WardenAIComponent>,
+        private spiderAIs: ComponentStore<SpiderAIComponent>,
         private velocities: ComponentStore<KinematicVelocityComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
@@ -94,36 +94,36 @@ export class GameDirectorSystem implements ISystem {
             pTrav.launchPower = 0;
         }
 
-        const wTrans = this.transforms.get(this.refs.warden);
-        const wHealth = this.healths.get(this.refs.warden);
-        const wAI = this.wardenAIs.get(this.refs.warden);
-        const wVel = this.velocities.get(this.refs.warden);
-        const wTarget = this.targets.get(this.refs.warden);
+        const sTrans = this.transforms.get(this.refs.spider);
+        const sHealth = this.healths.get(this.refs.spider);
+        const sAI = this.spiderAIs.get(this.refs.spider);
+        const sVel = this.velocities.get(this.refs.spider);
+        const sTarget = this.targets.get(this.refs.spider);
 
-        if (wTrans) {
-            wTrans.x = 0; wTrans.y = 26; wTrans.z = 0;
-            wTrans.prevX = 0; wTrans.prevY = 26; wTrans.prevZ = 0;
+        if (sTrans) {
+            sTrans.x = 0; sTrans.y = 26; sTrans.z = 0;
+            sTrans.prevX = 0; sTrans.prevY = 26; sTrans.prevZ = 0;
         }
-        if (wTarget) {
-            wTarget.x = 0; wTarget.y = 26; wTarget.z = 0; wTarget.active = true;
+        if (sTarget) {
+            sTarget.x = 0; sTarget.y = 26; sTarget.z = 0; sTarget.active = true;
         }
-        if (wHealth) {
-            wHealth.current = wHealth.max;
+        if (sHealth) {
+            sHealth.current = sHealth.max;
         }
-        if (wAI) {
-            wAI.state = "SWEEPING";
-            wAI.timeInState = 0;
-            wAI.hue = "#ef4444";
-            wAI.hasFakedDeath = false;
+        if (sAI) {
+            sAI.state = "SWEEPING";
+            sAI.timeInState = 0;
+            sAI.hue = "#ef4444";
+            sAI.hasFakedDeath = false;
         }
-        if (wVel) {
-            wVel.x = 4.0; wVel.y = 0; wVel.z = 0;
+        if (sVel) {
+            sVel.x = 4.0; sVel.y = 0; sVel.z = 0;
         }
 
         this.broker.publish(GameEvent.GAME_RESET, undefined);
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth?.max || 5, maxHp: pHealth?.max || 5 });
-        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
-        this.broker.publish(GameEvent.WARDEN_HEALTH_CHANGED, { hp: wHealth?.max || 100, maxHp: wHealth?.max || 100 });
+        this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { state: "SWEEPING", hue: "#ef4444" });
+        this.broker.publish(GameEvent.SPIDER_HEALTH_CHANGED, { hp: sHealth?.max || 100, maxHp: sHealth?.max || 100 });
     }
 
     public dispose(): void {

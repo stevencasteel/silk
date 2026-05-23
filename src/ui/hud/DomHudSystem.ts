@@ -3,13 +3,6 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
-// ---------------------------------------------------------------------------
-// DomHudSystem
-// Bridges the EventBroker to DOM elements rendered by HudOverlay.tsx.
-// Drives: tension meter, player HP, warden HP, warden state label,
-//         traversal hint text, and game-state overlay.
-// ---------------------------------------------------------------------------
-
 type HintLevel = "none" | "charging" | "ready" | "maxout";
 
 export class DomHudSystem implements ISystem {
@@ -17,13 +10,12 @@ export class DomHudSystem implements ISystem {
 
     private unsubscribes: (() => void)[] = [];
 
-    // Cached DOM refs
     private tensionBar     : HTMLElement | null = null;
     private tensionText    : HTMLElement | null = null;
     private playerHpBar    : HTMLElement | null = null;
     private playerHpValue  : HTMLElement | null = null;
-    private wardenHpBar    : HTMLElement | null = null;
-    private wardenHpValue  : HTMLElement | null = null;
+    private spiderHpBar    : HTMLElement | null = null;
+    private spiderHpValue  : HTMLElement | null = null;
     private bossStateText  : HTMLElement | null = null;
     private traversalHint  : HTMLElement | null = null;
     private overlay        : HTMLElement | null = null;
@@ -43,15 +35,14 @@ export class DomHudSystem implements ISystem {
         void _dt;
     }
 
-    // -----------------------------------------------------------------------
     private cacheDomElements(): void {
         if (typeof document === "undefined") return;
         this.tensionBar    = document.getElementById("tension-meter-bar");
         this.tensionText   = document.getElementById("tension-meter-text");
         this.playerHpBar   = document.getElementById("player-hp-bar");
         this.playerHpValue = document.getElementById("player-hp-value");
-        this.wardenHpBar   = document.getElementById("warden-hp-bar");
-        this.wardenHpValue = document.getElementById("warden-hp-value");
+        this.spiderHpBar    = document.getElementById("spider-hp-bar");
+        this.spiderHpValue = document.getElementById("spider-hp-value");
         this.bossStateText = document.getElementById("boss-state-text");
         this.traversalHint = document.getElementById("traversal-hint");
         this.overlay       = document.getElementById("game-state-overlay");
@@ -79,13 +70,13 @@ export class DomHudSystem implements ISystem {
             })
         );
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.WARDEN_HEALTH_CHANGED, ({ hp, maxHp }) => {
-                this.updateWardenHp(hp, maxHp);
+            this.broker.subscribe(GameEvent.SPIDER_HEALTH_CHANGED, ({ hp, maxHp }) => {
+                this.updateSpiderHp(hp, maxHp);
             })
         );
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, ({ state, hue }) => {
-                this.updateWardenStateLabel(state, hue);
+            this.broker.subscribe(GameEvent.SPIDER_STATE_CHANGE, ({ state, hue }) => {
+                this.updateSpiderStateLabel(state, hue);
             })
         );
         this.unsubscribes.push(
@@ -101,7 +92,6 @@ export class DomHudSystem implements ISystem {
         );
     }
 
-    // -----------------------------------------------------------------------
     private updateTensionBar(tension: number): void {
         const clamped = Math.max(0, Math.min(1, tension));
         const pct     = (clamped * 100).toFixed(1) + "%";
@@ -179,18 +169,18 @@ export class DomHudSystem implements ISystem {
         }
     }
 
-    private updateWardenHp(hp: number, maxHp: number): void {
-        if (this.wardenHpValue) {
-            this.wardenHpValue.textContent = `${hp} / ${maxHp}`;
+    private updateSpiderHp(hp: number, maxHp: number): void {
+        if (this.spiderHpValue) {
+            this.spiderHpValue.textContent = `${hp} / ${maxHp}`;
         }
-        if (this.wardenHpBar) {
+        if (this.spiderHpBar) {
             const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
-            this.wardenHpBar.style.width = pct;
-            this.wardenHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
+            this.spiderHpBar.style.width = pct;
+            this.spiderHpBar.style.backgroundColor = hp <= maxHp * 0.3 ? "#f97316" : "#ef4444";
         }
     }
 
-    private updateWardenStateLabel(state: string, hue: string): void {
+    private updateSpiderStateLabel(state: string, hue: string): void {
         if (this.bossStateText) {
             this.bossStateText.textContent = state.toUpperCase();
             this.bossStateText.style.color  = hue;

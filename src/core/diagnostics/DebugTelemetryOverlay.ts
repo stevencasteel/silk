@@ -66,8 +66,8 @@ export class DebugTelemetryOverlay implements ISystem {
 
     const playerTrans = this._transforms.get(this._refs.player);
     const playerTether = this._tethers.get(this._refs.player);
-    const wardenTrans = this._transforms.get(this._refs.warden);
-    const wardenVel = this._velocities.get(this._refs.warden);
+    const spiderTrans = this._transforms.get(this._refs.spider);
+    const spiderVel = this._velocities.get(this._refs.spider);
 
     let info = `=== PROJECT SILK DIAGNOSTICS ===\n`;
     info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
@@ -85,10 +85,10 @@ export class DebugTelemetryOverlay implements ISystem {
       info += `Load/Tens  : ${(playerTether.tension * 100).toFixed(1)}%\n`;
     }
 
-    if (wardenTrans && wardenVel) {
-      info += `\n=== WARDEN CEILING ANCHOR ===\n`;
-      info += `Pos X/Y    : ${wardenTrans.x.toFixed(2)}, ${wardenTrans.y.toFixed(2)}\n`;
-      info += `Vel X      : ${wardenVel.x.toFixed(2)} units/s\n`;
+    if (spiderTrans && spiderVel) {
+      info += `\n=== SPIDER CEILING ANCHOR ===\n`;
+      info += `Pos X/Y    : ${spiderTrans.x.toFixed(2)}, ${spiderTrans.y.toFixed(2)}\n`;
+      info += `Vel X      : ${spiderVel.x.toFixed(2)} units/s\n`;
     }
 
     info += `\n=== SYSTEM SHORTCUTS ===\n`;
