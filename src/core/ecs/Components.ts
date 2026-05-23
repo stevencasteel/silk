@@ -8,7 +8,7 @@ export interface TransformComponent {
 export interface KinematicVelocityComponent { x: number; y: number; z: number; }
 export interface KinematicTargetComponent { x: number; y: number; z: number; active: boolean; }
 
-export interface TetherComponent {
+export interface SilkComponent {
     anchorX: number; anchorY: number; anchorZ: number;
     maxLength: number;
     currentLength: number;

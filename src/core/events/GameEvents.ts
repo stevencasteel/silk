@@ -7,8 +7,8 @@ export enum GameEvent {
   PLAYER_DAMAGED            = "PLAYER_DAMAGED",
   PLAYER_DIED               = "PLAYER_DIED",
   PLAYER_STATE_CHANGE       = "PLAYER_STATE_CHANGE",
-  ROPE_TENSION_CHANGE       = "ROPE_TENSION_CHANGE",
-  ROPE_LENGTH_CHANGE        = "ROPE_LENGTH_CHANGE",
+  SILK_TENSION_CHANGE       = "SILK_TENSION_CHANGE",
+  SILK_LENGTH_CHANGE        = "SILK_LENGTH_CHANGE",
   SPIDER_STATE_CHANGE       = "SPIDER_STATE_CHANGE",
   SPIDER_DAMAGED            = "SPIDER_DAMAGED",
   SPIDER_HEALTH_CHANGED     = "SPIDER_HEALTH_CHANGED",
@@ -28,8 +28,8 @@ export interface GameEventMap {
   [GameEvent.PLAYER_DAMAGED]:          { amount: number; source: string };
   [GameEvent.PLAYER_DIED]:             void;
   [GameEvent.PLAYER_STATE_CHANGE]:     { state: string };
-  [GameEvent.ROPE_TENSION_CHANGE]:     { tension: number };
-  [GameEvent.ROPE_LENGTH_CHANGE]:      { length: number; maxLength: number };
+  [GameEvent.SILK_TENSION_CHANGE]:     { tension: number };
+  [GameEvent.SILK_LENGTH_CHANGE]:      { length: number; maxLength: number };
   [GameEvent.SPIDER_STATE_CHANGE]:     { state: string; hue: string };
   [GameEvent.SPIDER_DAMAGED]:          { amount: number; source: string };
   [GameEvent.SPIDER_HEALTH_CHANGED]:   { hp: number; maxHp: number };

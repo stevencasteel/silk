@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 3:52:09 PM
+ [SYSTEM] Generated: 5/23/2026, 4:03:30 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -94,7 +94,7 @@
 │   │       ├── GameDirectorSystem.ts
 │   │       ├── PlayerInputSystem.ts
 │   │       ├── PlayerMovementSystem.ts
-│   │       ├── RopeVisualizerSystem.ts
+│   │       ├── SilkVisualizerSystem.ts
 │   │       ├── SpiderBrainSystem.ts
 │   │       └── SpiderTraversalSystem.ts
 │   ├── physics/
@@ -800,7 +800,7 @@ import { CommandBus } from "../core/commands/CommandBus";
 import { EntityRegistry } from "../core/ecs/Entity";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent, HealthComponent, InputIntentComponent, SpiderAIComponent, PlayerStatsComponent, PlayerTag, SpiderTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, SpiderTraversalComponent } from "../core/ecs/Components";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent, HealthComponent, InputIntentComponent, SpiderAIComponent, PlayerStatsComponent, PlayerTag, SpiderTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, SpiderTraversalComponent } from "../core/ecs/Components";
 import { RenderSystem } from "../babylon/scene/RenderSystem";
 import { CameraSystem } from "../babylon/cameras/CameraSystem";
 import { LightingSystem } from "../babylon/lighting/LightingSystem";
@@ -811,7 +811,7 @@ import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
 import { PlayerMovementSystem } from "../gameplay/systems/PlayerMovementSystem";
 import { SpiderBrainSystem } from "../gameplay/systems/SpiderBrainSystem";
 import { SpiderTraversalSystem } from "../gameplay/systems/SpiderTraversalSystem";
-import { RopeVisualizerSystem } from "../gameplay/systems/RopeVisualizerSystem";
+import { SilkVisualizerSystem } from "../gameplay/systems/SilkVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
 import { RapierWorldSystem } from "../physics/rapier/RapierWorldSystem";
@@ -836,7 +836,7 @@ export class CompositionRoot {
         const transforms = new ComponentStore<TransformComponent>();
         const velocities = new ComponentStore<KinematicVelocityComponent>();
         const targets = new ComponentStore<KinematicTargetComponent>();
-        const tethers = new ComponentStore<TetherComponent>();
+        const silks = new ComponentStore<SilkComponent>();
         const healths = new ComponentStore<HealthComponent>();
         const inputs = new ComponentStore<InputIntentComponent>();
         const spiderAIs = new ComponentStore<SpiderAIComponent>();
@@ -852,27 +852,27 @@ export class CompositionRoot {
 
         const renderSystem = new RenderSystem(canvas);
         const cameraSystem = new CameraSystem(refs, transforms, spiderAIs, renderSystem, broker);
-        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, spiderAIs, playerStats, playerTags, spiderTags, anchorTags, renderSystem, traversal, iframes, spiderTraversal);
-        const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, tethers);
+        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, silks, healths, inputs, spiderAIs, playerStats, playerTags, spiderTags, anchorTags, renderSystem, traversal, iframes, spiderTraversal);
+        const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, silks);
         const inputSystem = new PlayerInputSystem(refs, inputs);
         const movementSystem = new PlayerMovementSystem();
         const spiderBrain = new SpiderBrainSystem(refs, spiderAIs, transforms, spiderTraversal, healths, broker, commands);
         const spiderTraversalSystem = new SpiderTraversalSystem(refs, velocities, spiderTraversal, transforms, targets, spiderAIs, healths);
         
-        const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
-        const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
+        const playerKinematics = new PlayerKinematicsSystem(refs, silks, targets, traversal, transforms, inputs, broker);
+        const environmentCollision = new EnvironmentCollisionSystem(refs, silks, targets, healths, traversal, broker);
         
-        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem, spiderAIs, healths);
-        const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
+        const syncSystem = new TransformSyncSystem(refs, transforms, silks, traversal, renderSystem, spiderAIs, healths);
+        const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
         const lightingSystem = new LightingSystem(broker, renderSystem);
-        const combatSystem = new CombatSystem(refs, transforms, healths, spiderAIs, tethers, iframes, traversal, broker, commands);
-        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, spiderAIs, velocities, iframes, targets, traversal);
+        const combatSystem = new CombatSystem(refs, transforms, healths, spiderAIs, silks, iframes, traversal, broker, commands);
+        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, silks, spiderAIs, velocities, iframes, targets, traversal);
         
         const audioSystem = new AudioDirectorSystem(broker);
         const juiceSystem = new JuiceSystem(broker, renderSystem);
         const hudSystem = new DomHudSystem(broker);
-        const debugWireframe = new DebugWireframeSystem(refs, transforms, tethers, renderSystem);
-        const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, tethers, velocities);
+        const debugWireframe = new DebugWireframeSystem(refs, transforms, silks, renderSystem);
+        const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, silks, velocities);
 
         systemManager.register(spawner);
         systemManager.register(renderSystem);
@@ -884,7 +884,7 @@ export class CompositionRoot {
         systemManager.register(spiderTraversalSystem);
         systemManager.register(environmentCollision);
         systemManager.register(syncSystem);
-        systemManager.register(ropeVisualizer);
+        systemManager.register(silkVisualizer);
         systemManager.register(cameraSystem);
         systemManager.register(combatSystem);
         systemManager.register(juiceSystem);
@@ -939,7 +939,7 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("touchend", triggerOnFirstGesture);
     window.addEventListener("mousedown", triggerOnFirstGesture);
 
-    this.unsub = this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => {
+    this.unsub = this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, (payload) => {
       if (this.initialized && this.tensionSynth) {
         this.tensionSynth.updateDronePitch(payload.tension);
       }
@@ -1065,11 +1065,11 @@ export class TensionSynthesizer {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter) return;
     const now = Tone.now();
 
-    if (state === "BERSERK OVERDRIVE") {
+    if (state.includes("BERSERK")) {
       this.fmOsc.frequency.setTargetAtTime(110, now, 0.5);
       this.lfo.frequency.setTargetAtTime(4.0, now, 0.5);
       this.fmOsc.harmonicity.setTargetAtTime(2.5, now, 0.5);
-    } else if (state === "DEFEATED?") {
+    } else if (state === "SPIDER DEFEATED") {
       this.fmOsc.frequency.setTargetAtTime(30, now, 0.5);
       this.lfo.frequency.setTargetAtTime(0.05, now, 0.5);
       this.fmOsc.harmonicity.setTargetAtTime(1.0, now, 0.5);
@@ -1688,7 +1688,7 @@ import { EventBroker } from "../events/EventBroker";
 import { EntityRegistry } from "../ecs/Entity";
 import { EntityRefs } from "../ecs/EntityRefs";
 import { ComponentStore } from "../ecs/ComponentStore";
-import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
+import { TransformComponent, SilkComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
 
 export class DebugTelemetryOverlay implements ISystem {
@@ -1704,7 +1704,7 @@ export class DebugTelemetryOverlay implements ISystem {
     private _entities: EntityRegistry,
     private _refs: EntityRefs,
     private _transforms: ComponentStore<TransformComponent>,
-    private _tethers: ComponentStore<TetherComponent>,
+    private _silks: ComponentStore<SilkComponent>,
     private _velocities: ComponentStore<KinematicVelocityComponent>
   ) {}
 
@@ -1748,7 +1748,7 @@ export class DebugTelemetryOverlay implements ISystem {
     const frameTime = this._profiler.getFrameTime().toFixed(1);
 
     const playerTrans = this._transforms.get(this._refs.player);
-    const playerTether = this._tethers.get(this._refs.player);
+    const playerSilk = this._silks.get(this._refs.player);
     const spiderTrans = this._transforms.get(this._refs.spider);
     const spiderVel = this._velocities.get(this._refs.spider);
 
@@ -1756,16 +1756,16 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
     info += `Entities   : ${this._entities.count()}\n\n`;
 
-    if (playerTrans && playerTether) {
-      const spd = Math.sqrt(playerTether.dynamicVelX * playerTether.dynamicVelX + playerTether.dynamicVelY * playerTether.dynamicVelY);
+    if (playerTrans && playerSilk) {
+      const spd = Math.sqrt(playerSilk.dynamicVelX * playerSilk.dynamicVelX + playerSilk.dynamicVelY * playerSilk.dynamicVelY);
       info += `=== PLAYER STATE ===\n`;
       info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
-      info += `Vel X/Y    : ${playerTether.dynamicVelX.toFixed(2)}, ${playerTether.dynamicVelY.toFixed(2)}\n`;
+      info += `Vel X/Y    : ${playerSilk.dynamicVelX.toFixed(2)}, ${playerSilk.dynamicVelY.toFixed(2)}\n`;
       info += `Speed      : ${spd.toFixed(2)} units/s\n\n`;
       
-      info += `=== TETHER / ROPE ===\n`;
-      info += `Length     : ${playerTether.currentLength.toFixed(2)} / ${playerTether.maxLength.toFixed(1)}\n`;
-      info += `Load/Tens  : ${(playerTether.tension * 100).toFixed(1)}%\n`;
+      info += `=== SILK / TETHER ===\n`;
+      info += `Length     : ${playerSilk.currentLength.toFixed(2)} / ${playerSilk.maxLength.toFixed(1)}\n`;
+      info += `Load/Tens  : ${(playerSilk.tension * 100).toFixed(1)}%\n`;
     }
 
     if (spiderTrans && spiderVel) {
@@ -1797,7 +1797,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EntityRefs } from "../ecs/EntityRefs";
 import { ComponentStore } from "../ecs/ComponentStore";
-import { TransformComponent, TetherComponent } from "../ecs/Components";
+import { TransformComponent, SilkComponent } from "../ecs/Components";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 
 export class DebugWireframeSystem implements ISystem {
@@ -1806,14 +1806,14 @@ export class DebugWireframeSystem implements ISystem {
     constructor(
         private _refs: EntityRefs,
         private _transforms: ComponentStore<TransformComponent>,
-        private _tethers: ComponentStore<TetherComponent>,
+        private _silks: ComponentStore<SilkComponent>,
         private _visualRegistry: IVisualRegistry
     ) {}
 
     public init(): void {
         void this._refs;
         void this._transforms;
-        void this._tethers;
+        void this._silks;
         void this._visualRegistry;
     }
     public update(_dt: number): void {
@@ -1909,7 +1909,7 @@ export interface TransformComponent {
 export interface KinematicVelocityComponent { x: number; y: number; z: number; }
 export interface KinematicTargetComponent { x: number; y: number; z: number; active: boolean; }
 
-export interface TetherComponent {
+export interface SilkComponent {
     anchorX: number; anchorY: number; anchorZ: number;
     maxLength: number;
     currentLength: number;
@@ -2162,8 +2162,8 @@ export enum GameEvent {
   PLAYER_DAMAGED            = "PLAYER_DAMAGED",
   PLAYER_DIED               = "PLAYER_DIED",
   PLAYER_STATE_CHANGE       = "PLAYER_STATE_CHANGE",
-  ROPE_TENSION_CHANGE       = "ROPE_TENSION_CHANGE",
-  ROPE_LENGTH_CHANGE        = "ROPE_LENGTH_CHANGE",
+  SILK_TENSION_CHANGE       = "SILK_TENSION_CHANGE",
+  SILK_LENGTH_CHANGE        = "SILK_LENGTH_CHANGE",
   SPIDER_STATE_CHANGE       = "SPIDER_STATE_CHANGE",
   SPIDER_DAMAGED            = "SPIDER_DAMAGED",
   SPIDER_HEALTH_CHANGED     = "SPIDER_HEALTH_CHANGED",
@@ -2183,8 +2183,8 @@ export interface GameEventMap {
   [GameEvent.PLAYER_DAMAGED]:          { amount: number; source: string };
   [GameEvent.PLAYER_DIED]:             void;
   [GameEvent.PLAYER_STATE_CHANGE]:     { state: string };
-  [GameEvent.ROPE_TENSION_CHANGE]:     { tension: number };
-  [GameEvent.ROPE_LENGTH_CHANGE]:      { length: number; maxLength: number };
+  [GameEvent.SILK_TENSION_CHANGE]:     { tension: number };
+  [GameEvent.SILK_LENGTH_CHANGE]:      { length: number; maxLength: number };
   [GameEvent.SPIDER_STATE_CHANGE]:     { state: string; hue: string };
   [GameEvent.SPIDER_DAMAGED]:          { amount: number; source: string };
   [GameEvent.SPIDER_HEALTH_CHANGED]:   { hp: number; maxHp: number };
@@ -2678,7 +2678,7 @@ import {
     TransformComponent,
     HealthComponent,
     SpiderAIComponent,
-    TetherComponent,
+    SilkComponent,
     InvulnerabilityComponent,
     TraversalStateComponent
 } from "../../core/ecs/Components";
@@ -2703,7 +2703,7 @@ export class CombatSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
         private broker: EventBroker,
@@ -2717,10 +2717,10 @@ export class CombatSystem implements ISystem {
         const sHealth = this.healths.get(this.refs.spider);
         const sAI     = this.spiderAIs.get(this.refs.spider);
         const pIframe = this.iframes.get(this.refs.player);
-        const tether  = this.tethers.get(this.refs.player);
+        const silk  = this.silks.get(this.refs.player);
         const pTrav   = this.traversal.get(this.refs.player);
 
-        if (!pTrans || !sTrans || !pHealth || !sHealth || !sAI || !pIframe || !tether || !pTrav) return;
+        if (!pTrans || !sTrans || !pHealth || !sHealth || !sAI || !pIframe || !silk || !pTrav) return;
 
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
@@ -2734,7 +2734,7 @@ export class CombatSystem implements ISystem {
         if (distSq >= hitDist * hitDist) return;
 
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
-            this.resolvePlayerFlingHit(pTrans, sTrans, sHealth, sAI, tether, pTrav, dx, dy, distSq);
+            this.resolvePlayerFlingHit(pTrans, sTrans, sHealth, sAI, silk, pTrav, dx, dy, distSq);
             return;
         }
 
@@ -2750,7 +2750,7 @@ export class CombatSystem implements ISystem {
         _sTrans: TransformComponent,
         sHealth: HealthComponent,
         sAI: SpiderAIComponent,
-        tether: TetherComponent,
+        silk: SilkComponent,
         pTrav: TraversalStateComponent,
         dx: number,
         dy: number,
@@ -2773,8 +2773,8 @@ export class CombatSystem implements ISystem {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
         const dist = Math.sqrt(distSq) || 1;
-        tether.dynamicVelX =  (dx / dist) * 22;
-        tether.dynamicVelY =  (dy / dist) * 22;
+        silk.dynamicVelX =  (dx / dist) * 22;
+        silk.dynamicVelY =  (dy / dist) * 22;
         pTrav.state        = "AIRBORNE";
         pTrav.launchPower  = 0;
         pTrav.launchTimer  = 0;
@@ -2832,7 +2832,7 @@ import {
     TransformComponent, 
     KinematicVelocityComponent, 
     KinematicTargetComponent, 
-    TetherComponent, 
+    SilkComponent, 
     HealthComponent, 
     InputIntentComponent, 
     SpiderAIComponent, 
@@ -2858,7 +2858,7 @@ export class EntitySpawnerSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private velocities: ComponentStore<KinematicVelocityComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private healths: ComponentStore<HealthComponent>,
         private inputs: ComponentStore<InputIntentComponent>,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
@@ -2921,7 +2921,7 @@ export class EntitySpawnerSystem implements ISystem {
         });
         this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
         this.targets.add(playerId, { x: 0, y: 15.2, z: 0, active: true });
-        this.tethers.add(playerId, {
+        this.silks.add(playerId, {
             anchorX: 0, anchorY: 27.2, anchorZ: 0,
             maxLength: 12.0, currentLength: 12.0,
             isAttached: true, tension: 0.0,
@@ -2956,7 +2956,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, TetherComponent, SpiderAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, HealthComponent, SilkComponent, SpiderAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
@@ -2969,7 +2969,7 @@ export class GameDirectorSystem implements ISystem {
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
         private velocities: ComponentStore<KinematicVelocityComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
@@ -3006,7 +3006,7 @@ export class GameDirectorSystem implements ISystem {
         
         const pTrans = this.transforms.get(this.refs.player);
         const pHealth = this.healths.get(this.refs.player);
-        const pTether = this.tethers.get(this.refs.player);
+        const pSilk = this.silks.get(this.refs.player);
         const pVel = this.velocities.get(this.refs.player);
         const pIframe = this.iframes.get(this.refs.player);
         const pTarget = this.targets.get(this.refs.player);
@@ -3022,15 +3022,15 @@ export class GameDirectorSystem implements ISystem {
         if (pHealth) {
             pHealth.current = pHealth.max;
         }
-        if (pTether) {
-            pTether.isAttached = true;
-            pTether.maxLength = 10.0;
-            pTether.currentLength = 10.0;
-            pTether.dynamicVelX = 0;
-            pTether.dynamicVelY = 0;
-            pTether.tension = 0.0;
-            pTether.anchorX = 0;
-            pTether.anchorY = 26;
+        if (pSilk) {
+            pSilk.isAttached = true;
+            pSilk.maxLength = 10.0;
+            pSilk.currentLength = 10.0;
+            pSilk.dynamicVelX = 0;
+            pSilk.dynamicVelY = 0;
+            pSilk.tension = 0.0;
+            pSilk.anchorX = 0;
+            pSilk.anchorY = 26;
         }
         if (pVel) {
             pVel.x = 0; pVel.y = 0; pVel.z = 0;
@@ -3149,50 +3149,39 @@ export class PlayerMovementSystem implements ISystem {
 
 
 
-● ./src/gameplay/systems/RopeVisualizerSystem.ts
+● ./src/gameplay/systems/SilkVisualizerSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
+import { TransformComponent, SilkComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
-// ---------------------------------------------------------------------------
-// RopeVisualizerSystem
-// Renders the silk tether as a catenary curve.
-// Visual feedback on tension level:
-//   low  (0 %)  -> cool blue,  visible sag,  thin
-//   mid  (50 %) -> bright white, slight sag
-//   full (100%) -> hot orange,  taut/straight, thick + emissive pulse
-// ---------------------------------------------------------------------------
-
-export class RopeVisualizerSystem implements ISystem {
+export class SilkVisualizerSystem implements ISystem {
     readonly phase = SystemPhase.RenderSync;
 
     private readonly SEGMENTS   = 24;
-    private readonly MAX_SAG    = 3.8;   // units of midpoint droop at 0 % tension
+    private readonly MAX_SAG    = 3.8;   
     private readonly BASE_RADIUS = 0.07;
     private readonly MAX_RADIUS  = 0.13;
 
-    private ropeMesh : BABYLON.Mesh | null = null;
-    private ropeMat  : BABYLON.StandardMaterial | null = null;
+    private silkMesh : BABYLON.Mesh | null = null;
+    private silkMat  : BABYLON.StandardMaterial | null = null;
     private points   : BABYLON.Vector3[] = [];
 
-    // Scratch vectors (avoid GC)
     private scratchAnchor = new BABYLON.Vector3();
     private scratchPlayer = new BABYLON.Vector3();
     private scratchCtrl   = new BABYLON.Vector3();
     private scratchPt     = new BABYLON.Vector3();
 
-    // Oscillation phase for rope vibration at high tension
     private vibPhase = 0;
 
     constructor(
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private visualRegistry: IVisualRegistry
     ) {
         for (let i = 0; i <= this.SEGMENTS; i++) {
@@ -3204,55 +3193,50 @@ export class RopeVisualizerSystem implements ISystem {
         const scene = this.visualRegistry.getScene();
         if (!scene) return;
 
-        this.ropeMat = new BABYLON.StandardMaterial("ropeMat", scene);
-        this.ropeMat.diffuseColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
-        this.ropeMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-        this.ropeMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-        this.ropeMat.disableLighting = false;
+        this.silkMat = new BABYLON.StandardMaterial("silkMat", scene);
+        this.silkMat.diffuseColor  = new BABYLON.Color3(0.6, 0.85, 1.0);
+        this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+        this.silkMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        this.silkMat.disableLighting = false;
 
-        this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+        this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
             path: this.points,
             radius: this.BASE_RADIUS,
             tessellation: 8,
             cap: BABYLON.Mesh.NO_CAP,
             updatable: true
         }, scene);
-        this.ropeMesh.material = this.ropeMat;
+        this.silkMesh.material = this.silkMat;
     }
 
     public render(alpha: number): void {
-        if (!this.ropeMesh || !this.ropeMat) return;
+        if (!this.silkMesh || !this.silkMat) return;
 
         const pTrans = this.transforms.get(this.refs.player);
-        const tether = this.tethers.get(this.refs.player);
-        if (!pTrans || !tether || !tether.isAttached) {
-            if (this.ropeMesh) this.ropeMesh.setEnabled(false);
+        const silk = this.silks.get(this.refs.player);
+        if (!pTrans || !silk || !silk.isAttached) {
+            if (this.silkMesh) this.silkMesh.setEnabled(false);
             return;
         }
-        this.ropeMesh.setEnabled(true);
+        this.silkMesh.setEnabled(true);
 
-        // Interpolated player position
         const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
         const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
         this.scratchPlayer.set(px, py, 0);
 
-        // Anchor = warden position recorded on TetherComponent
-        this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+        this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
 
-        const tension = Math.max(0, Math.min(1, tether.tension));
+        const tension = Math.max(0, Math.min(1, silk.tension));
 
-        // Vibration: high-frequency oscillation at near-max tension
         this.vibPhase += 0.18;
         const vibAmp = Math.max(0, tension - 0.7) * 0.35;
         const vibOffset = Math.sin(this.vibPhase * 14) * vibAmp;
 
-        // Catenary control point: geometric midpoint + downward sag
         const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
         const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
         const sag   = this.MAX_SAG * (1.0 - tension) + vibOffset;
         this.scratchCtrl.set(midX, midY - sag, 0.35);
 
-        // Compute quadratic bezier path
         for (let i = 0; i <= this.SEGMENTS; i++) {
             const t  = i / this.SEGMENTS;
             const t1 = 1 - t;
@@ -3267,21 +3251,18 @@ export class RopeVisualizerSystem implements ISystem {
                  + 2 * t1 * t * this.scratchCtrl.z
                  + t  * t  * this.scratchPlayer.z;
 
-            // Subtle Z-waveform for 3D silk feel
             pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5) * 0.12;
         }
 
-        // Rebuild tube with updated path
         const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
-        this.ropeMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+        this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
             path: this.points,
             radius: radius,
             tessellation: 8,
             cap: BABYLON.Mesh.NO_CAP,
-            instance: this.ropeMesh
+            instance: this.silkMesh
         });
 
-        // Color gradient: blue(0) -> white(0.5) -> orange(1)
         const r = tension < 0.5
             ? 0.55 + tension * 0.9
             : 1.0;
@@ -3292,26 +3273,25 @@ export class RopeVisualizerSystem implements ISystem {
             ? 1.0  - tension * 0.2
             : 0.9  - (tension - 0.5) * 1.7;
 
-        this.ropeMat.diffuseColor.set(
+        this.silkMat.diffuseColor.set(
             Math.max(0, Math.min(1, r)),
             Math.max(0, Math.min(1, g)),
             Math.max(0, Math.min(1, b))
         );
 
-        // Emissive glow scales with tension
         const eBrightness = 0.1 + tension * 0.5;
-        this.ropeMat.emissiveColor.set(
+        this.silkMat.emissiveColor.set(
             eBrightness * (0.3 + tension * 0.7),
             eBrightness * (0.6 - tension * 0.4),
             eBrightness * (1.0 - tension * 0.9)
         );
 
-        this.scratchPt.set(0, 0, 0); // keep lint happy
+        this.scratchPt.set(0, 0, 0); 
     }
 
     public dispose(): void {
-        if (this.ropeMesh) { this.ropeMesh.dispose(); this.ropeMesh = null; }
-        if (this.ropeMat)  { this.ropeMat.dispose();  this.ropeMat  = null; }
+        if (this.silkMesh) { this.silkMesh.dispose(); this.silkMesh = null; }
+        if (this.silkMat)  { this.silkMat.dispose();  this.silkMat  = null; }
     }
 }
 
@@ -3376,7 +3356,7 @@ export class SpiderBrainSystem implements ISystem {
       };
 
       this.activeState.enter(this.contextCache);
-      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
+      this.publishStateChangeEvent(stateObj.name, stateObj.hue);
     }
 
     this.unsubDamage = this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
@@ -3389,6 +3369,19 @@ export class SpiderBrainSystem implements ISystem {
           this.transitionTo("DASHING");
         }
       }
+    });
+  }
+
+  private publishStateChangeEvent(name: string, hue: string): void {
+    const health = this.healths.get(this.refs.spider);
+    const isBerserk = health ? (health.current < health.max * 0.5) : false;
+    let finalName = name;
+    if (isBerserk && this.activeState?.type !== "DEFEATED") {
+      finalName = `${name} (BERSERK)`;
+    }
+    this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { 
+      state: finalName, 
+      hue: hue 
     });
   }
 
@@ -3407,10 +3400,7 @@ export class SpiderBrainSystem implements ISystem {
       this.activeState = nextStateObj;
       this.activeState.enter(this.contextCache);
 
-      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { 
-        state: nextStateObj.name, 
-        hue: nextStateObj.hue 
-      });
+      this.publishStateChangeEvent(nextStateObj.name, nextStateObj.hue);
     }
   }
 
@@ -3620,7 +3610,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-    TetherComponent,
+    SilkComponent,
     KinematicTargetComponent,
     HealthComponent,
     TraversalStateComponent
@@ -3629,14 +3619,6 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
-// ---------------------------------------------------------------------------
-// EnvironmentCollisionSystem
-// Clamps player to arena bounds and manages the tether-snap death mechanic.
-// Strain only accumulates when the silk is over-extended (tension >= threshold)
-// while wall-sliding. The player has a generous 2.4 s window at max tension
-// before the rope snaps.
-// ---------------------------------------------------------------------------
-
 export class EnvironmentCollisionSystem implements ISystem {
     readonly phase = SystemPhase.Collision;
 
@@ -3644,16 +3626,15 @@ export class EnvironmentCollisionSystem implements ISystem {
     private readonly CEILING_Y          = 27.4;
     private readonly PLAYER_HALF_HEIGHT = 0.9;
 
-    // Snap tuning: strain timer only ticks when tension >= threshold
     private readonly SNAP_THRESHOLD     = 0.90;
-    private readonly SNAP_BREAK_TIME    = 2.6;   // seconds at or above threshold before snap
-    private readonly SNAP_DECAY_RATE    = 2.5;   // how fast strain drains when below threshold
+    private readonly SNAP_BREAK_TIME    = 2.6;   
+    private readonly SNAP_DECAY_RATE    = 2.5;   
 
     private strainAccum = 0.0;
 
     constructor(
         private refs: EntityRefs,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
         private healths: ComponentStore<HealthComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
@@ -3661,46 +3642,45 @@ export class EnvironmentCollisionSystem implements ISystem {
     ) {}
 
     public update(dt: number): void {
-        const tether = this.tethers.get(this.refs.player);
+        const silk = this.silks.get(this.refs.player);
         const target  = this.targets.get(this.refs.player);
         const health  = this.healths.get(this.refs.player);
         const trav    = this.traversal.get(this.refs.player);
 
-        if (!tether || !target || !health || !trav) return;
+        if (!silk || !target || !health || !trav) return;
 
-        this.clampToArenaBounds(target, tether);
-        this.updateStrainMeter(dt, tether, health, trav);
+        this.clampToArenaBounds(target, silk);
+        this.updateStrainMeter(dt, silk, health, trav);
     }
 
     private clampToArenaBounds(
         target: KinematicTargetComponent,
-        tether: TetherComponent
+        silk: SilkComponent
     ): void {
         const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
         const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
 
         if (target.y < minY) {
             target.y = minY;
-            tether.dynamicVelY = Math.max(0, tether.dynamicVelY);
+            silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
         } else if (target.y > maxY) {
             target.y = maxY;
-            tether.dynamicVelY = Math.min(0, tether.dynamicVelY);
+            silk.dynamicVelY = Math.min(0, silk.dynamicVelY);
         }
     }
 
     private updateStrainMeter(
         dt: number,
-        tether: TetherComponent,
+        silk: SilkComponent,
         health: HealthComponent,
         trav: TraversalStateComponent
     ): void {
-        const overloaded = tether.tension >= this.SNAP_THRESHOLD
+        const overloaded = silk.tension >= this.SNAP_THRESHOLD
             && trav.state === "WALL_SLIDING";
 
         if (overloaded) {
             this.strainAccum += dt;
 
-            // Jitter feedback escalates as rope approaches breaking point
             const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
             if (Math.random() < strainRatio * 0.25) {
                 this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
@@ -3710,20 +3690,20 @@ export class EnvironmentCollisionSystem implements ISystem {
             }
 
             if (this.strainAccum >= this.SNAP_BREAK_TIME) {
-                this.snapTether(tether, health);
+                this.snapSilk(silk, health);
             }
         } else {
             this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
         }
     }
 
-    private snapTether(tether: TetherComponent, health: HealthComponent): void {
-        tether.isAttached = false;
-        tether.tension    = 0.0;
+    private snapSilk(silk: SilkComponent, health: HealthComponent): void {
+        silk.isAttached = false;
+        silk.tension    = 0.0;
         this.strainAccum  = 0.0;
         health.current    = 0;
 
-        this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "TETHER_SNAP" });
+        this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "SILK_SNAP" });
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
         this.broker.publish(GameEvent.PLAYER_DIED,           undefined);
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
@@ -3751,12 +3731,12 @@ export interface ApplyImpulseCommand extends ICommand {
     entityId: EntityId;
     x: number; y: number; z: number;
 }
-export interface SetRopeMaxLengthCommand extends ICommand {
-    readonly type: "SET_ROPE_MAX_LENGTH";
+export interface SetSilkMaxLengthCommand extends ICommand {
+    readonly type: "SET_SILK_MAX_LENGTH";
     length: number;
 }
-export interface SetRopeAttachedCommand extends ICommand {
-    readonly type: "SET_ROPE_ATTACHED";
+export interface SetSilkAttachedCommand extends ICommand {
+    readonly type: "SET_SILK_ATTACHED";
     attached: boolean;
 }
 
@@ -3768,7 +3748,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-    TetherComponent,
+    SilkComponent,
     KinematicTargetComponent,
     TraversalStateComponent,
     TransformComponent,
@@ -3784,8 +3764,8 @@ export class PlayerKinematicsSystem implements ISystem {
     private readonly GRAVITY             = -24.0;
     private readonly SWING_STEER_FORCE   = 32.0;
     private readonly LAUNCH_STEER_FORCE   = 16.0;
-    private readonly BASE_ROPE_LENGTH    = 12.0;
-    private readonly MAX_ROPE_LENGTH     = 24.0;
+    private readonly BASE_SILK_LENGTH    = 12.0;
+    private readonly MAX_SILK_LENGTH     = 24.0;
     private readonly WALL_LIMIT_X        = 14.2;
     private readonly WALL_SLIDE_SPEED    = -3.0;
     private readonly DRAG_DAMPING        = 0.99;
@@ -3801,7 +3781,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     constructor(
         private refs: EntityRefs,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
         private transforms: ComponentStore<TransformComponent>,
@@ -3810,38 +3790,38 @@ export class PlayerKinematicsSystem implements ISystem {
     ) {}
 
     public update(dt: number): void {
-        const tether = this.tethers.get(this.refs.player);
+        const silk = this.silks.get(this.refs.player);
         const target  = this.targets.get(this.refs.player);
         const trav    = this.traversal.get(this.refs.player);
         const sTrans  = this.transforms.get(this.refs.spider);
         const input   = this.inputs.get(this.refs.player);
 
-        if (!tether || !target || !trav || !sTrans || !input) return;
+        if (!silk || !target || !trav || !sTrans || !input) return;
 
-        tether.anchorX = sTrans.x;
-        tether.anchorY = sTrans.y;
-        tether.anchorZ = sTrans.z;
+        silk.anchorX = sTrans.x;
+        silk.anchorY = sTrans.y;
+        silk.anchorZ = sTrans.z;
 
         if (trav.state === "LAUNCHING") {
-            this.stepLaunching(dt, tether, target, trav, input);
+            this.stepLaunching(dt, silk, target, trav, input);
         } else {
-            this.stepPhysics(dt, tether, trav, input);
+            this.stepPhysics(dt, silk, trav, input);
 
-            const nextX = target.x + tether.dynamicVelX * dt;
-            const nextY = target.y + tether.dynamicVelY * dt;
+            const nextX = target.x + silk.dynamicVelX * dt;
+            const nextY = target.y + silk.dynamicVelY * dt;
 
-            this.resolveWallContact(nextX, nextY, dt, target, tether, trav, input);
+            this.resolveWallContact(nextX, nextY, dt, target, silk, trav, input);
 
             if (trav.state === "AIRBORNE") {
-                this.enforceRopeConstraint(target, tether);
+                this.enforceSilkConstraint(target, silk);
             }
         }
 
-        const dx = target.x - tether.anchorX;
-        const dy = target.y - tether.anchorY;
-        tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+        const dx = target.x - silk.anchorX;
+        const dy = target.y - silk.anchorY;
+        silk.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-        this.broker.publish(GameEvent.ROPE_TENSION_CHANGE, { tension: tether.tension });
+        this.broker.publish(GameEvent.SILK_TENSION_CHANGE, { tension: silk.tension });
 
         if (trav.state !== this.lastTraversalState) {
             this.lastTraversalState = trav.state;
@@ -3851,48 +3831,48 @@ export class PlayerKinematicsSystem implements ISystem {
 
     private stepPhysics(
         dt: number,
-        tether: TetherComponent,
+        silk: SilkComponent,
         trav: TraversalStateComponent,
         input: InputIntentComponent
     ): void {
-        tether.dynamicVelY += this.GRAVITY * dt;
+        silk.dynamicVelY += this.GRAVITY * dt;
 
         if (trav.state === "AIRBORNE") {
-            tether.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
+            silk.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
         }
 
         const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
-        tether.dynamicVelX *= damp;
-        tether.dynamicVelY *= damp;
+        silk.dynamicVelX *= damp;
+        silk.dynamicVelY *= damp;
     }
 
     private stepLaunching(
         dt: number,
-        tether: TetherComponent,
+        silk: SilkComponent,
         target: KinematicTargetComponent,
         trav: TraversalStateComponent,
         input: InputIntentComponent
     ): void {
         trav.launchTimer -= dt;
 
-        tether.dynamicVelX += input.x * this.LAUNCH_STEER_FORCE * dt;
-        tether.dynamicVelY += this.GRAVITY * this.LAUNCH_GRAVITY_MULT * dt;
+        silk.dynamicVelX += input.x * this.LAUNCH_STEER_FORCE * dt;
+        silk.dynamicVelY += this.GRAVITY * this.LAUNCH_GRAVITY_MULT * dt;
 
         const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
-        tether.dynamicVelX *= damp;
-        tether.dynamicVelY *= damp;
+        silk.dynamicVelX *= damp;
+        silk.dynamicVelY *= damp;
 
-        target.x += tether.dynamicVelX * dt;
-        target.y += tether.dynamicVelY * dt;
+        target.x += silk.dynamicVelX * dt;
+        target.y += silk.dynamicVelY * dt;
 
         if (trav.launchTimer <= 0) {
             trav.state = "AIRBORNE";
             trav.wallDir = 0;
 
-            const dx = target.x - tether.anchorX;
-            const dy = target.y - tether.anchorY;
-            const distNow = Math.sqrt(dx * dx + dy * dy) || this.BASE_ROPE_LENGTH;
-            tether.maxLength = Math.max(this.BASE_ROPE_LENGTH, distNow);
+            const dx = target.x - silk.anchorX;
+            const dy = target.y - silk.anchorY;
+            const distNow = Math.sqrt(dx * dx + dy * dy) || this.BASE_SILK_LENGTH;
+            silk.maxLength = Math.max(this.BASE_SILK_LENGTH, distNow);
         }
     }
 
@@ -3901,7 +3881,7 @@ export class PlayerKinematicsSystem implements ISystem {
         nextY: number,
         dt: number,
         target: KinematicTargetComponent,
-        tether: TetherComponent,
+        silk: SilkComponent,
         trav: TraversalStateComponent,
         input: InputIntentComponent
     ): void {
@@ -3913,7 +3893,7 @@ export class PlayerKinematicsSystem implements ISystem {
             const stillPressingIn = input.x === trav.wallDir;
 
             if (!stillPressingIn) {
-                this.triggerFling(tether, target, trav);
+                this.triggerFling(silk, target, trav);
                 target.x = nextX;
                 target.y = nextY;
                 return;
@@ -3921,16 +3901,16 @@ export class PlayerKinematicsSystem implements ISystem {
 
             target.x = trav.wallDir * this.WALL_LIMIT_X;
             target.y = nextY;
-            tether.dynamicVelX = 0;
-            tether.dynamicVelY = Math.max(tether.dynamicVelY, this.WALL_SLIDE_SPEED);
+            silk.dynamicVelX = 0;
+            silk.dynamicVelY = Math.max(silk.dynamicVelY, this.WALL_SLIDE_SPEED);
 
-            tether.tension = Math.min(1.0, tether.tension + this.TENSION_CHARGE_RATE * dt);
+            silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
 
-            const maxStretch = this.MAX_ROPE_LENGTH - this.BASE_ROPE_LENGTH;
-            tether.maxLength = this.BASE_ROPE_LENGTH + tether.tension * maxStretch;
+            const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
+            silk.maxLength = this.BASE_SILK_LENGTH + silk.tension * maxStretch;
 
             if (input.jump) {
-                this.triggerFling(tether, target, trav);
+                this.triggerFling(silk, target, trav);
                 input.jump = false;
             }
 
@@ -3948,40 +3928,40 @@ export class PlayerKinematicsSystem implements ISystem {
 
                 target.x = wallDir * this.WALL_LIMIT_X;
                 target.y = nextY;
-                tether.dynamicVelX = 0;
-                tether.dynamicVelY = Math.max(tether.dynamicVelY, this.WALL_SLIDE_SPEED);
+                silk.dynamicVelX = 0;
+                silk.dynamicVelY = Math.max(silk.dynamicVelY, this.WALL_SLIDE_SPEED);
 
-                tether.tension = Math.min(1.0, tether.tension + this.TENSION_CHARGE_RATE * dt);
-                const maxStretch = this.MAX_ROPE_LENGTH - this.BASE_ROPE_LENGTH;
-                tether.maxLength = this.BASE_ROPE_LENGTH + tether.tension * maxStretch;
+                silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
+                const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
+                silk.maxLength = this.BASE_SILK_LENGTH + silk.tension * maxStretch;
             } else {
                 target.x = wallDir * this.WALL_LIMIT_X;
                 target.y = nextY;
-                if (Math.sign(tether.dynamicVelX) === wallDir) {
-                    tether.dynamicVelX *= -0.2;
+                if (Math.sign(silk.dynamicVelX) === wallDir) {
+                    silk.dynamicVelX *= -0.2;
                 }
                 trav.state   = "AIRBORNE";
                 trav.wallDir = 0;
-                tether.tension = Math.max(0, tether.tension - 4.0 * dt);
+                silk.tension = Math.max(0, silk.tension - 4.0 * dt);
             }
             return;
         }
 
         trav.state   = "AIRBORNE";
         trav.wallDir = 0;
-        tether.tension = Math.max(0, tether.tension - 4.0 * dt);
+        silk.tension = Math.max(0, silk.tension - 4.0 * dt);
         target.x = nextX;
         target.y = nextY;
     }
 
     private triggerFling(
-        tether: TetherComponent,
+        silk: SilkComponent,
         target: KinematicTargetComponent,
         trav: TraversalStateComponent
     ): void {
-        const storedTension = tether.tension;
-        tether.tension  = 0.0;
-        tether.maxLength = this.BASE_ROPE_LENGTH;
+        const storedTension = silk.tension;
+        silk.tension  = 0.0;
+        silk.maxLength = this.BASE_SILK_LENGTH;
 
         if (storedTension < this.MIN_FLING_TENSION) {
             trav.state      = "AIRBORNE";
@@ -3990,20 +3970,20 @@ export class PlayerKinematicsSystem implements ISystem {
             return;
         }
 
-        const dx   = tether.anchorX - target.x;
-        const dy   = tether.anchorY - target.y;
+        const dx   = silk.anchorX - target.x;
+        const dy   = silk.anchorY - target.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
         const power = storedTension * this.FLING_IMPULSE;
-        tether.dynamicVelX = (dx / dist) * power;
-        tether.dynamicVelY = (dy / dist) * power;
+        silk.dynamicVelX = (dx / dist) * power;
+        silk.dynamicVelY = (dy / dist) * power;
 
         trav.state       = "LAUNCHING";
         trav.launchTimer = this.LAUNCH_DURATION;
         trav.launchPower = storedTension;
         trav.wallDir     = 0;
 
-        tether.maxLength = this.MAX_ROPE_LENGTH * 2.5;
+        silk.maxLength = this.MAX_SILK_LENGTH * 2.5;
 
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.25 + storedTension * 0.35,
@@ -4011,25 +3991,25 @@ export class PlayerKinematicsSystem implements ISystem {
         });
     }
 
-    private enforceRopeConstraint(
+    private enforceSilkConstraint(
         target: KinematicTargetComponent,
-        tether: TetherComponent
+        silk: SilkComponent
     ): void {
-        const dx   = target.x - tether.anchorX;
-        const dy   = target.y - tether.anchorY;
+        const dx   = target.x - silk.anchorX;
+        const dy   = target.y - silk.anchorY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-        if (dist > tether.maxLength) {
+        if (dist > silk.maxLength) {
             const nx = dx / dist;
             const ny = dy / dist;
 
-            target.x = tether.anchorX + nx * tether.maxLength;
-            target.y = tether.anchorY + ny * tether.maxLength;
+            target.x = silk.anchorX + nx * silk.maxLength;
+            target.y = silk.anchorY + ny * silk.maxLength;
 
-            const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
+            const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
             if (dot > 0) {
-                tether.dynamicVelX -= dot * nx;
-                tether.dynamicVelY -= dot * ny;
+                silk.dynamicVelX -= dot * nx;
+                silk.dynamicVelY -= dot * ny;
             }
         }
     }
@@ -4046,10 +4026,10 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent } from "../../core/ecs/Components";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntityId } from "../../core/ecs/Entity";
-import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetRopeMaxLengthCommand, SetRopeAttachedCommand } from "../commands/PhysicsCommands";
+import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetSilkMaxLengthCommand, SetSilkAttachedCommand } from "../commands/PhysicsCommands";
 import { PLATFORM_AABBS, BORDER_AABBS } from "../collisions/EnvironmentColliders";
 import type { World, RigidBody } from "@dimforge/rapier3d-compat";
 
@@ -4069,7 +4049,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     private transforms: ComponentStore<TransformComponent>,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private tethers: ComponentStore<TetherComponent>
+    private silks: ComponentStore<SilkComponent>
   ) {}
 
   public async init(): Promise<void> {
@@ -4081,7 +4061,6 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       }
       this.world = new this.RAPIER.World({ x: 0, y: -9.81, z: 0 });
 
-      // Load static geometry borders
       const allAabbs = [...PLATFORM_AABBS, ...BORDER_AABBS];
       for (const aabb of allAabbs) {
         const hx = (aabb.maxX - aabb.minX) / 2;
@@ -4117,9 +4096,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     }
 
     if (spiderEntity !== -1 && !this.rigidBodies.has(spiderEntity)) {
-      const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
-      this.rigidBodies.set(spiderEntity, wBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), wBody); // Match massive size
+      const sBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
+      this.rigidBodies.set(spiderEntity, sBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), sBody); 
     }
 
     this.deferSetUpDone = true;
@@ -4133,19 +4112,19 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
 
     this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
       if (cmd.entityId === this.refs.player) {
-        const tether = this.tethers.get(this.refs.player);
-        if (tether) { tether.dynamicVelX += cmd.x; tether.dynamicVelY += cmd.y; }
+        const silk = this.silks.get(this.refs.player);
+        if (silk) { silk.dynamicVelX += cmd.x; silk.dynamicVelY += cmd.y; }
       }
     });
 
-    this.commands.register<SetRopeMaxLengthCommand>("SET_ROPE_MAX_LENGTH", (cmd) => {
-      const tether = this.tethers.get(this.refs.player);
-      if (tether) tether.maxLength = cmd.length;
+    this.commands.register<SetSilkMaxLengthCommand>("SET_SILK_MAX_LENGTH", (cmd) => {
+      const silk = this.silks.get(this.refs.player);
+      if (silk) silk.maxLength = cmd.length;
     });
 
-    this.commands.register<SetRopeAttachedCommand>("SET_ROPE_ATTACHED", (cmd) => {
-      const tether = this.tethers.get(this.refs.player);
-      if (tether) tether.isAttached = cmd.attached;
+    this.commands.register<SetSilkAttachedCommand>("SET_SILK_ATTACHED", (cmd) => {
+      const silk = this.silks.get(this.refs.player);
+      if (silk) silk.isAttached = cmd.attached;
     });
   }
 
@@ -4168,10 +4147,10 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       pBody.setNextKinematicTranslation({ x: pTarget.x, y: pTarget.y, z: pTarget.z });
     }
 
-    const wTarget = this.targets.get(this.refs.spider);
-    const wBody = this.rigidBodies.get(this.refs.spider);
-    if (wTarget && wTarget.active && wBody) {
-      wBody.setNextKinematicTranslation({ x: wTarget.x, y: wTarget.y, z: wTarget.z });
+    const sTarget = this.targets.get(this.refs.spider);
+    const sBody = this.rigidBodies.get(this.refs.spider);
+    if (sTarget && sTarget.active && sBody) {
+      sBody.setNextKinematicTranslation({ x: sTarget.x, y: sTarget.y, z: sTarget.z });
     }
 
     if (this.world) {
@@ -4196,10 +4175,10 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       if (sTrans && sTargetFallback) { sTrans.x = sTargetFallback.x; sTrans.y = sTargetFallback.y; }
     }
 
-    const tether = this.tethers.get(this.refs.player);
-    if (tether) {
-      this.broker.publish(GameEvent.ROPE_TENSION_CHANGE, { tension: tether.tension });
-      this.broker.publish(GameEvent.ROPE_LENGTH_CHANGE, { length: tether.currentLength, maxLength: tether.maxLength });
+    const silk = this.silks.get(this.refs.player);
+    if (silk) {
+      this.broker.publish(GameEvent.SILK_TENSION_CHANGE, { tension: silk.tension });
+      this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, { length: silk.currentLength, maxLength: silk.maxLength });
     }
   }
 
@@ -4222,7 +4201,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent, TraversalStateComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { TransformComponent, SilkComponent, TraversalStateComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
@@ -4241,7 +4220,7 @@ export class TransformSyncSystem implements ISystem {
     constructor(
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
@@ -4292,7 +4271,7 @@ export class TransformSyncSystem implements ISystem {
     }
 
     private syncTransforms(alpha: number): void {
-        const tether = this.tethers.get(this.refs.player);
+        const silk = this.silks.get(this.refs.player);
         const trav   = this.traversal.get(this.refs.player);
 
         for (const [id, curr] of this.transforms.entries()) {
@@ -4315,11 +4294,11 @@ export class TransformSyncSystem implements ISystem {
                 node.rotationQuaternion
             );
 
-            if (id === this.refs.player && tether && trav) {
+            if (id === this.refs.player && silk && trav) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
                 if (mat) {
-                    this.updatePlayerEmissive(mat, tether.tension, trav.state, alpha);
+                    this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
                 }
             }
 
@@ -4391,7 +4370,7 @@ export class DomHudSystem implements ISystem {
     private playerHpValue  : HTMLElement | null = null;
     private spiderHpBar    : HTMLElement | null = null;
     private spiderHpValue  : HTMLElement | null = null;
-    private bossStateText  : HTMLElement | null = null;
+    private spiderStateText: HTMLElement | null = null;
     private traversalHint  : HTMLElement | null = null;
     private overlay        : HTMLElement | null = null;
     private overlayTitle   : HTMLElement | null = null;
@@ -4412,21 +4391,21 @@ export class DomHudSystem implements ISystem {
 
     private cacheDomElements(): void {
         if (typeof document === "undefined") return;
-        this.tensionBar    = document.getElementById("tension-meter-bar");
-        this.tensionText   = document.getElementById("tension-meter-text");
-        this.playerHpBar   = document.getElementById("player-hp-bar");
-        this.playerHpValue = document.getElementById("player-hp-value");
+        this.tensionBar     = document.getElementById("tension-meter-bar");
+        this.tensionText    = document.getElementById("tension-meter-text");
+        this.playerHpBar    = document.getElementById("player-hp-bar");
+        this.playerHpValue  = document.getElementById("player-hp-value");
         this.spiderHpBar    = document.getElementById("spider-hp-bar");
-        this.spiderHpValue = document.getElementById("spider-hp-value");
-        this.bossStateText = document.getElementById("boss-state-text");
-        this.traversalHint = document.getElementById("traversal-hint");
-        this.overlay       = document.getElementById("game-state-overlay");
-        this.overlayTitle  = document.getElementById("game-state-title");
+        this.spiderHpValue  = document.getElementById("spider-hp-value");
+        this.spiderStateText = document.getElementById("spider-state-text");
+        this.traversalHint  = document.getElementById("traversal-hint");
+        this.overlay        = document.getElementById("game-state-overlay");
+        this.overlayTitle   = document.getElementById("game-state-title");
     }
 
     private registerSubscriptions(): void {
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, ({ tension }) => {
+            this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
                 this.updateTensionBar(tension);
                 this.updateHint(tension);
             })
@@ -4456,7 +4435,7 @@ export class DomHudSystem implements ISystem {
         );
         this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_OVER, () => {
-                this.showOverlay("TETHER SNAPPED", "#ef4444");
+                this.showOverlay("SILK SNAPPED", "#ef4444");
             })
         );
         this.unsubscribes.push(
@@ -4556,9 +4535,9 @@ export class DomHudSystem implements ISystem {
     }
 
     private updateSpiderStateLabel(state: string, hue: string): void {
-        if (this.bossStateText) {
-            this.bossStateText.textContent = state.toUpperCase();
-            this.bossStateText.style.color  = hue;
+        if (this.spiderStateText) {
+            this.spiderStateText.textContent = state.toUpperCase();
+            this.spiderStateText.style.color  = hue;
         }
     }
 
@@ -4633,7 +4612,7 @@ export const HudOverlay: React.FC = () => {
             <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
               <div id="spider-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
             </div>
-            <span id="boss-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
+            <span id="spider-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
         </div>
 
@@ -4676,7 +4655,7 @@ export const HudOverlay: React.FC = () => {
         gap: "16px"
       }}>
         <h1 id="game-state-title" style={{ fontSize: "32px", color: "#ef4444", margin: 0, letterSpacing: "0.18em" }}>
-          TETHER SNAPPED
+          SILK SNAPPED
         </h1>
         <p id="game-state-subtitle" style={{ fontSize: "12px", color: "#64748b", margin: 0, letterSpacing: "0.12em" }}>
           PRESS [R] TO RECONNECT

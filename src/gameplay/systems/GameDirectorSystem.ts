@@ -3,7 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, HealthComponent, TetherComponent, SpiderAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, HealthComponent, SilkComponent, SpiderAIComponent, KinematicVelocityComponent, InvulnerabilityComponent, KinematicTargetComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class GameDirectorSystem implements ISystem {
@@ -16,7 +16,7 @@ export class GameDirectorSystem implements ISystem {
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
         private velocities: ComponentStore<KinematicVelocityComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
@@ -53,7 +53,7 @@ export class GameDirectorSystem implements ISystem {
         
         const pTrans = this.transforms.get(this.refs.player);
         const pHealth = this.healths.get(this.refs.player);
-        const pTether = this.tethers.get(this.refs.player);
+        const pSilk = this.silks.get(this.refs.player);
         const pVel = this.velocities.get(this.refs.player);
         const pIframe = this.iframes.get(this.refs.player);
         const pTarget = this.targets.get(this.refs.player);
@@ -69,15 +69,15 @@ export class GameDirectorSystem implements ISystem {
         if (pHealth) {
             pHealth.current = pHealth.max;
         }
-        if (pTether) {
-            pTether.isAttached = true;
-            pTether.maxLength = 10.0;
-            pTether.currentLength = 10.0;
-            pTether.dynamicVelX = 0;
-            pTether.dynamicVelY = 0;
-            pTether.tension = 0.0;
-            pTether.anchorX = 0;
-            pTether.anchorY = 26;
+        if (pSilk) {
+            pSilk.isAttached = true;
+            pSilk.maxLength = 10.0;
+            pSilk.currentLength = 10.0;
+            pSilk.dynamicVelX = 0;
+            pSilk.dynamicVelY = 0;
+            pSilk.tension = 0.0;
+            pSilk.anchorX = 0;
+            pSilk.anchorY = 26;
         }
         if (pVel) {
             pVel.x = 0; pVel.y = 0; pVel.z = 0;

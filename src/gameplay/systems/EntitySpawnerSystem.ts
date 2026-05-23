@@ -6,7 +6,7 @@ import {
     TransformComponent, 
     KinematicVelocityComponent, 
     KinematicTargetComponent, 
-    TetherComponent, 
+    SilkComponent, 
     HealthComponent, 
     InputIntentComponent, 
     SpiderAIComponent, 
@@ -32,7 +32,7 @@ export class EntitySpawnerSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private velocities: ComponentStore<KinematicVelocityComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private healths: ComponentStore<HealthComponent>,
         private inputs: ComponentStore<InputIntentComponent>,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
@@ -95,7 +95,7 @@ export class EntitySpawnerSystem implements ISystem {
         });
         this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
         this.targets.add(playerId, { x: 0, y: 15.2, z: 0, active: true });
-        this.tethers.add(playerId, {
+        this.silks.add(playerId, {
             anchorX: 0, anchorY: 27.2, anchorZ: 0,
             maxLength: 12.0, currentLength: 12.0,
             isAttached: true, tension: 0.0,

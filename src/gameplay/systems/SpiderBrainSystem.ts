@@ -55,7 +55,7 @@ export class SpiderBrainSystem implements ISystem {
       };
 
       this.activeState.enter(this.contextCache);
-      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { state: stateObj.name, hue: stateObj.hue });
+      this.publishStateChangeEvent(stateObj.name, stateObj.hue);
     }
 
     this.unsubDamage = this.broker.subscribe(GameEvent.SPIDER_DAMAGED, () => {
@@ -68,6 +68,19 @@ export class SpiderBrainSystem implements ISystem {
           this.transitionTo("DASHING");
         }
       }
+    });
+  }
+
+  private publishStateChangeEvent(name: string, hue: string): void {
+    const health = this.healths.get(this.refs.spider);
+    const isBerserk = health ? (health.current < health.max * 0.5) : false;
+    let finalName = name;
+    if (isBerserk && this.activeState?.type !== "DEFEATED") {
+      finalName = `${name} (BERSERK)`;
+    }
+    this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { 
+      state: finalName, 
+      hue: hue 
     });
   }
 
@@ -86,10 +99,7 @@ export class SpiderBrainSystem implements ISystem {
       this.activeState = nextStateObj;
       this.activeState.enter(this.contextCache);
 
-      this.broker.publish(GameEvent.SPIDER_STATE_CHANGE, { 
-        state: nextStateObj.name, 
-        hue: nextStateObj.hue 
-      });
+      this.publishStateChangeEvent(nextStateObj.name, nextStateObj.hue);
     }
   }
 

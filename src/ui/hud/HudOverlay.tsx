@@ -46,7 +46,7 @@ export const HudOverlay: React.FC = () => {
             <div style={{ width: "100%", height: "5px", background: "#0d1117", borderRadius: "3px", overflow: "hidden" }}>
               <div id="spider-hp-bar" style={{ width: "100%", height: "100%", backgroundColor: "#ef4444", transition: "width 0.2s ease" }} />
             </div>
-            <span id="boss-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
+            <span id="spider-state-text" style={{ fontSize: "10px", fontWeight: "bold", color: "#ef4444", letterSpacing: "0.08em", marginTop: "2px" }}>SWEEPING</span>
           </div>
         </div>
 
@@ -89,7 +89,7 @@ export const HudOverlay: React.FC = () => {
         gap: "16px"
       }}>
         <h1 id="game-state-title" style={{ fontSize: "32px", color: "#ef4444", margin: 0, letterSpacing: "0.18em" }}>
-          TETHER SNAPPED
+          SILK SNAPPED
         </h1>
         <p id="game-state-subtitle" style={{ fontSize: "12px", color: "#64748b", margin: 0, letterSpacing: "0.12em" }}>
           PRESS [R] TO RECONNECT

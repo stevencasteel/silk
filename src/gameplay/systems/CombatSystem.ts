@@ -5,7 +5,7 @@ import {
     TransformComponent,
     HealthComponent,
     SpiderAIComponent,
-    TetherComponent,
+    SilkComponent,
     InvulnerabilityComponent,
     TraversalStateComponent
 } from "../../core/ecs/Components";
@@ -30,7 +30,7 @@ export class CombatSystem implements ISystem {
         private transforms: ComponentStore<TransformComponent>,
         private healths: ComponentStore<HealthComponent>,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private iframes: ComponentStore<InvulnerabilityComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
         private broker: EventBroker,
@@ -44,10 +44,10 @@ export class CombatSystem implements ISystem {
         const sHealth = this.healths.get(this.refs.spider);
         const sAI     = this.spiderAIs.get(this.refs.spider);
         const pIframe = this.iframes.get(this.refs.player);
-        const tether  = this.tethers.get(this.refs.player);
+        const silk  = this.silks.get(this.refs.player);
         const pTrav   = this.traversal.get(this.refs.player);
 
-        if (!pTrans || !sTrans || !pHealth || !sHealth || !sAI || !pIframe || !tether || !pTrav) return;
+        if (!pTrans || !sTrans || !pHealth || !sHealth || !sAI || !pIframe || !silk || !pTrav) return;
 
         if (pIframe.timeRemaining > 0) {
             pIframe.timeRemaining -= dt;
@@ -61,7 +61,7 @@ export class CombatSystem implements ISystem {
         if (distSq >= hitDist * hitDist) return;
 
         if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
-            this.resolvePlayerFlingHit(pTrans, sTrans, sHealth, sAI, tether, pTrav, dx, dy, distSq);
+            this.resolvePlayerFlingHit(pTrans, sTrans, sHealth, sAI, silk, pTrav, dx, dy, distSq);
             return;
         }
 
@@ -77,7 +77,7 @@ export class CombatSystem implements ISystem {
         _sTrans: TransformComponent,
         sHealth: HealthComponent,
         sAI: SpiderAIComponent,
-        tether: TetherComponent,
+        silk: SilkComponent,
         pTrav: TraversalStateComponent,
         dx: number,
         dy: number,
@@ -100,8 +100,8 @@ export class CombatSystem implements ISystem {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
         const dist = Math.sqrt(distSq) || 1;
-        tether.dynamicVelX =  (dx / dist) * 22;
-        tether.dynamicVelY =  (dy / dist) * 22;
+        silk.dynamicVelX =  (dx / dist) * 22;
+        silk.dynamicVelY =  (dy / dist) * 22;
         pTrav.state        = "AIRBORNE";
         pTrav.launchPower  = 0;
         pTrav.launchTimer  = 0;

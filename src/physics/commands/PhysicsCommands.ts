@@ -11,11 +11,11 @@ export interface ApplyImpulseCommand extends ICommand {
     entityId: EntityId;
     x: number; y: number; z: number;
 }
-export interface SetRopeMaxLengthCommand extends ICommand {
-    readonly type: "SET_ROPE_MAX_LENGTH";
+export interface SetSilkMaxLengthCommand extends ICommand {
+    readonly type: "SET_SILK_MAX_LENGTH";
     length: number;
 }
-export interface SetRopeAttachedCommand extends ICommand {
-    readonly type: "SET_ROPE_ATTACHED";
+export interface SetSilkAttachedCommand extends ICommand {
+    readonly type: "SET_SILK_ATTACHED";
     attached: boolean;
 }

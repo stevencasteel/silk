@@ -5,7 +5,7 @@ import { CommandBus } from "../core/commands/CommandBus";
 import { EntityRegistry } from "../core/ecs/Entity";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent, HealthComponent, InputIntentComponent, SpiderAIComponent, PlayerStatsComponent, PlayerTag, SpiderTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, SpiderTraversalComponent } from "../core/ecs/Components";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent, HealthComponent, InputIntentComponent, SpiderAIComponent, PlayerStatsComponent, PlayerTag, SpiderTag, AnchorTag, TraversalStateComponent, InvulnerabilityComponent, SpiderTraversalComponent } from "../core/ecs/Components";
 import { RenderSystem } from "../babylon/scene/RenderSystem";
 import { CameraSystem } from "../babylon/cameras/CameraSystem";
 import { LightingSystem } from "../babylon/lighting/LightingSystem";
@@ -16,7 +16,7 @@ import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
 import { PlayerMovementSystem } from "../gameplay/systems/PlayerMovementSystem";
 import { SpiderBrainSystem } from "../gameplay/systems/SpiderBrainSystem";
 import { SpiderTraversalSystem } from "../gameplay/systems/SpiderTraversalSystem";
-import { RopeVisualizerSystem } from "../gameplay/systems/RopeVisualizerSystem";
+import { SilkVisualizerSystem } from "../gameplay/systems/SilkVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
 import { RapierWorldSystem } from "../physics/rapier/RapierWorldSystem";
@@ -41,7 +41,7 @@ export class CompositionRoot {
         const transforms = new ComponentStore<TransformComponent>();
         const velocities = new ComponentStore<KinematicVelocityComponent>();
         const targets = new ComponentStore<KinematicTargetComponent>();
-        const tethers = new ComponentStore<TetherComponent>();
+        const silks = new ComponentStore<SilkComponent>();
         const healths = new ComponentStore<HealthComponent>();
         const inputs = new ComponentStore<InputIntentComponent>();
         const spiderAIs = new ComponentStore<SpiderAIComponent>();
@@ -57,27 +57,27 @@ export class CompositionRoot {
 
         const renderSystem = new RenderSystem(canvas);
         const cameraSystem = new CameraSystem(refs, transforms, spiderAIs, renderSystem, broker);
-        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, tethers, healths, inputs, spiderAIs, playerStats, playerTags, spiderTags, anchorTags, renderSystem, traversal, iframes, spiderTraversal);
-        const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, tethers);
+        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, silks, healths, inputs, spiderAIs, playerStats, playerTags, spiderTags, anchorTags, renderSystem, traversal, iframes, spiderTraversal);
+        const physicsSystem = new RapierWorldSystem(broker, commands, refs, transforms, velocities, targets, silks);
         const inputSystem = new PlayerInputSystem(refs, inputs);
         const movementSystem = new PlayerMovementSystem();
         const spiderBrain = new SpiderBrainSystem(refs, spiderAIs, transforms, spiderTraversal, healths, broker, commands);
         const spiderTraversalSystem = new SpiderTraversalSystem(refs, velocities, spiderTraversal, transforms, targets, spiderAIs, healths);
         
-        const playerKinematics = new PlayerKinematicsSystem(refs, tethers, targets, traversal, transforms, inputs, broker);
-        const environmentCollision = new EnvironmentCollisionSystem(refs, tethers, targets, healths, traversal, broker);
+        const playerKinematics = new PlayerKinematicsSystem(refs, silks, targets, traversal, transforms, inputs, broker);
+        const environmentCollision = new EnvironmentCollisionSystem(refs, silks, targets, healths, traversal, broker);
         
-        const syncSystem = new TransformSyncSystem(refs, transforms, tethers, traversal, renderSystem, spiderAIs, healths);
-        const ropeVisualizer = new RopeVisualizerSystem(refs, transforms, tethers, renderSystem);
+        const syncSystem = new TransformSyncSystem(refs, transforms, silks, traversal, renderSystem, spiderAIs, healths);
+        const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
         const lightingSystem = new LightingSystem(broker, renderSystem);
-        const combatSystem = new CombatSystem(refs, transforms, healths, spiderAIs, tethers, iframes, traversal, broker, commands);
-        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, tethers, spiderAIs, velocities, iframes, targets, traversal);
+        const combatSystem = new CombatSystem(refs, transforms, healths, spiderAIs, silks, iframes, traversal, broker, commands);
+        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, silks, spiderAIs, velocities, iframes, targets, traversal);
         
         const audioSystem = new AudioDirectorSystem(broker);
         const juiceSystem = new JuiceSystem(broker, renderSystem);
         const hudSystem = new DomHudSystem(broker);
-        const debugWireframe = new DebugWireframeSystem(refs, transforms, tethers, renderSystem);
-        const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, tethers, velocities);
+        const debugWireframe = new DebugWireframeSystem(refs, transforms, silks, renderSystem);
+        const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, silks, velocities);
 
         systemManager.register(spawner);
         systemManager.register(renderSystem);
@@ -89,7 +89,7 @@ export class CompositionRoot {
         systemManager.register(spiderTraversalSystem);
         systemManager.register(environmentCollision);
         systemManager.register(syncSystem);
-        systemManager.register(ropeVisualizer);
+        systemManager.register(silkVisualizer);
         systemManager.register(cameraSystem);
         systemManager.register(combatSystem);
         systemManager.register(juiceSystem);

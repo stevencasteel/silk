@@ -31,7 +31,7 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("touchend", triggerOnFirstGesture);
     window.addEventListener("mousedown", triggerOnFirstGesture);
 
-    this.unsub = this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => {
+    this.unsub = this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, (payload) => {
       if (this.initialized && this.tensionSynth) {
         this.tensionSynth.updateDronePitch(payload.tension);
       }

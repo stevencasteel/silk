@@ -5,7 +5,7 @@ import { EventBroker } from "../events/EventBroker";
 import { EntityRegistry } from "../ecs/Entity";
 import { EntityRefs } from "../ecs/EntityRefs";
 import { ComponentStore } from "../ecs/ComponentStore";
-import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
+import { TransformComponent, SilkComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
 
 export class DebugTelemetryOverlay implements ISystem {
@@ -21,7 +21,7 @@ export class DebugTelemetryOverlay implements ISystem {
     private _entities: EntityRegistry,
     private _refs: EntityRefs,
     private _transforms: ComponentStore<TransformComponent>,
-    private _tethers: ComponentStore<TetherComponent>,
+    private _silks: ComponentStore<SilkComponent>,
     private _velocities: ComponentStore<KinematicVelocityComponent>
   ) {}
 
@@ -65,7 +65,7 @@ export class DebugTelemetryOverlay implements ISystem {
     const frameTime = this._profiler.getFrameTime().toFixed(1);
 
     const playerTrans = this._transforms.get(this._refs.player);
-    const playerTether = this._tethers.get(this._refs.player);
+    const playerSilk = this._silks.get(this._refs.player);
     const spiderTrans = this._transforms.get(this._refs.spider);
     const spiderVel = this._velocities.get(this._refs.spider);
 
@@ -73,16 +73,16 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
     info += `Entities   : ${this._entities.count()}\n\n`;
 
-    if (playerTrans && playerTether) {
-      const spd = Math.sqrt(playerTether.dynamicVelX * playerTether.dynamicVelX + playerTether.dynamicVelY * playerTether.dynamicVelY);
+    if (playerTrans && playerSilk) {
+      const spd = Math.sqrt(playerSilk.dynamicVelX * playerSilk.dynamicVelX + playerSilk.dynamicVelY * playerSilk.dynamicVelY);
       info += `=== PLAYER STATE ===\n`;
       info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
-      info += `Vel X/Y    : ${playerTether.dynamicVelX.toFixed(2)}, ${playerTether.dynamicVelY.toFixed(2)}\n`;
+      info += `Vel X/Y    : ${playerSilk.dynamicVelX.toFixed(2)}, ${playerSilk.dynamicVelY.toFixed(2)}\n`;
       info += `Speed      : ${spd.toFixed(2)} units/s\n\n`;
       
-      info += `=== TETHER / ROPE ===\n`;
-      info += `Length     : ${playerTether.currentLength.toFixed(2)} / ${playerTether.maxLength.toFixed(1)}\n`;
-      info += `Load/Tens  : ${(playerTether.tension * 100).toFixed(1)}%\n`;
+      info += `=== SILK / TETHER ===\n`;
+      info += `Length     : ${playerSilk.currentLength.toFixed(2)} / ${playerSilk.maxLength.toFixed(1)}\n`;
+      info += `Load/Tens  : ${(playerSilk.tension * 100).toFixed(1)}%\n`;
     }
 
     if (spiderTrans && spiderVel) {

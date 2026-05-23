@@ -5,10 +5,10 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, TetherComponent } from "../../core/ecs/Components";
+import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntityId } from "../../core/ecs/Entity";
-import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetRopeMaxLengthCommand, SetRopeAttachedCommand } from "../commands/PhysicsCommands";
+import { SetKinematicVelocityCommand, ApplyImpulseCommand, SetSilkMaxLengthCommand, SetSilkAttachedCommand } from "../commands/PhysicsCommands";
 import { PLATFORM_AABBS, BORDER_AABBS } from "../collisions/EnvironmentColliders";
 import type { World, RigidBody } from "@dimforge/rapier3d-compat";
 
@@ -28,7 +28,7 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     private transforms: ComponentStore<TransformComponent>,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private tethers: ComponentStore<TetherComponent>
+    private silks: ComponentStore<SilkComponent>
   ) {}
 
   public async init(): Promise<void> {
@@ -40,7 +40,6 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       }
       this.world = new this.RAPIER.World({ x: 0, y: -9.81, z: 0 });
 
-      // Load static geometry borders
       const allAabbs = [...PLATFORM_AABBS, ...BORDER_AABBS];
       for (const aabb of allAabbs) {
         const hx = (aabb.maxX - aabb.minX) / 2;
@@ -76,9 +75,9 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
     }
 
     if (spiderEntity !== -1 && !this.rigidBodies.has(spiderEntity)) {
-      const wBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
-      this.rigidBodies.set(spiderEntity, wBody);
-      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), wBody); // Match massive size
+      const sBody = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 26, 0));
+      this.rigidBodies.set(spiderEntity, sBody);
+      this.world.createCollider(this.RAPIER.ColliderDesc.cuboid(2.0, 2.0, 2.0), sBody); 
     }
 
     this.deferSetUpDone = true;
@@ -92,19 +91,19 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
 
     this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
       if (cmd.entityId === this.refs.player) {
-        const tether = this.tethers.get(this.refs.player);
-        if (tether) { tether.dynamicVelX += cmd.x; tether.dynamicVelY += cmd.y; }
+        const silk = this.silks.get(this.refs.player);
+        if (silk) { silk.dynamicVelX += cmd.x; silk.dynamicVelY += cmd.y; }
       }
     });
 
-    this.commands.register<SetRopeMaxLengthCommand>("SET_ROPE_MAX_LENGTH", (cmd) => {
-      const tether = this.tethers.get(this.refs.player);
-      if (tether) tether.maxLength = cmd.length;
+    this.commands.register<SetSilkMaxLengthCommand>("SET_SILK_MAX_LENGTH", (cmd) => {
+      const silk = this.silks.get(this.refs.player);
+      if (silk) silk.maxLength = cmd.length;
     });
 
-    this.commands.register<SetRopeAttachedCommand>("SET_ROPE_ATTACHED", (cmd) => {
-      const tether = this.tethers.get(this.refs.player);
-      if (tether) tether.isAttached = cmd.attached;
+    this.commands.register<SetSilkAttachedCommand>("SET_SILK_ATTACHED", (cmd) => {
+      const silk = this.silks.get(this.refs.player);
+      if (silk) silk.isAttached = cmd.attached;
     });
   }
 
@@ -127,10 +126,10 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       pBody.setNextKinematicTranslation({ x: pTarget.x, y: pTarget.y, z: pTarget.z });
     }
 
-    const wTarget = this.targets.get(this.refs.spider);
-    const wBody = this.rigidBodies.get(this.refs.spider);
-    if (wTarget && wTarget.active && wBody) {
-      wBody.setNextKinematicTranslation({ x: wTarget.x, y: wTarget.y, z: wTarget.z });
+    const sTarget = this.targets.get(this.refs.spider);
+    const sBody = this.rigidBodies.get(this.refs.spider);
+    if (sTarget && sTarget.active && sBody) {
+      sBody.setNextKinematicTranslation({ x: sTarget.x, y: sTarget.y, z: sTarget.z });
     }
 
     if (this.world) {
@@ -155,10 +154,10 @@ export class RapierWorldSystem implements ISystem, IReadablePhysics {
       if (sTrans && sTargetFallback) { sTrans.x = sTargetFallback.x; sTrans.y = sTargetFallback.y; }
     }
 
-    const tether = this.tethers.get(this.refs.player);
-    if (tether) {
-      this.broker.publish(GameEvent.ROPE_TENSION_CHANGE, { tension: tether.tension });
-      this.broker.publish(GameEvent.ROPE_LENGTH_CHANGE, { length: tether.currentLength, maxLength: tether.maxLength });
+    const silk = this.silks.get(this.refs.player);
+    if (silk) {
+      this.broker.publish(GameEvent.SILK_TENSION_CHANGE, { tension: silk.tension });
+      this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, { length: silk.currentLength, maxLength: silk.maxLength });
     }
   }
 

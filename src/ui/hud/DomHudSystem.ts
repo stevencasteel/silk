@@ -16,7 +16,7 @@ export class DomHudSystem implements ISystem {
     private playerHpValue  : HTMLElement | null = null;
     private spiderHpBar    : HTMLElement | null = null;
     private spiderHpValue  : HTMLElement | null = null;
-    private bossStateText  : HTMLElement | null = null;
+    private spiderStateText: HTMLElement | null = null;
     private traversalHint  : HTMLElement | null = null;
     private overlay        : HTMLElement | null = null;
     private overlayTitle   : HTMLElement | null = null;
@@ -37,21 +37,21 @@ export class DomHudSystem implements ISystem {
 
     private cacheDomElements(): void {
         if (typeof document === "undefined") return;
-        this.tensionBar    = document.getElementById("tension-meter-bar");
-        this.tensionText   = document.getElementById("tension-meter-text");
-        this.playerHpBar   = document.getElementById("player-hp-bar");
-        this.playerHpValue = document.getElementById("player-hp-value");
+        this.tensionBar     = document.getElementById("tension-meter-bar");
+        this.tensionText    = document.getElementById("tension-meter-text");
+        this.playerHpBar    = document.getElementById("player-hp-bar");
+        this.playerHpValue  = document.getElementById("player-hp-value");
         this.spiderHpBar    = document.getElementById("spider-hp-bar");
-        this.spiderHpValue = document.getElementById("spider-hp-value");
-        this.bossStateText = document.getElementById("boss-state-text");
-        this.traversalHint = document.getElementById("traversal-hint");
-        this.overlay       = document.getElementById("game-state-overlay");
-        this.overlayTitle  = document.getElementById("game-state-title");
+        this.spiderHpValue  = document.getElementById("spider-hp-value");
+        this.spiderStateText = document.getElementById("spider-state-text");
+        this.traversalHint  = document.getElementById("traversal-hint");
+        this.overlay        = document.getElementById("game-state-overlay");
+        this.overlayTitle   = document.getElementById("game-state-title");
     }
 
     private registerSubscriptions(): void {
         this.unsubscribes.push(
-            this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, ({ tension }) => {
+            this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
                 this.updateTensionBar(tension);
                 this.updateHint(tension);
             })
@@ -81,7 +81,7 @@ export class DomHudSystem implements ISystem {
         );
         this.unsubscribes.push(
             this.broker.subscribe(GameEvent.GAME_OVER, () => {
-                this.showOverlay("TETHER SNAPPED", "#ef4444");
+                this.showOverlay("SILK SNAPPED", "#ef4444");
             })
         );
         this.unsubscribes.push(
@@ -181,9 +181,9 @@ export class DomHudSystem implements ISystem {
     }
 
     private updateSpiderStateLabel(state: string, hue: string): void {
-        if (this.bossStateText) {
-            this.bossStateText.textContent = state.toUpperCase();
-            this.bossStateText.style.color  = hue;
+        if (this.spiderStateText) {
+            this.spiderStateText.textContent = state.toUpperCase();
+            this.spiderStateText.style.color  = hue;
         }
     }
 

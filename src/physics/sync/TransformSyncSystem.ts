@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, TetherComponent, TraversalStateComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { TransformComponent, SilkComponent, TraversalStateComponent, SpiderAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
@@ -21,7 +21,7 @@ export class TransformSyncSystem implements ISystem {
     constructor(
         private refs: EntityRefs,
         private transforms: ComponentStore<TransformComponent>,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
         private visualRegistry: IVisualRegistry,
         private spiderAIs: ComponentStore<SpiderAIComponent>,
@@ -72,7 +72,7 @@ export class TransformSyncSystem implements ISystem {
     }
 
     private syncTransforms(alpha: number): void {
-        const tether = this.tethers.get(this.refs.player);
+        const silk = this.silks.get(this.refs.player);
         const trav   = this.traversal.get(this.refs.player);
 
         for (const [id, curr] of this.transforms.entries()) {
@@ -95,11 +95,11 @@ export class TransformSyncSystem implements ISystem {
                 node.rotationQuaternion
             );
 
-            if (id === this.refs.player && tether && trav) {
+            if (id === this.refs.player && silk && trav) {
                 const mesh = node as BABYLON.AbstractMesh;
                 const mat  = mesh?.material as BABYLON.StandardMaterial | null;
                 if (mat) {
-                    this.updatePlayerEmissive(mat, tether.tension, trav.state, alpha);
+                    this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
                 }
             }
 

@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-    TetherComponent,
+    SilkComponent,
     KinematicTargetComponent,
     HealthComponent,
     TraversalStateComponent
@@ -11,14 +11,6 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
-// ---------------------------------------------------------------------------
-// EnvironmentCollisionSystem
-// Clamps player to arena bounds and manages the tether-snap death mechanic.
-// Strain only accumulates when the silk is over-extended (tension >= threshold)
-// while wall-sliding. The player has a generous 2.4 s window at max tension
-// before the rope snaps.
-// ---------------------------------------------------------------------------
-
 export class EnvironmentCollisionSystem implements ISystem {
     readonly phase = SystemPhase.Collision;
 
@@ -26,16 +18,15 @@ export class EnvironmentCollisionSystem implements ISystem {
     private readonly CEILING_Y          = 27.4;
     private readonly PLAYER_HALF_HEIGHT = 0.9;
 
-    // Snap tuning: strain timer only ticks when tension >= threshold
     private readonly SNAP_THRESHOLD     = 0.90;
-    private readonly SNAP_BREAK_TIME    = 2.6;   // seconds at or above threshold before snap
-    private readonly SNAP_DECAY_RATE    = 2.5;   // how fast strain drains when below threshold
+    private readonly SNAP_BREAK_TIME    = 2.6;   
+    private readonly SNAP_DECAY_RATE    = 2.5;   
 
     private strainAccum = 0.0;
 
     constructor(
         private refs: EntityRefs,
-        private tethers: ComponentStore<TetherComponent>,
+        private silks: ComponentStore<SilkComponent>,
         private targets: ComponentStore<KinematicTargetComponent>,
         private healths: ComponentStore<HealthComponent>,
         private traversal: ComponentStore<TraversalStateComponent>,
@@ -43,46 +34,45 @@ export class EnvironmentCollisionSystem implements ISystem {
     ) {}
 
     public update(dt: number): void {
-        const tether = this.tethers.get(this.refs.player);
+        const silk = this.silks.get(this.refs.player);
         const target  = this.targets.get(this.refs.player);
         const health  = this.healths.get(this.refs.player);
         const trav    = this.traversal.get(this.refs.player);
 
-        if (!tether || !target || !health || !trav) return;
+        if (!silk || !target || !health || !trav) return;
 
-        this.clampToArenaBounds(target, tether);
-        this.updateStrainMeter(dt, tether, health, trav);
+        this.clampToArenaBounds(target, silk);
+        this.updateStrainMeter(dt, silk, health, trav);
     }
 
     private clampToArenaBounds(
         target: KinematicTargetComponent,
-        tether: TetherComponent
+        silk: SilkComponent
     ): void {
         const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
         const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
 
         if (target.y < minY) {
             target.y = minY;
-            tether.dynamicVelY = Math.max(0, tether.dynamicVelY);
+            silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
         } else if (target.y > maxY) {
             target.y = maxY;
-            tether.dynamicVelY = Math.min(0, tether.dynamicVelY);
+            silk.dynamicVelY = Math.min(0, silk.dynamicVelY);
         }
     }
 
     private updateStrainMeter(
         dt: number,
-        tether: TetherComponent,
+        silk: SilkComponent,
         health: HealthComponent,
         trav: TraversalStateComponent
     ): void {
-        const overloaded = tether.tension >= this.SNAP_THRESHOLD
+        const overloaded = silk.tension >= this.SNAP_THRESHOLD
             && trav.state === "WALL_SLIDING";
 
         if (overloaded) {
             this.strainAccum += dt;
 
-            // Jitter feedback escalates as rope approaches breaking point
             const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
             if (Math.random() < strainRatio * 0.25) {
                 this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
@@ -92,20 +82,20 @@ export class EnvironmentCollisionSystem implements ISystem {
             }
 
             if (this.strainAccum >= this.SNAP_BREAK_TIME) {
-                this.snapTether(tether, health);
+                this.snapSilk(silk, health);
             }
         } else {
             this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
         }
     }
 
-    private snapTether(tether: TetherComponent, health: HealthComponent): void {
-        tether.isAttached = false;
-        tether.tension    = 0.0;
+    private snapSilk(silk: SilkComponent, health: HealthComponent): void {
+        silk.isAttached = false;
+        silk.tension    = 0.0;
         this.strainAccum  = 0.0;
         health.current    = 0;
 
-        this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "TETHER_SNAP" });
+        this.broker.publish(GameEvent.PLAYER_DAMAGED,        { amount: 5, source: "SILK_SNAP" });
         this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
         this.broker.publish(GameEvent.PLAYER_DIED,           undefined);
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
