@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 9:50:21 AM
+ [SYSTEM] Generated: 5/23/2026, 10:40:08 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -25,15 +25,15 @@
 │   │   └── compositionRoot.ts
 │   ├── audio/
 │   │   ├── reactive/
+│   │   ├── systems/
+│   │   │   └── AudioDirectorSystem.ts
 │   │   └── tone/
-│   │       ├── AudioEventRouter.ts
-│   │       ├── TensionSynthesizer.ts
-│   │       └── ToneAudioManager.ts
+│   │       └── TensionSynthesizer.ts
 │   ├── babylon/
 │   │   ├── cameras/
-│   │   │   └── CameraRig.ts
+│   │   │   └── CameraSystem.ts
 │   │   ├── lighting/
-│   │   │   └── LightingRig.ts
+│   │   │   └── LightingSystem.ts
 │   │   ├── materials/
 │   │   │   └── MaterialRegistry.ts
 │   │   ├── meshBuilders/
@@ -41,7 +41,10 @@
 │   │   ├── postfx/
 │   │   │   └── PostProcessPipeline.ts
 │   │   └── scene/
-│   │       └── SceneManager.ts
+│   │       └── RenderSystem.ts
+│   ├── contracts/
+│   │   ├── IPhysicsWorld.ts
+│   │   └── ISystem.ts
 │   ├── core/
 │   │   ├── diagnostics/
 │   │   │   ├── DebugRenderer.ts
@@ -53,24 +56,31 @@
 │   │   │   └── GameEvents.ts
 │   │   ├── loop/
 │   │   │   └── GameLoop.ts
-│   │   ├── state/
-│   │   │   └── useGameStore.ts
+│   │   ├── systems/
+│   │   │   └── SystemManager.ts
 │   │   └── sourceCodeManifest.ts
 │   ├── gameplay/
+│   │   ├── components/
+│   │   │   ├── PlayerData.ts
+│   │   │   └── WardenData.ts
 │   │   ├── player/
 │   │   │   ├── PlayerAnchorSystem.ts
 │   │   │   ├── PlayerConfig.ts
-│   │   │   ├── PlayerEntity.ts
 │   │   │   ├── PlayerInputSystem.ts
 │   │   │   └── PlayerMovementSystem.ts
 │   │   ├── rope/
 │   │   │   ├── RopeSimulation.ts
 │   │   │   └── RopeVisualizer.ts
+│   │   ├── states/
+│   │   │   ├── IWardenState.ts
+│   │   │   ├── WardenDormantState.ts
+│   │   │   └── WardenHuntingState.ts
+│   │   ├── systems/
+│   │   │   ├── PlayerInputSystem.ts
+│   │   │   ├── PlayerMovementSystem.ts
+│   │   │   └── WardenBrainSystem.ts
 │   │   └── warden/
-│   │       ├── WardenConfig.ts
-│   │       ├── WardenEntity.ts
-│   │       ├── WardenStateMachine.ts
-│   │       └── WardenStates.ts
+│   │       └── WardenConfig.ts
 │   ├── physics/
 │   │   ├── colliders/
 │   │   │   └── ColliderFactory.ts
@@ -79,13 +89,17 @@
 │   │   ├── controllers/
 │   │   │   ├── PlayerPhysicsController.ts
 │   │   │   └── WardenPhysicsController.ts
-│   │   └── rapier/
-│   │       └── PhysicsManager.ts
+│   │   ├── rapier/
+│   │   │   └── RapierWorldSystem.ts
+│   │   └── sync/
+│   │       └── TransformSyncSystem.ts
 │   ├── ui/
 │   │   ├── debug/
-│   │   └── hud/
-│   │       ├── DirectDomHud.ts
-│   │       └── HudOverlay.tsx
+│   │   ├── hud/
+│   │   │   ├── DomHudSystem.ts
+│   │   │   └── HudOverlay.tsx
+│   │   └── state/
+│   │       └── useGameStore.ts
 │   ├── App.css
 │   ├── App.tsx
 │   ├── index.css
@@ -105,63 +119,152 @@
 
 ● ./docs/AI_INSTRUCTIONS.txt
 ────────────────────────────────────────────────────
-===============================================================================
-STEVEN CASTEEL // SILK DEVELOPMENT TERMINAL INSTRUCTIONS
-Development Guidelines & Automation Protocols
-===============================================================================
+===========================================================================
+  STEVEN CASTEEL // BOX BATTLE CABINET ENGINE
+  AI Terminal Execution & Development Guidelines
+===========================================================================
 
-1. COMMAND LINE EXECUTION RULES (CRITICAL)
-------------------------------------------
-1.1 Terminal Directives Only
-    Provide complete, fully-implemented terminal scripts using standard 
-    heredocs ('EOF') to create or overwrite targets. Do not ask the user to 
-    manually modify files.
+1. WORKFLOW RULES (CRITICAL)
+----------------------------
+1.1  Terminal Only
+     Do not ask the user to manually create or modify files. Provide full 
+     terminal commands using `cat << 'EOF' > path/to/file` to create or 
+     overwrite files. Organize terminal commands into logical, clean batches.
 
-1.2 No Placeholders
-    All generated code must be complete, functional, and compilation-safe. 
-    Never use ellipses ("// ...") or placeholder stubs.
+1.2  No Placeholders
+     Write complete, fully functional, compilation-safe code. Avoid using 
+     comments like "// ... rest of code" or placeholder stubs.
 
-1.3 Phased Implementation Flow
-    Outline development phases sequentially. Provide code files and updates
-    step-by-step, waiting for user confirmation before moving to subsequent steps.
+1.3  Step-by-Step Phase-Based Workflow
+     Before making changes, outline the phases of work. Provide the files and 
+     patches sequentially in distinct, logical steps rather than all at once.
 
-1.4 Verification Checklist
-    Always supply concrete test parameters (e.g., checking compiler output,
-    running local development environments) to verify changes.
+1.4  Verification Checklist
+     After providing code, list specific, actionable manual tests or compile 
+     checks for the user to run to verify the change has succeeded.
 
-1.5 Git Commits
-    Provide unified, clean Git commands for code check-ins only when explicitly
-    requested. Use the following format:
-      git add . && git commit -m "title" -m "description" && git push
+1.5  Atomic Commits
+     When requested, output Git commit command sequences. Format as:
+       git add . && git commit -m "title" -m "description" && git push
+     Do not present commit commands until explicitly requested. Always use the 
+     period (.) for `git add` to capture all staged modifications.
 
-2. CODE STANDARDS & OPTIMIZATION PRINCIPLES
--------------------------------------------
-2.1 Memory Optimization (Hot Loops)
-    Prevent runtime Garbage Collection spikes. Do not allocate memory or instantiate
-    classes (such as "new Vector3") inside update or draw loops. Always write and
-    modify pre-allocated coordinate buffers.
+1.6  Lean Ship
+     Keep external runtime dependencies low. Generate game assets, procedural 
+     waveforms, and canvas graphics programmatically rather than relying on 
+     static binaries or heavy external loaders.
 
-2.2 Non-Reactive High-Frequency HUD
-    Real-time UI elements (like tension meters or resource gauges) must bypass
-    React's Virtual DOM. Utilize direct DOM subscriptions to mutate elements
-    directly via cached DOM references.
+1.7  WAIT (Communication Checkpoint)
+     Do not output extensive code blocks for a proposed plan until the user 
+     confirms the outline. Articulate the approach clearly first, then wait 
+     for the confirmation signal.
 
-2.3 Deterministic Fixed Timestep
-    Authoritative physics simulations must update inside fixed 60Hz blocks
-    using delta accumulator steps. Interpolate visual coordinates during the
-    rendering phase to ensure smooth displays.
+1.8  Local Testing
+     All verification must be supported by running the local Vite server 
+     development commands (`npm run dev`) and verifying build stability 
+     (`npm run build`).
 
-2.4 Clean ESM Standards
-    All script utilities must use clean ES Module imports and syntax.
+1.9  Line Diagnostics for Debugging
+     When debugging or analyzing an error/crash stack trace where the exact 
+     line contents of a file are uncertain, always run a quick temporary 
+     diagnostic script (or evaluation command) to inspect and output the 
+     relevant lines before designing a patch or overwrite.
 
-2.5 Zsh Compatibility
-    The development environment runs macOS with Zsh. Do not use unescaped 
-    exclamation points ("!") in command variables, and avoid placing hash symbols
-    ("#") inside active terminal blocks.
 
-===============================================================================
-END OF INSTRUCTIONS
-===============================================================================
+2. CODE STANDARDS & TERMINAL PROTOCOLS
+--------------------------------------
+2.1  Node Scripts Must Be ESM
+     Since this project operates with "type": "module" in package.json, all 
+     temporary or auxiliary Node.js scripts must use ES Module syntax 
+     (e.g., use "import fs from 'fs';" instead of "const fs = require('fs');").
+
+2.2  Surgical Patch Scripts
+     When modifying large source files, prefer writing temporary Node.js 
+     scripts (utilizing `fs.readFileSync` and `.replace()`) over full file 
+     overwrites to prevent command truncation or buffer loss.
+     CRITICAL: Always append the cleanup command (e.g., "&& rm ./patch.js") 
+     on the exact same execution line to keep the repository untracked space clean.
+     Actively clean up and delete any other transient scripts or patch helpers 
+     immediately after execution to prevent workspace clutter.
+
+2.3  Zsh Compatibility & Escaping
+     The development environment is on macOS running Zsh. Never use raw, unescaped 
+     exclamation marks (!) inside shell string variables, as Zsh parses them 
+     as history expansion operators and will fail execution. 
+
+2.4  Zero Bash Comments
+     Never include hash symbols (#) inside any active terminal or shell code 
+     blocks. Copy-pasting shell commands containing hash lines directly into 
+     macOS interactive Zsh terminals triggers immediate parsing errors or partial 
+     execution. Keep shell blocks strictly functional and describe operations 
+     in the accompanying markdown text instead.
+
+2.5  Strict Structured File Patching
+     When modifying CSS, JSON, or complex TypeScript layouts with nested brackets, 
+     do not use lazy regex matching (e.g. "[\s\S]*?") to replace large blocks, 
+     as it easily misaligns closing braces and corrupts files. Perform full 
+     overwrites for small-to-medium files or strict literal string matching 
+     for surgical updates.
+
+2.6  Unicode and Escapes in Bash
+     When writing inline scripts via terminal heredoc, never use raw unicode 
+     escapes (such as "\u00A0") if they risk being parsed by the terminal shell 
+     as literal invisible characters. Instead, use runtime code conversions 
+     like `String.fromCharCode(160)` to safely inject special characters.
+
+2.7  Quoted Starting Delimiters (Shell Protection)
+     Always wrap the starting heredoc delimiter in single quotes (e.g., 
+     `cat << 'EOF' > file` or `cat << 'ENDOFSCRIPT'`). Unquoted delimiters 
+     allow the shell to perform immediate variable expansion ($variable) and 
+     backtick execution before writing, stripping or corrupting raw JS, TS, 
+     and CSS structures.
+
+2.8  Delimiter Syntax and Formatting
+     The terminating delimiter (e.g., EOF or ENDOFSCRIPT) must sit alone on its 
+     own line with zero leading or trailing whitespace. Any leading spaces or 
+     tabs will prevent the terminal from recognizing the block boundary, 
+     causing terminal lockup or truncation.
+
+
+3. REMOTE INSPECTION & EDITING TECHNIQUES
+-----------------------------------------
+When debugging, analyzing, or modifying files, select the most efficient 
+protocol based on scope:
+
+3.1  Quick Inline Checks (node -e)
+     For single-purpose evaluations (verifying file contents, counting pattern 
+     instances, checking directory listings):
+       node -e "console.log(require('fs').readFileSync('src/App.tsx','utf8').includes('useGameStore'))"
+
+3.2  Multi-Line Analysis Scripts (Heredoc + Self-Delete)
+     For complex log analysis, directory traversal, or file verification:
+       cat << 'ENDOFSCRIPT' > ./analysis.js
+       import fs from 'fs';
+       import path from 'path';
+       // Analysis logic...
+       ENDOFSCRIPT
+       node ./analysis.js && rm ./analysis.js
+
+3.3  File Modification by Full Overwrite
+     For small to medium files, overwrite the target path directly:
+       cat << 'EOF' > src/components/ui/MyNewComponent.tsx
+       // Complete implementation...
+       EOF
+
+3.4  File Modification by Surgical Patch
+     For large files where only specific lines need adjustment:
+       cat << 'ENDOFSCRIPT' > ./patch.js
+       import fs from 'fs';
+       let content = fs.readFileSync('src/components/GameArena.tsx', 'utf8');
+       content = content.replace('old code block', 'new code block');
+       fs.writeFileSync('src/components/GameArena.tsx', content);
+       ENDOFSCRIPT
+       node ./patch.js && rm ./patch.js
+
+3.5  Build Verification
+     Validate all TypeScript compilations and bundler configurations after any 
+     file updates before concluding:
+       npm run build
 
 
 
@@ -169,115 +272,75 @@ END OF INSTRUCTIONS
 ────────────────────────────────────────────────────
 ===============================================================================
 SILK — MASTER ENGINEERING & ARCHITECTURE DOCUMENT
-Vertical Slice Production Framework
-Version: Refined 3D Architecture Edition
+Nervous System & Component-System Pipeline Edition
 Target Stack: React 19 + TypeScript 6 + Vite 8 + Babylon.js + Rapier 3D WASM
 ===============================================================================
 
 1. EXECUTIVE SUMMARY & DESIGN PHILOSOPHY
 -------------------------------------------------------------------------------
-SILK is a fast-paced vertical arena action game that prioritizes physical 
-momentum, elastic rope physics, dynamic lighting, and responsive traversal feedback. 
+SILK is a high-performance vertical arena action game. To guarantee 60Hz 
+stability and prevent race conditions, the architecture strictly decouples 
+subsystems into isolated layers orchestrated by a central SystemManager.
 
-To ensure performance remains smooth at high frame rates, SILK decouples 
-its subsystems into isolated layers:
-- React is used strictly for static UI layout.
-- Babylon.js handles visual presentation.
-- Rapier WASM manages authoritative physics transforms.
-- Gameplay systems process logic at a fixed 60Hz.
+- React: Strictly for static UI layout mounting.
+- Babylon.js: Visual presentation and render pass.
+- Rapier WASM: Authoritative physics transforms and constraints.
+- Gameplay Systems: Pure logic operating on pure data components.
+- DOM HUD: Bypasses React VDOM for 60Hz direct DOM mutations.
 
-There are no menus, settings, or loading screens. The application boots 
-directly into the active elevator shaft arena.
-
-2. SUB-SYSTEM TOPOLOGIES
+2. THE NERVOUS SYSTEM: FRAME EXECUTION PIPELINE
 -------------------------------------------------------------------------------
-To prevent tight coupling, all cross-system communication is routed through
-a centralized, typed Event Broker.
+The GameLoop enforces a strict, sequential Tick Pipeline. Every system 
+registered in the SystemManager executes in this exact order during the 
+fixed update step (dt = 1/60s):
 
-2.1 State Hierarchy & Data Flow
-- Rapier WASM: Authoritative owner of 3D rigid body positions and velocities.
-- Gameplay Systems: Mutates physics bodies by applying directional forces or
-  impulses; runs AI state machines and processes player inputs.
-- Babylon.js Scene: Synchronizes mesh positions to Rapier rigid bodies during
-  the render phase, interpolating transforms using the remaining frame delta.
-- Zustand Store: Read-only, throttled diagnostic state for HUD overlay renders.
+1. Input Phase: PlayerInputSystem polls DOM/Keyboard, writes to InputBuffer.
+2. Simulation Phase: PlayerMovementSystem & WardenBrainSystem read inputs 
+   and apply forces/intents to Physics Controllers.
+3. Physics Phase: RapierWorldSystem steps the WASM world, resolving 
+   constraints, collisions, and integrating velocities.
+4. Sync Phase: TransformSyncSystem reads Rapier rigid bodies and writes 
+   to Babylon Mesh transforms.
+5. Audio Phase: AudioDirectorSystem reads continuous physics state and 
+   processes discrete domain events.
+6. Camera Phase: CameraSystem targets the synced Player mesh, applies 
+   spring math and shake offsets.
+7. Render Phase: RenderSystem & LightingSystem execute the Babylon WebGL 
+   draw call (using the interpolation alpha).
+8. UI Phase: DomHudSystem reads throttled state and mutates DOM nodes.
 
-2.2 Core Performance Constraints
-- Hot-Loop Allocations: Memory allocation (e.g., "new BABYLON.Vector3()") is
-  forbidden inside update steps. Systems must read and modify pre-allocated
-  static vector buffers to prevent Garbage Collection frame spikes.
-- UI Rendition: Real-time UI updates (such as tension meters and velocity gauges)
-  bypass React's Virtual DOM. Direct DOM HUD managers mutate targets at 60Hz
-  via cached DOM references.
-
-3. EXHAUSTIVE DIRECTORY MAP
+3. ARCHITECTURAL PATTERNS & SOLID COMPLIANCE
 -------------------------------------------------------------------------------
-The codebase is structured as follows:
+- Dependency Inversion (DIP): Engine is a pure orchestrator. CompositionRoot 
+  acts as the DI container, wiring all systems and injecting dependencies.
+- Single Responsibility (SRP): Strict Component-System pattern. Entities are 
+  pure data structures (PlayerData, WardenData). Systems contain all logic.
+- Interface Segregation (ISP): Physics exposes IReadablePhysics and 
+  IWritablePhysics boundaries to prevent tight coupling with Render.
+- Open/Closed (OCP): Warden AI uses a formal State Pattern (IWardenState). 
+  Adding new states requires zero modifications to the WardenBrainSystem.
 
-- src/app/             : Bootstrap routing and composition root configuration.
-- src/core/            : Game loops, event brokers, and diagnostic monitors.
-- src/babylon/         : Scene setups, camera rigs, dynamic lights, and post-processing.
-- src/physics/         : WASM Rapier setups, collider builders, and constraints.
-- src/gameplay/        : Entities, input handlers, movement controllers, and AI systems.
-- src/audio/           : Spatialized Tone.js synthesizer nodes and routing.
-- src/ui/              : Direct-DOM layouts and React HUD overlays.
-
-4. DETAILED COMPONENT CONSTRAINTS
+4. EXHAUSTIVE DIRECTORY MAP
 -------------------------------------------------------------------------------
-4.1 GameLoop (src/core/loop/GameLoop.ts)
-- Runs a high-precision RequestAnimationFrame loop.
-- Accumulates delta times and runs discrete, fixed-step updates (dt = 1/60s).
-- Dynamically caps update steps to prevent simulation instability after tab
-  restoration or system lag.
+src/
+├── app/                   Bootstrap & CompositionRoot (DI Container)
+├── contracts/             Shared Interfaces (ISystem, IPhysicsWorld)
+├── core/                  Engine, GameLoop, EventBroker, SystemManager
+├── physics/               RapierWorldSystem, TransformSyncSystem, Constraints
+├── gameplay/              
+│   ├── components/        Pure Data (PlayerData, WardenData)
+│   ├── systems/           Pure Logic (Input, Movement, WardenBrain)
+│   └── states/            Warden State Pattern implementations
+├── babylon/               RenderSystem, CameraSystem, LightingSystem
+├── audio/                 AudioDirectorSystem, Tone Synthesizers
+└── ui/                    DomHudSystem, React HudOverlay, Zustand Store
 
-4.2 EventBroker (src/core/events/EventBroker.ts)
-- Strictly typed. All events must define immutable payloads with clear types.
-- Decouples core simulation updates from secondary systems (such as Tone.js SFX,
-  camera shakes, and particle systems).
-
-4.3 CameraRig (src/babylon/cameras/CameraRig.ts)
-- Tracks the player using smooth, spring-based interpolations.
-- Applies camera-shake offsets directly to the target vector using an exponential
-  decay solver, keeping the underlying math separate from the physics simulation.
-
-4.4 RopeSimulation (src/gameplay/rope/RopeSimulation.ts)
-- Simulates the physical silk line using a chain of distance constraints or joints
-  inside the Rapier world.
-- Evaluates tension forces, manages anchor snapping thresholds, and applies
-  elastic pull forces back to the player.
-
-4.5 WardenStateMachine (src/gameplay/warden/WardenStateMachine.ts)
-- Orchestrates Warden boss states (Dormant, Hunting, Frenzied, Recovering)
-  using a deterministic, state-pattern machine.
-- Shuts down the Warden physics controller and resets update parameters upon
-  state transitions.
-
-5. GAME JUICE MATHEMATICS
+5. DEVELOPMENT WORKFLOW & TESTING
 -------------------------------------------------------------------------------
-5.1 Visual Squash & Stretch
-To convey velocity and momentum without causing physics simulation errors, 
-squash and stretch scaling is applied strictly to the Babylon visual mesh.
-The calculations are derived from the entity's vertical velocity:
-
-  Stretch_Y = 1.0 + Clamp((|Velocity_Y| / MaxSpeed) * StretchFactor, 0.0, 0.25)
-  Squash_XZ = 1.0 / Sqrt(Stretch_Y)
-
-5.2 Camera Shake
-Rotational and translational offsets are applied to the active camera using
-a spring-decay solver:
-
-  Offset = Noise(t) * Amplitude * e^(-Decay * t)
-
-6. DEVELOPMENT WORKFLOW & TESTING
--------------------------------------------------------------------------------
-Development follows a strict, step-by-step phased workflow. Before adding 
-features, you must ensure:
-- "npm run build" completes with zero TypeScript errors.
-- "npm run lint" passes successfully.
-- No memory leaks occur over extended play sessions.
-
-All project updates must be aggregated into "docs/all_source_code.txt" 
-using the provided source-context tools.
+- "npm run build" must complete with zero TypeScript errors.
+- "npm run lint" must pass successfully.
+- No memory allocations (e.g., "new Vector3()") inside system update loops.
+- All project updates must be aggregated into "docs/all_source_code.txt".
 
 ===============================================================================
 END OF DOCUMENT
@@ -675,40 +738,125 @@ export default function App() {
 ● ./src/app/bootstrap.ts
 ────────────────────────────────────────────────────
 import { Engine } from "../core/engine/Engine";
+import { CompositionRoot } from "./compositionRoot";
 
 export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<Engine> {
-  const engine = new Engine(canvas);
-  return engine;
+    const root = new CompositionRoot();
+    const engine = root.buildEngine(canvas);
+    return engine;
 }
 
 
 
 ● ./src/app/compositionRoot.ts
 ────────────────────────────────────────────────────
+import { Engine } from "../core/engine/Engine";
+import { EventBroker } from "../core/events/EventBroker";
+import { SystemManager } from "../core/systems/SystemManager";
+import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
+import { PlayerMovementSystem } from "../gameplay/systems/PlayerMovementSystem";
+import { WardenBrainSystem } from "../gameplay/systems/WardenBrainSystem";
+import { PlayerData } from "../gameplay/components/PlayerData";
+import { WardenData } from "../gameplay/components/WardenData";
+import { RapierWorldSystem } from "../physics/rapier/RapierWorldSystem";
+import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
+import { RenderSystem } from "../babylon/scene/RenderSystem";
+import { CameraSystem } from "../babylon/cameras/CameraSystem";
+import { LightingSystem } from "../babylon/lighting/LightingSystem";
+import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
+import { DomHudSystem } from "../ui/hud/DomHudSystem";
+
 export class CompositionRoot {
-  private services = new Map<string, any>();
+    public buildEngine(canvas: HTMLCanvasElement): Engine {
+        const broker = new EventBroker();
+        const systemManager = new SystemManager();
 
-  public register(token: string, instance: any): void {
-    this.services.set(token, instance);
-  }
+        const playerData = new PlayerData();
+        const wardenData = new WardenData();
 
-  public resolve<T>(token: string): T {
-    const service = this.services.get(token);
-    if (!service) {
-      throw new Error(`Service token not found: ${token}`);
+        const physicsSystem = new RapierWorldSystem();
+        const renderSystem = new RenderSystem(canvas);
+        const syncSystem = new TransformSyncSystem(physicsSystem);
+        
+        const inputSystem = new PlayerInputSystem();
+        const movementSystem = new PlayerMovementSystem(playerData, inputSystem);
+        const wardenBrain = new WardenBrainSystem(wardenData, broker);
+        
+        const cameraSystem = new CameraSystem();
+        const lightingSystem = new LightingSystem(broker);
+        const audioSystem = new AudioDirectorSystem(broker);
+        const hudSystem = new DomHudSystem(broker);
+
+        systemManager.register(inputSystem);
+        systemManager.register(movementSystem);
+        systemManager.register(wardenBrain);
+        systemManager.register(physicsSystem);
+        systemManager.register(syncSystem);
+        systemManager.register(audioSystem);
+        systemManager.register(cameraSystem);
+        systemManager.register(renderSystem);
+        systemManager.register(lightingSystem);
+        systemManager.register(hudSystem);
+
+        return new Engine(canvas, broker, systemManager);
     }
-    return service as T;
-  }
 }
 
 
 
-● ./src/audio/tone/AudioEventRouter.ts
+● ./src/audio/systems/AudioDirectorSystem.ts
 ────────────────────────────────────────────────────
-export class AudioEventRouter {
-  public registerEvents(): void {
-    // Mapping triggers to synthesized waves
-  }
+import { ISystem } from "../../contracts/ISystem";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
+import { TensionSynthesizer } from "../tone/TensionSynthesizer";
+import * as Tone from "tone";
+
+export class AudioDirectorSystem implements ISystem {
+    private tensionSynth: TensionSynthesizer | null = null;
+    private initialized: boolean = false;
+    private unsub: (() => void) | null = null;
+
+    constructor(private broker: EventBroker) {}
+
+    public init(): void {
+        const triggerOnFirstGesture = (): void => {
+            this.bootAudioEngine();
+            window.removeEventListener("click", triggerOnFirstGesture);
+            window.removeEventListener("keydown", triggerOnFirstGesture);
+            window.removeEventListener("touchend", triggerOnFirstGesture);
+            window.removeEventListener("mousedown", triggerOnFirstGesture);
+        };
+        window.addEventListener("click", triggerOnFirstGesture);
+        window.addEventListener("keydown", triggerOnFirstGesture);
+        window.addEventListener("touchend", triggerOnFirstGesture);
+        window.addEventListener("mousedown", triggerOnFirstGesture);
+
+        this.unsub = this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => {
+            if (this.initialized && this.tensionSynth) {
+                this.tensionSynth.updateDronePitch(payload.tension);
+            }
+        });
+    }
+
+    public update(dt: number): void {
+        // Audio logic updates
+    }
+
+    private bootAudioEngine(): void {
+        if (this.initialized) return;
+        Tone.start().then(() => {
+            this.initialized = true;
+            this.tensionSynth = new TensionSynthesizer();
+            this.tensionSynth.initialize();
+            this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+        });
+    }
+
+    public dispose(): void {
+        if (this.unsub) this.unsub();
+        if (this.tensionSynth) this.tensionSynth.dispose();
+    }
 }
 
 
@@ -789,89 +937,46 @@ export class TensionSynthesizer {
 
 
 
-● ./src/audio/tone/ToneAudioManager.ts
+● ./src/babylon/cameras/CameraSystem.ts
 ────────────────────────────────────────────────────
-import * as Tone from "tone";
+import { ISystem } from "../../contracts/ISystem";
+
+export class CameraSystem implements ISystem {
+    public update(dt: number): void {
+        // Spring math and shake offsets
+    }
+}
+
+
+
+● ./src/babylon/lighting/LightingSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TensionSynthesizer } from "./TensionSynthesizer";
 
-export class ToneAudioManager {
-  private broker: EventBroker;
-  private tensionSynth: TensionSynthesizer | null = null;
-  private initialized: boolean = false;
-  private unsub: (() => void) | null = null;
+export class LightingSystem implements ISystem {
+    private unsub: (() => void) | null = null;
 
-  constructor(broker: EventBroker) {
-    this.broker = broker;
-  }
+    constructor(private broker: EventBroker) {}
 
-  public initialize(): void {
-    if (typeof window === "undefined") return;
-
-    const triggerOnFirstGesture = (): void => {
-      this.bootAudioEngine();
-      window.removeEventListener("click", triggerOnFirstGesture);
-      window.removeEventListener("keydown", triggerOnFirstGesture);
-      window.removeEventListener("touchend", triggerOnFirstGesture);
-      window.removeEventListener("mousedown", triggerOnFirstGesture);
-    };
-
-    window.addEventListener("click", triggerOnFirstGesture);
-    window.addEventListener("keydown", triggerOnFirstGesture);
-    window.addEventListener("touchend", triggerOnFirstGesture);
-    window.addEventListener("mousedown", triggerOnFirstGesture);
-
-    this.unsub = this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => {
-      if (this.initialized && this.tensionSynth) {
-        this.tensionSynth.updateDronePitch(payload.tension);
-      }
-    });
-  }
-
-  private bootAudioEngine(): void {
-    if (this.initialized) return;
-
-    Tone.start().then(() => {
-      this.initialized = true;
-      this.tensionSynth = new TensionSynthesizer();
-      this.tensionSynth.initialize();
-      this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
-    });
-  }
-
-  public dispose(): void {
-    if (this.unsub) {
-      this.unsub();
+    public init(): void {
+        this.unsub = this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => {
+            this.setWardenPhaseHue(payload.hue);
+        });
     }
-    if (this.tensionSynth) {
-      this.tensionSynth.dispose();
+
+    public update(dt: number): void {
+        // Smooth light transitions
     }
-  }
-}
 
+    private setWardenPhaseHue(colorHex: string): void {
+        // Apply hex to Babylon light
+    }
 
-
-● ./src/babylon/cameras/CameraRig.ts
-────────────────────────────────────────────────────
-export class CameraRig {
-  public updateTracking(targetX: number, targetY: number): void {
-    // Clamps focal length and centers action view
-  }
-
-  public shake(amplitude: number): void {
-    // Evaluates camera offset spring solver
-  }
-}
-
-
-
-● ./src/babylon/lighting/LightingRig.ts
-────────────────────────────────────────────────────
-export class LightingRig {
-  public setWardenPhaseHue(colorHex: string): void {
-    // Dynamic light shifts
-  }
+    public dispose(): void {
+        if (this.unsub) this.unsub();
+    }
 }
 
 
@@ -908,22 +1013,56 @@ export class PostProcessPipeline {
 
 
 
-● ./src/babylon/scene/SceneManager.ts
+● ./src/babylon/scene/RenderSystem.ts
 ────────────────────────────────────────────────────
-export class SceneManager {
-  private canvas: HTMLCanvasElement;
+import { ISystem } from "../../contracts/ISystem";
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-  }
+export class RenderSystem implements ISystem {
+    private canvas: HTMLCanvasElement;
+    
+    constructor(canvas: HTMLCanvasElement) {
+        this.canvas = canvas;
+    }
 
-  public initialize(): void {
-    // Instantiates WebGL / WebGPU scene
-  }
+    public init(): void {
+        // Initialize Babylon Engine, Scene, Camera, Lights
+    }
 
-  public render(): void {
-    // Primary camera view render step
-  }
+    public update(dt: number): void {
+        // Logic updates for Babylon if needed
+    }
+
+    public render(alpha: number): void {
+        // scene.render()
+    }
+
+    public dispose(): void {
+        // scene.dispose()
+    }
+}
+
+
+
+● ./src/contracts/IPhysicsWorld.ts
+────────────────────────────────────────────────────
+export interface IReadablePhysics {
+    getTransform(entityId: string): { x: number; y: number; z: number; qx: number; qy: number; qz: number; qw: number } | null;
+}
+
+export interface IWritablePhysics {
+    applyImpulse(entityId: string, x: number, y: number, z: number): void;
+    setKinematicVelocity(entityId: string, x: number, y: number, z: number): void;
+}
+
+
+
+● ./src/contracts/ISystem.ts
+────────────────────────────────────────────────────
+export interface ISystem {
+    init?(): void;
+    update(dt: number): void;
+    render?(alpha: number): void;
+    dispose?(): void;
 }
 
 
@@ -966,36 +1105,42 @@ export class Profiler {
 ────────────────────────────────────────────────────
 import { GameLoop } from "../loop/GameLoop";
 import { EventBroker } from "../events/EventBroker";
+import { SystemManager } from "../systems/SystemManager";
 
 export class Engine {
-  private loop: GameLoop;
-  private broker: EventBroker;
-  private canvas: HTMLCanvasElement;
+    private loop: GameLoop;
+    private broker: EventBroker;
+    private systemManager: SystemManager;
+    private canvas: HTMLCanvasElement;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-    this.broker = new EventBroker();
-    this.loop = new GameLoop(
-      (dt) => this.update(dt),
-      () => this.render()
-    );
-  }
+    constructor(canvas: HTMLCanvasElement, broker: EventBroker, systemManager: SystemManager) {
+        this.canvas = canvas;
+        this.broker = broker;
+        this.systemManager = systemManager;
+        
+        this.loop = new GameLoop(
+            (dt) => this.update(dt),
+            (alpha) => this.render(alpha)
+        );
+    }
 
-  public start(): void {
-    this.loop.start();
-  }
+    public start(): void {
+        this.systemManager.initAll();
+        this.loop.start();
+    }
 
-  public stop(): void {
-    this.loop.stop();
-  }
+    public stop(): void {
+        this.loop.stop();
+        this.systemManager.disposeAll();
+    }
 
-  private update(dt: number): void {
-    // Scheduled fixed update step
-  }
+    private update(dt: number): void {
+        this.systemManager.updateAll(dt);
+    }
 
-  private render(): void {
-    // Scheduled Babylon render pass
-  }
+    private render(alpha: number): void {
+        this.systemManager.renderAll(alpha);
+    }
 }
 
 
@@ -1135,23 +1280,70 @@ export class GameLoop {
 
 
 
-● ./src/core/state/useGameStore.ts
+● ./src/core/systems/SystemManager.ts
 ────────────────────────────────────────────────────
-import { create } from "zustand";
+import { ISystem } from "../../contracts/ISystem";
 
-interface UIState {
-  isPaused: boolean;
-  activeScreen: string;
-  setPaused: (paused: boolean) => void;
-  setScreen: (screen: string) => void;
+export class SystemManager {
+    private systems: ISystem[] = [];
+
+    public register(system: ISystem): void {
+        this.systems.push(system);
+    }
+
+    public initAll(): void {
+        for (const system of this.systems) {
+            if (system.init) system.init();
+        }
+    }
+
+    public updateAll(dt: number): void {
+        for (const system of this.systems) {
+            system.update(dt);
+        }
+    }
+
+    public renderAll(alpha: number): void {
+        for (const system of this.systems) {
+            if (system.render) system.render(alpha);
+        }
+    }
+
+    public disposeAll(): void {
+        for (const system of this.systems) {
+            if (system.dispose) system.dispose();
+        }
+    }
 }
 
-export const useGameStore = create<UIState>((set) => ({
-  isPaused: false,
-  activeScreen: "ARENA",
-  setPaused: (paused) => set({ isPaused: paused }),
-  setScreen: (screen) => set({ activeScreen: screen }),
-}));
+
+
+● ./src/gameplay/components/PlayerData.ts
+────────────────────────────────────────────────────
+export class PlayerData {
+    public hp: number = 5;
+    public maxHp: number = 5;
+    public moveSpeed: number = 10;
+    public velocityX: number = 0;
+    public velocityY: number = 0;
+    public positionX: number = 0;
+    public positionY: number = 0;
+    public positionZ: number = 0;
+}
+
+
+
+● ./src/gameplay/components/WardenData.ts
+────────────────────────────────────────────────────
+export class WardenData {
+    public health: number = 100;
+    public maxHealth: number = 100;
+    public aggroRadius: number = 20;
+    public timeInState: number = 0;
+    public positionX: number = 0;
+    public positionY: number = 0;
+    public positionZ: number = 0;
+}
 
 
 
@@ -1172,17 +1364,6 @@ export const PlayerConfig = {
   gravityMultiplier: 1.2,
   maxRopeLength: 15,
 };
-
-
-
-● ./src/gameplay/player/PlayerEntity.ts
-────────────────────────────────────────────────────
-export class PlayerEntity {
-  public hp: number = 5;
-  public update(): void {
-    // Core update hook
-  }
-}
 
 
 
@@ -1226,47 +1407,201 @@ export class RopeVisualizer {
 
 
 
+● ./src/gameplay/states/IWardenState.ts
+────────────────────────────────────────────────────
+import { WardenData } from "../components/WardenData";
+
+export type WardenStateType = "DORMANT" | "HUNTING";
+
+export interface IWardenState {
+    readonly type: WardenStateType;
+    readonly name: string;
+    readonly hue: string;
+    enter(data: WardenData): void;
+    exit(data: WardenData): void;
+    update(data: WardenData, dt: number): WardenStateType | null;
+}
+
+
+
+● ./src/gameplay/states/WardenDormantState.ts
+────────────────────────────────────────────────────
+import { WardenData } from "../components/WardenData";
+import { IWardenState, WardenStateType } from "./IWardenState";
+
+export class WardenDormantState implements IWardenState {
+    public readonly type: WardenStateType = "DORMANT";
+    public readonly name = "DORMANT";
+    public readonly hue = "#6b7280";
+
+    public enter(data: WardenData): void {
+        data.timeInState = 0;
+    }
+
+    public exit(data: WardenData): void {}
+
+    public update(data: WardenData, dt: number): WardenStateType | null {
+        data.timeInState += dt;
+        if (data.timeInState > 5.0) {
+            return "HUNTING";
+        }
+        return null;
+    }
+}
+
+
+
+● ./src/gameplay/states/WardenHuntingState.ts
+────────────────────────────────────────────────────
+import { WardenData } from "../components/WardenData";
+import { IWardenState, WardenStateType } from "./IWardenState";
+
+export class WardenHuntingState implements IWardenState {
+    public readonly type: WardenStateType = "HUNTING";
+    public readonly name = "HUNTING";
+    public readonly hue = "#ef4444";
+
+    public enter(data: WardenData): void {
+        data.timeInState = 0;
+    }
+
+    public exit(data: WardenData): void {}
+
+    public update(data: WardenData, dt: number): WardenStateType | null {
+        data.timeInState += dt;
+        if (data.timeInState > 10.0) {
+            return "DORMANT";
+        }
+        return null;
+    }
+}
+
+
+
+● ./src/gameplay/systems/PlayerInputSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+
+export class PlayerInputSystem implements ISystem {
+    private keysPressed: Set<string> = new Set();
+    public readonly inputBuffer = { x: 0, y: 0, jump: false, fire: false };
+
+    public init(): void {
+        window.addEventListener("keydown", this.handleKeyDown);
+        window.addEventListener("keyup", this.handleKeyUp);
+    }
+
+    public update(dt: number): void {
+        let x = 0;
+        let y = 0;
+        if (this.keysPressed.has("w") || this.keysPressed.has("arrowup")) y += 1;
+        if (this.keysPressed.has("s") || this.keysPressed.has("arrowdown")) y -= 1;
+        if (this.keysPressed.has("a") || this.keysPressed.has("arrowleft")) x -= 1;
+        if (this.keysPressed.has("d") || this.keysPressed.has("arrowright")) x += 1;
+        
+        this.inputBuffer.x = x;
+        this.inputBuffer.y = y;
+        this.inputBuffer.jump = this.keysPressed.has(" ");
+    }
+
+    public dispose(): void {
+        window.removeEventListener("keydown", this.handleKeyDown);
+        window.removeEventListener("keyup", this.handleKeyUp);
+    }
+
+    private handleKeyDown = (e: KeyboardEvent): void => {
+        this.keysPressed.add(e.key.toLowerCase());
+    };
+
+    private handleKeyUp = (e: KeyboardEvent): void => {
+        this.keysPressed.delete(e.key.toLowerCase());
+    };
+}
+
+
+
+● ./src/gameplay/systems/PlayerMovementSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { PlayerData } from "../components/PlayerData";
+import { PlayerInputSystem } from "./PlayerInputSystem";
+
+export class PlayerMovementSystem implements ISystem {
+    constructor(
+        private playerData: PlayerData,
+        private inputSystem: PlayerInputSystem
+    ) {}
+
+    public update(dt: number): void {
+        const input = this.inputSystem.inputBuffer;
+        const speed = this.playerData.moveSpeed;
+        
+        this.playerData.velocityX = input.x * speed;
+        this.playerData.velocityY = input.y * speed;
+    }
+}
+
+
+
+● ./src/gameplay/systems/WardenBrainSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { WardenData } from "../components/WardenData";
+import { IWardenState, WardenStateType } from "../states/IWardenState";
+import { WardenDormantState } from "../states/WardenDormantState";
+import { WardenHuntingState } from "../states/WardenHuntingState";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
+
+export class WardenBrainSystem implements ISystem {
+    private currentState: IWardenState;
+    private states: Map<WardenStateType, IWardenState> = new Map();
+
+    constructor(
+        private wardenData: WardenData,
+        private broker: EventBroker
+    ) {
+        this.states.set("DORMANT", new WardenDormantState());
+        this.states.set("HUNTING", new WardenHuntingState());
+        this.currentState = this.states.get("DORMANT") as IWardenState;
+    }
+
+    public init(): void {
+        this.currentState.enter(this.wardenData);
+        this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { 
+            state: this.currentState.name, 
+            hue: this.currentState.hue 
+        });
+    }
+
+    public update(dt: number): void {
+        const nextStateType = this.currentState.update(this.wardenData, dt);
+        
+        if (nextStateType && nextStateType !== this.currentState.type) {
+            this.currentState.exit(this.wardenData);
+            
+            const nextState = this.states.get(nextStateType);
+            if (!nextState) throw new Error(`Warden state not found: ${nextStateType}`);
+            
+            this.currentState = nextState;
+            this.currentState.enter(this.wardenData);
+            
+            this.broker.publish(GameEvent.WARDEN_STATE_CHANGE, { 
+                state: this.currentState.name, 
+                hue: this.currentState.hue 
+            });
+        }
+    }
+}
+
+
+
 ● ./src/gameplay/warden/WardenConfig.ts
 ────────────────────────────────────────────────────
 export const WardenConfig = {
   phase2Threshold: 0.6,
   attackChargeSpeed: 800,
 };
-
-
-
-● ./src/gameplay/warden/WardenEntity.ts
-────────────────────────────────────────────────────
-export class WardenEntity {
-  public health: number = 100;
-  public update(): void {
-    // Update step
-  }
-}
-
-
-
-● ./src/gameplay/warden/WardenStateMachine.ts
-────────────────────────────────────────────────────
-export class WardenStateMachine {
-  private activeState: string = "DORMANT";
-
-  public setWardenState(state: string): void {
-    this.activeState = state;
-  }
-
-  public getActiveState(): string {
-    return this.activeState;
-  }
-}
-
-
-
-● ./src/gameplay/warden/WardenStates.ts
-────────────────────────────────────────────────────
-export class WardenDormantState {}
-export class WardenHuntingState {}
-export class WardenFrenziedState {}
 
 
 
@@ -1345,142 +1680,152 @@ export class WardenPhysicsController {
 
 
 
-● ./src/physics/rapier/PhysicsManager.ts
+● ./src/physics/rapier/RapierWorldSystem.ts
 ────────────────────────────────────────────────────
-export class PhysicsManager {
-  public stepPhysics(): void {
-    // Authoritative step tick
-  }
+import { ISystem } from "../../contracts/ISystem";
+import { IReadablePhysics, IWritablePhysics } from "../../contracts/IPhysicsWorld";
+
+export class RapierWorldSystem implements ISystem, IReadablePhysics, IWritablePhysics {
+    private transforms: Map<string, { x: number; y: number; z: number; qx: number; qy: number; qz: number; qw: number }> = new Map();
+    private velocities: Map<string, { x: number; y: number; z: number }> = new Map();
+
+    public init(): void {
+        this.transforms.set("player", { x: 0, y: 0, z: 0, qx: 0, qy: 0, qz: 0, qw: 1 });
+        this.transforms.set("warden", { x: 10, y: 0, z: 0, qx: 0, qy: 0, qz: 0, qw: 1 });
+    }
+
+    public update(dt: number): void {
+        // Authoritative Rapier world.step(dt) executes here
+    }
+
+    public getTransform(entityId: string) {
+        return this.transforms.get(entityId) || null;
+    }
+
+    public applyImpulse(entityId: string, x: number, y: number, z: number): void {
+        // Apply impulse to Rapier rigid body
+    }
+
+    public setKinematicVelocity(entityId: string, x: number, y: number, z: number): void {
+        this.velocities.set(entityId, { x, y, z });
+    }
 }
 
 
 
-● ./src/ui/hud/DirectDomHud.ts
+● ./src/physics/sync/TransformSyncSystem.ts
 ────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { IReadablePhysics } from "../../contracts/IPhysicsWorld";
+
+export class TransformSyncSystem implements ISystem {
+    constructor(private physics: IReadablePhysics) {}
+
+    public update(dt: number): void {
+        // Reads Rapier transforms and writes to Babylon mesh position buffers
+    }
+}
+
+
+
+● ./src/ui/hud/DomHudSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 
-export class DirectDomHud {
-  private broker: EventBroker;
-  private unsubscribes: (() => void)[] = [];
+export class DomHudSystem implements ISystem {
+    private unsubscribes: (() => void)[] = [];
+    private tensionBar: HTMLElement | null = null;
+    private tensionText: HTMLElement | null = null;
+    private speedBar: HTMLElement | null = null;
+    private speedText: HTMLElement | null = null;
+    private hpText: HTMLElement | null = null;
+    private hpValue: HTMLElement | null = null;
+    private bossStateText: HTMLElement | null = null;
+    private bossPhaseText: HTMLElement | null = null;
 
-  private tensionBar: HTMLElement | null = null;
-  private tensionText: HTMLElement | null = null;
-  private speedBar: HTMLElement | null = null;
-  private speedText: HTMLElement | null = null;
-  private hpText: HTMLElement | null = null;
-  private hpValue: HTMLElement | null = null;
-  private bossStateText: HTMLElement | null = null;
-  private bossPhaseText: HTMLElement | null = null;
+    constructor(private broker: EventBroker) {}
 
-  constructor(broker: EventBroker) {
-    this.broker = broker;
-  }
-
-  public initialize(): void {
-    this.cacheDomElements();
-    this.registerSubscribers();
-  }
-
-  private cacheDomElements(): void {
-    if (typeof document === "undefined") return;
-    this.tensionBar = document.getElementById("tension-meter-bar");
-    this.tensionText = document.getElementById("tension-meter-text");
-    this.speedBar = document.getElementById("speedometer-bar");
-    this.speedText = document.getElementById("speedometer-text");
-    this.hpText = document.getElementById("player-hp-bar");
-    this.hpValue = document.getElementById("player-hp-value");
-    this.bossStateText = document.getElementById("boss-state-text");
-    this.bossPhaseText = document.getElementById("boss-state-phase");
-  }
-
-  private registerSubscribers(): void {
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => {
-        this.updateTensionDisplay(payload.tension);
-      })
-    );
-
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_VELOCITY_CHANGED, (payload) => {
-        this.updateVelocityDisplay(payload.velocity, payload.maxVelocity);
-      })
-    );
-
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
-        this.updateHealthDisplay(payload.hp, payload.maxHp);
-      })
-    );
-
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => {
-        this.updateWardenStateDisplay(payload.state, payload.hue);
-      })
-    );
-  }
-
-  public updateTensionDisplay(value: number): void {
-    const clamped = Math.max(0, Math.min(1, value));
-    const percentage = (clamped * 100).toFixed(1) + "%";
-
-    if (this.tensionBar) {
-      this.tensionBar.style.width = percentage;
-      if (clamped > 0.8) {
-        this.tensionBar.style.backgroundColor = "var(--signal-red, #ef4444)";
-      } else if (clamped > 0.5) {
-        this.tensionBar.style.backgroundColor = "var(--signal-yellow, #eab308)";
-      } else {
-        this.tensionBar.style.backgroundColor = "var(--signal-green, #22c55e)";
-      }
+    public init(): void {
+        this.cacheDomElements();
+        this.registerSubscribers();
     }
-    if (this.tensionText) {
-      this.tensionText.textContent = `TENSION: ${percentage}`;
-    }
-  }
 
-  public updateVelocityDisplay(velocity: number, maxVelocity: number): void {
-    const ratio = maxVelocity > 0 ? Math.max(0, Math.min(1, velocity / maxVelocity)) : 0;
-    const percentage = (ratio * 100).toFixed(0) + "%";
-    
-    if (this.speedBar) {
-      this.speedBar.style.width = percentage;
+    public update(dt: number): void {
+        // DOM mutations are event-driven
     }
-    if (this.speedText) {
-      this.speedText.textContent = `VELOCITY: ${velocity.toFixed(0)} / ${maxVelocity.toFixed(0)} m/s`;
-    }
-  }
 
-  public updateHealthDisplay(hp: number, maxHp: number): void {
-    if (this.hpValue) {
-      this.hpValue.textContent = `HP: ${hp} / ${maxHp}`;
+    private cacheDomElements(): void {
+        if (typeof document === "undefined") return;
+        this.tensionBar = document.getElementById("tension-meter-bar");
+        this.tensionText = document.getElementById("tension-meter-text");
+        this.speedBar = document.getElementById("speedometer-bar");
+        this.speedText = document.getElementById("speedometer-text");
+        this.hpText = document.getElementById("player-hp-bar");
+        this.hpValue = document.getElementById("player-hp-value");
+        this.bossStateText = document.getElementById("boss-state-text");
+        this.bossPhaseText = document.getElementById("boss-state-phase");
     }
-    if (this.hpText) {
-      const hpPct = ((hp / maxHp) * 100).toFixed(0) + "%";
-      this.hpText.style.width = hpPct;
-      if (hp <= 1) {
-        this.hpText.style.backgroundColor = "var(--signal-red, #ef4444)";
-      } else {
-        this.hpText.style.backgroundColor = "var(--signal-green, #22c55e)";
-      }
-    }
-  }
 
-  public updateWardenStateDisplay(state: string, hue: string): void {
-    if (this.bossStateText) {
-      this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
-      this.bossStateText.style.color = hue;
+    private registerSubscribers(): void {
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.ROPE_TENSION_CHANGE, (payload) => this.updateTensionDisplay(payload.tension))
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.PLAYER_VELOCITY_CHANGED, (payload) => this.updateVelocityDisplay(payload.velocity, payload.maxVelocity))
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => this.updateHealthDisplay(payload.hp, payload.maxHp))
+        );
+        this.unsubscribes.push(
+            this.broker.subscribe(GameEvent.WARDEN_STATE_CHANGE, (payload) => this.updateWardenStateDisplay(payload.state, payload.hue))
+        );
     }
-    if (this.bossPhaseText) {
-      this.bossPhaseText.style.borderColor = hue;
-      this.bossPhaseText.style.color = hue;
-    }
-  }
 
-  public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
-  }
+    private updateTensionDisplay(value: number): void {
+        const clamped = Math.max(0, Math.min(1, value));
+        const percentage = (clamped * 100).toFixed(1) + "%";
+        if (this.tensionBar) {
+            this.tensionBar.style.width = percentage;
+            if (clamped > 0.8) this.tensionBar.style.backgroundColor = "var(--signal-red, #ef4444)";
+            else if (clamped > 0.5) this.tensionBar.style.backgroundColor = "var(--signal-yellow, #eab308)";
+            else this.tensionBar.style.backgroundColor = "var(--signal-green, #22c55e)";
+        }
+        if (this.tensionText) this.tensionText.textContent = `TENSION: ${percentage}`;
+    }
+
+    private updateVelocityDisplay(velocity: number, maxVelocity: number): void {
+        const ratio = maxVelocity > 0 ? Math.max(0, Math.min(1, velocity / maxVelocity)) : 0;
+        const percentage = (ratio * 100).toFixed(0) + "%";
+        if (this.speedBar) this.speedBar.style.width = percentage;
+        if (this.speedText) this.speedText.textContent = `VELOCITY: ${velocity.toFixed(0)} / ${maxVelocity.toFixed(0)} m/s`;
+    }
+
+    private updateHealthDisplay(hp: number, maxHp: number): void {
+        if (this.hpValue) this.hpValue.textContent = `HP: ${hp} / ${maxHp}`;
+        if (this.hpText) {
+            const hpPct = ((hp / maxHp) * 100).toFixed(0) + "%";
+            this.hpText.style.width = hpPct;
+            this.hpText.style.backgroundColor = hp <= 1 ? "var(--signal-red, #ef4444)" : "var(--signal-green, #22c55e)";
+        }
+    }
+
+    private updateWardenStateDisplay(state: string, hue: string): void {
+        if (this.bossStateText) {
+            this.bossStateText.textContent = `WARDEN: ${state.toUpperCase()}`;
+            this.bossStateText.style.color = hue;
+        }
+        if (this.bossPhaseText) {
+            this.bossPhaseText.style.borderColor = hue;
+            this.bossPhaseText.style.color = hue;
+        }
+    }
+
+    public dispose(): void {
+        this.unsubscribes.forEach((unsub) => unsub());
+        this.unsubscribes = [];
+    }
 }
 
 
@@ -1541,6 +1886,26 @@ export const HudOverlay: React.FC = () => {
     </div>
   );
 };
+
+
+
+● ./src/ui/state/useGameStore.ts
+────────────────────────────────────────────────────
+import { create } from "zustand";
+
+interface UIState {
+  isPaused: boolean;
+  activeScreen: string;
+  setPaused: (paused: boolean) => void;
+  setScreen: (screen: string) => void;
+}
+
+export const useGameStore = create<UIState>((set) => ({
+  isPaused: false,
+  activeScreen: "ARENA",
+  setPaused: (paused) => set({ isPaused: paused }),
+  setScreen: (screen) => set({ activeScreen: screen }),
+}));
 
 
 

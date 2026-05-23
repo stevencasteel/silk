@@ -1,6 +1,8 @@
 import { Engine } from "../core/engine/Engine";
+import { CompositionRoot } from "./compositionRoot";
 
 export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<Engine> {
-  const engine = new Engine(canvas);
-  return engine;
+    const root = new CompositionRoot();
+    const engine = root.buildEngine(canvas);
+    return engine;
 }

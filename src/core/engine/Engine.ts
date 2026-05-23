@@ -1,33 +1,39 @@
 import { GameLoop } from "../loop/GameLoop";
 import { EventBroker } from "../events/EventBroker";
+import { SystemManager } from "../systems/SystemManager";
 
 export class Engine {
-  private loop: GameLoop;
-  private broker: EventBroker;
-  private canvas: HTMLCanvasElement;
+    private loop: GameLoop;
+    private broker: EventBroker;
+    private systemManager: SystemManager;
+    private canvas: HTMLCanvasElement;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-    this.broker = new EventBroker();
-    this.loop = new GameLoop(
-      (dt) => this.update(dt),
-      () => this.render()
-    );
-  }
+    constructor(canvas: HTMLCanvasElement, broker: EventBroker, systemManager: SystemManager) {
+        this.canvas = canvas;
+        this.broker = broker;
+        this.systemManager = systemManager;
+        
+        this.loop = new GameLoop(
+            (dt) => this.update(dt),
+            (alpha) => this.render(alpha)
+        );
+    }
 
-  public start(): void {
-    this.loop.start();
-  }
+    public start(): void {
+        this.systemManager.initAll();
+        this.loop.start();
+    }
 
-  public stop(): void {
-    this.loop.stop();
-  }
+    public stop(): void {
+        this.loop.stop();
+        this.systemManager.disposeAll();
+    }
 
-  private update(dt: number): void {
-    // Scheduled fixed update step
-  }
+    private update(dt: number): void {
+        this.systemManager.updateAll(dt);
+    }
 
-  private render(): void {
-    // Scheduled Babylon render pass
-  }
+    private render(alpha: number): void {
+        this.systemManager.renderAll(alpha);
+    }
 }
