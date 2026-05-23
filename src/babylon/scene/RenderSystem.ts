@@ -60,9 +60,9 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     window.addEventListener("resize", this.handleResize);
   }
 
-  public update(_dt: number): void { }
+  public update(): void { }
   
-  public render(_alpha: number): void { 
+  public render(): void { 
     if (this.scene) this.scene.render();
   }
 

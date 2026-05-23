@@ -28,7 +28,7 @@ export class WeaverSweepingState implements IWeaverState {
     });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(): void {}
 
   public update(ctx: AIContext, dt: number): WeaverStateType | null {
     ctx.ai.timeInState += dt;
@@ -82,7 +82,7 @@ export class WeaverDashingState implements IWeaverState {
     this.startPrep(ctx);
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(): void {}
 
   private startPrep(ctx: AIContext): void {
     this.currentPhase = "PREP";
@@ -190,7 +190,7 @@ export class WeaverReturningState implements IWeaverState {
     ctx.ai.hue = this.hue;
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(): void {}
 
   public update(ctx: AIContext, dt: number): WeaverStateType | null {
     ctx.ai.timeInState += dt;
@@ -236,9 +236,9 @@ export class WeaverDefeatedState implements IWeaverState {
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
   }
 
-  public exit(_ctx: AIContext): void {}
+  public exit(): void {}
 
-  public update(_ctx: AIContext, _dt: number): WeaverStateType | null {
+  public update(): WeaverStateType | null {
     return null;
   }
 }

@@ -15,7 +15,7 @@ export class PlayerInputSystem implements ISystem {
         window.addEventListener("keyup", this.handleKeyUp);
     }
 
-    public update(_dt: number): void {
+    public update(): void {
         const input = this.inputs.get(this.refs.player);
         if (!input) return;
 

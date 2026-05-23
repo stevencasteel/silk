@@ -40,7 +40,7 @@ export class GameDirectorSystem implements ISystem {
         }
     };
 
-    public update(_dt: number): void {
+    public update(): void {
         if (this.resetRequested) {
             this.resetGame();
             this.resetRequested = false;

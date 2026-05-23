@@ -36,7 +36,6 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
     
     if (scene) {
       try {
-        // Point locator directly to official CDN to bypass Vite local binary asset resolution
         const havokInstance = await HavokPhysics({
             locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
         });
@@ -45,7 +44,6 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
         console.log("[HavokPhysicsSystem] Havok initialized successfully from CDN.");
 
-        // --- SAFE HAVOK STATIC PHYSICAL COLLIDERS ---
         const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: 34, height: 1.0, depth: 6 }, scene);
         physFloor.position.set(0, 0.5, 0); 
         physFloor.isVisible = false;
@@ -91,7 +89,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
     });
   }
 
-  public update(_dt: number): void {
+  public update(): void {
     this.commands.flush();
 
     for (const [, curr] of this.transforms.entries()) {
