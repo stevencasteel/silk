@@ -21,6 +21,7 @@ export class GameDirectorSystem implements ISystem {
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
   private HASH = String.fromCharCode(35);
+  private unsubscribes: (() => void)[] = [];
 
   constructor(
     private broker: EventBroker,
@@ -36,17 +37,21 @@ export class GameDirectorSystem implements ISystem {
   ) {}
 
   public init(): void {
-    this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-      if (this.gameState === "PLAYING") {
-        this.gameState = "GAME_OVER";
-        this.broker.publish(GameEvent.GAME_OVER, undefined);
-      }
-    });
-    this.broker.subscribe(GameEvent.GAME_WIN, () => {
-      if (this.gameState === "PLAYING") {
-        this.gameState = "VICTORY";
-      }
-    });
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        if (this.gameState === "PLAYING") {
+          this.gameState = "GAME_OVER";
+          this.broker.publish(GameEvent.GAME_OVER, undefined);
+        }
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_WIN, () => {
+        if (this.gameState === "PLAYING") {
+          this.gameState = "VICTORY";
+        }
+      })
+    );
     window.addEventListener("keydown", this.handleKeyDown);
   }
 
@@ -164,5 +169,7 @@ export class GameDirectorSystem implements ISystem {
 
   public dispose(): void {
     window.removeEventListener("keydown", this.handleKeyDown);
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
   }
 }

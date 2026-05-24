@@ -21,6 +21,7 @@ export class DomHudSystem implements ISystem {
   private pauseOverlay: HTMLElement | null = null;
   private lastHintLevel: HintLevel = "none";
   private currentState: string = "AIRBORNE";
+  private lastTensionPercent = -1;
 
   private playerHpLeds: (HTMLElement | null)[] = [];
 
@@ -110,8 +111,7 @@ export class DomHudSystem implements ISystem {
   private updateTensionBar(tension: number): void {
     const snapLimit = 1.3;
     const clamped = Math.max(0, Math.min(snapLimit, tension));
-    
-    const displayPercent = (clamped * 100).toFixed(0);
+    const displayPercent = Math.round(clamped * 100);
 
     if (this.tensionBar) {
       const scaleX = clamped / snapLimit;
@@ -126,9 +126,12 @@ export class DomHudSystem implements ISystem {
       }
     }
 
-    if (this.tensionText) {
-      this.tensionText.textContent = displayPercent + "%";
-      this.tensionText.style.color = clamped >= 1.0 ? "rgb(239, 68, 68)" : clamped >= 0.75 ? "rgb(245, 158, 11)" : "rgb(244, 244, 245)";
+    if (displayPercent !== this.lastTensionPercent) {
+      this.lastTensionPercent = displayPercent;
+      if (this.tensionText) {
+        this.tensionText.textContent = displayPercent + "%";
+        this.tensionText.style.color = clamped >= 1.0 ? "rgb(239, 68, 68)" : clamped >= 0.75 ? "rgb(245, 158, 11)" : "rgb(244, 244, 245)";
+      }
     }
   }
 

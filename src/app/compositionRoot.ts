@@ -141,7 +141,8 @@ export class CompositionRoot {
       renderSystem,
       weaverAIs,
       healths,
-      velocities
+      velocities,
+      broker
     );
     const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
     const lightingSystem = new LightingSystem(broker, renderSystem);

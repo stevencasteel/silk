@@ -12,6 +12,8 @@ import {
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
@@ -32,6 +34,9 @@ export class TransformSyncSystem implements ISystem {
   private cachedTicks: BABYLON.AbstractMesh[] | null = null;
   private colorCache = new Map<string, BABYLON.Color3>();
 
+  private hitStopTimer = 0.0;
+  private unsubscribes: (() => void)[] = [];
+
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
@@ -40,8 +45,33 @@ export class TransformSyncSystem implements ISystem {
     private visualRegistry: IVisualRegistry,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
     private healthStore: ComponentStore<HealthComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>
+    private velocities: ComponentStore<KinematicVelocityComponent>,
+    private broker: EventBroker
   ) {}
+
+  public init(): void {
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        this.hitStopTimer = 0.08;
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        this.hitStopTimer = 0.15;
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.hitStopTimer = 0.0;
+      })
+    );
+  }
+
+  public update(dt: number): void {
+    if (this.hitStopTimer > 0) {
+      this.hitStopTimer -= dt;
+    }
+  }
 
   public static getDesiredScrollSpeed(
     wAI: WeaverAIComponent | undefined,
@@ -89,7 +119,10 @@ export class TransformSyncSystem implements ISystem {
     const wHealth = this.healthStore.get(this.refs.weaver);
     const wVel = this.velocities.get(this.refs.weaver);
 
-    const targetScrollSpeed = TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+    // If hitstop is active, freeze elevator scroll immediately to preserve visual impact
+    const targetScrollSpeed = this.hitStopTimer > 0
+      ? 0.0
+      : TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
     TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
@@ -267,5 +300,11 @@ export class TransformSyncSystem implements ISystem {
       this.currentEmissiveG * emissiveScale,
       this.currentEmissiveB * emissiveScale
     );
+  }
+
+  public dispose(): void {
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
+    this.cachedTicks = null;
   }
 }
