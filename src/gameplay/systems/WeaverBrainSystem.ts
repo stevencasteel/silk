@@ -25,6 +25,7 @@ export class WeaverBrainSystem implements ISystem {
   private activeState: IWeaverState | null = null;
   private contextCache: AIContext | null = null;
   private unsubDamage: (() => void) | null = null;
+  private pendingTransition: WeaverStateType | null = null;
 
   constructor(
     private refs: EntityRefs,
@@ -73,9 +74,9 @@ export class WeaverBrainSystem implements ISystem {
       const health = this.healths.get(this.refs.weaver);
       if (aiComp && health) {
         if (health.current <= 0) {
-          this.transitionTo("DEFEATED");
+          this.pendingTransition = "DEFEATED";
         } else if (aiComp.state === "SWEEPING") {
-          this.transitionTo("DASHING");
+          this.pendingTransition = "DASHING";
         }
       }
     });
@@ -116,6 +117,11 @@ export class WeaverBrainSystem implements ISystem {
   public update(dt: number): void {
     const aiComp = this.ai.get(this.refs.weaver);
     if (!aiComp || !this.activeState) return;
+
+    if (this.pendingTransition !== null) {
+      this.transitionTo(this.pendingTransition);
+      this.pendingTransition = null;
+    }
 
     const pHealth = this.healths.get(this.refs.player);
     if (pHealth && pHealth.current <= 0) {
