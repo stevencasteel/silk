@@ -36,6 +36,7 @@ export class JuiceSystem implements ISystem {
   private debrisMat: BABYLON.PBRMaterial | null = null;
 
   private scratchVector = new BABYLON.Vector3();
+  private playerState: string = "AIRBORNE";
 
   constructor(
     private broker: EventBroker,
@@ -127,8 +128,15 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
+        this.playerState = payload.state;
+      })
+    );
+
+    this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearDebris();
+        this.playerState = "AIRBORNE";
         const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
         if (weaverNode) {
           weaverNode.setEnabled(true);
@@ -303,6 +311,31 @@ export class JuiceSystem implements ISystem {
     }
   }
 
+  private spawnLaunchTrail(position: BABYLON.Vector3): void {
+    const particle = this.particlePool[this.nextPoolIndex];
+
+    particle.mesh.position.copyFrom(position);
+    particle.mesh.position.x += (Math.random() - 0.5) * 0.3;
+    particle.mesh.position.y += (Math.random() - 0.5) * 0.8;
+
+    const vx = (Math.random() - 0.5) * 1.2;
+    const vy = (Math.random() - 0.5) * 1.2;
+    const vz = (Math.random() - 0.5) * 1.0;
+
+    particle.velocity.set(vx, vy, vz);
+    particle.lifeRemaining = 0.22 + Math.random() * 0.12;
+    particle.maxLife = particle.lifeRemaining;
+    particle.active = true;
+    particle.mesh.setEnabled(true);
+
+    const mat = particle.mesh.material as BABYLON.StandardMaterial;
+    if (mat) {
+      mat.emissiveColor.set(0.13, 0.77, 0.36);
+    }
+
+    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+  }
+
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     for (let i = 0; i < this.poolSize; i++) {
@@ -323,6 +356,13 @@ export class JuiceSystem implements ISystem {
 
       const ratio = p.lifeRemaining / p.maxLife;
       p.mesh.scaling.set(ratio, ratio, ratio);
+    }
+
+    if (this.playerState === "LAUNCHING") {
+      const playerNode = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.Mesh | null;
+      if (playerNode) {
+        this.spawnLaunchTrail(playerNode.position);
+      }
     }
 
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
