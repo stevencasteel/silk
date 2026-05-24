@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { Profiler } from "./Profiler";
 import { EventBroker } from "../events/EventBroker";
-import { EntityRegistry } from "../ecs/Entity";
+import { EcsWorld } from "../ecs/EcsWorld";
 import { EntityRefs } from "../ecs/EntityRefs";
 import { ComponentStore } from "../ecs/ComponentStore";
 import { TransformComponent, SilkComponent, KinematicVelocityComponent } from "../ecs/Components";
@@ -19,7 +19,7 @@ export class DebugTelemetryOverlay implements ISystem {
   constructor(
     private _profiler: Profiler,
     private _broker: EventBroker,
-    private _entities: EntityRegistry,
+    private _entities: EcsWorld,
     private _refs: EntityRefs,
     private _transforms: ComponentStore<TransformComponent>,
     private _silks: ComponentStore<SilkComponent>,

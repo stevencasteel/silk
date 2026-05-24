@@ -2,7 +2,7 @@ import { Engine } from "../core/engine/Engine";
 import { EventBroker } from "../core/events/EventBroker";
 import { SystemManager } from "../core/systems/SystemManager";
 import { CommandBus } from "../core/commands/CommandBus";
-import { EntityRegistry } from "../core/ecs/Entity";
+import { EcsWorld } from "../core/ecs/EcsWorld";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
 import {
@@ -57,7 +57,7 @@ export class CompositionRoot {
     // ------------------------------------------------------------------------
     // STAGE 2: CUSTOM ECS COMPONENT STORES
     // ------------------------------------------------------------------------
-    const entities = new EntityRegistry();
+    const world = new EcsWorld();
     const transforms = new ComponentStore<TransformComponent>();
     const velocities = new ComponentStore<KinematicVelocityComponent>();
     const targets = new ComponentStore<KinematicTargetComponent>();
@@ -72,6 +72,20 @@ export class CompositionRoot {
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
+
+    // Register all component stores to the world for automated lifecycle cleanup
+    world.registerStore(transforms);
+    world.registerStore(velocities);
+    world.registerStore(targets);
+    world.registerStore(silks);
+    world.registerStore(healths);
+    world.registerStore(inputs);
+    world.registerStore(weaverAIs);
+    world.registerStore(traversal);
+    world.registerStore(iframes);
+    world.registerStore(weaverTraversal);
+    world.registerStore(playerTags);
+    world.registerStore(weaverTags);
 
     // ------------------------------------------------------------------------
     // STAGE 3: GRAPHICS, AUDIO, & VISUAL PRESENTATION ENGINE
@@ -145,7 +159,7 @@ export class CompositionRoot {
     
     const spawner = new EntitySpawnerSystem(
       refs,
-      entities,
+      world,
       transforms,
       velocities,
       targets,
@@ -221,7 +235,7 @@ export class CompositionRoot {
     const debugTelemetry = new DebugTelemetryOverlay(
       profiler,
       broker,
-      entities,
+      world,
       refs,
       transforms,
       silks,

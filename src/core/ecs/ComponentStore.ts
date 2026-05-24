@@ -1,6 +1,11 @@
 import { EntityId } from "./Entity";
 
-export class ComponentStore<T> {
+export interface IComponentStore {
+  remove(id: EntityId): void;
+  clear(): void;
+}
+
+export class ComponentStore<T> implements IComponentStore {
   private data: Map<EntityId, T> = new Map();
 
   public add(id: EntityId, component: T): void {

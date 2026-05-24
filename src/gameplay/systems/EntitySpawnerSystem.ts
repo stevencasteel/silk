@@ -1,6 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
-import { EntityRegistry } from "../../core/ecs/Entity";
+import { EcsWorld } from "../../core/ecs/EcsWorld";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
@@ -29,7 +29,7 @@ export class EntitySpawnerSystem implements ISystem {
 
   constructor(
     private refs: EntityRefs,
-    private entities: EntityRegistry,
+    private entities: EcsWorld,
     private transforms: ComponentStore<TransformComponent>,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
