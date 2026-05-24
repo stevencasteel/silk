@@ -31,7 +31,7 @@ export class TetherVisualizerSystem implements ISystem {
 
   private isSnapped = false;
   private snapTimer = 0.0;
-  private readonly maxSnapDuration = 1.5;
+  private readonly maxSnapDuration = VISUAL_JUICE_CONFIG.TETHER_ROPE.MAX_SNAP_DURATION_SECONDS;
 
   constructor(
     private refs: EntityRefs,

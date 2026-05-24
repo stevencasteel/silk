@@ -4,7 +4,7 @@ import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
-import { GameDirectorSystem } from "../../gameplay/systems/GameDirectorSystem";
+import { GameDirectorSystem } from "../../gameplay/combat/GameDirectorSystem";
 import { GAMEPLAY_TUNING } from "./ArenaConfig";
 
 export class Engine {

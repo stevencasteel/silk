@@ -96,7 +96,7 @@ export class ProjectileSystem implements ISystem {
       });
     }
 
-    this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+    this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload: { x: number; y: number; tx: number; ty: number }) => {
       this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
     });
 

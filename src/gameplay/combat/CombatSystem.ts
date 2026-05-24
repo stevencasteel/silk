@@ -15,7 +15,6 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
-import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -154,7 +153,7 @@ export class CombatSystem implements ISystem {
     pIframe.timeRemaining = tuning.PLAYER_IFRAME_DURATION;
 
     const dist = Math.sqrt(distSq) || 1;
-    this.commands.dispatch<ApplyImpulseCommand>({
+    this.commands.dispatch({
       type: "APPLY_IMPULSE",
       entityId: this.refs.player,
       x: (dx / dist) * tuning.KNOCKBACK_FORCE_X,

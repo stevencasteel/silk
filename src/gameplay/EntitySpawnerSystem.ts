@@ -1,8 +1,8 @@
-import { ISystem } from "../../contracts/ISystem";
-import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
-import { EcsWorld } from "../../core/ecs/EcsWorld";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { EntityId } from "../../core/ecs/Entity";
+import { ISystem } from "../contracts/ISystem";
+import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
+import { EcsWorld } from "../core/ecs/EcsWorld";
+import { ComponentStore } from "../core/ecs/ComponentStore";
+import { EntityId } from "../core/ecs/Entity";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -16,10 +16,10 @@ import {
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent
-} from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+} from "../core/ecs/Components";
+import { EntityRefs } from "../core/ecs/EntityRefs";
+import { IVisualRegistry } from "../contracts/IVisualRegistry";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class EntitySpawnerSystem implements ISystem {

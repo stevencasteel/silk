@@ -12,7 +12,7 @@ import {
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
+import { RenderInterpolationSystem } from "../../visual/systems/RenderInterpolationSystem";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
@@ -42,7 +42,7 @@ export class PlayerKinematicsSystem implements ISystem {
   ) {}
 
   public init(): void {
-    this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
+    this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd: ApplyImpulseCommand) => {
       if (cmd.entityId === this.refs.player) {
         const tether = this.tethers.get(this.refs.player);
         if (tether) {
@@ -146,7 +146,7 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitRight = nextX > this.WALL_LIMIT_X;
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
-    const currentScrollSpeed = TransformSyncSystem.currentScrollSpeed;
+    const currentScrollSpeed = RenderInterpolationSystem.currentScrollSpeed;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (trav.state === "WALL_SLIDING") {

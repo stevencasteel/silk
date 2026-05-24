@@ -106,21 +106,21 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_LANDED, (payload) => {
+      this.broker.subscribe(GameEvent.PLAYER_LANDED, (payload: { x: number; y: number }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnLandingDust(pos);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload) => {
+      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload: { x: number; y: number; wallNormalX: number }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnWallSparks(pos, payload.wallNormalX);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
+      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload: { x: number; y: number; isWall: boolean }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnWebSplat(pos);
       })
@@ -140,7 +140,7 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
+      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
         this.playerState = payload.state;
       })
     );

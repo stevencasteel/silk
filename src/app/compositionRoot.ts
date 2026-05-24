@@ -25,20 +25,21 @@ import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
 import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
 import { DomHudSystem } from "../ui/hud/DomHudSystem";
-import { EntitySpawnerSystem } from "../gameplay/systems/EntitySpawnerSystem";
-import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
-import { WeaverBrainSystem } from "../gameplay/systems/WeaverBrainSystem";
-import { WeaverTraversalSystem } from "../gameplay/systems/WeaverTraversalSystem";
-import { TetherVisualizerSystem } from "../visual/systems/TetherVisualizerSystem";
-import { PlayerKinematicsSystem } from "../spatial/kinematics/PlayerKinematicsSystem";
-import { PlayerAnimationSystem } from "../gameplay/systems/PlayerAnimationSystem";
-import { EnvironmentCollisionSystem } from "../spatial/collisions/EnvironmentCollisionSystem";
+import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
+import { PlayerInputSystem } from "../gameplay/player/PlayerInputSystem";
+import { WeaverBrainSystem } from "../gameplay/weaver/WeaverBrainSystem";
+import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem";
+import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
+import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
+import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
+import { EnvironmentCollisionSystem } from "../gameplay/player/EnvironmentCollisionSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
-import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
-import { CombatSystem } from "../gameplay/systems/CombatSystem";
-import { GameDirectorSystem } from "../gameplay/systems/GameDirectorSystem";
-import { ProjectileSystem } from "../gameplay/systems/ProjectileSystem";
-import { JuiceSystem } from "../visual/particles/JuiceSystem";
+import { RenderInterpolationSystem } from "../visual/systems/RenderInterpolationSystem";
+import { VisualStateDressingSystem } from "../visual/systems/VisualStateDressingSystem";
+import { CombatSystem } from "../gameplay/combat/CombatSystem";
+import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
+import { ProjectileSystem } from "../gameplay/combat/ProjectileSystem";
+import { JuiceSystem } from "../gameplay/juice/JuiceSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
 import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
 import { PerformanceClock } from "../core/clock/PerformanceClock";
@@ -127,16 +128,22 @@ export class CompositionRoot {
       transforms
     );
 
-    const syncSystem = new TransformSyncSystem(
+    const interpolationSystem = new RenderInterpolationSystem(
       refs,
       transforms,
-      tethers,
-      traversal,
       visualRegistry,
       weaverAIs,
       healths,
       velocities,
       broker
+    );
+
+    const dressingSystem = new VisualStateDressingSystem(
+      refs,
+      tethers,
+      traversal,
+      visualRegistry,
+      weaverAIs
     );
 
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
@@ -230,7 +237,8 @@ export class CompositionRoot {
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
-    systemManager.register(syncSystem);
+    systemManager.register(interpolationSystem);
+    systemManager.register(dressingSystem);
     systemManager.register(tetherVisualizer);
     systemManager.register(cameraSystem);
     systemManager.register(combatSystem);

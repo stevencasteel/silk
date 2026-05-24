@@ -8,7 +8,7 @@ import {
   TetherComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { EntitySpawnerSystem } from "./EntitySpawnerSystem";
+import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {

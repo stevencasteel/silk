@@ -11,14 +11,14 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
-import { IWeaverState, AIContext, WeaverStateType } from "../states/IWeaverState";
+import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import {
   WeaverSweepingState,
   WeaverDashingState,
   WeaverReturningState,
   WeaverDefeatedState
-} from "../states/WeaverStates";
+} from "./WeaverStates";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;

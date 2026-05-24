@@ -1,12 +1,10 @@
-import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
-  TetherComponent,
-  TraversalStateComponent,
   WeaverAIComponent,
   HealthComponent,
   KinematicVelocityComponent
@@ -16,7 +14,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
-export class TransformSyncSystem implements ISystem {
+export class RenderInterpolationSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   
   public static currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
@@ -26,21 +24,14 @@ export class TransformSyncSystem implements ISystem {
   private currentScrollOffset = 0.0;
   private prevScrollOffset = 0.0;
   private scrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
-  private currentEmissiveR = 0.05;
-  private currentEmissiveG = 0.15;
-  private currentEmissiveB = 0.05;
 
   private cachedTicks: BABYLON.AbstractMesh[] | null = null;
-  private colorCache = new Map<string, BABYLON.Color3>();
-
   private hitStopTimer = 0.0;
   private unsubscribes: (() => void)[] = [];
 
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>,
     private visualRegistry: IVisualRegistry,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
     private healthStore: ComponentStore<HealthComponent>,
@@ -80,11 +71,10 @@ export class TransformSyncSystem implements ISystem {
 
     const targetScrollSpeed = this.hitStopTimer > 0
       ? 0.0
-      : TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+      : RenderInterpolationSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
-    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
-    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, emissive.SCROLL_LERP_FACTOR);
-    TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
+    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
+    RenderInterpolationSystem.currentScrollSpeed = this.scrollSpeed;
     
     if (wAI) {
       wAI.scrollSpeed = this.scrollSpeed;
@@ -160,11 +150,6 @@ export class TransformSyncSystem implements ISystem {
   }
 
   private syncTransforms(alpha: number): void {
-    const tether = this.tethers.get(this.refs.player);
-    const trav = this.traversal.get(this.refs.player);
-    const wAI = this.weaverAIs.get(this.refs.weaver);
-    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
-
     for (const [id, curr] of this.transforms.entries()) {
       const node = this.visualRegistry.getTransformNode(id);
       if (!node) continue;
@@ -190,72 +175,7 @@ export class TransformSyncSystem implements ISystem {
         alpha,
         node.rotationQuaternion
       );
-
-      if (id === this.refs.player) {
-        const mesh = node as BABYLON.AbstractMesh;
-        const mat = mesh?.material as BABYLON.PBRMaterial | null;
-        if (mat && tether && trav) {
-          this.updatePlayerEmissive(mat, tether.tension, trav.state);
-        }
-      } else if (id === this.refs.weaver && wAI) {
-        const mesh = node as BABYLON.AbstractMesh;
-        const mat = mesh?.material as BABYLON.PBRMaterial | null;
-        if (mat) {
-          let cachedColor = this.colorCache.get(wAI.hue);
-          if (!cachedColor) {
-            const hex = wAI.hue.replace(String.fromCharCode(35), "");
-            const r = parseInt(hex.substring(0, 2), 16) / 255;
-            const g = parseInt(hex.substring(2, 4), 16) / 255;
-            const b = parseInt(hex.substring(4, 6), 16) / 255;
-            cachedColor = new BABYLON.Color3(r, g, b);
-            this.colorCache.set(wAI.hue, cachedColor);
-          }
-          const pulse = emissive.WEAVER_EMISSIVE_PULSE_BASE + Math.sin(Date.now() * emissive.WEAVER_EMISSIVE_PULSE_FREQ) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
-          mat.emissiveColor.set(
-            cachedColor.r * emissive.WEAVER_EMISSIVE_SCALE + pulse,
-            cachedColor.g * emissive.WEAVER_EMISSIVE_SCALE,
-            cachedColor.b * emissive.WEAVER_EMISSIVE_SCALE
-          );
-        }
-      }
     }
-  }
-
-  private updatePlayerEmissive(
-    mat: BABYLON.PBRMaterial,
-    tension: number,
-    state: string
-  ): void {
-    let targetR: number;
-    let targetG: number;
-    let targetB: number;
-
-    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
-
-    if (state === "WALL_SLIDING") {
-      targetR = emissive.PLAYER_EMISSIVE_SLIDE.BASE_R + Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
-      targetG = emissive.PLAYER_EMISSIVE_SLIDE.BASE_G + (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
-      targetB = (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.MULT_B;
-    } else if (state === "LAUNCHING") {
-      targetR = emissive.PLAYER_EMISSIVE_LAUNCH.R;
-      targetG = emissive.PLAYER_EMISSIVE_LAUNCH.G;
-      targetB = emissive.PLAYER_EMISSIVE_LAUNCH.B;
-    } else {
-      targetR = emissive.PLAYER_EMISSIVE_DEFAULT.R;
-      targetG = emissive.PLAYER_EMISSIVE_DEFAULT.G;
-      targetB = emissive.PLAYER_EMISSIVE_DEFAULT.B;
-    }
-
-    const lerpRate = emissive.PLAYER_LERP_RATE;
-    this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
-    this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
-    this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
-    
-    mat.emissiveColor.set(
-      this.currentEmissiveR * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveG * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveB * emissive.PLAYER_EMISSIVE_SCALE
-    );
   }
 
   public dispose(): void {
