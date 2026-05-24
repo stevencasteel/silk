@@ -33,6 +33,9 @@ export class ProjectileSystem implements ISystem {
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
 
+  private scratchVec3 = new BABYLON.Vector3();
+  private zeroVec3 = BABYLON.Vector3.Zero();
+
   constructor(
     private broker: EventBroker,
     private refs: EntityRefs,
@@ -65,7 +68,7 @@ export class ProjectileSystem implements ISystem {
       );
       sphere.position.set(0, -999, 0);
       sphere.material = this.projMat;
-      sphere.setEnabled(false);
+      sphere.isVisible = false;
 
       if (this.visualRegistry.registerShadowCaster) {
         this.visualRegistry.registerShadowCaster(sphere);
@@ -80,7 +83,7 @@ export class ProjectileSystem implements ISystem {
           scene
         );
         agg.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
-        agg.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
+        agg.body.setLinearVelocity(this.zeroVec3);
       }
 
       this.projectilePool.push({
@@ -110,7 +113,7 @@ export class ProjectileSystem implements ISystem {
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const idx = (this.nextPoolIndex + i) % this.POOL_SIZE;
       const p = this.projectilePool[idx];
-      if (!p.mesh.isEnabled()) {
+      if (!p.mesh.isVisible) {
         proj = p;
         this.nextPoolIndex = (idx + 1) % this.POOL_SIZE;
         break;
@@ -126,7 +129,7 @@ export class ProjectileSystem implements ISystem {
     proj.isStuck = false;
     proj.isStuckOnWall = false;
     proj.lifeTime = 0.0;
-    proj.mesh.setEnabled(true);
+    proj.mesh.isVisible = true;
     proj.mesh.position.set(x, y, 0);
 
     const dx = tx - x;
@@ -138,8 +141,9 @@ export class ProjectileSystem implements ISystem {
 
     if (proj.aggregate) {
       proj.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.DYNAMIC);
-      proj.aggregate.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, 0));
-      proj.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
+      this.scratchVec3.set(vx, vy, 0);
+      proj.aggregate.body.setLinearVelocity(this.scratchVec3);
+      proj.aggregate.body.setAngularVelocity(this.zeroVec3);
       proj.fallbackVelocity = undefined;
     } else {
       proj.fallbackVelocity = new BABYLON.Vector3(vx, vy, 0);
@@ -161,9 +165,21 @@ export class ProjectileSystem implements ISystem {
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const p = this.projectilePool[i];
-      if (!p.mesh.isEnabled()) continue;
+      if (!p.mesh.isVisible) continue;
 
       p.lifeTime += dt;
+
+      if (p.aggregate && !p.isStuck) {
+        const pos = p.mesh.position;
+        if (Math.abs(pos.z) > 0.01) {
+          p.mesh.position.z = 0;
+        }
+        const vel = p.aggregate.body.getLinearVelocity();
+        if (Math.abs(vel.z) > 0.01) {
+          this.scratchVec3.set(vel.x, vel.y, 0);
+          p.aggregate.body.setLinearVelocity(this.scratchVec3);
+        }
+      }
 
       if (!p.isStuck && p.fallbackVelocity) {
         p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
@@ -179,8 +195,8 @@ export class ProjectileSystem implements ISystem {
           this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: pos.x, y: pos.y, isWall: true });
 
           if (p.aggregate) {
-            p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
-            p.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
+            p.aggregate.body.setLinearVelocity(this.zeroVec3);
+            p.aggregate.body.setAngularVelocity(this.zeroVec3);
             p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.STATIC);
           } else {
             p.fallbackVelocity = new BABYLON.Vector3(0, 0, 0);
@@ -233,11 +249,11 @@ export class ProjectileSystem implements ISystem {
 
   private recycleProjectile(p: ActiveProjectile): void {
     if (!p) return;
-    p.mesh.setEnabled(false);
+    p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
     if (p.aggregate) {
-      p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
-      p.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
+      p.aggregate.body.setLinearVelocity(this.zeroVec3);
+      p.aggregate.body.setAngularVelocity(this.zeroVec3);
       p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
     }
     p.fallbackVelocity = undefined;

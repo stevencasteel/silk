@@ -33,6 +33,8 @@ export class JuiceSystem implements ISystem {
   private physicalDebrisList: PhysicalDebris[] = [];
   private debrisMat: BABYLON.PBRMaterial | null = null;
 
+  private scratchVector = new BABYLON.Vector3();
+
   constructor(
     private broker: EventBroker,
     private refs: EntityRefs,
@@ -307,6 +309,16 @@ export class JuiceSystem implements ISystem {
         d.aggregate.dispose();
         d.mesh.dispose();
         this.physicalDebrisList.splice(i, 1);
+      } else {
+        const pos = d.mesh.position;
+        if (Math.abs(pos.z) > 0.01) {
+          d.mesh.position.z = 0;
+        }
+        const vel = d.aggregate.body.getLinearVelocity();
+        if (Math.abs(vel.z) > 0.01) {
+          this.scratchVector.set(vel.x, vel.y, 0);
+          d.aggregate.body.setLinearVelocity(this.scratchVector);
+        }
       }
     }
   }

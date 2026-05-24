@@ -102,6 +102,10 @@
      tabs will prevent the terminal from recognizing the block boundary, 
      causing terminal lockup or truncation.
 
+2.9  Strict TypeScript Constraints
+     All unused variables, local variables, or unused imports must be stripped 
+     completely to comply with strict compiler checks ('noUnusedLocals').
+
 
 3. REMOTE INSPECTION & EDITING TECHNIQUES
 -----------------------------------------
