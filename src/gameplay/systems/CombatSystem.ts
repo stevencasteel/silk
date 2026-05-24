@@ -57,6 +57,18 @@ export class CombatSystem implements ISystem {
       pIframe.timeRemaining -= dt;
     }
 
+    const pTrans = this.transforms.get(this.refs.player);
+    const wTrans = this.transforms.get(this.refs.weaver);
+    if (!pTrans || !wTrans) return;
+
+    const dx = pTrans.x - wTrans.x;
+    const dy = pTrans.y - wTrans.y;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq > 9.0) {
+      return;
+    }
+
     const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
     const wMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.AbstractMesh;
 
@@ -65,13 +77,6 @@ export class CombatSystem implements ISystem {
     const isColliding = pMesh.intersectsMesh(wMesh, true);
     if (!isColliding) return;
 
-    const pTrans = this.transforms.get(this.refs.player);
-    const wTrans = this.transforms.get(this.refs.weaver);
-    if (!pTrans || !wTrans) return;
-
-    const dx = pTrans.x - wTrans.x;
-    const dy = pTrans.y - wTrans.y;
-    const distSq = dx * dx + dy * dy;
     const dist = Math.sqrt(distSq) || 1.0;
 
     if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
