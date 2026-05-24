@@ -7,7 +7,8 @@ import {
   WeaverAIComponent,
   SilkComponent,
   InvulnerabilityComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -20,10 +21,11 @@ import * as BABYLON from "@babylonjs/core";
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
-  private readonly FLING_DAMAGE_THRESHOLD = 0.8;
+  private readonly FLING_DAMAGE_THRESHOLD = 0.72;
   private readonly WEAVER_CONTACT_DAMAGE = 1;
   private readonly PLAYER_IFRAME_DURATION = 1.2;
   private readonly PLAYER_FLING_DAMAGE = 35;
+  private readonly COMBINED_RADIUS_THRESHOLD = 2.6;
 
   constructor(
     private refs: EntityRefs,
@@ -35,7 +37,8 @@ export class CombatSystem implements ISystem {
     private traversal: ComponentStore<TraversalStateComponent>,
     private broker: EventBroker,
     private commands: CommandBus,
-    private visualRegistry: IVisualRegistry
+    private visualRegistry: IVisualRegistry,
+    private targets: ComponentStore<KinematicTargetComponent>
   ) {}
 
   public update(dt: number): void {
@@ -69,6 +72,7 @@ export class CombatSystem implements ISystem {
     const dx = pTrans.x - wTrans.x;
     const dy = pTrans.y - wTrans.y;
     const distSq = dx * dx + dy * dy;
+    const dist = Math.sqrt(distSq) || 1.0;
 
     if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
       this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);
@@ -79,6 +83,28 @@ export class CombatSystem implements ISystem {
 
     if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
       this.resolveWeaverContactHit(pHealth, pIframe, dx, dy, distSq);
+      return;
+    }
+
+    if (dist < this.COMBINED_RADIUS_THRESHOLD) {
+      const overlap = this.COMBINED_RADIUS_THRESHOLD - dist;
+      const nx = dx / dist;
+      const ny = dy / dist;
+
+      pTrans.x += nx * overlap;
+      pTrans.y += ny * overlap;
+
+      const pTarget = this.targets.get(this.refs.player);
+      if (pTarget) {
+        pTarget.x += nx * overlap;
+        pTarget.y += ny * overlap;
+      }
+
+      const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
+      if (dot < 0) {
+        silk.dynamicVelX -= dot * nx * 1.3;
+        silk.dynamicVelY -= dot * ny * 1.3;
+      }
     }
   }
 

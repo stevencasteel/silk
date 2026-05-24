@@ -154,7 +154,8 @@ export class CompositionRoot {
       traversal,
       broker,
       commands,
-      renderSystem
+      renderSystem,
+      targets
     );
     const gameDirector = new GameDirectorSystem(
       broker,
