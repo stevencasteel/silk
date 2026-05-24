@@ -17,7 +17,7 @@ interface PooledParticle {
 
 interface ActiveDebris {
   mesh: BABYLON.Mesh;
-  aggregate: BABYLON.PhysicsAggregate | null;
+  body: BABYLON.PhysicsBody | null;
   velocity: BABYLON.Vector3;
   angularVelocity: BABYLON.Vector3;
   lifeRemaining: number;
@@ -315,7 +315,7 @@ export class JuiceSystem implements ISystem {
         Math.random() * Math.PI
       );
 
-      let agg: BABYLON.PhysicsAggregate | null = null;
+      let body: BABYLON.PhysicsBody | null = null;
       const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
       const vy = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN);
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
@@ -325,19 +325,33 @@ export class JuiceSystem implements ISystem {
       const rz = (Math.random() - 0.5) * config.ANGULAR_MAX;
 
       if (usePhysics) {
-        agg = new BABYLON.PhysicsAggregate(
-          chunk,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: config.MASS, friction: config.FRICTION, restitution: config.RESTITUTION },
-          scene
-        );
-        agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
-        agg.body.setAngularVelocity(new BABYLON.Vector3(rx, ry, rz));
+        let shape: BABYLON.PhysicsShape;
+        if (i % 2 === 0) {
+          shape = new BABYLON.PhysicsShapeCylinder(
+            new BABYLON.Vector3(0, -size * 0.6, 0),
+            new BABYLON.Vector3(0, size * 0.6, 0),
+            size / 2,
+            scene
+          );
+        } else {
+          shape = new BABYLON.PhysicsShapeBox(
+            BABYLON.Vector3.Zero(),
+            BABYLON.Quaternion.Identity(),
+            new BABYLON.Vector3(size, size * 0.4, size),
+            scene
+          );
+        }
+        shape.material = { friction: config.FRICTION, restitution: config.RESTITUTION };
+        body = new BABYLON.PhysicsBody(chunk, BABYLON.PhysicsMotionType.DYNAMIC, false, scene);
+        body.shape = shape;
+        body.setMassProperties({ mass: config.MASS });
+        body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+        body.setAngularVelocity(new BABYLON.Vector3(rx, ry, rz));
       }
 
       this.activeDebrisList.push({
         mesh: chunk,
-        aggregate: agg,
+        body: body,
         velocity: new BABYLON.Vector3(vx, vy, vz),
         angularVelocity: new BABYLON.Vector3(rx, ry, rz),
         lifeRemaining: config.LIFE
@@ -407,19 +421,19 @@ export class JuiceSystem implements ISystem {
       d.lifeRemaining -= dt;
 
       if (d.lifeRemaining <= 0) {
-        if (d.aggregate) d.aggregate.dispose();
+        if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
         d.mesh.dispose();
         this.activeDebrisList.splice(i, 1);
       } else {
-        if (d.aggregate) {
+        if (d.body) {
           const pos = d.mesh.position;
           if (Math.abs(pos.z) > config.Z_FORCE_CLAMP) {
             d.mesh.position.z = 0;
           }
-          const vel = d.aggregate.body.getLinearVelocity();
+          const vel = d.body.getLinearVelocity();
           if (Math.abs(vel.z) > config.Z_FORCE_CLAMP) {
             this.scratchVector.set(vel.x, vel.y, 0);
-            d.aggregate.body.setLinearVelocity(this.scratchVector);
+            d.body.setLinearVelocity(this.scratchVector);
           }
         } else {
           d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
@@ -440,7 +454,7 @@ export class JuiceSystem implements ISystem {
 
   private clearDebris(): void {
     for (const d of this.activeDebrisList) {
-      if (d.aggregate) d.aggregate.dispose();
+      if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
       d.mesh.dispose();
     }
     this.activeDebrisList = [];

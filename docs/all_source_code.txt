@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 1:35:21 PM
+ [SYSTEM] Generated: 5/24/2026, 1:51:47 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3377,7 +3377,7 @@ import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
   mesh: BABYLON.Mesh;
-  aggregate: BABYLON.PhysicsAggregate | null;
+  body: BABYLON.PhysicsBody | null;
   isStuck: boolean;
   isStuckOnWall: boolean;
   lifeTime: number;
@@ -3390,6 +3390,7 @@ export class ProjectileSystem implements ISystem {
   private projectilePool: ActiveProjectile[] = [];
   private readonly POOL_SIZE = 16;
   private nextPoolIndex = 0;
+  private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
 
   private projMat: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
@@ -3422,6 +3423,11 @@ export class ProjectileSystem implements ISystem {
     this.projMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_ROUGHNESS;
     this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
 
+    if (scene.isPhysicsEnabled()) {
+      this.sharedShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2, scene);
+      this.sharedShape.material = { friction: 0.1, restitution: 0.6 };
+    }
+
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const sphere = BABYLON.MeshBuilder.CreateSphere(
         `projectile_pooled_${i}`,
@@ -3436,21 +3442,17 @@ export class ProjectileSystem implements ISystem {
         this.visualRegistry.registerShadowCaster(sphere);
       }
 
-      let agg: BABYLON.PhysicsAggregate | null = null;
-      if (scene.isPhysicsEnabled()) {
-        agg = new BABYLON.PhysicsAggregate(
-          sphere,
-          BABYLON.PhysicsShapeType.SPHERE,
-          { mass: 1.0, friction: 0.1, restitution: 0.6 },
-          scene
-        );
-        agg.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
-        agg.body.setLinearVelocity(this.zeroVec3);
+      let body: BABYLON.PhysicsBody | null = null;
+      if (scene.isPhysicsEnabled() && this.sharedShape) {
+        body = new BABYLON.PhysicsBody(sphere, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+        body.shape = this.sharedShape;
+        body.setMassProperties({ mass: 1.0 });
+        body.setLinearVelocity(this.zeroVec3);
       }
 
       this.projectilePool.push({
         mesh: sphere,
-        aggregate: agg,
+        body: body,
         isStuck: false,
         isStuckOnWall: false,
         lifeTime: 0.0,
@@ -3501,11 +3503,11 @@ export class ProjectileSystem implements ISystem {
     const vx = (dx / dist) * speed;
     const vy = (dy / dist) * speed;
 
-    if (proj.aggregate) {
-      proj.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.DYNAMIC);
+    if (proj.body) {
+      proj.body.setMotionType(BABYLON.PhysicsMotionType.DYNAMIC);
       this.scratchVec3.set(vx, vy, 0);
-      proj.aggregate.body.setLinearVelocity(this.scratchVec3);
-      proj.aggregate.body.setAngularVelocity(this.zeroVec3);
+      proj.body.setLinearVelocity(this.scratchVec3);
+      proj.body.setAngularVelocity(this.zeroVec3);
       proj.fallbackVelocity = undefined;
     } else {
       proj.fallbackVelocity = new BABYLON.Vector3(vx, vy, 0);
@@ -3531,15 +3533,15 @@ export class ProjectileSystem implements ISystem {
 
       p.lifeTime += dt;
 
-      if (p.aggregate && !p.isStuck) {
+      if (p.body && !p.isStuck) {
         const pos = p.mesh.position;
         if (Math.abs(pos.z) > 0.01) {
           p.mesh.position.z = 0;
         }
-        const vel = p.aggregate.body.getLinearVelocity();
+        const vel = p.body.getLinearVelocity();
         if (Math.abs(vel.z) > 0.01) {
           this.scratchVec3.set(vel.x, vel.y, 0);
-          p.aggregate.body.setLinearVelocity(this.scratchVec3);
+          p.body.setLinearVelocity(this.scratchVec3);
         }
       }
 
@@ -3556,10 +3558,10 @@ export class ProjectileSystem implements ISystem {
           p.isStuckOnWall = true;
           this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: pos.x, y: pos.y, isWall: true });
 
-          if (p.aggregate) {
-            p.aggregate.body.setLinearVelocity(this.zeroVec3);
-            p.aggregate.body.setAngularVelocity(this.zeroVec3);
-            p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.STATIC);
+          if (p.body) {
+            p.body.setLinearVelocity(this.zeroVec3);
+            p.body.setAngularVelocity(this.zeroVec3);
+            p.body.setMotionType(BABYLON.PhysicsMotionType.STATIC);
           } else {
             p.fallbackVelocity = new BABYLON.Vector3(0, 0, 0);
           }
@@ -3567,8 +3569,8 @@ export class ProjectileSystem implements ISystem {
       }
 
       if (p.isStuckOnWall) {
-        if (p.aggregate && p.aggregate.body.getMotionType() !== BABYLON.PhysicsMotionType.ANIMATED) {
-          p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
+        if (p.body && p.body.getMotionType() !== BABYLON.PhysicsMotionType.ANIMATED) {
+          p.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
         }
 
         const deltaY = currentScrollSpeed * dt;
@@ -3616,10 +3618,10 @@ export class ProjectileSystem implements ISystem {
     if (!p) return;
     p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
-    if (p.aggregate) {
-      p.aggregate.body.setLinearVelocity(this.zeroVec3);
-      p.aggregate.body.setAngularVelocity(this.zeroVec3);
-      p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
+    if (p.body) {
+      p.body.setLinearVelocity(this.zeroVec3);
+      p.body.setAngularVelocity(this.zeroVec3);
+      p.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
     }
     p.fallbackVelocity = undefined;
     p.isStuck = false;
@@ -3641,9 +3643,10 @@ export class ProjectileSystem implements ISystem {
     if (this.unsubShoot) this.unsubShoot();
     if (this.unsubReset) this.unsubReset();
     this.clearAll();
+    if (this.sharedShape) this.sharedShape.dispose();
     this.projectilePool.forEach(p => {
       if (p) {
-        if (p.aggregate) p.aggregate.dispose();
+        if (p.body) p.body.dispose();
         p.mesh.dispose();
       }
     });
@@ -3674,7 +3677,7 @@ interface PooledParticle {
 
 interface ActiveDebris {
   mesh: BABYLON.Mesh;
-  aggregate: BABYLON.PhysicsAggregate | null;
+  body: BABYLON.PhysicsBody | null;
   velocity: BABYLON.Vector3;
   angularVelocity: BABYLON.Vector3;
   lifeRemaining: number;
@@ -3972,7 +3975,7 @@ export class JuiceSystem implements ISystem {
         Math.random() * Math.PI
       );
 
-      let agg: BABYLON.PhysicsAggregate | null = null;
+      let body: BABYLON.PhysicsBody | null = null;
       const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
       const vy = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN);
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
@@ -3982,19 +3985,33 @@ export class JuiceSystem implements ISystem {
       const rz = (Math.random() - 0.5) * config.ANGULAR_MAX;
 
       if (usePhysics) {
-        agg = new BABYLON.PhysicsAggregate(
-          chunk,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: config.MASS, friction: config.FRICTION, restitution: config.RESTITUTION },
-          scene
-        );
-        agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
-        agg.body.setAngularVelocity(new BABYLON.Vector3(rx, ry, rz));
+        let shape: BABYLON.PhysicsShape;
+        if (i % 2 === 0) {
+          shape = new BABYLON.PhysicsShapeCylinder(
+            new BABYLON.Vector3(0, -size * 0.6, 0),
+            new BABYLON.Vector3(0, size * 0.6, 0),
+            size / 2,
+            scene
+          );
+        } else {
+          shape = new BABYLON.PhysicsShapeBox(
+            BABYLON.Vector3.Zero(),
+            BABYLON.Quaternion.Identity(),
+            new BABYLON.Vector3(size, size * 0.4, size),
+            scene
+          );
+        }
+        shape.material = { friction: config.FRICTION, restitution: config.RESTITUTION };
+        body = new BABYLON.PhysicsBody(chunk, BABYLON.PhysicsMotionType.DYNAMIC, false, scene);
+        body.shape = shape;
+        body.setMassProperties({ mass: config.MASS });
+        body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+        body.setAngularVelocity(new BABYLON.Vector3(rx, ry, rz));
       }
 
       this.activeDebrisList.push({
         mesh: chunk,
-        aggregate: agg,
+        body: body,
         velocity: new BABYLON.Vector3(vx, vy, vz),
         angularVelocity: new BABYLON.Vector3(rx, ry, rz),
         lifeRemaining: config.LIFE
@@ -4064,19 +4081,19 @@ export class JuiceSystem implements ISystem {
       d.lifeRemaining -= dt;
 
       if (d.lifeRemaining <= 0) {
-        if (d.aggregate) d.aggregate.dispose();
+        if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
         d.mesh.dispose();
         this.activeDebrisList.splice(i, 1);
       } else {
-        if (d.aggregate) {
+        if (d.body) {
           const pos = d.mesh.position;
           if (Math.abs(pos.z) > config.Z_FORCE_CLAMP) {
             d.mesh.position.z = 0;
           }
-          const vel = d.aggregate.body.getLinearVelocity();
+          const vel = d.body.getLinearVelocity();
           if (Math.abs(vel.z) > config.Z_FORCE_CLAMP) {
             this.scratchVector.set(vel.x, vel.y, 0);
-            d.aggregate.body.setLinearVelocity(this.scratchVector);
+            d.body.setLinearVelocity(this.scratchVector);
           }
         } else {
           d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
@@ -4097,7 +4114,7 @@ export class JuiceSystem implements ISystem {
 
   private clearDebris(): void {
     for (const d of this.activeDebrisList) {
-      if (d.aggregate) d.aggregate.dispose();
+      if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
       d.mesh.dispose();
     }
     this.activeDebrisList = [];
@@ -5951,47 +5968,45 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
         const wallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
 
-        const physFloor = BABYLON.MeshBuilder.CreateBox(
-          "physFloor",
-          { width: playHalfWidth * 2 + 4, height: 1.0, depth: 6 },
-          scene
-        );
+        const floorWidth = playHalfWidth * 2 + 4;
+        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: floorWidth, height: 1.0, depth: 6 }, scene);
         physFloor.position.set(0, ARENA_CONFIG.VERTICAL.FLOOR_Y - 0.5, 0);
         physFloor.isVisible = false;
-        new BABYLON.PhysicsAggregate(
-          physFloor,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.5, restitution: 0.25 },
+        
+        const floorShape = new BABYLON.PhysicsShapeBox(
+          BABYLON.Vector3.Zero(), 
+          BABYLON.Quaternion.Identity(), 
+          new BABYLON.Vector3(floorWidth, 1.0, 6), 
           scene
         );
+        floorShape.material = { friction: 0.5, restitution: 0.25 };
+        const floorBody = new BABYLON.PhysicsBody(physFloor, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        floorBody.shape = floorShape;
+        floorBody.setMassProperties({ mass: 0 });
 
-        const physLeft = BABYLON.MeshBuilder.CreateBox(
-          "physLeft",
-          { width: wallThickness, height: wallHeight, depth: 6 },
-          scene
-        );
+        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: wallThickness, height: wallHeight, depth: 6 }, scene);
         physLeft.position.set(-(playHalfWidth + wallThickness / 2), wallY, 0);
         physLeft.isVisible = false;
-        new BABYLON.PhysicsAggregate(
-          physLeft,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.3, restitution: 0.4 },
+        
+        const wallShape = new BABYLON.PhysicsShapeBox(
+          BABYLON.Vector3.Zero(), 
+          BABYLON.Quaternion.Identity(), 
+          new BABYLON.Vector3(wallThickness, wallHeight, 6), 
           scene
         );
+        wallShape.material = { friction: 0.3, restitution: 0.4 };
+        const leftBody = new BABYLON.PhysicsBody(physLeft, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        leftBody.shape = wallShape;
+        leftBody.setMassProperties({ mass: 0 });
 
-        const physRight = BABYLON.MeshBuilder.CreateBox(
-          "physRight",
-          { width: wallThickness, height: wallHeight, depth: 6 },
-          scene
-        );
+        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: wallThickness, height: wallHeight, depth: 6 }, scene);
         physRight.position.set((playHalfWidth + wallThickness / 2), wallY, 0);
         physRight.isVisible = false;
-        new BABYLON.PhysicsAggregate(
-          physRight,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.3, restitution: 0.4 },
-          scene
-        );
+        
+        const rightBody = new BABYLON.PhysicsBody(physRight, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        rightBody.shape = wallShape; // V2 REUSE: Sharing the exact same shape as the left wall
+        rightBody.setMassProperties({ mass: 0 });
+
       } catch (err) {
         console.warn(
           "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",

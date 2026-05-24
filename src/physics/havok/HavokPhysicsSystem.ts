@@ -55,47 +55,45 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
         const wallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
 
-        const physFloor = BABYLON.MeshBuilder.CreateBox(
-          "physFloor",
-          { width: playHalfWidth * 2 + 4, height: 1.0, depth: 6 },
-          scene
-        );
+        const floorWidth = playHalfWidth * 2 + 4;
+        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: floorWidth, height: 1.0, depth: 6 }, scene);
         physFloor.position.set(0, ARENA_CONFIG.VERTICAL.FLOOR_Y - 0.5, 0);
         physFloor.isVisible = false;
-        new BABYLON.PhysicsAggregate(
-          physFloor,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.5, restitution: 0.25 },
+        
+        const floorShape = new BABYLON.PhysicsShapeBox(
+          BABYLON.Vector3.Zero(), 
+          BABYLON.Quaternion.Identity(), 
+          new BABYLON.Vector3(floorWidth, 1.0, 6), 
           scene
         );
+        floorShape.material = { friction: 0.5, restitution: 0.25 };
+        const floorBody = new BABYLON.PhysicsBody(physFloor, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        floorBody.shape = floorShape;
+        floorBody.setMassProperties({ mass: 0 });
 
-        const physLeft = BABYLON.MeshBuilder.CreateBox(
-          "physLeft",
-          { width: wallThickness, height: wallHeight, depth: 6 },
-          scene
-        );
+        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: wallThickness, height: wallHeight, depth: 6 }, scene);
         physLeft.position.set(-(playHalfWidth + wallThickness / 2), wallY, 0);
         physLeft.isVisible = false;
-        new BABYLON.PhysicsAggregate(
-          physLeft,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.3, restitution: 0.4 },
+        
+        const wallShape = new BABYLON.PhysicsShapeBox(
+          BABYLON.Vector3.Zero(), 
+          BABYLON.Quaternion.Identity(), 
+          new BABYLON.Vector3(wallThickness, wallHeight, 6), 
           scene
         );
+        wallShape.material = { friction: 0.3, restitution: 0.4 };
+        const leftBody = new BABYLON.PhysicsBody(physLeft, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        leftBody.shape = wallShape;
+        leftBody.setMassProperties({ mass: 0 });
 
-        const physRight = BABYLON.MeshBuilder.CreateBox(
-          "physRight",
-          { width: wallThickness, height: wallHeight, depth: 6 },
-          scene
-        );
+        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: wallThickness, height: wallHeight, depth: 6 }, scene);
         physRight.position.set((playHalfWidth + wallThickness / 2), wallY, 0);
         physRight.isVisible = false;
-        new BABYLON.PhysicsAggregate(
-          physRight,
-          BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.3, restitution: 0.4 },
-          scene
-        );
+        
+        const rightBody = new BABYLON.PhysicsBody(physRight, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        rightBody.shape = wallShape; // V2 REUSE: Sharing the exact same shape as the left wall
+        rightBody.setMassProperties({ mass: 0 });
+
       } catch (err) {
         console.warn(
           "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",
