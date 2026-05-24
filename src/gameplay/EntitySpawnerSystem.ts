@@ -106,7 +106,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
-      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS, subdivisions: 3 },
+      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS, subdivisions: 5 },
       scene
     );
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);

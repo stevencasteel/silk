@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 3:37:07 PM
+ [SYSTEM] Generated: 5/24/2026, 4:17:53 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2917,7 +2917,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
-      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS, subdivisions: 3 },
+      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS, subdivisions: 5 },
       scene
     );
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
@@ -3022,6 +3022,7 @@ export class EntitySpawnerSystem implements ISystem {
     if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
   }
 }
+
 
 
 ● ./src/gameplay/combat/CombatSystem.ts
@@ -3855,9 +3856,6 @@ export class JuiceSystem implements ISystem {
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
-    // ==============================================================================
-    // LAYER 1: OUTER SHELL (20 Flat Triangles flying out quickly)
-    // ==============================================================================
     const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere("shellProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 }, scene);
     const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     const shellInd = proxyShell.getIndices();
@@ -3883,7 +3881,6 @@ export class JuiceSystem implements ISystem {
         vertexData.applyToMesh(customMesh);
         customMesh.convertToFlatShadedMesh();
 
-        // Nullify quaternion to allow Euler rotation to update beautifully
         customMesh.rotationQuaternion = null;
         customMesh.rotation.set(
           Math.random() * Math.PI * 2,
@@ -3891,7 +3888,6 @@ export class JuiceSystem implements ISystem {
           Math.random() * Math.PI * 2
         );
 
-        // Disperse slightly outward so they are completely separated
         customMesh.position = pos.add(centroid).add(outward.scale(0.35));
         customMesh.material = activeMat;
 
@@ -3900,14 +3896,13 @@ export class JuiceSystem implements ISystem {
         const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
         const vz = (Math.random() - 0.5) * 1.5;
 
-        // Dynamic continuous rotational speed
         const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
         const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
         const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
 
         this.activeDebrisList.push({
           mesh: customMesh,
-          body: null, // Managed by our precise 2D planar collision solver
+          body: null,
           velocity: new BABYLON.Vector3(vx, vy, vz),
           angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
           lifeRemaining: config.LIFE * (0.8 + Math.random() * 0.4)
@@ -3916,9 +3911,6 @@ export class JuiceSystem implements ISystem {
     }
     proxyShell.dispose();
 
-    // ==============================================================================
-    // LAYER 2: INNER CORE (8 Heavy Solid Non-Overlapping Octant Shards)
-    // ==============================================================================
     const coreRadius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 0.75;
     const directions = [
       [-1, -1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1],
@@ -3994,7 +3986,6 @@ export class JuiceSystem implements ISystem {
       vertexData.applyToMesh(customMesh);
       customMesh.convertToFlatShadedMesh();
 
-      // Nullify quaternion for Euler rotation to function
       customMesh.rotationQuaternion = null;
       customMesh.rotation.set(
         Math.random() * Math.PI * 2,
@@ -4002,7 +3993,6 @@ export class JuiceSystem implements ISystem {
         Math.random() * Math.PI * 2
       );
 
-      // Create a small outer separation
       customMesh.position = pos.add(centroid).add(outward.scale(0.35));
       customMesh.material = activeMat;
 
@@ -4092,14 +4082,13 @@ export class JuiceSystem implements ISystem {
 
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y + 0.3;
     const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
 
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
       const d = this.activeDebrisList[i];
       d.lifeRemaining -= dt;
 
-      if (d.lifeRemaining <= 0) {
+      if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
         if (d.body) {
            if (d.body.shape) d.body.shape.dispose();
            d.body.dispose();
@@ -4126,7 +4115,6 @@ export class JuiceSystem implements ISystem {
         }
 
         if (!d.body) {
-          // Dynamic 2.5D math physics updates
           d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
 
           const debrisDrag = Math.pow(0.95, dt * 60.0);
@@ -4137,31 +4125,20 @@ export class JuiceSystem implements ISystem {
           d.mesh.position.y += d.velocity.y * dt;
           d.mesh.position.z += d.velocity.z * dt;
 
-          // Tumbling Euler rotations across all axes
           d.mesh.rotation.x += d.angularVelocity.x * dt;
           d.mesh.rotation.y += d.angularVelocity.y * dt;
           d.mesh.rotation.z += d.angularVelocity.z * dt;
 
-          // Elastic Wall Collisions
           if (d.mesh.position.x < -wallLimit) {
             d.mesh.position.x = -wallLimit;
-            d.velocity.x *= -0.65; // Restitution bounce
-            d.angularVelocity.y += (Math.random() - 0.5) * 6.0; // Spin on impact
+            d.velocity.x *= -0.65;
+            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
           } else if (d.mesh.position.x > wallLimit) {
             d.mesh.position.x = wallLimit;
             d.velocity.x *= -0.65;
             d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
           }
 
-          // Elastic Floor Collisions
-          if (d.mesh.position.y < floorY) {
-            d.mesh.position.y = floorY;
-            d.velocity.y *= -0.55;
-            d.velocity.x *= 0.8; // Surface friction
-            d.angularVelocity.x += (Math.random() - 0.5) * 4.0;
-          }
-
-          // Elastic Player Collisions
           if (playerNode) {
             const dx = d.mesh.position.x - playerNode.position.x;
             const dy = d.mesh.position.y - playerNode.position.y;
@@ -4183,7 +4160,6 @@ export class JuiceSystem implements ISystem {
             }
           }
 
-          // Inter-Debris Elastic Collisions
           for (let j = i - 1; j >= 0; j--) {
             const d2 = this.activeDebrisList[j];
             if (d2.body) continue;
@@ -4202,14 +4178,12 @@ export class JuiceSystem implements ISystem {
               const nx = dx / dist;
               const ny = dy / dist;
 
-              // Separate overlapping shapes
               const overlap = minDist - dist;
               d.mesh.position.x -= nx * overlap * 0.5;
               d.mesh.position.y -= ny * overlap * 0.5;
               d2.mesh.position.x += nx * overlap * 0.5;
               d2.mesh.position.y += ny * overlap * 0.5;
 
-              // Elastic response
               const kx = d.velocity.x - d2.velocity.x;
               const ky = d.velocity.y - d2.velocity.y;
               const p = kx * nx + ky * ny;
@@ -4219,7 +4193,6 @@ export class JuiceSystem implements ISystem {
                 d2.velocity.x += nx * p * 0.8;
                 d2.velocity.y += ny * p * 0.8;
 
-                // Add minor rotational spin transfer on crash
                 d.angularVelocity.z += (Math.random() - 0.5) * 3.0;
                 d2.angularVelocity.z += (Math.random() - 0.5) * 3.0;
               }
@@ -6808,22 +6781,70 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
     return shaderLanguage === ShaderLanguage.GLSL;
   }
 
-  public getCustomCode(shaderType: string, shaderLanguage: ShaderLanguage) {
-    if (shaderType === "vertex") {
-      if (shaderLanguage === ShaderLanguage.GLSL) {
+  public getCustomCode(shaderType: string, shaderLanguage?: ShaderLanguage): Record<string, string> | null {
+    if (shaderLanguage === ShaderLanguage.GLSL) {
+      if (shaderType === "vertex") {
         return {
           "CUSTOM_VERTEX_DEFINITIONS": `
             #ifdef NOISE
             uniform float u_noiseTime;
+
+            float getNoiseVal(vec3 pos, float time) {
+                float n = sin(pos.x * 6.0 + time * 5.0) * 
+                          cos(pos.y * 7.0 + time * 6.3) * 
+                          sin(pos.z * 8.0 + time * 4.1);
+                n += sin(pos.y * 15.0 - time * 11.0) * 0.35;
+                return n * 0.08;
+            }
             #endif
           `,
           "CUSTOM_VERTEX_UPDATE_POSITION": `
             #ifdef NOISE
-            float noiseVal = sin(positionUpdated.x * 6.0 + u_noiseTime * 5.0) * 
-                             cos(positionUpdated.y * 7.0 + u_noiseTime * 6.3) * 
-                             sin(positionUpdated.z * 8.0 + u_noiseTime * 4.1);
-            noiseVal += sin(positionUpdated.y * 15.0 - u_noiseTime * 11.0) * 0.35;
-            positionUpdated += normalUpdated * noiseVal * 0.08;
+            float noiseVal = getNoiseVal(positionUpdated, u_noiseTime);
+
+            #ifdef NORMAL
+            vec3 originalNormal = normalUpdated;
+            #else
+            vec3 originalNormal = length(positionUpdated) > 0.0 ? normalize(positionUpdated) : vec3(0.0, 1.0, 0.0);
+            #endif
+
+            float eps = 0.02;
+            float hL = noiseVal;
+            float hR_x = getNoiseVal(positionUpdated + vec3(eps, 0.0, 0.0), u_noiseTime);
+            float hR_y = getNoiseVal(positionUpdated + vec3(0.0, eps, 0.0), u_noiseTime);
+            float hR_z = getNoiseVal(positionUpdated + vec3(0.0, 0.0, eps), u_noiseTime);
+
+            vec3 grad = vec3(hR_x - hL, hR_y - hL, hR_z - hL) / eps;
+
+            positionUpdated += originalNormal * noiseVal;
+
+            #ifdef NORMAL
+            normalUpdated = normalize(originalNormal - grad * 0.5);
+            #endif
+            #endif
+          `
+        };
+      } else if (shaderType === "fragment") {
+        return {
+          "CUSTOM_FRAGMENT_DEFINITIONS": `
+            #ifdef NOISE
+            uniform float u_noiseTime;
+            #endif
+          `,
+          "CUSTOM_FRAGMENT_BEFORE_LIGHTS": `
+            #ifdef NOISE
+            #ifdef NORMAL
+            vec3 pos = vPositionW;
+            float epsF = 0.005;
+            float hLF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
+            float hR_xF = sin((pos.x + epsF) * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
+            float hR_yF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin((pos.y + epsF) * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
+            float hR_zF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin((pos.z + epsF) * 35.0 + u_noiseTime * 18.0) * 0.03;
+
+            vec3 gradF = vec3(hR_xF - hLF, hR_yF - hLF, hR_zF - hLF) / epsF;
+
+            normalW = normalize(normalW - gradF * 0.15);
+            #endif
             #endif
           `
         };
@@ -6873,22 +6894,59 @@ export class WarpMaterialPlugin extends MaterialPluginBase {
     return shaderLanguage === ShaderLanguage.GLSL;
   }
 
-  public getCustomCode(shaderType: string, shaderLanguage: ShaderLanguage) {
-    if (shaderType === "vertex") {
-      if (shaderLanguage === ShaderLanguage.GLSL) {
+  public getCustomCode(shaderType: string, shaderLanguage?: ShaderLanguage): Record<string, string> | null {
+    if (shaderLanguage === ShaderLanguage.GLSL) {
+      if (shaderType === "vertex") {
         return {
           "CUSTOM_VERTEX_DEFINITIONS": `
             #ifdef WARP
             uniform float u_warpIntensity;
             uniform float u_warpTime;
+
+            float getWarpDisplacement(vec3 pos, float intensity, float time) {
+                // Quantize vertical position to simulate coarse SNES horizontal tile lines
+                float tileSize = 0.16;
+                float quantizedY = floor(pos.y / tileSize) * tileSize;
+
+                // Scanner envelope sweeping from head to toe
+                float shiverCenter = 2.5 - time * 10.0;
+                float dist = abs(pos.y - shiverCenter);
+                float envelope = max(0.0, 1.0 - dist / 1.8);
+
+                // Scrolling wave based on quantized tile row
+                float wave = sin(quantizedY * 20.0 + time * 75.0);
+
+                // Quantize the horizontal offset amount to create retro "pixel steps"
+                float pixelStep = 0.06;
+                float steppedWave = floor(wave / pixelStep) * pixelStep;
+
+                return steppedWave * envelope * intensity * 0.45;
+            }
             #endif
           `,
           "CUSTOM_VERTEX_UPDATE_POSITION": `
             #ifdef WARP
-            float shiverCenter = 3.0 - u_warpTime * 10.5;
-            float dist = abs(positionUpdated.y - shiverCenter);
-            float envelope = max(0.0, 1.0 - dist / 1.5);
-            positionUpdated.x += sin(positionUpdated.y * 24.0 + u_warpTime * 70.0) * envelope * u_warpIntensity * 1.30;
+            float displacement = getWarpDisplacement(positionUpdated, u_warpIntensity, u_warpTime);
+
+            #ifdef NORMAL
+            vec3 originalNormal = normalUpdated;
+            #endif
+
+            float eps = 0.02;
+            float hL = displacement;
+            
+            // Only need to sample Y+eps because the displacement only varies vertically (Y)
+            float hR_y = getWarpDisplacement(positionUpdated + vec3(0.0, eps, 0.0), u_warpIntensity, u_warpTime);
+            float d_dy = (hR_y - hL) / eps;
+
+            // Shift ONLY the horizontal X axis to produce the 2D PPU raster effect
+            positionUpdated.x += displacement;
+
+            #ifdef NORMAL
+            // Offset normal's X coordinate according to the shearing slope (Y-derivative)
+            normalUpdated.x -= d_dy * 0.35;
+            normalUpdated = normalize(normalUpdated);
+            #endif
             #endif
           `
         };

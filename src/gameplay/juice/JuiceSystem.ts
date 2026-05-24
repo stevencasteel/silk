@@ -279,9 +279,6 @@ export class JuiceSystem implements ISystem {
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
-    // ==============================================================================
-    // LAYER 1: OUTER SHELL (20 Flat Triangles flying out quickly)
-    // ==============================================================================
     const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere("shellProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 }, scene);
     const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     const shellInd = proxyShell.getIndices();
@@ -307,7 +304,6 @@ export class JuiceSystem implements ISystem {
         vertexData.applyToMesh(customMesh);
         customMesh.convertToFlatShadedMesh();
 
-        // Nullify quaternion to allow Euler rotation to update beautifully
         customMesh.rotationQuaternion = null;
         customMesh.rotation.set(
           Math.random() * Math.PI * 2,
@@ -315,7 +311,6 @@ export class JuiceSystem implements ISystem {
           Math.random() * Math.PI * 2
         );
 
-        // Disperse slightly outward so they are completely separated
         customMesh.position = pos.add(centroid).add(outward.scale(0.35));
         customMesh.material = activeMat;
 
@@ -324,14 +319,13 @@ export class JuiceSystem implements ISystem {
         const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
         const vz = (Math.random() - 0.5) * 1.5;
 
-        // Dynamic continuous rotational speed
         const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
         const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
         const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
 
         this.activeDebrisList.push({
           mesh: customMesh,
-          body: null, // Managed by our precise 2D planar collision solver
+          body: null,
           velocity: new BABYLON.Vector3(vx, vy, vz),
           angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
           lifeRemaining: config.LIFE * (0.8 + Math.random() * 0.4)
@@ -340,9 +334,6 @@ export class JuiceSystem implements ISystem {
     }
     proxyShell.dispose();
 
-    // ==============================================================================
-    // LAYER 2: INNER CORE (8 Heavy Solid Non-Overlapping Octant Shards)
-    // ==============================================================================
     const coreRadius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 0.75;
     const directions = [
       [-1, -1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1],
@@ -418,7 +409,6 @@ export class JuiceSystem implements ISystem {
       vertexData.applyToMesh(customMesh);
       customMesh.convertToFlatShadedMesh();
 
-      // Nullify quaternion for Euler rotation to function
       customMesh.rotationQuaternion = null;
       customMesh.rotation.set(
         Math.random() * Math.PI * 2,
@@ -426,7 +416,6 @@ export class JuiceSystem implements ISystem {
         Math.random() * Math.PI * 2
       );
 
-      // Create a small outer separation
       customMesh.position = pos.add(centroid).add(outward.scale(0.35));
       customMesh.material = activeMat;
 
@@ -516,14 +505,13 @@ export class JuiceSystem implements ISystem {
 
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y + 0.3;
     const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
 
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
       const d = this.activeDebrisList[i];
       d.lifeRemaining -= dt;
 
-      if (d.lifeRemaining <= 0) {
+      if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
         if (d.body) {
            if (d.body.shape) d.body.shape.dispose();
            d.body.dispose();
@@ -550,7 +538,6 @@ export class JuiceSystem implements ISystem {
         }
 
         if (!d.body) {
-          // Dynamic 2.5D math physics updates
           d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
 
           const debrisDrag = Math.pow(0.95, dt * 60.0);
@@ -561,31 +548,20 @@ export class JuiceSystem implements ISystem {
           d.mesh.position.y += d.velocity.y * dt;
           d.mesh.position.z += d.velocity.z * dt;
 
-          // Tumbling Euler rotations across all axes
           d.mesh.rotation.x += d.angularVelocity.x * dt;
           d.mesh.rotation.y += d.angularVelocity.y * dt;
           d.mesh.rotation.z += d.angularVelocity.z * dt;
 
-          // Elastic Wall Collisions
           if (d.mesh.position.x < -wallLimit) {
             d.mesh.position.x = -wallLimit;
-            d.velocity.x *= -0.65; // Restitution bounce
-            d.angularVelocity.y += (Math.random() - 0.5) * 6.0; // Spin on impact
+            d.velocity.x *= -0.65;
+            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
           } else if (d.mesh.position.x > wallLimit) {
             d.mesh.position.x = wallLimit;
             d.velocity.x *= -0.65;
             d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
           }
 
-          // Elastic Floor Collisions
-          if (d.mesh.position.y < floorY) {
-            d.mesh.position.y = floorY;
-            d.velocity.y *= -0.55;
-            d.velocity.x *= 0.8; // Surface friction
-            d.angularVelocity.x += (Math.random() - 0.5) * 4.0;
-          }
-
-          // Elastic Player Collisions
           if (playerNode) {
             const dx = d.mesh.position.x - playerNode.position.x;
             const dy = d.mesh.position.y - playerNode.position.y;
@@ -607,7 +583,6 @@ export class JuiceSystem implements ISystem {
             }
           }
 
-          // Inter-Debris Elastic Collisions
           for (let j = i - 1; j >= 0; j--) {
             const d2 = this.activeDebrisList[j];
             if (d2.body) continue;
@@ -626,14 +601,12 @@ export class JuiceSystem implements ISystem {
               const nx = dx / dist;
               const ny = dy / dist;
 
-              // Separate overlapping shapes
               const overlap = minDist - dist;
               d.mesh.position.x -= nx * overlap * 0.5;
               d.mesh.position.y -= ny * overlap * 0.5;
               d2.mesh.position.x += nx * overlap * 0.5;
               d2.mesh.position.y += ny * overlap * 0.5;
 
-              // Elastic response
               const kx = d.velocity.x - d2.velocity.x;
               const ky = d.velocity.y - d2.velocity.y;
               const p = kx * nx + ky * ny;
@@ -643,7 +616,6 @@ export class JuiceSystem implements ISystem {
                 d2.velocity.x += nx * p * 0.8;
                 d2.velocity.y += ny * p * 0.8;
 
-                // Add minor rotational spin transfer on crash
                 d.angularVelocity.z += (Math.random() - 0.5) * 3.0;
                 d2.angularVelocity.z += (Math.random() - 0.5) * 3.0;
               }
