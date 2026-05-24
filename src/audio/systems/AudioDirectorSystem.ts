@@ -15,21 +15,20 @@ export class AudioDirectorSystem implements ISystem {
   private unsubImpact: (() => void) | null = null;
   private unsubWeaverHit: (() => void) | null = null;
   private unsubState: (() => void) | null = null;
+  private gestureTriggerRef: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
 
   public init(): void {
-    const triggerOnFirstGesture = (): void => {
+    this.gestureTriggerRef = (): void => {
       this.bootAudioEngine();
-      window.removeEventListener("click", triggerOnFirstGesture);
-      window.removeEventListener("keydown", triggerOnFirstGesture);
-      window.removeEventListener("touchend", triggerOnFirstGesture);
-      window.removeEventListener("mousedown", triggerOnFirstGesture);
+      this.removeGestureListeners();
     };
-    window.addEventListener("click", triggerOnFirstGesture);
-    window.addEventListener("keydown", triggerOnFirstGesture);
-    window.addEventListener("touchend", triggerOnFirstGesture);
-    window.addEventListener("mousedown", triggerOnFirstGesture);
+
+    window.addEventListener("click", this.gestureTriggerRef);
+    window.addEventListener("keydown", this.gestureTriggerRef);
+    window.addEventListener("touchend", this.gestureTriggerRef);
+    window.addEventListener("mousedown", this.gestureTriggerRef);
 
     this.unsub = this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, (payload) => {
       if (this.initialized && this.tensionSynth) {
@@ -54,6 +53,16 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   public update(): void {}
+
+  private removeGestureListeners(): void {
+    if (this.gestureTriggerRef) {
+      window.removeEventListener("click", this.gestureTriggerRef);
+      window.removeEventListener("keydown", this.gestureTriggerRef);
+      window.removeEventListener("touchend", this.gestureTriggerRef);
+      window.removeEventListener("mousedown", this.gestureTriggerRef);
+      this.gestureTriggerRef = null;
+    }
+  }
 
   private bootAudioEngine(): void {
     if (this.initialized) return;
@@ -89,6 +98,7 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   public dispose(): void {
+    this.removeGestureListeners();
     if (this.unsub) this.unsub();
     if (this.unsubImpact) this.unsubImpact();
     if (this.unsubWeaverHit) this.unsubWeaverHit();
