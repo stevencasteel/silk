@@ -15,9 +15,11 @@ interface PooledParticle {
   active: boolean;
 }
 
-interface PhysicalDebris {
+interface ActiveDebris {
   mesh: BABYLON.Mesh;
-  aggregate: BABYLON.PhysicsAggregate;
+  aggregate: BABYLON.PhysicsAggregate | null;
+  velocity: BABYLON.Vector3;
+  angularVelocity: BABYLON.Vector3;
   lifeRemaining: number;
 }
 
@@ -30,7 +32,7 @@ export class JuiceSystem implements ISystem {
   private parentNode: BABYLON.TransformNode | null = null;
   private unsubscribes: (() => void)[] = [];
 
-  private physicalDebrisList: PhysicalDebris[] = [];
+  private activeDebrisList: ActiveDebris[] = [];
   private debrisMat: BABYLON.PBRMaterial | null = null;
 
   private scratchVector = new BABYLON.Vector3();
@@ -237,44 +239,66 @@ export class JuiceSystem implements ISystem {
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
     if (!this.debrisMat) return;
 
-    if (!scene.isPhysicsEnabled()) {
-      this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
-      return;
-    }
+    const weaverMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.Mesh | null;
+    const activeMat = weaverMesh?.material || this.debrisMat;
+    const usePhysics = scene.isPhysicsEnabled();
 
-    const count = 25;
+    const count = 12;
     for (let i = 0; i < count; i++) {
-      const size = 0.3 + Math.random() * 0.5;
-      const cube = BABYLON.MeshBuilder.CreateBox(
-        "debris_" + Date.now() + "_" + i,
-        { size: size },
-        scene
+      const size = 1.0 + Math.random() * 1.5;
+
+      let chunk: BABYLON.Mesh;
+      if (i % 2 === 0) {
+        chunk = BABYLON.MeshBuilder.CreateCylinder(
+          "debris_shard_" + Date.now() + "_" + i,
+          { diameterTop: 0, diameterBottom: size, height: size * 1.2, tessellation: 5 },
+          scene
+        );
+      } else {
+        chunk = BABYLON.MeshBuilder.CreateBox(
+          "debris_shard_" + Date.now() + "_" + i,
+          { width: size, height: size * 0.4, depth: size },
+          scene
+        );
+      }
+
+      chunk.position.copyFrom(pos);
+      chunk.position.x += (Math.random() - 0.5) * 1.2;
+      chunk.position.y += (Math.random() - 0.5) * 1.2;
+      chunk.material = activeMat;
+
+      chunk.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
       );
-      cube.position.copyFrom(pos);
-      cube.position.x += (Math.random() - 0.5) * 0.5;
-      cube.position.y += (Math.random() - 0.5) * 0.5;
-      cube.material = this.debrisMat;
 
-      const agg = new BABYLON.PhysicsAggregate(
-        cube,
-        BABYLON.PhysicsShapeType.BOX,
-        { mass: 1.0, friction: 0.6, restitution: 0.4 },
-        scene
-      );
+      let agg: BABYLON.PhysicsAggregate | null = null;
+      const vx = (Math.random() - 0.5) * 18.0;
+      const vy = 5.0 + Math.random() * 14.0;
+      const vz = (Math.random() - 0.5) * 8.0;
 
-      const vx = (Math.random() - 0.5) * 14.0;
-      const vy = 4.0 + Math.random() * 12.0;
-      const vz = (Math.random() - 0.5) * 6.0;
+      const rx = (Math.random() - 0.5) * 12.0;
+      const ry = (Math.random() - 0.5) * 12.0;
+      const rz = (Math.random() - 0.5) * 12.0;
 
-      agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
-      agg.body.setAngularVelocity(
-        new BABYLON.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10)
-      );
+      if (usePhysics) {
+        agg = new BABYLON.PhysicsAggregate(
+          chunk,
+          BABYLON.PhysicsShapeType.BOX,
+          { mass: 3.0, friction: 0.5, restitution: 0.2 },
+          scene
+        );
+        agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+        agg.body.setAngularVelocity(new BABYLON.Vector3(rx, ry, rz));
+      }
 
-      this.physicalDebrisList.push({
-        mesh: cube,
+      this.activeDebrisList.push({
+        mesh: chunk,
         aggregate: agg,
-        lifeRemaining: 6.0
+        velocity: new BABYLON.Vector3(vx, vy, vz),
+        angularVelocity: new BABYLON.Vector3(rx, ry, rz),
+        lifeRemaining: 5.0
       });
     }
   }
@@ -301,41 +325,57 @@ export class JuiceSystem implements ISystem {
       p.mesh.scaling.set(ratio, ratio, ratio);
     }
 
-    for (let i = this.physicalDebrisList.length - 1; i >= 0; i--) {
-      const d = this.physicalDebrisList[i];
+    for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
+      const d = this.activeDebrisList[i];
       d.lifeRemaining -= dt;
 
       if (d.lifeRemaining <= 0) {
-        d.aggregate.dispose();
+        if (d.aggregate) d.aggregate.dispose();
         d.mesh.dispose();
-        this.physicalDebrisList.splice(i, 1);
+        this.activeDebrisList.splice(i, 1);
       } else {
-        const pos = d.mesh.position;
-        if (Math.abs(pos.z) > 0.01) {
-          d.mesh.position.z = 0;
+        if (d.aggregate) {
+          const pos = d.mesh.position;
+          if (Math.abs(pos.z) > 0.01) {
+            d.mesh.position.z = 0;
+          }
+          const vel = d.aggregate.body.getLinearVelocity();
+          if (Math.abs(vel.z) > 0.01) {
+            this.scratchVector.set(vel.x, vel.y, 0);
+            d.aggregate.body.setLinearVelocity(this.scratchVector);
+          }
+        } else {
+          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
+          d.mesh.position.x += d.velocity.x * dt;
+          d.mesh.position.y += d.velocity.y * dt;
+          d.mesh.rotation.x += d.angularVelocity.x * dt;
+          d.mesh.rotation.y += d.angularVelocity.y * dt;
+          d.mesh.rotation.z += d.angularVelocity.z * dt;
         }
-        const vel = d.aggregate.body.getLinearVelocity();
-        if (Math.abs(vel.z) > 0.01) {
-          this.scratchVector.set(vel.x, vel.y, 0);
-          d.aggregate.body.setLinearVelocity(this.scratchVector);
+
+        if (d.lifeRemaining < 1.5) {
+          const ratio = d.lifeRemaining / 1.5;
+          d.mesh.scaling.set(ratio, ratio, ratio);
         }
       }
     }
   }
 
   private clearDebris(): void {
-    for (const d of this.physicalDebrisList) {
-      d.aggregate.dispose();
+    for (const d of this.activeDebrisList) {
+      if (d.aggregate) d.aggregate.dispose();
       d.mesh.dispose();
     }
-    this.physicalDebrisList = [];
+    this.activeDebrisList = [];
   }
 
   public dispose(): void {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     this.clearDebris();
-    if (this.parentNode) this.parentNode.dispose();
+    if (this.parentNode) {
+      this.parentNode.dispose();
+    }
     this.particlePool.forEach((p) => {
       p.mesh.dispose();
       if (p.mesh.material) p.mesh.material.dispose();

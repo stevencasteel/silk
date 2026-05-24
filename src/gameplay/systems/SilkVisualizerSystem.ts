@@ -15,13 +15,22 @@ export class SilkVisualizerSystem implements ISystem {
   private readonly MAX_RADIUS = 0.13;
 
   private silkMesh: BABYLON.Mesh | null = null;
+  private silkMeshAnchor: BABYLON.Mesh | null = null;
+  private silkMeshPlayer: BABYLON.Mesh | null = null;
   private silkMat: BABYLON.PBRMaterial | null = null;
+  
   private points: BABYLON.Vector3[] = [];
+  private pointsAnchor: BABYLON.Vector3[] = [];
+  private pointsPlayer: BABYLON.Vector3[] = [];
 
   private scratchAnchor = new BABYLON.Vector3();
   private scratchPlayer = new BABYLON.Vector3();
   private scratchCtrl = new BABYLON.Vector3();
   private scratchPt = new BABYLON.Vector3();
+
+  private isSnapped = false;
+  private snapTimer = 0.0;
+  private readonly maxSnapDuration = 1.5;
 
   constructor(
     private refs: EntityRefs,
@@ -31,6 +40,10 @@ export class SilkVisualizerSystem implements ISystem {
   ) {
     for (let i = 0; i <= this.SEGMENTS; i++) {
       this.points.push(new BABYLON.Vector3(0, 0, 0));
+    }
+    for (let i = 0; i <= 12; i++) {
+      this.pointsAnchor.push(new BABYLON.Vector3(0, 0, 0));
+      this.pointsPlayer.push(new BABYLON.Vector3(0, 0, 0));
     }
   }
 
@@ -61,95 +74,206 @@ export class SilkVisualizerSystem implements ISystem {
       scene
     );
     this.silkMesh.material = this.silkMat;
+
+    this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube(
+      "tetherTubeAnchor",
+      {
+        path: this.pointsAnchor,
+        radius: this.BASE_RADIUS,
+        tessellation: 8,
+        cap: BABYLON.Mesh.NO_CAP,
+        updatable: true
+      },
+      scene
+    );
+    this.silkMeshAnchor.material = this.silkMat;
+    this.silkMeshAnchor.setEnabled(false);
+
+    this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube(
+      "tetherTubePlayer",
+      {
+        path: this.pointsPlayer,
+        radius: this.BASE_RADIUS,
+        tessellation: 8,
+        cap: BABYLON.Mesh.NO_CAP,
+        updatable: true
+      },
+      scene
+    );
+    this.silkMeshPlayer.material = this.silkMat;
+    this.silkMeshPlayer.setEnabled(false);
   }
 
   public render(alpha: number): void {
-    if (!this.silkMesh || !this.silkMat) return;
+    if (!this.silkMesh || !this.silkMat || !this.silkMeshAnchor || !this.silkMeshPlayer) return;
 
     const pTrans = this.transforms.get(this.refs.player);
     const silk = this.silks.get(this.refs.player);
-    if (!pTrans || !silk || !silk.isAttached) {
-      if (this.silkMesh) this.silkMesh.setEnabled(false);
-      return;
+    if (!pTrans || !silk) return;
+
+    if (silk.isAttached) {
+      this.isSnapped = false;
+      this.snapTimer = 0.0;
+      this.silkMesh.setEnabled(true);
+      this.silkMeshAnchor.setEnabled(false);
+      this.silkMeshPlayer.setEnabled(false);
+
+      const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
+      const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
+      this.scratchPlayer.set(px, py, 0);
+
+      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+
+      const tension = Math.max(0, Math.min(1, silk.tension));
+
+      const timeMs = performance.now();
+      const frequency = 0.025;
+      const vibPhase = timeMs * frequency;
+      const vibAmp = Math.max(0, tension - 0.7) * 0.35;
+      const vibOffset = Math.sin(vibPhase) * vibAmp;
+
+      const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
+      const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
+      const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
+      this.scratchCtrl.set(midX, midY - sag, 0.35);
+
+      for (let i = 0; i <= this.SEGMENTS; i++) {
+        const t = i / this.SEGMENTS;
+        const t1 = 1 - t;
+        const pt = this.points[i];
+        pt.x =
+          t1 * t1 * this.scratchAnchor.x +
+          2 * t1 * t * this.scratchCtrl.x +
+          t * t * this.scratchPlayer.x;
+        pt.y =
+          t1 * t1 * this.scratchAnchor.y +
+          2 * t1 * t * this.scratchCtrl.y +
+          t * t * this.scratchPlayer.y;
+        pt.z =
+          t1 * t1 * this.scratchAnchor.z +
+          2 * t1 * t * this.scratchCtrl.z +
+          t * t * this.scratchPlayer.z;
+
+        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5 + timeMs * 0.005) * 0.12;
+      }
+
+      const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
+      this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+        path: this.points,
+        radius: radius,
+        tessellation: 8,
+        cap: BABYLON.Mesh.NO_CAP,
+        instance: this.silkMesh
+      });
+
+      const r = tension < 0.5 ? 0.55 + tension * 0.9 : 1.0;
+      const g = tension < 0.5 ? 0.78 + tension * 0.44 : 1.0 - (tension - 0.5) * 1.1;
+      const b = tension < 0.5 ? 1.0 - tension * 0.2 : 0.9 - (tension - 0.5) * 1.7;
+
+      this.silkMat.albedoColor.set(
+        Math.max(0, Math.min(1, r)),
+        Math.max(0, Math.min(1, g)),
+        Math.max(0, Math.min(1, b))
+      );
+
+      const eBrightness = 0.1 + tension * 0.5;
+      this.silkMat.emissiveColor.set(
+        eBrightness * (0.3 + tension * 0.7),
+        eBrightness * (0.6 - tension * 0.4),
+        eBrightness * (1.0 - tension * 0.9)
+      );
+    } else {
+      this.silkMesh.setEnabled(false);
+
+      if (!this.isSnapped) {
+        this.isSnapped = true;
+        this.snapTimer = 0.0;
+      }
+
+      this.snapTimer += 0.016;
+      if (this.snapTimer >= this.maxSnapDuration) {
+        this.silkMeshAnchor.setEnabled(false);
+        this.silkMeshPlayer.setEnabled(false);
+        return;
+      }
+
+      this.silkMeshAnchor.setEnabled(true);
+      this.silkMeshPlayer.setEnabled(true);
+
+      const T = this.snapTimer / this.maxSnapDuration;
+
+      const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
+      const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
+      this.scratchPlayer.set(px, py, 0);
+      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+
+      const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
+      const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
+      const sag = this.MAX_SAG * (1.0 - silk.tension);
+      this.scratchCtrl.set(midX, midY - sag, 0.35);
+
+      const maxAnchorT = (1 - T) * 0.5;
+      const whipOffset = Math.sin(T * Math.PI * 5) * (1 - T) * 1.8;
+
+      for (let i = 0; i <= 12; i++) {
+        const subT = (i / 12) * maxAnchorT;
+        const t1 = 1 - subT;
+        const pt = this.pointsAnchor[i];
+        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
+        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
+        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+
+        const endWeight = (i / 12);
+        pt.x += whipOffset * endWeight;
+        pt.y += Math.abs(whipOffset) * 0.4 * endWeight;
+      }
+
+      const minPlayerT = 0.5 + T * 0.5;
+      const playerWhip = Math.sin(T * Math.PI * 5 + Math.PI) * (1 - T) * 1.8;
+      const gravityDrop = T * T * -9.81 * 0.8;
+
+      for (let i = 0; i <= 12; i++) {
+        const subT = minPlayerT + (i / 12) * (1.0 - minPlayerT);
+        const t1 = 1 - subT;
+        const pt = this.pointsPlayer[i];
+        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
+        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
+        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+
+        const endWeight = 1.0 - (i / 12);
+        pt.x += playerWhip * endWeight;
+        pt.y += (playerWhip * 0.4 + gravityDrop) * endWeight;
+      }
+
+      const radius = this.BASE_RADIUS * (1 - T);
+      if (radius > 0.01) {
+        this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube("tetherTubeAnchor", {
+          path: this.pointsAnchor,
+          radius: radius,
+          tessellation: 8,
+          cap: BABYLON.Mesh.NO_CAP,
+          instance: this.silkMeshAnchor
+        });
+        this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube("tetherTubePlayer", {
+          path: this.pointsPlayer,
+          radius: radius,
+          tessellation: 8,
+          cap: BABYLON.Mesh.NO_CAP,
+          instance: this.silkMeshPlayer
+        });
+      } else {
+        this.silkMeshAnchor.setEnabled(false);
+        this.silkMeshPlayer.setEnabled(false);
+      }
     }
-    this.silkMesh.setEnabled(true);
-
-    const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
-    const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
-    this.scratchPlayer.set(px, py, 0);
-
-    this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
-
-    const tension = Math.max(0, Math.min(1, silk.tension));
-
-    const timeMs = performance.now();
-    const frequency = 0.025;
-    const vibPhase = timeMs * frequency;
-    const vibAmp = Math.max(0, tension - 0.7) * 0.35;
-    const vibOffset = Math.sin(vibPhase) * vibAmp;
-
-    const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
-    const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-    const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
-    this.scratchCtrl.set(midX, midY - sag, 0.35);
-
-    for (let i = 0; i <= this.SEGMENTS; i++) {
-      const t = i / this.SEGMENTS;
-      const t1 = 1 - t;
-      const pt = this.points[i];
-      pt.x =
-        t1 * t1 * this.scratchAnchor.x +
-        2 * t1 * t * this.scratchCtrl.x +
-        t * t * this.scratchPlayer.x;
-      pt.y =
-        t1 * t1 * this.scratchAnchor.y +
-        2 * t1 * t * this.scratchCtrl.y +
-        t * t * this.scratchPlayer.y;
-      pt.z =
-        t1 * t1 * this.scratchAnchor.z +
-        2 * t1 * t * this.scratchCtrl.z +
-        t * t * this.scratchPlayer.z;
-
-      pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5 + timeMs * 0.005) * 0.12;
-    }
-
-    const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
-    this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
-      path: this.points,
-      radius: radius,
-      tessellation: 8,
-      cap: BABYLON.Mesh.NO_CAP,
-      instance: this.silkMesh
-    });
-
-    const r = tension < 0.5 ? 0.55 + tension * 0.9 : 1.0;
-    const g = tension < 0.5 ? 0.78 + tension * 0.44 : 1.0 - (tension - 0.5) * 1.1;
-    const b = tension < 0.5 ? 1.0 - tension * 0.2 : 0.9 - (tension - 0.5) * 1.7;
-
-    this.silkMat.albedoColor.set(
-      Math.max(0, Math.min(1, r)),
-      Math.max(0, Math.min(1, g)),
-      Math.max(0, Math.min(1, b))
-    );
-
-    const eBrightness = 0.1 + tension * 0.5;
-    this.silkMat.emissiveColor.set(
-      eBrightness * (0.3 + tension * 0.7),
-      eBrightness * (0.6 - tension * 0.4),
-      eBrightness * (1.0 - tension * 0.9)
-    );
 
     this.scratchPt.set(0, 0, 0);
   }
 
   public dispose(): void {
-    if (this.silkMesh) {
-      this.silkMesh.dispose();
-      this.silkMesh = null;
-    }
-    if (this.silkMat) {
-      this.silkMat.dispose();
-      this.silkMat = null;
-    }
+    if (this.silkMesh) this.silkMesh.dispose();
+    if (this.silkMeshAnchor) this.silkMeshAnchor.dispose();
+    if (this.silkMeshPlayer) this.silkMeshPlayer.dispose();
+    if (this.silkMat) this.silkMat.dispose();
   }
 }

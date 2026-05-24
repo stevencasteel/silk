@@ -4,6 +4,7 @@ import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
+import { GameDirectorSystem } from "../../gameplay/systems/GameDirectorSystem";
 
 export class Engine {
   private loop: GameLoop;
@@ -120,7 +121,8 @@ export class Engine {
       isHitStop = true;
     }
 
-    this.systemManager.updateAll(dt, isHitStop);
+    const scaledDt = dt * GameDirectorSystem.timeScale;
+    this.systemManager.updateAll(scaledDt, isHitStop);
   }
 
   private render(alpha: number): void {

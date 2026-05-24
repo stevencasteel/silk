@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 9:33:46 AM
+ [SYSTEM] Generated: 5/24/2026, 9:52:25 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1445,6 +1445,9 @@ export class LightingSystem implements ISystem {
   private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
   private currentColor = new BABYLON.Color3(0.3, 0.3, 0.4);
 
+  private flashTimer = 0.0;
+  private isFlashing = false;
+
   constructor(
     private broker: EventBroker,
     private visualRegistry: IVisualRegistry
@@ -1466,19 +1469,47 @@ export class LightingSystem implements ISystem {
     this.unsub = this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
       this.setWeaverPhaseHue(payload.hue);
     });
+
+    this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+      this.triggerFlash();
+    });
+
+    this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+      this.triggerFlash();
+    });
   }
 
   public update(dt: number): void {
     if (!this.weaverLight) return;
 
-    BABYLON.Color3.LerpToRef(
-      this.currentColor,
-      this.targetColor,
-      Math.min(1, dt * 4),
-      this.currentColor
-    );
+    if (this.isFlashing) {
+      this.flashTimer -= dt;
+      if (this.flashTimer <= 0) {
+        this.isFlashing = false;
+      }
+      BABYLON.Color3.LerpToRef(
+        this.currentColor,
+        this.targetColor,
+        Math.min(1, dt * 5.0),
+        this.currentColor
+      );
+    } else {
+      BABYLON.Color3.LerpToRef(
+        this.currentColor,
+        this.targetColor,
+        Math.min(1, dt * 4),
+        this.currentColor
+      );
+    }
+
     this.weaverLight.diffuse.copyFrom(this.currentColor);
     this.weaverLight.specular.copyFrom(this.currentColor);
+  }
+
+  private triggerFlash(): void {
+    this.isFlashing = true;
+    this.flashTimer = 0.6;
+    this.currentColor.set(2.0, 2.0, 2.0);
   }
 
   private setWeaverPhaseHue(colorHex: string): void {
@@ -1590,9 +1621,11 @@ interface PooledParticle {
   active: boolean;
 }
 
-interface PhysicalDebris {
+interface ActiveDebris {
   mesh: BABYLON.Mesh;
-  aggregate: BABYLON.PhysicsAggregate;
+  aggregate: BABYLON.PhysicsAggregate | null;
+  velocity: BABYLON.Vector3;
+  angularVelocity: BABYLON.Vector3;
   lifeRemaining: number;
 }
 
@@ -1605,7 +1638,7 @@ export class JuiceSystem implements ISystem {
   private parentNode: BABYLON.TransformNode | null = null;
   private unsubscribes: (() => void)[] = [];
 
-  private physicalDebrisList: PhysicalDebris[] = [];
+  private activeDebrisList: ActiveDebris[] = [];
   private debrisMat: BABYLON.PBRMaterial | null = null;
 
   private scratchVector = new BABYLON.Vector3();
@@ -1812,44 +1845,66 @@ export class JuiceSystem implements ISystem {
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
     if (!this.debrisMat) return;
 
-    if (!scene.isPhysicsEnabled()) {
-      this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
-      return;
-    }
+    const weaverMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.Mesh | null;
+    const activeMat = weaverMesh?.material || this.debrisMat;
+    const usePhysics = scene.isPhysicsEnabled();
 
-    const count = 25;
+    const count = 12;
     for (let i = 0; i < count; i++) {
-      const size = 0.3 + Math.random() * 0.5;
-      const cube = BABYLON.MeshBuilder.CreateBox(
-        "debris_" + Date.now() + "_" + i,
-        { size: size },
-        scene
+      const size = 1.0 + Math.random() * 1.5;
+
+      let chunk: BABYLON.Mesh;
+      if (i % 2 === 0) {
+        chunk = BABYLON.MeshBuilder.CreateCylinder(
+          "debris_shard_" + Date.now() + "_" + i,
+          { diameterTop: 0, diameterBottom: size, height: size * 1.2, tessellation: 5 },
+          scene
+        );
+      } else {
+        chunk = BABYLON.MeshBuilder.CreateBox(
+          "debris_shard_" + Date.now() + "_" + i,
+          { width: size, height: size * 0.4, depth: size },
+          scene
+        );
+      }
+
+      chunk.position.copyFrom(pos);
+      chunk.position.x += (Math.random() - 0.5) * 1.2;
+      chunk.position.y += (Math.random() - 0.5) * 1.2;
+      chunk.material = activeMat;
+
+      chunk.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
       );
-      cube.position.copyFrom(pos);
-      cube.position.x += (Math.random() - 0.5) * 0.5;
-      cube.position.y += (Math.random() - 0.5) * 0.5;
-      cube.material = this.debrisMat;
 
-      const agg = new BABYLON.PhysicsAggregate(
-        cube,
-        BABYLON.PhysicsShapeType.BOX,
-        { mass: 1.0, friction: 0.6, restitution: 0.4 },
-        scene
-      );
+      let agg: BABYLON.PhysicsAggregate | null = null;
+      const vx = (Math.random() - 0.5) * 18.0;
+      const vy = 5.0 + Math.random() * 14.0;
+      const vz = (Math.random() - 0.5) * 8.0;
 
-      const vx = (Math.random() - 0.5) * 14.0;
-      const vy = 4.0 + Math.random() * 12.0;
-      const vz = (Math.random() - 0.5) * 6.0;
+      const rx = (Math.random() - 0.5) * 12.0;
+      const ry = (Math.random() - 0.5) * 12.0;
+      const rz = (Math.random() - 0.5) * 12.0;
 
-      agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
-      agg.body.setAngularVelocity(
-        new BABYLON.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10)
-      );
+      if (usePhysics) {
+        agg = new BABYLON.PhysicsAggregate(
+          chunk,
+          BABYLON.PhysicsShapeType.BOX,
+          { mass: 3.0, friction: 0.5, restitution: 0.2 },
+          scene
+        );
+        agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+        agg.body.setAngularVelocity(new BABYLON.Vector3(rx, ry, rz));
+      }
 
-      this.physicalDebrisList.push({
-        mesh: cube,
+      this.activeDebrisList.push({
+        mesh: chunk,
         aggregate: agg,
-        lifeRemaining: 6.0
+        velocity: new BABYLON.Vector3(vx, vy, vz),
+        angularVelocity: new BABYLON.Vector3(rx, ry, rz),
+        lifeRemaining: 5.0
       });
     }
   }
@@ -1876,41 +1931,57 @@ export class JuiceSystem implements ISystem {
       p.mesh.scaling.set(ratio, ratio, ratio);
     }
 
-    for (let i = this.physicalDebrisList.length - 1; i >= 0; i--) {
-      const d = this.physicalDebrisList[i];
+    for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
+      const d = this.activeDebrisList[i];
       d.lifeRemaining -= dt;
 
       if (d.lifeRemaining <= 0) {
-        d.aggregate.dispose();
+        if (d.aggregate) d.aggregate.dispose();
         d.mesh.dispose();
-        this.physicalDebrisList.splice(i, 1);
+        this.activeDebrisList.splice(i, 1);
       } else {
-        const pos = d.mesh.position;
-        if (Math.abs(pos.z) > 0.01) {
-          d.mesh.position.z = 0;
+        if (d.aggregate) {
+          const pos = d.mesh.position;
+          if (Math.abs(pos.z) > 0.01) {
+            d.mesh.position.z = 0;
+          }
+          const vel = d.aggregate.body.getLinearVelocity();
+          if (Math.abs(vel.z) > 0.01) {
+            this.scratchVector.set(vel.x, vel.y, 0);
+            d.aggregate.body.setLinearVelocity(this.scratchVector);
+          }
+        } else {
+          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
+          d.mesh.position.x += d.velocity.x * dt;
+          d.mesh.position.y += d.velocity.y * dt;
+          d.mesh.rotation.x += d.angularVelocity.x * dt;
+          d.mesh.rotation.y += d.angularVelocity.y * dt;
+          d.mesh.rotation.z += d.angularVelocity.z * dt;
         }
-        const vel = d.aggregate.body.getLinearVelocity();
-        if (Math.abs(vel.z) > 0.01) {
-          this.scratchVector.set(vel.x, vel.y, 0);
-          d.aggregate.body.setLinearVelocity(this.scratchVector);
+
+        if (d.lifeRemaining < 1.5) {
+          const ratio = d.lifeRemaining / 1.5;
+          d.mesh.scaling.set(ratio, ratio, ratio);
         }
       }
     }
   }
 
   private clearDebris(): void {
-    for (const d of this.physicalDebrisList) {
-      d.aggregate.dispose();
+    for (const d of this.activeDebrisList) {
+      if (d.aggregate) d.aggregate.dispose();
       d.mesh.dispose();
     }
-    this.physicalDebrisList = [];
+    this.activeDebrisList = [];
   }
 
   public dispose(): void {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     this.clearDebris();
-    if (this.parentNode) this.parentNode.dispose();
+    if (this.parentNode) {
+      this.parentNode.dispose();
+    }
     this.particlePool.forEach((p) => {
       p.mesh.dispose();
       if (p.mesh.material) p.mesh.material.dispose();
@@ -2654,6 +2725,7 @@ import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
+import { GameDirectorSystem } from "../../gameplay/systems/GameDirectorSystem";
 
 export class Engine {
   private loop: GameLoop;
@@ -2770,7 +2842,8 @@ export class Engine {
       isHitStop = true;
     }
 
-    this.systemManager.updateAll(dt, isHitStop);
+    const scaledDt = dt * GameDirectorSystem.timeScale;
+    this.systemManager.updateAll(scaledDt, isHitStop);
   }
 
   private render(alpha: number): void {
@@ -3354,8 +3427,7 @@ export class WeaverDefeatedState implements IWeaverState {
       z: 0
     });
     ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
-    ctx.broker.publish(GameEvent.GAME_WIN, undefined);
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.0 });
+    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.4 });
   }
 
   public exit(): void {}
@@ -3737,10 +3809,16 @@ import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
+  public static timeScale = 1.0;
+
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
   private HASH = String.fromCharCode(35);
   private unsubscribes: (() => void)[] = [];
+
+  private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
+  private cinematicTimer = 0.0;
+  private maxCinematicSimTime = 0.0;
 
   constructor(
     private broker: EventBroker,
@@ -3758,19 +3836,36 @@ export class GameDirectorSystem implements ISystem {
   public init(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-        if (this.gameState === "PLAYING") {
-          this.gameState = "GAME_OVER";
-          this.broker.publish(GameEvent.GAME_OVER, undefined);
+        if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          this.activeCinematic = "PLAYER_DEATH";
+          this.cinematicTimer = 0.0;
+          this.maxCinematicSimTime = 0.60;
+          GameDirectorSystem.timeScale = 0.20;
+
+          const pSilk = this.silks.get(this.refs.player);
+          if (pSilk) {
+            pSilk.isAttached = false;
+            pSilk.tension = 0.0;
+          }
+
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.2 });
         }
       })
     );
+
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        if (this.gameState === "PLAYING") {
-          this.gameState = "VICTORY";
+      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          this.activeCinematic = "WEAVER_DEATH";
+          this.cinematicTimer = 0.0;
+          this.maxCinematicSimTime = 0.875;
+          GameDirectorSystem.timeScale = 0.25;
+
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 2.2, duration: 0.7 });
         }
       })
     );
+
     window.addEventListener("keydown", this.handleKeyDown);
   }
 
@@ -3780,15 +3875,36 @@ export class GameDirectorSystem implements ISystem {
     }
   };
 
-  public update(): void {
+  public update(dt: number): void {
     if (this.resetRequested) {
       this.resetGame();
       this.resetRequested = false;
+      return;
+    }
+
+    if (this.activeCinematic !== "NONE") {
+      this.cinematicTimer += dt;
+      if (this.cinematicTimer >= this.maxCinematicSimTime) {
+        const finishedCinematic = this.activeCinematic;
+        this.activeCinematic = "NONE";
+        GameDirectorSystem.timeScale = 1.0;
+
+        if (finishedCinematic === "PLAYER_DEATH") {
+          this.gameState = "GAME_OVER";
+          this.broker.publish(GameEvent.GAME_OVER, undefined);
+        } else if (finishedCinematic === "WEAVER_DEATH") {
+          this.gameState = "VICTORY";
+          this.broker.publish(GameEvent.GAME_WIN, undefined);
+        }
+      }
     }
   }
 
   private resetGame(): void {
     this.gameState = "PLAYING";
+    this.activeCinematic = "NONE";
+    this.cinematicTimer = 0.0;
+    GameDirectorSystem.timeScale = 1.0;
 
     const pTrans = this.transforms.get(this.refs.player);
     const pHealth = this.healths.get(this.refs.player);
@@ -4269,13 +4385,22 @@ export class SilkVisualizerSystem implements ISystem {
   private readonly MAX_RADIUS = 0.13;
 
   private silkMesh: BABYLON.Mesh | null = null;
+  private silkMeshAnchor: BABYLON.Mesh | null = null;
+  private silkMeshPlayer: BABYLON.Mesh | null = null;
   private silkMat: BABYLON.PBRMaterial | null = null;
+  
   private points: BABYLON.Vector3[] = [];
+  private pointsAnchor: BABYLON.Vector3[] = [];
+  private pointsPlayer: BABYLON.Vector3[] = [];
 
   private scratchAnchor = new BABYLON.Vector3();
   private scratchPlayer = new BABYLON.Vector3();
   private scratchCtrl = new BABYLON.Vector3();
   private scratchPt = new BABYLON.Vector3();
+
+  private isSnapped = false;
+  private snapTimer = 0.0;
+  private readonly maxSnapDuration = 1.5;
 
   constructor(
     private refs: EntityRefs,
@@ -4285,6 +4410,10 @@ export class SilkVisualizerSystem implements ISystem {
   ) {
     for (let i = 0; i <= this.SEGMENTS; i++) {
       this.points.push(new BABYLON.Vector3(0, 0, 0));
+    }
+    for (let i = 0; i <= 12; i++) {
+      this.pointsAnchor.push(new BABYLON.Vector3(0, 0, 0));
+      this.pointsPlayer.push(new BABYLON.Vector3(0, 0, 0));
     }
   }
 
@@ -4315,96 +4444,207 @@ export class SilkVisualizerSystem implements ISystem {
       scene
     );
     this.silkMesh.material = this.silkMat;
+
+    this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube(
+      "tetherTubeAnchor",
+      {
+        path: this.pointsAnchor,
+        radius: this.BASE_RADIUS,
+        tessellation: 8,
+        cap: BABYLON.Mesh.NO_CAP,
+        updatable: true
+      },
+      scene
+    );
+    this.silkMeshAnchor.material = this.silkMat;
+    this.silkMeshAnchor.setEnabled(false);
+
+    this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube(
+      "tetherTubePlayer",
+      {
+        path: this.pointsPlayer,
+        radius: this.BASE_RADIUS,
+        tessellation: 8,
+        cap: BABYLON.Mesh.NO_CAP,
+        updatable: true
+      },
+      scene
+    );
+    this.silkMeshPlayer.material = this.silkMat;
+    this.silkMeshPlayer.setEnabled(false);
   }
 
   public render(alpha: number): void {
-    if (!this.silkMesh || !this.silkMat) return;
+    if (!this.silkMesh || !this.silkMat || !this.silkMeshAnchor || !this.silkMeshPlayer) return;
 
     const pTrans = this.transforms.get(this.refs.player);
     const silk = this.silks.get(this.refs.player);
-    if (!pTrans || !silk || !silk.isAttached) {
-      if (this.silkMesh) this.silkMesh.setEnabled(false);
-      return;
+    if (!pTrans || !silk) return;
+
+    if (silk.isAttached) {
+      this.isSnapped = false;
+      this.snapTimer = 0.0;
+      this.silkMesh.setEnabled(true);
+      this.silkMeshAnchor.setEnabled(false);
+      this.silkMeshPlayer.setEnabled(false);
+
+      const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
+      const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
+      this.scratchPlayer.set(px, py, 0);
+
+      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+
+      const tension = Math.max(0, Math.min(1, silk.tension));
+
+      const timeMs = performance.now();
+      const frequency = 0.025;
+      const vibPhase = timeMs * frequency;
+      const vibAmp = Math.max(0, tension - 0.7) * 0.35;
+      const vibOffset = Math.sin(vibPhase) * vibAmp;
+
+      const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
+      const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
+      const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
+      this.scratchCtrl.set(midX, midY - sag, 0.35);
+
+      for (let i = 0; i <= this.SEGMENTS; i++) {
+        const t = i / this.SEGMENTS;
+        const t1 = 1 - t;
+        const pt = this.points[i];
+        pt.x =
+          t1 * t1 * this.scratchAnchor.x +
+          2 * t1 * t * this.scratchCtrl.x +
+          t * t * this.scratchPlayer.x;
+        pt.y =
+          t1 * t1 * this.scratchAnchor.y +
+          2 * t1 * t * this.scratchCtrl.y +
+          t * t * this.scratchPlayer.y;
+        pt.z =
+          t1 * t1 * this.scratchAnchor.z +
+          2 * t1 * t * this.scratchCtrl.z +
+          t * t * this.scratchPlayer.z;
+
+        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5 + timeMs * 0.005) * 0.12;
+      }
+
+      const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
+      this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+        path: this.points,
+        radius: radius,
+        tessellation: 8,
+        cap: BABYLON.Mesh.NO_CAP,
+        instance: this.silkMesh
+      });
+
+      const r = tension < 0.5 ? 0.55 + tension * 0.9 : 1.0;
+      const g = tension < 0.5 ? 0.78 + tension * 0.44 : 1.0 - (tension - 0.5) * 1.1;
+      const b = tension < 0.5 ? 1.0 - tension * 0.2 : 0.9 - (tension - 0.5) * 1.7;
+
+      this.silkMat.albedoColor.set(
+        Math.max(0, Math.min(1, r)),
+        Math.max(0, Math.min(1, g)),
+        Math.max(0, Math.min(1, b))
+      );
+
+      const eBrightness = 0.1 + tension * 0.5;
+      this.silkMat.emissiveColor.set(
+        eBrightness * (0.3 + tension * 0.7),
+        eBrightness * (0.6 - tension * 0.4),
+        eBrightness * (1.0 - tension * 0.9)
+      );
+    } else {
+      this.silkMesh.setEnabled(false);
+
+      if (!this.isSnapped) {
+        this.isSnapped = true;
+        this.snapTimer = 0.0;
+      }
+
+      this.snapTimer += 0.016;
+      if (this.snapTimer >= this.maxSnapDuration) {
+        this.silkMeshAnchor.setEnabled(false);
+        this.silkMeshPlayer.setEnabled(false);
+        return;
+      }
+
+      this.silkMeshAnchor.setEnabled(true);
+      this.silkMeshPlayer.setEnabled(true);
+
+      const T = this.snapTimer / this.maxSnapDuration;
+
+      const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
+      const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
+      this.scratchPlayer.set(px, py, 0);
+      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+
+      const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
+      const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
+      const sag = this.MAX_SAG * (1.0 - silk.tension);
+      this.scratchCtrl.set(midX, midY - sag, 0.35);
+
+      const maxAnchorT = (1 - T) * 0.5;
+      const whipOffset = Math.sin(T * Math.PI * 5) * (1 - T) * 1.8;
+
+      for (let i = 0; i <= 12; i++) {
+        const subT = (i / 12) * maxAnchorT;
+        const t1 = 1 - subT;
+        const pt = this.pointsAnchor[i];
+        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
+        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
+        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+
+        const endWeight = (i / 12);
+        pt.x += whipOffset * endWeight;
+        pt.y += Math.abs(whipOffset) * 0.4 * endWeight;
+      }
+
+      const minPlayerT = 0.5 + T * 0.5;
+      const playerWhip = Math.sin(T * Math.PI * 5 + Math.PI) * (1 - T) * 1.8;
+      const gravityDrop = T * T * -9.81 * 0.8;
+
+      for (let i = 0; i <= 12; i++) {
+        const subT = minPlayerT + (i / 12) * (1.0 - minPlayerT);
+        const t1 = 1 - subT;
+        const pt = this.pointsPlayer[i];
+        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
+        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
+        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+
+        const endWeight = 1.0 - (i / 12);
+        pt.x += playerWhip * endWeight;
+        pt.y += (playerWhip * 0.4 + gravityDrop) * endWeight;
+      }
+
+      const radius = this.BASE_RADIUS * (1 - T);
+      if (radius > 0.01) {
+        this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube("tetherTubeAnchor", {
+          path: this.pointsAnchor,
+          radius: radius,
+          tessellation: 8,
+          cap: BABYLON.Mesh.NO_CAP,
+          instance: this.silkMeshAnchor
+        });
+        this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube("tetherTubePlayer", {
+          path: this.pointsPlayer,
+          radius: radius,
+          tessellation: 8,
+          cap: BABYLON.Mesh.NO_CAP,
+          instance: this.silkMeshPlayer
+        });
+      } else {
+        this.silkMeshAnchor.setEnabled(false);
+        this.silkMeshPlayer.setEnabled(false);
+      }
     }
-    this.silkMesh.setEnabled(true);
-
-    const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
-    const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
-    this.scratchPlayer.set(px, py, 0);
-
-    this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
-
-    const tension = Math.max(0, Math.min(1, silk.tension));
-
-    const timeMs = performance.now();
-    const frequency = 0.025;
-    const vibPhase = timeMs * frequency;
-    const vibAmp = Math.max(0, tension - 0.7) * 0.35;
-    const vibOffset = Math.sin(vibPhase) * vibAmp;
-
-    const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
-    const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-    const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
-    this.scratchCtrl.set(midX, midY - sag, 0.35);
-
-    for (let i = 0; i <= this.SEGMENTS; i++) {
-      const t = i / this.SEGMENTS;
-      const t1 = 1 - t;
-      const pt = this.points[i];
-      pt.x =
-        t1 * t1 * this.scratchAnchor.x +
-        2 * t1 * t * this.scratchCtrl.x +
-        t * t * this.scratchPlayer.x;
-      pt.y =
-        t1 * t1 * this.scratchAnchor.y +
-        2 * t1 * t * this.scratchCtrl.y +
-        t * t * this.scratchPlayer.y;
-      pt.z =
-        t1 * t1 * this.scratchAnchor.z +
-        2 * t1 * t * this.scratchCtrl.z +
-        t * t * this.scratchPlayer.z;
-
-      pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5 + timeMs * 0.005) * 0.12;
-    }
-
-    const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
-    this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
-      path: this.points,
-      radius: radius,
-      tessellation: 8,
-      cap: BABYLON.Mesh.NO_CAP,
-      instance: this.silkMesh
-    });
-
-    const r = tension < 0.5 ? 0.55 + tension * 0.9 : 1.0;
-    const g = tension < 0.5 ? 0.78 + tension * 0.44 : 1.0 - (tension - 0.5) * 1.1;
-    const b = tension < 0.5 ? 1.0 - tension * 0.2 : 0.9 - (tension - 0.5) * 1.7;
-
-    this.silkMat.albedoColor.set(
-      Math.max(0, Math.min(1, r)),
-      Math.max(0, Math.min(1, g)),
-      Math.max(0, Math.min(1, b))
-    );
-
-    const eBrightness = 0.1 + tension * 0.5;
-    this.silkMat.emissiveColor.set(
-      eBrightness * (0.3 + tension * 0.7),
-      eBrightness * (0.6 - tension * 0.4),
-      eBrightness * (1.0 - tension * 0.9)
-    );
 
     this.scratchPt.set(0, 0, 0);
   }
 
   public dispose(): void {
-    if (this.silkMesh) {
-      this.silkMesh.dispose();
-      this.silkMesh = null;
-    }
-    if (this.silkMat) {
-      this.silkMat.dispose();
-      this.silkMat = null;
-    }
+    if (this.silkMesh) this.silkMesh.dispose();
+    if (this.silkMeshAnchor) this.silkMeshAnchor.dispose();
+    if (this.silkMeshPlayer) this.silkMeshPlayer.dispose();
+    if (this.silkMat) this.silkMat.dispose();
   }
 }
 

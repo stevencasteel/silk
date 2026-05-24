@@ -18,10 +18,16 @@ import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
+  public static timeScale = 1.0;
+
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
   private HASH = String.fromCharCode(35);
   private unsubscribes: (() => void)[] = [];
+
+  private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
+  private cinematicTimer = 0.0;
+  private maxCinematicSimTime = 0.0;
 
   constructor(
     private broker: EventBroker,
@@ -39,19 +45,36 @@ export class GameDirectorSystem implements ISystem {
   public init(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-        if (this.gameState === "PLAYING") {
-          this.gameState = "GAME_OVER";
-          this.broker.publish(GameEvent.GAME_OVER, undefined);
+        if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          this.activeCinematic = "PLAYER_DEATH";
+          this.cinematicTimer = 0.0;
+          this.maxCinematicSimTime = 0.60;
+          GameDirectorSystem.timeScale = 0.20;
+
+          const pSilk = this.silks.get(this.refs.player);
+          if (pSilk) {
+            pSilk.isAttached = false;
+            pSilk.tension = 0.0;
+          }
+
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.2 });
         }
       })
     );
+
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        if (this.gameState === "PLAYING") {
-          this.gameState = "VICTORY";
+      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          this.activeCinematic = "WEAVER_DEATH";
+          this.cinematicTimer = 0.0;
+          this.maxCinematicSimTime = 0.875;
+          GameDirectorSystem.timeScale = 0.25;
+
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 2.2, duration: 0.7 });
         }
       })
     );
+
     window.addEventListener("keydown", this.handleKeyDown);
   }
 
@@ -61,15 +84,36 @@ export class GameDirectorSystem implements ISystem {
     }
   };
 
-  public update(): void {
+  public update(dt: number): void {
     if (this.resetRequested) {
       this.resetGame();
       this.resetRequested = false;
+      return;
+    }
+
+    if (this.activeCinematic !== "NONE") {
+      this.cinematicTimer += dt;
+      if (this.cinematicTimer >= this.maxCinematicSimTime) {
+        const finishedCinematic = this.activeCinematic;
+        this.activeCinematic = "NONE";
+        GameDirectorSystem.timeScale = 1.0;
+
+        if (finishedCinematic === "PLAYER_DEATH") {
+          this.gameState = "GAME_OVER";
+          this.broker.publish(GameEvent.GAME_OVER, undefined);
+        } else if (finishedCinematic === "WEAVER_DEATH") {
+          this.gameState = "VICTORY";
+          this.broker.publish(GameEvent.GAME_WIN, undefined);
+        }
+      }
     }
   }
 
   private resetGame(): void {
     this.gameState = "PLAYING";
+    this.activeCinematic = "NONE";
+    this.cinematicTimer = 0.0;
+    GameDirectorSystem.timeScale = 1.0;
 
     const pTrans = this.transforms.get(this.refs.player);
     const pHealth = this.healths.get(this.refs.player);
