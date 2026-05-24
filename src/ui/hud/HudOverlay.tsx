@@ -1,22 +1,43 @@
 import React from "react";
 import { useHudStore } from "./hudStore";
+import { useShallow } from "zustand/react/shallow";
 
 export const HudOverlay: React.FC = () => {
-  const playerHp = useHudStore((state) => state.playerHp);
-  const playerMaxHp = useHudStore((state) => state.playerMaxHp);
-  const weaverHp = useHudStore((state) => state.weaverHp);
-  const weaverMaxHp = useHudStore((state) => state.weaverMaxHp);
-  const weaverState = useHudStore((state) => state.weaverState);
-  const weaverHue = useHudStore((state) => state.weaverHue);
-  const tension = useHudStore((state) => state.tension);
-  const traversalHint = useHudStore((state) => state.traversalHint);
-  const traversalHintColor = useHudStore((state) => state.traversalHintColor);
-  const traversalHintOpacity = useHudStore((state) => state.traversalHintOpacity);
-  const overlayVisible = useHudStore((state) => state.overlayVisible);
-  const overlayTitle = useHudStore((state) => state.overlayTitle);
-  const overlayColor = useHudStore((state) => state.overlayColor);
-  const overlaySubtitle = useHudStore((state) => state.overlaySubtitle);
-  const isPaused = useHudStore((state) => state.isPaused);
+  const {
+    playerHp,
+    playerMaxHp,
+    weaverHp,
+    weaverMaxHp,
+    weaverState,
+    weaverHue,
+    tension,
+    traversalHint,
+    traversalHintColor,
+    traversalHintOpacity,
+    overlayVisible,
+    overlayTitle,
+    overlayColor,
+    overlaySubtitle,
+    isPaused,
+  } = useHudStore(
+    useShallow((state) => ({
+      playerHp: state.playerHp,
+      playerMaxHp: state.playerMaxHp,
+      weaverHp: state.weaverHp,
+      weaverMaxHp: state.weaverMaxHp,
+      weaverState: state.weaverState,
+      weaverHue: state.weaverHue,
+      tension: state.tension,
+      traversalHint: state.traversalHint,
+      traversalHintColor: state.traversalHintColor,
+      traversalHintOpacity: state.traversalHintOpacity,
+      overlayVisible: state.overlayVisible,
+      overlayTitle: state.overlayTitle,
+      overlayColor: state.overlayColor,
+      overlaySubtitle: state.overlaySubtitle,
+      isPaused: state.isPaused,
+    }))
+  );
 
   const handleRetryClick = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));

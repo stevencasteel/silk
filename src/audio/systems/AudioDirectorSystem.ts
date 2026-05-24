@@ -95,6 +95,8 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized && this.tensionSynth) {
           if (payload.isPaused) {
             this.tensionSynth.fadeOutAndMute();
+          } else {
+            this.tensionSynth.resumeFromPause();
           }
         }
       })

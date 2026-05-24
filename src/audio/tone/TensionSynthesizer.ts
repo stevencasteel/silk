@@ -62,6 +62,14 @@ export class TensionSynthesizer {
     this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
   }
 
+  public resumeFromPause(): void {
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
+    const now = Tone.now();
+    const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
+    const targetGain = clampedTension > 0.02 ? 0.05 + clampedTension * 0.22 : 0.0;
+    this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
+  }
+
   public handleStateChange(state: string): void {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter) return;
     const now = Tone.now();
