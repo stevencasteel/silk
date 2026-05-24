@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 9:14:45 PM
+ [SYSTEM] Generated: 5/23/2026, 9:23:20 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1059,6 +1059,7 @@ export class AudioDirectorSystem implements ISystem {
   private unsubGameOver: (() => void) | null = null;
   private unsubGameWin: (() => void) | null = null;
   private unsubGameReset: (() => void) | null = null;
+  private unsubGamePaused: (() => void) | null = null;
   private gestureTriggerRef: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
@@ -1110,6 +1111,14 @@ export class AudioDirectorSystem implements ISystem {
     this.unsubGameReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
       if (this.initialized && this.tensionSynth) {
         this.tensionSynth.resetToBaseline();
+      }
+    });
+
+    this.unsubGamePaused = this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
+      if (this.initialized && this.tensionSynth) {
+        if (payload.isPaused) {
+          this.tensionSynth.fadeOutAndMute();
+        }
       }
     });
   }
@@ -1168,6 +1177,7 @@ export class AudioDirectorSystem implements ISystem {
     if (this.unsubGameOver) this.unsubGameOver();
     if (this.unsubGameWin) this.unsubGameWin();
     if (this.unsubGameReset) this.unsubGameReset();
+    if (this.unsubGamePaused) this.unsubGamePaused();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
@@ -2038,6 +2048,7 @@ export class DebugTelemetryOverlay implements ISystem {
   private sysText: HTMLElement | null = null;
   private unsubscribes: (() => void)[] = [];
   private isGameOver: boolean = false;
+  private isPaused: boolean = false;
 
   constructor(
     private _profiler: Profiler,
@@ -2077,6 +2088,12 @@ export class DebugTelemetryOverlay implements ISystem {
     this.unsubscribes.push(
       this._broker.subscribe(GameEvent.GAME_RESET, () => {
         this.isGameOver = false;
+      })
+    );
+
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
+        this.isPaused = isPaused;
       })
     );
 
@@ -2120,7 +2137,8 @@ export class DebugTelemetryOverlay implements ISystem {
     }
 
     info += `\n=== SYSTEM SHORTCUTS ===\n`;
-    info += `[R] RESET GAME : ${this.isGameOver ? "ACTIVE (PRESS R NOW)" : "STANDBY"}\n`;
+    info += `[P] TOGGLE PAUSE : ${this.isPaused ? "PAUSED (PRESS P TO RESUME)" : "PLAYING"}\n`;
+    info += `[R] RESET GAME   : ${this.isGameOver ? "ACTIVE (PRESS R NOW)" : "STANDBY"}\n`;
 
     if (this.sysText) {
       this.sysText.textContent = info;
@@ -2442,18 +2460,23 @@ import { EventBroker } from "../events/EventBroker";
 import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
+import { GameEvent } from "../events/GameEvents";
 
 export class Engine {
   private loop: GameLoop;
   private systemManager: SystemManager;
+  private broker: EventBroker;
+
+  public isPaused: boolean = false;
 
   constructor(
     _canvas: HTMLCanvasElement,
-    _broker: EventBroker,
+    broker: EventBroker,
     systemManager: SystemManager,
     clock: IClock,
     scheduler: IScheduler
   ) {
+    this.broker = broker;
     this.systemManager = systemManager;
     this.loop = new GameLoop(
       (dt) => this.update(dt),
@@ -2465,15 +2488,61 @@ export class Engine {
 
   public async start(): Promise<void> {
     await this.systemManager.initAll();
+    this.initPauseHandlers();
     this.loop.start();
   }
 
   public stop(): void {
     this.loop.stop();
+    this.removePauseHandlers();
     this.systemManager.disposeAll();
   }
 
+  public setPaused(paused: boolean): void {
+    if (this.isPaused === paused) return;
+    this.isPaused = paused;
+    this.broker.publish(GameEvent.GAME_PAUSED, { isPaused: this.isPaused });
+  }
+
+  private initPauseHandlers(): void {
+    window.addEventListener("keydown", this.handleKeyDown);
+    window.addEventListener("blur", this.handleBlur);
+    window.addEventListener("focus", this.handleFocus);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
+  }
+
+  private removePauseHandlers(): void {
+    window.removeEventListener("keydown", this.handleKeyDown);
+    window.removeEventListener("blur", this.handleBlur);
+    window.removeEventListener("focus", this.handleFocus);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+  }
+
+  private handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.code === "KeyP") {
+      e.preventDefault();
+      this.setPaused(!this.isPaused);
+    }
+  };
+
+  private handleBlur = (): void => {
+    this.setPaused(true);
+  };
+
+  private handleFocus = (): void => {
+    this.setPaused(false);
+  };
+
+  private handleVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.setPaused(true);
+    } else {
+      this.setPaused(false);
+    }
+  };
+
   private update(dt: number): void {
+    if (this.isPaused) return;
     this.systemManager.updateAll(dt);
   }
 
@@ -2545,7 +2614,8 @@ export enum GameEvent {
   GAME_OVER = "GAME_OVER",
   GAME_WIN = "GAME_WIN",
   GAME_RESET = "GAME_RESET",
-  WEAVER_SHOOT = "WEAVER_SHOOT"
+  WEAVER_SHOOT = "WEAVER_SHOOT",
+  GAME_PAUSED = "GAME_PAUSED"
 }
 
 export interface GameEventMap {
@@ -2566,6 +2636,7 @@ export interface GameEventMap {
   [GameEvent.GAME_WIN]: void;
   [GameEvent.GAME_RESET]: void;
   [GameEvent.WEAVER_SHOOT]: { x: number; y: number; tx: number; ty: number };
+  [GameEvent.GAME_PAUSED]: { isPaused: boolean };
 }
 
 
@@ -5424,6 +5495,7 @@ export class DomHudSystem implements ISystem {
   private overlay: HTMLElement | null = null;
   private overlayTitle: HTMLElement | null = null;
   private overlaySubtitle: HTMLElement | null = null;
+  private pauseOverlay: HTMLElement | null = null;
   private lastHintLevel: HintLevel = "none";
   private currentState: string = "AIRBORNE";
 
@@ -5448,6 +5520,7 @@ export class DomHudSystem implements ISystem {
     this.overlay = document.getElementById("game-state-overlay");
     this.overlayTitle = document.getElementById("game-state-title");
     this.overlaySubtitle = document.getElementById("game-state-subtitle");
+    this.pauseOverlay = document.getElementById("pause-overlay");
 
     this.playerHpLeds = [];
     for (let i = 0; i < 5; i++) {
@@ -5498,7 +5571,15 @@ export class DomHudSystem implements ISystem {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hideOverlay();
+        if (this.pauseOverlay) this.pauseOverlay.style.display = "none";
         this.setHint("none");
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
+        if (this.pauseOverlay) {
+          this.pauseOverlay.style.display = isPaused ? "flex" : "none";
+        }
       })
     );
   }
@@ -5507,23 +5588,18 @@ export class DomHudSystem implements ISystem {
     const snapLimit = 1.3;
     const clamped = Math.max(0, Math.min(snapLimit, tension));
     
-    // Scale horizontal bar width relative to the snap limit
     const barPercent = (clamped / snapLimit) * 100;
     
-    // Display raw percentage relative to 100% being full standard charge
     const displayPercent = (clamped * 100).toFixed(0);
 
     if (this.tensionBar) {
       this.tensionBar.style.width = barPercent.toFixed(1) + "%";
       
       if (clamped >= 1.0) {
-        // Red overload danger zone (line is strained)
         this.tensionBar.style.backgroundColor = "rgb(239, 68, 68)";
       } else if (clamped >= 0.75) {
-        // Orange warning zone (nearly fully charged)
         this.tensionBar.style.backgroundColor = "rgb(245, 158, 11)";
       } else {
-        // Standard green charge zone
         this.tensionBar.style.backgroundColor = "rgb(16, 185, 129)";
       }
     }
@@ -5636,6 +5712,7 @@ export class DomHudSystem implements ISystem {
     this.overlay = null;
     this.overlayTitle = null;
     this.overlaySubtitle = null;
+    this.pauseOverlay = null;
     this.playerHpLeds = [];
   }
 }
@@ -5649,6 +5726,10 @@ import React from "react";
 export const HudOverlay: React.FC = () => {
   const handleRetryClick = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
+  };
+
+  const handleResumeClick = () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP" }));
   };
 
   return (
@@ -5718,6 +5799,21 @@ export const HudOverlay: React.FC = () => {
           </p>
           <button onClick={handleRetryClick} className="overlay-btn">
             PLAY AGAIN
+          </button>
+        </div>
+      </div>
+
+      <div id="pause-overlay" className="overlay-root" style={{ display: "none" }}>
+        <div className="overlay-modal" style={{ borderColor: "var(--accent-tension)" }}>
+          <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
+            PAUSED
+          </h1>
+          <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
+          <p className="overlay-subtitle">
+            SIMULATION SUSPENDED
+          </p>
+          <button onClick={handleResumeClick} className="overlay-btn">
+            RESUME
           </button>
         </div>
       </div>

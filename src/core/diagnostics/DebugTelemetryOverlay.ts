@@ -14,6 +14,7 @@ export class DebugTelemetryOverlay implements ISystem {
   private sysText: HTMLElement | null = null;
   private unsubscribes: (() => void)[] = [];
   private isGameOver: boolean = false;
+  private isPaused: boolean = false;
 
   constructor(
     private _profiler: Profiler,
@@ -53,6 +54,12 @@ export class DebugTelemetryOverlay implements ISystem {
     this.unsubscribes.push(
       this._broker.subscribe(GameEvent.GAME_RESET, () => {
         this.isGameOver = false;
+      })
+    );
+
+    this.unsubscribes.push(
+      this._broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
+        this.isPaused = isPaused;
       })
     );
 
@@ -96,7 +103,8 @@ export class DebugTelemetryOverlay implements ISystem {
     }
 
     info += `\n=== SYSTEM SHORTCUTS ===\n`;
-    info += `[R] RESET GAME : ${this.isGameOver ? "ACTIVE (PRESS R NOW)" : "STANDBY"}\n`;
+    info += `[P] TOGGLE PAUSE : ${this.isPaused ? "PAUSED (PRESS P TO RESUME)" : "PLAYING"}\n`;
+    info += `[R] RESET GAME   : ${this.isGameOver ? "ACTIVE (PRESS R NOW)" : "STANDBY"}\n`;
 
     if (this.sysText) {
       this.sysText.textContent = info;

@@ -18,6 +18,7 @@ export class DomHudSystem implements ISystem {
   private overlay: HTMLElement | null = null;
   private overlayTitle: HTMLElement | null = null;
   private overlaySubtitle: HTMLElement | null = null;
+  private pauseOverlay: HTMLElement | null = null;
   private lastHintLevel: HintLevel = "none";
   private currentState: string = "AIRBORNE";
 
@@ -42,6 +43,7 @@ export class DomHudSystem implements ISystem {
     this.overlay = document.getElementById("game-state-overlay");
     this.overlayTitle = document.getElementById("game-state-title");
     this.overlaySubtitle = document.getElementById("game-state-subtitle");
+    this.pauseOverlay = document.getElementById("pause-overlay");
 
     this.playerHpLeds = [];
     for (let i = 0; i < 5; i++) {
@@ -92,7 +94,15 @@ export class DomHudSystem implements ISystem {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hideOverlay();
+        if (this.pauseOverlay) this.pauseOverlay.style.display = "none";
         this.setHint("none");
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
+        if (this.pauseOverlay) {
+          this.pauseOverlay.style.display = isPaused ? "flex" : "none";
+        }
       })
     );
   }
@@ -101,23 +111,18 @@ export class DomHudSystem implements ISystem {
     const snapLimit = 1.3;
     const clamped = Math.max(0, Math.min(snapLimit, tension));
     
-    // Scale horizontal bar width relative to the snap limit
     const barPercent = (clamped / snapLimit) * 100;
     
-    // Display raw percentage relative to 100% being full standard charge
     const displayPercent = (clamped * 100).toFixed(0);
 
     if (this.tensionBar) {
       this.tensionBar.style.width = barPercent.toFixed(1) + "%";
       
       if (clamped >= 1.0) {
-        // Red overload danger zone (line is strained)
         this.tensionBar.style.backgroundColor = "rgb(239, 68, 68)";
       } else if (clamped >= 0.75) {
-        // Orange warning zone (nearly fully charged)
         this.tensionBar.style.backgroundColor = "rgb(245, 158, 11)";
       } else {
-        // Standard green charge zone
         this.tensionBar.style.backgroundColor = "rgb(16, 185, 129)";
       }
     }
@@ -230,6 +235,7 @@ export class DomHudSystem implements ISystem {
     this.overlay = null;
     this.overlayTitle = null;
     this.overlaySubtitle = null;
+    this.pauseOverlay = null;
     this.playerHpLeds = [];
   }
 }

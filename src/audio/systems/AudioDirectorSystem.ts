@@ -18,6 +18,7 @@ export class AudioDirectorSystem implements ISystem {
   private unsubGameOver: (() => void) | null = null;
   private unsubGameWin: (() => void) | null = null;
   private unsubGameReset: (() => void) | null = null;
+  private unsubGamePaused: (() => void) | null = null;
   private gestureTriggerRef: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
@@ -69,6 +70,14 @@ export class AudioDirectorSystem implements ISystem {
     this.unsubGameReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
       if (this.initialized && this.tensionSynth) {
         this.tensionSynth.resetToBaseline();
+      }
+    });
+
+    this.unsubGamePaused = this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
+      if (this.initialized && this.tensionSynth) {
+        if (payload.isPaused) {
+          this.tensionSynth.fadeOutAndMute();
+        }
       }
     });
   }
@@ -127,6 +136,7 @@ export class AudioDirectorSystem implements ISystem {
     if (this.unsubGameOver) this.unsubGameOver();
     if (this.unsubGameWin) this.unsubGameWin();
     if (this.unsubGameReset) this.unsubGameReset();
+    if (this.unsubGamePaused) this.unsubGamePaused();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();

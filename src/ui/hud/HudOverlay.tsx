@@ -5,6 +5,10 @@ export const HudOverlay: React.FC = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
   };
 
+  const handleResumeClick = () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP" }));
+  };
+
   return (
     <>
       <div className="hud-root">
@@ -72,6 +76,21 @@ export const HudOverlay: React.FC = () => {
           </p>
           <button onClick={handleRetryClick} className="overlay-btn">
             PLAY AGAIN
+          </button>
+        </div>
+      </div>
+
+      <div id="pause-overlay" className="overlay-root" style={{ display: "none" }}>
+        <div className="overlay-modal" style={{ borderColor: "var(--accent-tension)" }}>
+          <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
+            PAUSED
+          </h1>
+          <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
+          <p className="overlay-subtitle">
+            SIMULATION SUSPENDED
+          </p>
+          <button onClick={handleResumeClick} className="overlay-btn">
+            RESUME
           </button>
         </div>
       </div>

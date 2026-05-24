@@ -15,7 +15,8 @@ export enum GameEvent {
   GAME_OVER = "GAME_OVER",
   GAME_WIN = "GAME_WIN",
   GAME_RESET = "GAME_RESET",
-  WEAVER_SHOOT = "WEAVER_SHOOT"
+  WEAVER_SHOOT = "WEAVER_SHOOT",
+  GAME_PAUSED = "GAME_PAUSED"
 }
 
 export interface GameEventMap {
@@ -36,4 +37,5 @@ export interface GameEventMap {
   [GameEvent.GAME_WIN]: void;
   [GameEvent.GAME_RESET]: void;
   [GameEvent.WEAVER_SHOOT]: { x: number; y: number; tx: number; ty: number };
+  [GameEvent.GAME_PAUSED]: { isPaused: boolean };
 }
