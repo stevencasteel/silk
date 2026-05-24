@@ -15,11 +15,3 @@ export interface ApplyImpulseCommand extends ICommand {
   y: number;
   z: number;
 }
-export interface SetSilkMaxLengthCommand extends ICommand {
-  readonly type: "SET_SILK_MAX_LENGTH";
-  length: number;
-}
-export interface SetSilkAttachedCommand extends ICommand {
-  readonly type: "SET_SILK_ATTACHED";
-  attached: boolean;
-}

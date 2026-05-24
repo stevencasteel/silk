@@ -107,7 +107,6 @@ export class CompositionRoot {
       transforms,
       velocities,
       targets,
-      silks,
       visualRegistry
     );
     
@@ -119,7 +118,8 @@ export class CompositionRoot {
       transforms,
       inputs,
       broker,
-      healths
+      healths,
+      commands
     );
 
     const playerAnimation = new PlayerAnimationSystem(

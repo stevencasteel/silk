@@ -6,17 +6,11 @@ import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
   KinematicVelocityComponent,
-  KinematicTargetComponent,
-  SilkComponent
+  KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntityId } from "../../core/ecs/Entity";
-import {
-  SetKinematicVelocityCommand,
-  ApplyImpulseCommand,
-  SetSilkMaxLengthCommand,
-  SetSilkAttachedCommand
-} from "../commands/PhysicsCommands";
+import { SetKinematicVelocityCommand } from "../commands/PhysicsCommands";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
@@ -33,7 +27,6 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
     private transforms: ComponentStore<TransformComponent>,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private silks: ComponentStore<SilkComponent>,
     private visualRegistry: IVisualRegistry
   ) {}
 
@@ -120,23 +113,6 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         vel.y = cmd.y;
         vel.z = cmd.z;
       }
-    });
-    this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
-      if (cmd.entityId === this.refs.player) {
-        const silk = this.silks.get(this.refs.player);
-        if (silk) {
-          silk.dynamicVelX += cmd.x;
-          silk.dynamicVelY += cmd.y;
-        }
-      }
-    });
-    this.commands.register<SetSilkMaxLengthCommand>("SET_SILK_MAX_LENGTH", (cmd) => {
-      const silk = this.silks.get(this.refs.player);
-      if (silk) silk.maxLength = cmd.length;
-    });
-    this.commands.register<SetSilkAttachedCommand>("SET_SILK_ATTACHED", (cmd) => {
-      const silk = this.silks.get(this.refs.player);
-      if (silk) silk.isAttached = cmd.attached;
     });
   }
 
