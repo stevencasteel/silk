@@ -46,11 +46,17 @@ import { RafScheduler } from "../core/loop/RafScheduler";
 
 export class CompositionRoot {
   public buildEngine(canvas: HTMLCanvasElement): Engine {
+    // ------------------------------------------------------------------------
+    // STAGE 1: CORE INFRASTRUCTURE
+    // ------------------------------------------------------------------------
     const broker = new EventBroker();
     const commands = new CommandBus();
     const profiler = new Profiler();
     const systemManager = new SystemManager(profiler);
 
+    // ------------------------------------------------------------------------
+    // STAGE 2: CUSTOM ECS COMPONENT STORES
+    // ------------------------------------------------------------------------
     const entities = new EntityRegistry();
     const transforms = new ComponentStore<TransformComponent>();
     const velocities = new ComponentStore<KinematicVelocityComponent>();
@@ -67,26 +73,20 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
+    // ------------------------------------------------------------------------
+    // STAGE 3: GRAPHICS, AUDIO, & VISUAL PRESENTATION ENGINE
+    // ------------------------------------------------------------------------
     const visualRegistry = new VisualRegistry();
     const renderSystem = new RenderSystem(canvas, visualRegistry);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
-    const spawner = new EntitySpawnerSystem(
-      refs,
-      entities,
-      transforms,
-      velocities,
-      targets,
-      silks,
-      healths,
-      inputs,
-      weaverAIs,
-      playerTags,
-      weaverTags,
-      visualRegistry,
-      traversal,
-      iframes,
-      weaverTraversal
-    );
+    const lightingSystem = new LightingSystem(broker, visualRegistry);
+    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, visualRegistry);
+    const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
+    const audioSystem = new AudioDirectorSystem(broker);
+
+    // ------------------------------------------------------------------------
+    // STAGE 4: KINEMATICS, PHYSICS & COLLISION SIMULATION
+    // ------------------------------------------------------------------------
     const physicsSystem = new HavokPhysicsSystem(
       commands,
       refs,
@@ -96,26 +96,7 @@ export class CompositionRoot {
       silks,
       visualRegistry
     );
-    const inputSystem = new PlayerInputSystem(refs, inputs, healths);
-    const weaverBrain = new WeaverBrainSystem(
-      refs,
-      weaverAIs,
-      transforms,
-      weaverTraversal,
-      healths,
-      broker,
-      commands
-    );
-    const weaverTraversalSystem = new WeaverTraversalSystem(
-      refs,
-      velocities,
-      weaverTraversal,
-      transforms,
-      targets,
-      weaverAIs,
-      healths
-    );
-
+    
     const playerKinematics = new PlayerKinematicsSystem(
       refs,
       silks,
@@ -126,6 +107,7 @@ export class CompositionRoot {
       broker,
       healths
     );
+
     const playerAnimation = new PlayerAnimationSystem(
       refs,
       transforms,
@@ -133,6 +115,7 @@ export class CompositionRoot {
       traversal,
       targets
     );
+
     const environmentCollision = new EnvironmentCollisionSystem(
       refs,
       silks,
@@ -154,8 +137,50 @@ export class CompositionRoot {
       velocities,
       broker
     );
-    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, visualRegistry);
-    const lightingSystem = new LightingSystem(broker, visualRegistry);
+
+    // ------------------------------------------------------------------------
+    // STAGE 5: GAMEPLAY, AI, COMBAT, & INTERFACE
+    // ------------------------------------------------------------------------
+    const inputSystem = new PlayerInputSystem(refs, inputs, healths);
+    
+    const spawner = new EntitySpawnerSystem(
+      refs,
+      entities,
+      transforms,
+      velocities,
+      targets,
+      silks,
+      healths,
+      inputs,
+      weaverAIs,
+      playerTags,
+      weaverTags,
+      visualRegistry,
+      traversal,
+      iframes,
+      weaverTraversal
+    );
+
+    const weaverBrain = new WeaverBrainSystem(
+      refs,
+      weaverAIs,
+      transforms,
+      weaverTraversal,
+      healths,
+      broker,
+      commands
+    );
+
+    const weaverTraversalSystem = new WeaverTraversalSystem(
+      refs,
+      velocities,
+      weaverTraversal,
+      transforms,
+      targets,
+      weaverAIs,
+      healths
+    );
+
     const combatSystem = new CombatSystem(
       refs,
       transforms,
@@ -168,6 +193,7 @@ export class CompositionRoot {
       commands,
       targets
     );
+
     const gameDirector = new GameDirectorSystem(
       broker,
       refs,
@@ -189,9 +215,9 @@ export class CompositionRoot {
       visualRegistry,
       weaverAIs
     );
-    const audioSystem = new AudioDirectorSystem(broker);
-    const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
+
     const hudSystem = new DomHudSystem(broker);
+    
     const debugTelemetry = new DebugTelemetryOverlay(
       profiler,
       broker,
@@ -202,6 +228,9 @@ export class CompositionRoot {
       velocities
     );
 
+    // ------------------------------------------------------------------------
+    // STAGE 6: SYSTEM REGISTRY & SCHEDULING
+    // ------------------------------------------------------------------------
     systemManager.register(spawner);
     systemManager.register(renderSystem);
     systemManager.register(physicsSystem);
