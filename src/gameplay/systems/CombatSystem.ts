@@ -89,13 +89,20 @@ export class CombatSystem implements ISystem {
       const nx = dx / dist;
       const ny = dy / dist;
 
-      pTrans.x += nx * overlap;
-      pTrans.y += ny * overlap;
+      // Displace position and previous position by the exact same delta.
+      // This shifts the whole interpolation interval smoothly, preventing jitter.
+      const shiftX = nx * overlap;
+      const shiftY = ny * overlap;
+
+      pTrans.x += shiftX;
+      pTrans.y += shiftY;
+      pTrans.prevX += shiftX;
+      pTrans.prevY += shiftY;
 
       const pTarget = this.targets.get(this.refs.player);
       if (pTarget) {
-        pTarget.x += nx * overlap;
-        pTarget.y += ny * overlap;
+        pTarget.x += shiftX;
+        pTarget.y += shiftY;
       }
 
       const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;

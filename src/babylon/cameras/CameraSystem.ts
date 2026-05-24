@@ -12,6 +12,7 @@ export class CameraSystem implements ISystem {
   private shakeDuration = 0.0;
   private shakeTimer = 0.0;
   private unsub: (() => void) | null = null;
+  private cameraTarget = new BABYLON.Vector3();
 
   constructor(
     private visualRegistry: IVisualRegistry,
@@ -57,9 +58,8 @@ export class CameraSystem implements ISystem {
 
     if (this.cameraNode) {
       this.cameraNode.position.set(shakeOffsetX, 14.0 + shakeOffsetY, -38.0 + shakeOffsetZ);
-      this.cameraNode.setTarget(
-        new BABYLON.Vector3(shakeOffsetX * 0.25, 14.0 + shakeOffsetY * 0.25, 0)
-      );
+      this.cameraTarget.set(shakeOffsetX * 0.25, 14.0 + shakeOffsetY * 0.25, 0);
+      this.cameraNode.setTarget(this.cameraTarget);
     }
   }
 
