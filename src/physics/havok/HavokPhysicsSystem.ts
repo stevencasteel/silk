@@ -94,6 +94,31 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         rightBody.shape = wallShape; // V2 REUSE: Sharing the exact same shape as the left wall
         rightBody.setMassProperties({ mass: 0 });
 
+        // Invisible Front and Back walls to keep DYNAMIC physics objects inside the 2D plane natively
+        const physFront = BABYLON.MeshBuilder.CreateBox("physFront", { width: floorWidth, height: wallHeight, depth: 1.0 }, scene);
+        physFront.position.set(0, wallY, -3.5);
+        physFront.isVisible = false;
+        
+        const frontBackShape = new BABYLON.PhysicsShapeBox(
+          BABYLON.Vector3.Zero(), 
+          BABYLON.Quaternion.Identity(), 
+          new BABYLON.Vector3(floorWidth, wallHeight, 1.0), 
+          scene
+        );
+        frontBackShape.material = { friction: 0.1, restitution: 0.5 };
+        
+        const frontBody = new BABYLON.PhysicsBody(physFront, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        frontBody.shape = frontBackShape;
+        frontBody.setMassProperties({ mass: 0 });
+
+        const physBack = BABYLON.MeshBuilder.CreateBox("physBack", { width: floorWidth, height: wallHeight, depth: 1.0 }, scene);
+        physBack.position.set(0, wallY, 3.5);
+        physBack.isVisible = false;
+        
+        const backBody = new BABYLON.PhysicsBody(physBack, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        backBody.shape = frontBackShape; // V2 REUSE: Share the front wall shape
+        backBody.setMassProperties({ mass: 0 });
+
       } catch (err) {
         console.warn(
           "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",

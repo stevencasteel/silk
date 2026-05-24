@@ -25,6 +25,8 @@ import * as BABYLON from "@babylonjs/core";
 export class EntitySpawnerSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   readonly initPhase = InitPhase.World;
+  private sharedWeaverShape: BABYLON.PhysicsShapeSphere | null = null;
+  private sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null = null;
 
   constructor(
     private refs: EntityRefs,
@@ -45,6 +47,12 @@ export class EntitySpawnerSystem implements ISystem {
   ) {}
 
   public init(): void {
+    const scene = this.visualRegistry.getScene();
+    if (scene && scene.isPhysicsEnabled()) {
+      this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), ARENA_CONFIG.ENTITY.WEAVER_RADIUS, scene);
+      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(new BABYLON.Vector3(0, -cylHalfHeight, 0), new BABYLON.Vector3(0, cylHalfHeight, 0), ARENA_CONFIG.ENTITY.PLAYER_RADIUS, scene);
+    }
     this.spawnWeaver();
     this.spawnPlayer();
   }
@@ -107,6 +115,12 @@ export class EntitySpawnerSystem implements ISystem {
     wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
     wMesh.material = wMat;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
+
+    if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {
+      const wBody = new BABYLON.PhysicsBody(wMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      wBody.shape = this.sharedWeaverShape;
+      wBody.setMassProperties({ mass: 100.0 });
+    }
 
     return weaverId;
   }
@@ -179,6 +193,16 @@ export class EntitySpawnerSystem implements ISystem {
     pMesh.material = pMat;
     this.visualRegistry.registerTransformNode(playerId, pMesh);
 
+    if (scene.isPhysicsEnabled() && this.sharedPlayerShape) {
+      const pBody = new BABYLON.PhysicsBody(pMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      pBody.shape = this.sharedPlayerShape;
+      pBody.setMassProperties({ mass: 10.0 });
+    }
+
     return playerId;
+  }
+  public dispose(): void {
+    if (this.sharedWeaverShape) this.sharedWeaverShape.dispose();
+    if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
   }
 }

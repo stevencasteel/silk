@@ -60,7 +60,7 @@ export class GameDirectorSystem implements ISystem {
           this.maxCinematicSimTime = 0.875;
           GameDirectorSystem.timeScale = 0.25;
 
-          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 2.2, duration: 0.7 });
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
         }
       })
     );

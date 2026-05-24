@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 1:51:47 PM
+ [SYSTEM] Generated: 5/24/2026, 2:36:17 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2859,6 +2859,8 @@ import * as BABYLON from "@babylonjs/core";
 export class EntitySpawnerSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   readonly initPhase = InitPhase.World;
+  private sharedWeaverShape: BABYLON.PhysicsShapeSphere | null = null;
+  private sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null = null;
 
   constructor(
     private refs: EntityRefs,
@@ -2879,6 +2881,12 @@ export class EntitySpawnerSystem implements ISystem {
   ) {}
 
   public init(): void {
+    const scene = this.visualRegistry.getScene();
+    if (scene && scene.isPhysicsEnabled()) {
+      this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), ARENA_CONFIG.ENTITY.WEAVER_RADIUS, scene);
+      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(new BABYLON.Vector3(0, -cylHalfHeight, 0), new BABYLON.Vector3(0, cylHalfHeight, 0), ARENA_CONFIG.ENTITY.PLAYER_RADIUS, scene);
+    }
     this.spawnWeaver();
     this.spawnPlayer();
   }
@@ -2941,6 +2949,12 @@ export class EntitySpawnerSystem implements ISystem {
     wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
     wMesh.material = wMat;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
+
+    if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {
+      const wBody = new BABYLON.PhysicsBody(wMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      wBody.shape = this.sharedWeaverShape;
+      wBody.setMassProperties({ mass: 100.0 });
+    }
 
     return weaverId;
   }
@@ -3013,10 +3027,19 @@ export class EntitySpawnerSystem implements ISystem {
     pMesh.material = pMat;
     this.visualRegistry.registerTransformNode(playerId, pMesh);
 
+    if (scene.isPhysicsEnabled() && this.sharedPlayerShape) {
+      const pBody = new BABYLON.PhysicsBody(pMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      pBody.shape = this.sharedPlayerShape;
+      pBody.setMassProperties({ mass: 10.0 });
+    }
+
     return playerId;
   }
+  public dispose(): void {
+    if (this.sharedWeaverShape) this.sharedWeaverShape.dispose();
+    if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
+  }
 }
-
 
 
 ● ./src/gameplay/combat/CombatSystem.ts
@@ -3041,7 +3064,6 @@ import { CommandBus } from "../../core/commands/CommandBus";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
-
   private readonly COMBINED_RADIUS_THRESHOLD = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
   private readonly BROADPHASE_ENVELOPE = 
     (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN) * 
@@ -3069,12 +3091,9 @@ export class CombatSystem implements ISystem {
     const pTrav = this.traversal.get(this.refs.player);
 
     if (!pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
-
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
-    if (pIframe.timeRemaining > 0) {
-      pIframe.timeRemaining -= dt;
-    }
+    if (pIframe.timeRemaining > 0) pIframe.timeRemaining -= dt;
 
     const pTrans = this.transforms.get(this.refs.player);
     const wTrans = this.transforms.get(this.refs.weaver);
@@ -3084,9 +3103,7 @@ export class CombatSystem implements ISystem {
     const dy = pTrans.y - wTrans.y;
     const distSq = dx * dx + dy * dy;
 
-    if (distSq > this.BROADPHASE_ENVELOPE) {
-      return;
-    }
+    if (distSq > this.BROADPHASE_ENVELOPE) return;
 
     const dist = Math.sqrt(distSq) || 1.0;
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
@@ -3100,7 +3117,6 @@ export class CombatSystem implements ISystem {
     }
 
     const weaverIsHostile = wAI.state === "DASHING";
-
     if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
       this.resolveWeaverContactHit(pHealth, pIframe, dx, dy, distSq);
       return;
@@ -3110,7 +3126,6 @@ export class CombatSystem implements ISystem {
       const overlap = this.COMBINED_RADIUS_THRESHOLD - dist;
       const nx = dx / dist;
       const ny = dy / dist;
-
       const shiftX = nx * overlap;
       const shiftY = ny * overlap;
 
@@ -3133,27 +3148,11 @@ export class CombatSystem implements ISystem {
     }
   }
 
-  private resolvePlayerFlingHit(
-    wHealth: HealthComponent,
-    tether: TetherComponent,
-    pTrav: TraversalStateComponent,
-    dx: number,
-    dy: number,
-    distSq: number
-  ): void {
+  private resolvePlayerFlingHit(wHealth: HealthComponent, tether: TetherComponent, pTrav: TraversalStateComponent, dx: number, dy: number, distSq: number): void {
     const tuning = GAMEPLAY_TUNING.COMBAT;
     wHealth.current -= tuning.PLAYER_FLING_DAMAGE;
-
-    this.broker.publish(GameEvent.WEAVER_DAMAGED, {
-      amount: tuning.PLAYER_FLING_DAMAGE,
-      source: "PLAYER_FLING"
-    });
-
-    this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
-      hp: Math.max(0, wHealth.current),
-      maxHp: wHealth.max
-    });
-
+    this.broker.publish(GameEvent.WEAVER_DAMAGED, { amount: tuning.PLAYER_FLING_DAMAGE, source: "PLAYER_FLING" });
+    this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: Math.max(0, wHealth.current), maxHp: wHealth.max });
     this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
     const dist = Math.sqrt(distSq) || 1;
@@ -3164,17 +3163,10 @@ export class CombatSystem implements ISystem {
     pTrav.launchTimer = 0;
   }
 
-  private resolveWeaverContactHit(
-    pHealth: HealthComponent,
-    pIframe: InvulnerabilityComponent,
-    dx: number,
-    dy: number,
-    distSq: number
-  ): void {
+  private resolveWeaverContactHit(pHealth: HealthComponent, pIframe: InvulnerabilityComponent, dx: number, dy: number, distSq: number): void {
     const tuning = GAMEPLAY_TUNING.COMBAT;
     pHealth.current -= tuning.WEAVER_CONTACT_DAMAGE;
     pIframe.timeRemaining = tuning.PLAYER_IFRAME_DURATION;
-
     const dist = Math.sqrt(distSq) || 1;
     this.commands.dispatch({
       type: "APPLY_IMPULSE",
@@ -3184,16 +3176,9 @@ export class CombatSystem implements ISystem {
       z: 0
     });
 
-    this.broker.publish(GameEvent.PLAYER_DAMAGED, {
-      amount: tuning.WEAVER_CONTACT_DAMAGE,
-      source: "WEAVER"
-    });
-    this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-      hp: pHealth.current,
-      maxHp: pHealth.max
-    });
+    this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: tuning.WEAVER_CONTACT_DAMAGE, source: "WEAVER" });
+    this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
     this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
-
     if (pHealth.current <= 0) {
       pHealth.current = 0;
       this.broker.publish(GameEvent.PLAYER_DIED, undefined);
@@ -3267,7 +3252,7 @@ export class GameDirectorSystem implements ISystem {
           this.maxCinematicSimTime = 0.875;
           GameDirectorSystem.timeScale = 0.25;
 
-          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 2.2, duration: 0.7 });
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
         }
       })
     );
@@ -3381,7 +3366,7 @@ interface ActiveProjectile {
   isStuck: boolean;
   isStuckOnWall: boolean;
   lifeTime: number;
-  fallbackVelocity?: BABYLON.Vector3;
+  fallbackVelocity: BABYLON.Vector3;
 }
 
 export class ProjectileSystem implements ISystem {
@@ -3395,9 +3380,6 @@ export class ProjectileSystem implements ISystem {
   private projMat: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
-
-  private scratchVec3 = new BABYLON.Vector3();
-  private zeroVec3 = BABYLON.Vector3.Zero();
 
   constructor(
     private broker: EventBroker,
@@ -3420,8 +3402,6 @@ export class ProjectileSystem implements ISystem {
     this.projMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
     this.projMat.sheen.isEnabled = true;
     this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
-    this.projMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_ROUGHNESS;
-    this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
 
     if (scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2, scene);
@@ -3438,16 +3418,13 @@ export class ProjectileSystem implements ISystem {
       sphere.material = this.projMat;
       sphere.isVisible = false;
 
-      if (this.visualRegistry.registerShadowCaster) {
-        this.visualRegistry.registerShadowCaster(sphere);
-      }
-
       let body: BABYLON.PhysicsBody | null = null;
       if (scene.isPhysicsEnabled() && this.sharedShape) {
         body = new BABYLON.PhysicsBody(sphere, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
         body.shape = this.sharedShape;
         body.setMassProperties({ mass: 1.0 });
-        body.setLinearVelocity(this.zeroVec3);
+        // Crucial: Forces the physics hitbox to follow our manual math position updates
+        body.disablePreStep = false; 
       }
 
       this.projectilePool.push({
@@ -3456,11 +3433,11 @@ export class ProjectileSystem implements ISystem {
         isStuck: false,
         isStuckOnWall: false,
         lifeTime: 0.0,
-        fallbackVelocity: undefined
+        fallbackVelocity: new BABYLON.Vector3(0, 0, 0)
       });
     }
 
-    this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload: { x: number; y: number; tx: number; ty: number }) => {
+    this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
       this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
     });
 
@@ -3470,9 +3447,6 @@ export class ProjectileSystem implements ISystem {
   }
 
   private spawnProjectile(x: number, y: number, tx: number, ty: number): void {
-    const scene = this.visualRegistry.getScene();
-    if (!scene) return;
-
     let proj: ActiveProjectile | null = null;
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const idx = (this.nextPoolIndex + i) % this.POOL_SIZE;
@@ -3483,7 +3457,6 @@ export class ProjectileSystem implements ISystem {
         break;
       }
     }
-
     if (!proj) {
       proj = this.projectilePool[this.nextPoolIndex];
       this.recycleProjectile(proj);
@@ -3500,18 +3473,7 @@ export class ProjectileSystem implements ISystem {
     const dy = ty - y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
-    const vx = (dx / dist) * speed;
-    const vy = (dy / dist) * speed;
-
-    if (proj.body) {
-      proj.body.setMotionType(BABYLON.PhysicsMotionType.DYNAMIC);
-      this.scratchVec3.set(vx, vy, 0);
-      proj.body.setLinearVelocity(this.scratchVec3);
-      proj.body.setAngularVelocity(this.zeroVec3);
-      proj.fallbackVelocity = undefined;
-    } else {
-      proj.fallbackVelocity = new BABYLON.Vector3(vx, vy, 0);
-    }
+    proj.fallbackVelocity.set((dx / dist) * speed, (dy / dist) * speed, 0);
   }
 
   public update(dt: number): void {
@@ -3520,12 +3482,12 @@ export class ProjectileSystem implements ISystem {
     const pIframe = this.iframes.get(this.refs.player);
 
     if (!pHealth || !wHealth || !pIframe) return;
-
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
-    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
+    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
+    const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const p = this.projectilePool[i];
@@ -3533,48 +3495,37 @@ export class ProjectileSystem implements ISystem {
 
       p.lifeTime += dt;
 
-      if (p.body && !p.isStuck) {
-        const pos = p.mesh.position;
-        if (Math.abs(pos.z) > 0.01) {
-          p.mesh.position.z = 0;
-        }
-        const vel = p.body.getLinearVelocity();
-        if (Math.abs(vel.z) > 0.01) {
-          this.scratchVec3.set(vel.x, vel.y, 0);
-          p.body.setLinearVelocity(this.scratchVec3);
-        }
-      }
-
-      if (!p.isStuck && p.fallbackVelocity) {
-        p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
-      }
-
-      const pos = p.mesh.position;
-      const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-
+      // Pure math movement
       if (!p.isStuck) {
-        if (Math.abs(pos.x) >= wallLimit) {
+        p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
+
+        // Wall Impact
+        if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
-          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: pos.x, y: pos.y, isWall: true });
+          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: true });
+        }
 
-          if (p.body) {
-            p.body.setLinearVelocity(this.zeroVec3);
-            p.body.setAngularVelocity(this.zeroVec3);
-            p.body.setMotionType(BABYLON.PhysicsMotionType.STATIC);
-          } else {
-            p.fallbackVelocity = new BABYLON.Vector3(0, 0, 0);
+        // Player Impact
+        if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
+          if (p.mesh.intersectsMesh(pMesh, false)) {
+            pHealth.current = Math.max(0, pHealth.current - 1);
+            pIframe.timeRemaining = GAMEPLAY_TUNING.COMBAT.PLAYER_IFRAME_DURATION;
+            this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
+            this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 1, source: "PROJECTILE" });
+            this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
+            this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP, duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR });
+            if (pHealth.current <= 0) {
+              this.broker.publish(GameEvent.PLAYER_DIED, undefined);
+            }
+            this.recycleProjectile(p);
+            continue;
           }
         }
       }
 
       if (p.isStuckOnWall) {
-        if (p.body && p.body.getMotionType() !== BABYLON.PhysicsMotionType.ANIMATED) {
-          p.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
-        }
-
-        const deltaY = currentScrollSpeed * dt;
-        p.mesh.position.y -= deltaY;
+        p.mesh.position.y -= currentScrollSpeed * dt;
       }
 
       if (
@@ -3583,33 +3534,6 @@ export class ProjectileSystem implements ISystem {
         p.lifeTime > WEAVER_AI_TUNING.SHOOT.MAX_LIFE
       ) {
         this.recycleProjectile(p);
-        continue;
-      }
-
-      if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
-        const isHit = p.mesh.intersectsMesh(pMesh, false);
-
-        if (isHit) {
-          pHealth.current = Math.max(0, pHealth.current - 1);
-          pIframe.timeRemaining = GAMEPLAY_TUNING.COMBAT.PLAYER_IFRAME_DURATION;
-          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
-
-          this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 1, source: "PROJECTILE" });
-          this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-            hp: pHealth.current,
-            maxHp: pHealth.max
-          });
-          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-            amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-            duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-          });
-
-          if (pHealth.current <= 0) {
-            this.broker.publish(GameEvent.PLAYER_DIED, undefined);
-          }
-
-          this.recycleProjectile(p);
-        }
       }
     }
   }
@@ -3618,12 +3542,7 @@ export class ProjectileSystem implements ISystem {
     if (!p) return;
     p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
-    if (p.body) {
-      p.body.setLinearVelocity(this.zeroVec3);
-      p.body.setAngularVelocity(this.zeroVec3);
-      p.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
-    }
-    p.fallbackVelocity = undefined;
+    p.fallbackVelocity.set(0,0,0);
     p.isStuck = false;
     p.isStuckOnWall = false;
     p.lifeTime = 0.0;
@@ -3632,10 +3551,7 @@ export class ProjectileSystem implements ISystem {
   private clearAll(): void {
     if (!this.projectilePool || this.projectilePool.length === 0) return;
     for (let i = 0; i < this.POOL_SIZE; i++) {
-      const p = this.projectilePool[i];
-      if (p) {
-        this.recycleProjectile(p);
-      }
+      if (this.projectilePool[i]) this.recycleProjectile(this.projectilePool[i]);
     }
   }
 
@@ -3658,7 +3574,7 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import { CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -3694,8 +3610,6 @@ export class JuiceSystem implements ISystem {
 
   private activeDebrisList: ActiveDebris[] = [];
   private debrisMat: BABYLON.PBRMaterial | null = null;
-
-  private scratchVector = new BABYLON.Vector3();
   private playerState: string = "AIRBORNE";
 
   constructor(
@@ -3937,86 +3851,215 @@ export class JuiceSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    if (!this.debrisMat) return;
-
     const weaverMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.Mesh | null;
     const activeMat = weaverMesh?.material || this.debrisMat;
     const usePhysics = scene.isPhysicsEnabled();
-
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
-    const count = config.COUNT;
 
-    for (let i = 0; i < count; i++) {
-      const size = config.SIZE_MIN + Math.random() * (config.SIZE_MAX - config.SIZE_MIN);
+    // ==============================================================================
+    // LAYER 1: OUTER SHELL (20 Flat Triangles flying out quickly)
+    // ==============================================================================
+    const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere("shellProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 }, scene);
+    const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    const shellInd = proxyShell.getIndices();
+    const shellNorm = proxyShell.getVerticesData(BABYLON.VertexBuffer.NormalKind);
 
-      let chunk: BABYLON.Mesh;
-      if (i % 2 === 0) {
-        chunk = BABYLON.MeshBuilder.CreateCylinder(
-          "debris_shard_" + Date.now() + "_" + i,
-          { diameterTop: 0, diameterBottom: size, height: size * 1.2, tessellation: 5 },
-          scene
-        );
-      } else {
-        chunk = BABYLON.MeshBuilder.CreateBox(
-          "debris_shard_" + Date.now() + "_" + i,
-          { width: size, height: size * 0.4, depth: size },
-          scene
-        );
-      }
-
-      chunk.position.copyFrom(pos);
-      chunk.position.x += (Math.random() - 0.5) * 1.2;
-      chunk.position.y += (Math.random() - 0.5) * 1.2;
-      chunk.material = activeMat;
-
-      chunk.rotation.set(
-        Math.random() * Math.PI,
-        Math.random() * Math.PI,
-        Math.random() * Math.PI
-      );
-
-      let body: BABYLON.PhysicsBody | null = null;
-      const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
-      const vy = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN);
-      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
-
-      const rx = (Math.random() - 0.5) * config.ANGULAR_MAX;
-      const ry = (Math.random() - 0.5) * config.ANGULAR_MAX;
-      const rz = (Math.random() - 0.5) * config.ANGULAR_MAX;
-
-      if (usePhysics) {
-        let shape: BABYLON.PhysicsShape;
-        if (i % 2 === 0) {
-          shape = new BABYLON.PhysicsShapeCylinder(
-            new BABYLON.Vector3(0, -size * 0.6, 0),
-            new BABYLON.Vector3(0, size * 0.6, 0),
-            size / 2,
-            scene
-          );
-        } else {
-          shape = new BABYLON.PhysicsShapeBox(
-            BABYLON.Vector3.Zero(),
-            BABYLON.Quaternion.Identity(),
-            new BABYLON.Vector3(size, size * 0.4, size),
-            scene
-          );
+    if (shellPos && shellInd) {
+      for (let i = 0; i < shellInd.length; i += 3) {
+        const i1 = shellInd[i], i2 = shellInd[i+1], i3 = shellInd[i+2];
+        const p1 = new BABYLON.Vector3(shellPos[i1*3], shellPos[i1*3+1], shellPos[i1*3+2]);
+        const p2 = new BABYLON.Vector3(shellPos[i2*3], shellPos[i2*3+1], shellPos[i2*3+2]);
+        const p3 = new BABYLON.Vector3(shellPos[i3*3], shellPos[i3*3+1], shellPos[i3*3+2]);
+        const centroid = p1.add(p2).add(p3).scale(1/3);
+        
+        const customMesh = new BABYLON.Mesh("shard_" + i, scene);
+        const vertexData = new BABYLON.VertexData();
+        vertexData.positions = [
+          p1.x - centroid.x, p1.y - centroid.y, p1.z - centroid.z,
+          p2.x - centroid.x, p2.y - centroid.y, p2.z - centroid.z,
+          p3.x - centroid.x, p3.y - centroid.y, p3.z - centroid.z
+        ];
+        vertexData.indices = [0, 1, 2];
+        
+        if (shellNorm) {
+          vertexData.normals = [
+            shellNorm[i1*3], shellNorm[i1*3+1], shellNorm[i1*3+2],
+            shellNorm[i2*3], shellNorm[i2*3+1], shellNorm[i2*3+2],
+            shellNorm[i3*3], shellNorm[i3*3+1], shellNorm[i3*3+2]
+          ];
         }
-        shape.material = { friction: config.FRICTION, restitution: config.RESTITUTION };
-        body = new BABYLON.PhysicsBody(chunk, BABYLON.PhysicsMotionType.DYNAMIC, false, scene);
-        body.shape = shape;
-        body.setMassProperties({ mass: config.MASS });
-        body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
-        body.setAngularVelocity(new BABYLON.Vector3(rx, ry, rz));
+        
+        vertexData.applyToMesh(customMesh);
+        customMesh.position = pos.add(centroid);
+        customMesh.material = activeMat;
+
+        // Guarantee collision volume by extracting the exact extents
+        customMesh.computeWorldMatrix(true);
+        customMesh.refreshBoundingInfo(true);
+        const bbox = customMesh.getBoundingInfo();
+        const extents = bbox.maximum.subtract(bbox.minimum);
+        extents.x = Math.max(0.2, Math.abs(extents.x));
+        extents.y = Math.max(0.2, Math.abs(extents.y));
+        extents.z = Math.max(0.2, Math.abs(extents.z));
+
+        let body: BABYLON.PhysicsBody | null = null;
+        const outward = centroid.clone().normalize();
+        const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
+        const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
+        const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
+        const vz = outward.z * speed + (Math.random() - 0.5) * 8.0;
+
+        if (usePhysics) {
+          const shape = new BABYLON.PhysicsShapeBox(BABYLON.Vector3.Zero(), BABYLON.Quaternion.Identity(), extents, scene);
+          shape.material = { friction: 0.5, restitution: 0.6 };
+          body = new BABYLON.PhysicsBody(customMesh, BABYLON.PhysicsMotionType.DYNAMIC, false, scene);
+          body.shape = shape;
+          body.setMassProperties({ mass: config.MASS * 0.5 });
+          body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+          body.setAngularVelocity(new BABYLON.Vector3(
+            (Math.random() - 0.5) * config.ANGULAR_MAX * 2,
+            (Math.random() - 0.5) * config.ANGULAR_MAX * 2,
+            (Math.random() - 0.5) * config.ANGULAR_MAX * 2
+          ));
+        }
+
+        this.activeDebrisList.push({
+          mesh: customMesh,
+          body: body,
+          velocity: new BABYLON.Vector3(vx, vy, vz),
+          angularVelocity: new BABYLON.Vector3(0, 0, 0),
+          lifeRemaining: config.LIFE * (0.8 + Math.random() * 0.4)
+        });
+      }
+    }
+    proxyShell.dispose();
+
+    // ==============================================================================
+    // LAYER 2: INNER CORE (10 Heavy Sealed Wedges)
+    // ==============================================================================
+    const chunks = 10;
+    const proxyCore = BABYLON.MeshBuilder.CreateIcoSphere("coreProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 0.95, subdivisions: 3 }, scene);
+    const corePos = proxyCore.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    const coreInd = proxyCore.getIndices();
+
+    if (corePos && coreInd) {
+      const bucketTris: number[][] = Array.from({ length: chunks }, () => []);
+      for (let i = 0; i < coreInd.length; i += 3) {
+        const i1 = coreInd[i], i2 = coreInd[i+1], i3 = coreInd[i+2];
+        const cx = (corePos[i1*3] + corePos[i2*3] + corePos[i3*3]) / 3;
+        const cz = (corePos[i1*3+2] + corePos[i2*3+2] + corePos[i3*3+2]) / 3;
+        let angle = Math.atan2(cz, cx);
+        if (angle < 0) angle += Math.PI * 2;
+        let bucket = Math.floor((angle / (Math.PI * 2)) * chunks);
+        if (bucket === chunks) bucket = chunks - 1;
+        bucketTris[bucket].push(i1, i2, i3);
       }
 
-      this.activeDebrisList.push({
-        mesh: chunk,
-        body: body,
-        velocity: new BABYLON.Vector3(vx, vy, vz),
-        angularVelocity: new BABYLON.Vector3(rx, ry, rz),
-        lifeRemaining: config.LIFE
-      });
+      for (let b = 0; b < chunks; b++) {
+        const tris = bucketTris[b];
+        if (tris.length === 0) continue;
+
+        const edgeMap = new Map<string, { count: number, directed: [number, number] }>();
+        for (let i = 0; i < tris.length; i += 3) {
+          const edges = [ [tris[i], tris[i+1]], [tris[i+1], tris[i+2]], [tris[i+2], tris[i]] ];
+          for (const e of edges) {
+            const key = Math.min(e[0], e[1]) + "_" + Math.max(e[0], e[1]);
+            if (!edgeMap.has(key)) { edgeMap.set(key, { count: 0, directed: e as [number, number] }); }
+            edgeMap.get(key)!.count++;
+          }
+        }
+        const boundaries: [number, number][] = [];
+        for (const val of edgeMap.values()) {
+          if (val.count === 1) boundaries.push(val.directed);
+        }
+
+        const localPositions: number[] = [];
+        const localIndices: number[] = [];
+        const oldToNew = new Map<number, number>();
+
+        localPositions.push(0, 0, 0);
+        const centerIndex = 0;
+        const getLocal = (oldIdx: number) => {
+          if (oldToNew.has(oldIdx)) return oldToNew.get(oldIdx)!;
+          const newIdx = localPositions.length / 3;
+          localPositions.push(corePos[oldIdx*3], corePos[oldIdx*3+1], corePos[oldIdx*3+2]);
+          oldToNew.set(oldIdx, newIdx);
+          return newIdx;
+        };
+
+        for (let i = 0; i < tris.length; i += 3) {
+          localIndices.push(getLocal(tris[i]), getLocal(tris[i+1]), getLocal(tris[i+2]));
+        }
+        for (const e of boundaries) {
+          localIndices.push(getLocal(e[1]), getLocal(e[0]), centerIndex);
+        }
+
+        let cx = 0, cy = 0, cz = 0;
+        const vCount = localPositions.length / 3;
+        for (let i = 0; i < localPositions.length; i += 3) {
+          cx += localPositions[i]; cy += localPositions[i+1]; cz += localPositions[i+2];
+        }
+        cx /= vCount; cy /= vCount; cz /= vCount;
+        const centroid = new BABYLON.Vector3(cx, cy, cz);
+
+        for (let i = 0; i < localPositions.length; i += 3) {
+          localPositions[i] = (localPositions[i] - cx) * 0.90;
+          localPositions[i+1] = (localPositions[i+1] - cy) * 0.90;
+          localPositions[i+2] = (localPositions[i+2] - cz) * 0.90;
+        }
+
+        const customMesh = new BABYLON.Mesh("chunk_" + b, scene);
+        const vertexData = new BABYLON.VertexData();
+        vertexData.positions = localPositions;
+        vertexData.indices = localIndices;
+        const computedNormals: number[] = [];
+        BABYLON.VertexData.ComputeNormals(localPositions, localIndices, computedNormals);
+        vertexData.normals = computedNormals;
+        vertexData.applyToMesh(customMesh);
+        
+        const outward = centroid.clone().normalize();
+        customMesh.position = pos.add(centroid).add(outward.scale(0.3));
+        customMesh.material = activeMat;
+
+        // Guarantee collision volume by extracting exact extents
+        customMesh.computeWorldMatrix(true);
+        customMesh.refreshBoundingInfo(true);
+        const bbox = customMesh.getBoundingInfo();
+        const extents = bbox.maximum.subtract(bbox.minimum);
+        extents.x = Math.max(0.2, Math.abs(extents.x));
+        extents.y = Math.max(0.2, Math.abs(extents.y));
+        extents.z = Math.max(0.2, Math.abs(extents.z));
+
+        let body: BABYLON.PhysicsBody | null = null;
+        const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.7;
+        const vx = outward.x * speed + (Math.random() - 0.5) * 3.0;
+        const vy = outward.y * speed + (Math.random() - 0.5) * 3.0;
+        const vz = outward.z * speed + (Math.random() - 0.5) * 3.0;
+
+        if (usePhysics) {
+          const shape = new BABYLON.PhysicsShapeBox(BABYLON.Vector3.Zero(), BABYLON.Quaternion.Identity(), extents, scene);
+          shape.material = { friction: 0.8, restitution: 0.6 }; 
+          body = new BABYLON.PhysicsBody(customMesh, BABYLON.PhysicsMotionType.DYNAMIC, false, scene);
+          body.shape = shape;
+          body.setMassProperties({ mass: config.MASS * 2.5 }); 
+          body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
+          body.setAngularVelocity(new BABYLON.Vector3(
+            (Math.random() - 0.5) * config.ANGULAR_MAX,
+            (Math.random() - 0.5) * config.ANGULAR_MAX,
+            (Math.random() - 0.5) * config.ANGULAR_MAX
+          ));
+        }
+
+        this.activeDebrisList.push({
+          mesh: customMesh,
+          body: body,
+          velocity: new BABYLON.Vector3(vx, vy, vz),
+          angularVelocity: new BABYLON.Vector3(0, 0, 0),
+          lifeRemaining: config.LIFE
+        });
+      }
     }
+    proxyCore.dispose();
   }
 
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
@@ -4081,20 +4124,27 @@ export class JuiceSystem implements ISystem {
       d.lifeRemaining -= dt;
 
       if (d.lifeRemaining <= 0) {
-        if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
+        if (d.body) {
+           if (d.body.shape) d.body.shape.dispose();
+           d.body.dispose();
+        }
         d.mesh.dispose();
         this.activeDebrisList.splice(i, 1);
       } else {
+        if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
+          // FIX 4: Detach physics body before scaling so collision hulls don't mismatch causing hovering
+          if (d.body) {
+            if (d.body.shape) d.body.shape.dispose();
+            d.body.dispose();
+            d.body = null;
+            d.velocity.y = -4.0; // Fallback math gravity so it sinks gracefully
+          }
+          const ratio = d.lifeRemaining / config.SCALE_DECAY_TIME;
+          d.mesh.scaling.set(ratio, ratio, ratio);
+        }
+
         if (d.body) {
-          const pos = d.mesh.position;
-          if (Math.abs(pos.z) > config.Z_FORCE_CLAMP) {
-            d.mesh.position.z = 0;
-          }
-          const vel = d.body.getLinearVelocity();
-          if (Math.abs(vel.z) > config.Z_FORCE_CLAMP) {
-            this.scratchVector.set(vel.x, vel.y, 0);
-            d.body.setLinearVelocity(this.scratchVector);
-          }
+          // Native Havok glass walls handle Z-axis bounding natively now
         } else {
           d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
           d.mesh.position.x += d.velocity.x * dt;
@@ -4102,11 +4152,6 @@ export class JuiceSystem implements ISystem {
           d.mesh.rotation.x += d.angularVelocity.x * dt;
           d.mesh.rotation.y += d.angularVelocity.y * dt;
           d.mesh.rotation.z += d.angularVelocity.z * dt;
-        }
-
-        if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
-          const ratio = d.lifeRemaining / config.SCALE_DECAY_TIME;
-          d.mesh.scaling.set(ratio, ratio, ratio);
         }
       }
     }
@@ -5448,7 +5493,7 @@ export class WeaverDefeatedState implements IWeaverState {
       z: 0
     });
     ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.4 });
+    // Shake handled by GameDirectorSystem
   }
 
   public exit(): void {}
@@ -6006,6 +6051,31 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         const rightBody = new BABYLON.PhysicsBody(physRight, BABYLON.PhysicsMotionType.STATIC, false, scene);
         rightBody.shape = wallShape; // V2 REUSE: Sharing the exact same shape as the left wall
         rightBody.setMassProperties({ mass: 0 });
+
+        // Invisible Front and Back walls to keep DYNAMIC physics objects inside the 2D plane natively
+        const physFront = BABYLON.MeshBuilder.CreateBox("physFront", { width: floorWidth, height: wallHeight, depth: 1.0 }, scene);
+        physFront.position.set(0, wallY, -3.5);
+        physFront.isVisible = false;
+        
+        const frontBackShape = new BABYLON.PhysicsShapeBox(
+          BABYLON.Vector3.Zero(), 
+          BABYLON.Quaternion.Identity(), 
+          new BABYLON.Vector3(floorWidth, wallHeight, 1.0), 
+          scene
+        );
+        frontBackShape.material = { friction: 0.1, restitution: 0.5 };
+        
+        const frontBody = new BABYLON.PhysicsBody(physFront, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        frontBody.shape = frontBackShape;
+        frontBody.setMassProperties({ mass: 0 });
+
+        const physBack = BABYLON.MeshBuilder.CreateBox("physBack", { width: floorWidth, height: wallHeight, depth: 1.0 }, scene);
+        physBack.position.set(0, wallY, 3.5);
+        physBack.isVisible = false;
+        
+        const backBody = new BABYLON.PhysicsBody(physBack, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        backBody.shape = frontBackShape; // V2 REUSE: Share the front wall shape
+        backBody.setMassProperties({ mass: 0 });
 
       } catch (err) {
         console.warn(

@@ -222,7 +222,7 @@ export class WeaverDefeatedState implements IWeaverState {
       z: 0
     });
     ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.4 });
+    // Shake handled by GameDirectorSystem
   }
 
   public exit(): void {}
