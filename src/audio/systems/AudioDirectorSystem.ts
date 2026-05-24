@@ -15,6 +15,9 @@ export class AudioDirectorSystem implements ISystem {
   private unsubImpact: (() => void) | null = null;
   private unsubWeaverHit: (() => void) | null = null;
   private unsubState: (() => void) | null = null;
+  private unsubGameOver: (() => void) | null = null;
+  private unsubGameWin: (() => void) | null = null;
+  private unsubGameReset: (() => void) | null = null;
   private gestureTriggerRef: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
@@ -48,6 +51,24 @@ export class AudioDirectorSystem implements ISystem {
     this.unsubState = this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
       if (this.initialized && this.tensionSynth) {
         this.tensionSynth.handleStateChange(payload.state);
+      }
+    });
+
+    this.unsubGameOver = this.broker.subscribe(GameEvent.GAME_OVER, () => {
+      if (this.initialized && this.tensionSynth) {
+        this.tensionSynth.fadeOutAndMute();
+      }
+    });
+
+    this.unsubGameWin = this.broker.subscribe(GameEvent.GAME_WIN, () => {
+      if (this.initialized && this.tensionSynth) {
+        this.tensionSynth.fadeOutAndMute();
+      }
+    });
+
+    this.unsubGameReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
+      if (this.initialized && this.tensionSynth) {
+        this.tensionSynth.resetToBaseline();
       }
     });
   }
@@ -103,6 +124,9 @@ export class AudioDirectorSystem implements ISystem {
     if (this.unsubImpact) this.unsubImpact();
     if (this.unsubWeaverHit) this.unsubWeaverHit();
     if (this.unsubState) this.unsubState();
+    if (this.unsubGameOver) this.unsubGameOver();
+    if (this.unsubGameWin) this.unsubGameWin();
+    if (this.unsubGameReset) this.unsubGameReset();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();

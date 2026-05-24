@@ -71,6 +71,21 @@ export class TensionSynthesizer {
     }
   }
 
+  public fadeOutAndMute(): void {
+    if (!this.gainNode) return;
+    const now = Tone.now();
+    this.gainNode.gain.setTargetAtTime(0.0, now, 0.15);
+  }
+
+  public resetToBaseline(): void {
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter) return;
+    const now = Tone.now();
+    this.gainNode.gain.setValueAtTime(0.0, now);
+    this.fmOsc.frequency.setValueAtTime(55, now);
+    this.fmOsc.harmonicity.setValueAtTime(1.5, now);
+    this.lfo.frequency.setValueAtTime(0.2, now);
+  }
+
   public dispose(): void {
     if (this.fmOsc) {
       this.fmOsc.stop();
