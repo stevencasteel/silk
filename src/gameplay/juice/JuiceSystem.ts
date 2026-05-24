@@ -483,6 +483,7 @@ export class JuiceSystem implements ISystem {
 
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
+    const particleDrag = Math.pow(0.92, dt * 60.0);
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
       if (!p.active) continue;
@@ -495,6 +496,9 @@ export class JuiceSystem implements ISystem {
       }
 
       p.velocity.y += gravity * dt;
+      p.velocity.x *= particleDrag;
+      p.velocity.y *= particleDrag;
+      p.velocity.z *= particleDrag;
       p.mesh.position.x += p.velocity.x * dt;
       p.mesh.position.y += p.velocity.y * dt;
       p.mesh.position.z += p.velocity.z * dt;
@@ -547,7 +551,12 @@ export class JuiceSystem implements ISystem {
 
         if (!d.body) {
           // Dynamic 2.5D math physics updates
-          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 0.55;
+          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
+
+          const debrisDrag = Math.pow(0.95, dt * 60.0);
+          d.velocity.x *= debrisDrag;
+          d.velocity.z *= debrisDrag;
+
           d.mesh.position.x += d.velocity.x * dt;
           d.mesh.position.y += d.velocity.y * dt;
           d.mesh.position.z += d.velocity.z * dt;
