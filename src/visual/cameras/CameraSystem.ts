@@ -25,9 +25,9 @@ export class CameraSystem implements ISystem {
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
 
-      const preset = POST_PROCESSING_PRESETS.CAMERA;
-      this.cameraNode.position.set(preset.DEFAULT_POS.x, preset.DEFAULT_POS.y, preset.DEFAULT_POS.z);
-      this.cameraNode.setTarget(new BABYLON.Vector3(preset.DEFAULT_TARGET.x, preset.DEFAULT_TARGET.y, preset.DEFAULT_TARGET.z));
+          const preset = POST_PROCESSING_PRESETS.CAMERA;
+          this.cameraNode.position.set(preset.DEFAULT_POS.x, preset.DEFAULT_POS.y, preset.DEFAULT_POS.z);
+          this.cameraNode.setTarget(new BABYLON.Vector3(preset.DEFAULT_TARGET.x, preset.DEFAULT_TARGET.y, preset.DEFAULT_TARGET.z));
     }
 
     this.unsub = this.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {

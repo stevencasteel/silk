@@ -135,8 +135,8 @@ export class TetherVisualizerSystem implements ISystem {
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-      const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
-      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
+      const MathSag = this.MAX_SAG * (1.0 - tension) + vibOffset;
+      this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       for (let i = 0; i <= this.SEGMENTS; i++) {
         const t = i / this.SEGMENTS;

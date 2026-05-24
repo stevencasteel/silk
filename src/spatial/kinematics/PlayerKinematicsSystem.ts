@@ -14,7 +14,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
 import { CommandBus } from "../../core/commands/CommandBus";
-import { ApplyImpulseCommand } from "../commands/PhysicsCommands";
+import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {

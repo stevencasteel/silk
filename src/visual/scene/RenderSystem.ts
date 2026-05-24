@@ -1,6 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
-import { ArenaGeometry } from "../meshBuilders/ArenaGeometry";
+import { ArenaGeometry } from "../mesh/ArenaGeometry";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { VisualRegistry } from "./VisualRegistry";
 import * as BABYLON from "@babylonjs/core";

@@ -19,26 +19,26 @@ import {
   InvulnerabilityComponent,
   WeaverTraversalComponent
 } from "../core/ecs/Components";
-import { RenderSystem } from "../babylon/scene/RenderSystem";
-import { VisualRegistry } from "../babylon/scene/VisualRegistry";
-import { CameraSystem } from "../babylon/cameras/CameraSystem";
-import { LightingSystem } from "../babylon/lighting/LightingSystem";
+import { RenderSystem } from "../visual/scene/RenderSystem";
+import { VisualRegistry } from "../visual/scene/VisualRegistry";
+import { CameraSystem } from "../visual/cameras/CameraSystem";
+import { LightingSystem } from "../visual/lighting/LightingSystem";
 import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
 import { DomHudSystem } from "../ui/hud/DomHudSystem";
 import { EntitySpawnerSystem } from "../gameplay/systems/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/systems/WeaverBrainSystem";
 import { WeaverTraversalSystem } from "../gameplay/systems/WeaverTraversalSystem";
-import { TetherVisualizerSystem } from "../gameplay/systems/TetherVisualizerSystem";
-import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
+import { TetherVisualizerSystem } from "../visual/systems/TetherVisualizerSystem";
+import { PlayerKinematicsSystem } from "../spatial/kinematics/PlayerKinematicsSystem";
 import { PlayerAnimationSystem } from "../gameplay/systems/PlayerAnimationSystem";
-import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
+import { EnvironmentCollisionSystem } from "../spatial/collisions/EnvironmentCollisionSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
 import { CombatSystem } from "../gameplay/systems/CombatSystem";
 import { GameDirectorSystem } from "../gameplay/systems/GameDirectorSystem";
 import { ProjectileSystem } from "../gameplay/systems/ProjectileSystem";
-import { JuiceSystem } from "../babylon/particles/JuiceSystem";
+import { JuiceSystem } from "../visual/particles/JuiceSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
 import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
 import { PerformanceClock } from "../core/clock/PerformanceClock";
