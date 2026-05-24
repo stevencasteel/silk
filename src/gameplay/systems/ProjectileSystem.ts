@@ -232,6 +232,7 @@ export class ProjectileSystem implements ISystem {
   }
 
   private recycleProjectile(p: ActiveProjectile): void {
+    if (!p) return;
     p.mesh.setEnabled(false);
     p.mesh.position.set(0, -999, 0);
     if (p.aggregate) {
@@ -246,8 +247,12 @@ export class ProjectileSystem implements ISystem {
   }
 
   private clearAll(): void {
+    if (!this.projectilePool || this.projectilePool.length === 0) return;
     for (let i = 0; i < this.POOL_SIZE; i++) {
-      this.recycleProjectile(this.projectilePool[i]);
+      const p = this.projectilePool[i];
+      if (p) {
+        this.recycleProjectile(p);
+      }
     }
   }
 
@@ -256,8 +261,10 @@ export class ProjectileSystem implements ISystem {
     if (this.unsubReset) this.unsubReset();
     this.clearAll();
     this.projectilePool.forEach(p => {
-      if (p.aggregate) p.aggregate.dispose();
-      p.mesh.dispose();
+      if (p) {
+        if (p.aggregate) p.aggregate.dispose();
+        p.mesh.dispose();
+      }
     });
     this.projectilePool = [];
   }
