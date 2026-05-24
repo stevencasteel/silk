@@ -1,4 +1,5 @@
 import * as Tone from "tone";
+import { AUDIO_PRESETS } from "./AudioPresets";
 
 export class TensionSynthesizer {
   private fmOsc: Tone.FMOscillator | null = null;
@@ -13,18 +14,20 @@ export class TensionSynthesizer {
       Q: 4.0
     }).toDestination();
 
+    const presets = AUDIO_PRESETS.WEAVER;
+
     this.fmOsc = new Tone.FMOscillator({
-      frequency: 55,
+      frequency: presets.DRONE_BASE_FREQ,
       type: "sawtooth",
       modulationType: "sine",
-      harmonicity: 1.5,
+      harmonicity: presets.HARMONICITY_NORMAL,
       modulationIndex: 5
     });
 
     this.gainNode = new Tone.Gain(0.0);
 
     this.lfo = new Tone.LFO({
-      frequency: 0.2,
+      frequency: presets.LFO_NORMAL_HZ,
       min: 150,
       max: 280
     });
@@ -43,7 +46,8 @@ export class TensionSynthesizer {
     const now = Tone.now();
     const clampedTension = Math.max(0, Math.min(1, tensionVal));
 
-    const targetBaseFreq = 55 + clampedTension * 55;
+    const presets = AUDIO_PRESETS.WEAVER;
+    const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
     const targetModulationIndex = 5 + clampedTension * 25;
     const targetGain = clampedTension > 0.02 ? 0.05 + clampedTension * 0.22 : 0.0;
 
@@ -55,19 +59,20 @@ export class TensionSynthesizer {
   public handleStateChange(state: string): void {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter) return;
     const now = Tone.now();
+    const presets = AUDIO_PRESETS.WEAVER;
 
     if (state.includes("BERSERK")) {
-      this.fmOsc.frequency.setTargetAtTime(110, now, 0.5);
-      this.lfo.frequency.setTargetAtTime(4.0, now, 0.5);
-      this.fmOsc.harmonicity.setTargetAtTime(2.5, now, 0.5);
+      this.fmOsc.frequency.setTargetAtTime(presets.DRONE_BERSERK_FREQ, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(presets.LFO_BERSERK_HZ, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_BERSERK, now, 0.5);
     } else if (state === "WEAVER DEFEATED") {
-      this.fmOsc.frequency.setTargetAtTime(30, now, 0.5);
-      this.lfo.frequency.setTargetAtTime(0.05, now, 0.5);
-      this.fmOsc.harmonicity.setTargetAtTime(1.0, now, 0.5);
+      this.fmOsc.frequency.setTargetAtTime(presets.DRONE_DEFEATED_FREQ, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(presets.LFO_DEFEATED_HZ, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_DEFEATED, now, 0.5);
     } else {
-      this.fmOsc.frequency.setTargetAtTime(55, now, 0.5);
-      this.lfo.frequency.setTargetAtTime(0.2, now, 0.5);
-      this.fmOsc.harmonicity.setTargetAtTime(1.5, now, 0.5);
+      this.fmOsc.frequency.setTargetAtTime(presets.DRONE_BASE_FREQ, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(presets.LFO_NORMAL_HZ, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_NORMAL, now, 0.5);
     }
   }
 
@@ -80,10 +85,12 @@ export class TensionSynthesizer {
   public resetToBaseline(): void {
     if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter) return;
     const now = Tone.now();
+    const presets = AUDIO_PRESETS.WEAVER;
+
     this.gainNode.gain.setValueAtTime(0.0, now);
-    this.fmOsc.frequency.setValueAtTime(55, now);
-    this.fmOsc.harmonicity.setValueAtTime(1.5, now);
-    this.lfo.frequency.setValueAtTime(0.2, now);
+    this.fmOsc.frequency.setValueAtTime(presets.DRONE_BASE_FREQ, now);
+    this.fmOsc.harmonicity.setValueAtTime(presets.HARMONICITY_NORMAL, now);
+    this.lfo.frequency.setValueAtTime(presets.LFO_NORMAL_HZ, now);
   }
 
   public dispose(): void {

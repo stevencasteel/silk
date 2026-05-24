@@ -1,6 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { Profiler } from "../diagnostics/Profiler";
-import { InitPhase } from "../../contracts/SystemPhase";
+import { InitPhase, SystemPhase } from "../../contracts/SystemPhase";
 
 export class SystemManager {
   private systems: ISystem[] = [];
@@ -28,7 +28,7 @@ export class SystemManager {
     }
   }
 
-  public updateAll(dt: number): void {
+  public updateAll(dt: number, isHitStop: boolean = false): void {
     const isProfiling = this.profiler.isEnabled;
     if (isProfiling) {
       this.profiler.clearFrame();
@@ -37,6 +37,11 @@ export class SystemManager {
 
     for (let i = 0; i < this.systems.length; i++) {
       const system = this.systems[i];
+
+      if (isHitStop && system.phase < SystemPhase.RenderSync) {
+        continue;
+      }
+
       if (system.update) {
         const start = isProfiling ? performance.now() : 0;
         try {

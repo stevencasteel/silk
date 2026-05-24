@@ -3,6 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TensionSynthesizer } from "../tone/TensionSynthesizer";
+import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import * as Tone from "tone";
 
 export class AudioDirectorSystem implements ISystem {
@@ -41,12 +42,20 @@ export class AudioDirectorSystem implements ISystem {
     });
 
     this.unsubImpact = this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-      if (this.initialized && this.impactSynth) this.impactSynth.triggerAttackRelease("C2", "8n");
-      if (this.initialized && this.noiseSynth) this.noiseSynth.triggerAttackRelease("16n");
+      const presets = AUDIO_PRESETS.PLAYER;
+      if (this.initialized && this.impactSynth) {
+        this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+      }
+      if (this.initialized && this.noiseSynth) {
+        this.noiseSynth.triggerAttackRelease(presets.DAMAGED_DURATION);
+      }
     });
 
     this.unsubWeaverHit = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      if (this.initialized && this.impactSynth) this.impactSynth.triggerAttackRelease("E3", "16n");
+      const presets = AUDIO_PRESETS.WEAVER;
+      if (this.initialized && this.impactSynth) {
+        this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+      }
     });
 
     this.unsubState = this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
@@ -117,11 +126,13 @@ export class AudioDirectorSystem implements ISystem {
         }
       }).toDestination();
 
+      const presets = AUDIO_PRESETS.PLAYER;
+
       this.noiseSynth = new Tone.NoiseSynth({
         noise: { type: "pink" },
-        envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+        envelope: { attack: 0.001, decay: presets.NOISE_DECAY, sustain: 0, release: presets.NOISE_DECAY }
       }).toDestination();
-      this.noiseSynth.volume.value = -10;
+      this.noiseSynth.volume.value = presets.NOISE_VOLUME;
 
       this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
     });

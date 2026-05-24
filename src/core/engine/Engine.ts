@@ -11,6 +11,8 @@ export class Engine {
   private broker: EventBroker;
 
   public isPaused: boolean = false;
+  private hitStopTimer: number = 0;
+  private unsubscribes: (() => void)[] = [];
 
   constructor(
     _canvas: HTMLCanvasElement,
@@ -32,12 +34,14 @@ export class Engine {
   public async start(): Promise<void> {
     await this.systemManager.initAll();
     this.initPauseHandlers();
+    this.initHitStopHandlers();
     this.loop.start();
   }
 
   public stop(): void {
     this.loop.stop();
     this.removePauseHandlers();
+    this.removeHitStopHandlers();
     this.systemManager.disposeAll();
   }
 
@@ -59,6 +63,29 @@ export class Engine {
     window.removeEventListener("blur", this.handleBlur);
     window.removeEventListener("focus", this.handleFocus);
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+  }
+
+  private initHitStopHandlers(): void {
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        this.hitStopTimer = 0.08;
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        this.hitStopTimer = 0.15;
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.hitStopTimer = 0;
+      })
+    );
+  }
+
+  private removeHitStopHandlers(): void {
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
   }
 
   private handleKeyDown = (e: KeyboardEvent): void => {
@@ -86,7 +113,14 @@ export class Engine {
 
   private update(dt: number): void {
     if (this.isPaused) return;
-    this.systemManager.updateAll(dt);
+
+    let isHitStop = false;
+    if (this.hitStopTimer > 0) {
+      this.hitStopTimer -= dt;
+      isHitStop = true;
+    }
+
+    this.systemManager.updateAll(dt, isHitStop);
   }
 
   private render(alpha: number): void {
