@@ -11,6 +11,7 @@ import {
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import * as BABYLON from "@babylonjs/core";
 
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -112,11 +113,17 @@ export class WeaverTraversalSystem implements ISystem {
       let targetScaleY = 1.0;
       let targetScaleZ = 1.0;
 
+      const targetQuat = new BABYLON.Quaternion();
+
       if (ai) {
         if (ai.state === "SWEEPING") {
           const pulse = Math.sin(ai.timeInState * 3.5) * 0.04;
           targetScaleX = 1.0 + pulse;
           targetScaleY = 1.0 - pulse;
+
+          const rollAngle = -vel.x * 0.02;
+          const yawAngle = Math.sin(ai.timeInState * 2.0) * 0.1;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
         } else if (ai.state === "DASHING") {
           const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
           if (speed < 0.1) {
@@ -128,14 +135,19 @@ export class WeaverTraversalSystem implements ISystem {
             targetScaleY = 1.0 + stretch;
             targetScaleX = 1.0 - stretch * 0.5;
             targetScaleZ = 1.0 - stretch * 0.5;
+
+            const angle = Math.atan2(vel.y, vel.x) - Math.PI / 2;
+            BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
           }
         } else if (ai.state === "RETURNING") {
           targetScaleY = 1.08;
           targetScaleX = 0.96;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
         } else if (ai.state === "DEFEATED") {
           targetScaleX = 0.2;
           targetScaleY = 0.2;
           targetScaleZ = 0.2;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
         }
       }
 
@@ -146,6 +158,13 @@ export class WeaverTraversalSystem implements ISystem {
       trans.scaleX = sx + (targetScaleX - sx) * 12 * dt;
       trans.scaleY = sy + (targetScaleY - sy) * 12 * dt;
       trans.scaleZ = sz + (targetScaleZ - sz) * 12 * dt;
+
+      const currentQuat = new BABYLON.Quaternion(trans.qx, trans.qy, trans.qz, trans.qw);
+      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, 12 * dt, currentQuat);
+      trans.qx = currentQuat.x;
+      trans.qy = currentQuat.y;
+      trans.qz = currentQuat.z;
+      trans.qw = currentQuat.w;
     }
   }
 }

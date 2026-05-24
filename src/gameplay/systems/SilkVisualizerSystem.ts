@@ -23,8 +23,6 @@ export class SilkVisualizerSystem implements ISystem {
   private scratchCtrl = new BABYLON.Vector3();
   private scratchPt = new BABYLON.Vector3();
 
-  private vibPhase = 0;
-
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
@@ -84,9 +82,11 @@ export class SilkVisualizerSystem implements ISystem {
 
     const tension = Math.max(0, Math.min(1, silk.tension));
 
-    this.vibPhase += 0.18;
+    const timeMs = performance.now();
+    const frequency = 0.025;
+    const vibPhase = timeMs * frequency;
     const vibAmp = Math.max(0, tension - 0.7) * 0.35;
-    const vibOffset = Math.sin(this.vibPhase * 14) * vibAmp;
+    const vibOffset = Math.sin(vibPhase) * vibAmp;
 
     const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
     const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
@@ -110,7 +110,7 @@ export class SilkVisualizerSystem implements ISystem {
         2 * t1 * t * this.scratchCtrl.z +
         t * t * this.scratchPlayer.z;
 
-      pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5) * 0.12;
+      pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5 + timeMs * 0.005) * 0.12;
     }
 
     const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);

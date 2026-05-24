@@ -23,9 +23,8 @@ export class TransformSyncSystem implements ISystem {
 
   private scratchPrevQuat = new BABYLON.Quaternion();
   private scratchCurrQuat = new BABYLON.Quaternion();
-  private playerVisualRotation = new BABYLON.Quaternion();
-  private scratchTargetQuat = new BABYLON.Quaternion();
-  private scrollOffset = 0.0;
+  private currentScrollOffset = 0.0;
+  private prevScrollOffset = 0.0;
   private scrollSpeed = 12.0;
   private currentEmissiveR = 0.05;
   private currentEmissiveG = 0.15;
@@ -63,6 +62,8 @@ export class TransformSyncSystem implements ISystem {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hitStopTimer = 0.0;
+        this.currentScrollOffset = 0.0;
+        this.prevScrollOffset = 0.0;
       })
     );
   }
@@ -71,6 +72,24 @@ export class TransformSyncSystem implements ISystem {
     if (this.hitStopTimer > 0) {
       this.hitStopTimer -= dt;
     }
+
+    const wAI = this.weaverAIs.get(this.refs.weaver);
+    const wHealth = this.healthStore.get(this.refs.weaver);
+    const wVel = this.velocities.get(this.refs.weaver);
+
+    const targetScrollSpeed = this.hitStopTimer > 0
+      ? 0.0
+      : TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+
+    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
+    TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
+    
+    if (wAI) {
+      wAI.scrollSpeed = this.scrollSpeed;
+    }
+
+    this.prevScrollOffset = this.currentScrollOffset;
+    this.currentScrollOffset += this.scrollSpeed * dt;
   }
 
   public static getDesiredScrollSpeed(
@@ -107,38 +126,20 @@ export class TransformSyncSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    this.scrollTicks();
+    this.scrollTicks(alpha);
     this.syncTransforms(alpha);
   }
 
-  private scrollTicks(): void {
+  private scrollTicks(alpha: number): void {
     const scene = this.visualRegistry.getScene();
     if (!scene) return;
 
-    const wAI = this.weaverAIs.get(this.refs.weaver);
-    const wHealth = this.healthStore.get(this.refs.weaver);
-    const wVel = this.velocities.get(this.refs.weaver);
-
-    // If hitstop is active, freeze elevator scroll immediately to preserve visual impact
-    const targetScrollSpeed = this.hitStopTimer > 0
-      ? 0.0
-      : TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
-
-    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
-    TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
-    
-    if (wAI) {
-      wAI.scrollSpeed = this.scrollSpeed;
-    }
-
     const totalRange = CANONICAL_UNITS.SCROLL_MAPPING.TOTAL_RANGE;
-    this.scrollOffset += this.scrollSpeed * (1 / CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
+    const interpolatedOffset = this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
     
-    while (this.scrollOffset > totalRange) {
-      this.scrollOffset -= totalRange;
-    }
-    while (this.scrollOffset < 0) {
-      this.scrollOffset += totalRange;
+    let wrappedOffset = interpolatedOffset % totalRange;
+    if (wrappedOffset < 0) {
+      wrappedOffset += totalRange;
     }
 
     if (!this.cachedTicks) {
@@ -149,7 +150,7 @@ export class TransformSyncSystem implements ISystem {
 
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
-      let y = tick.metadata.initialY - this.scrollOffset;
+      let y = tick.metadata.initialY - wrappedOffset;
       while (y < CANONICAL_UNITS.SCROLL_MAPPING.BOTTOM_BOUNDARY) y += totalRange;
       while (y > CANONICAL_UNITS.SCROLL_MAPPING.TOP_BOUNDARY) y -= totalRange;
       tick.position.y = y;
@@ -174,60 +175,26 @@ export class TransformSyncSystem implements ISystem {
       const sz = curr.prevScaleZ !== undefined && curr.scaleZ !== undefined ? curr.prevScaleZ + (curr.scaleZ - curr.prevScaleZ) * alpha : 1.0;
       node.scaling.set(sx, sy, sz);
 
+      this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
+      this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
+
+      if (!node.rotationQuaternion) {
+        node.rotationQuaternion = new BABYLON.Quaternion();
+      }
+      BABYLON.Quaternion.SlerpToRef(
+        this.scratchPrevQuat,
+        this.scratchCurrQuat,
+        alpha,
+        node.rotationQuaternion
+      );
+
       if (id === this.refs.player) {
-        let dx = 0;
-        let dy = 1;
-
-        if (silk && trav) {
-          if (trav.state === "LAUNCHING") {
-            const vx = silk.dynamicVelX;
-            const vy = silk.dynamicVelY;
-            if (vx * vx + vy * vy > 1.0) {
-              dx = vx;
-              dy = vy;
-            }
-          } else if (trav.state === "AIRBORNE") {
-            const px = node.position.x;
-            const py = node.position.y;
-            dx = px - silk.anchorX;
-            dy = py - silk.anchorY;
-          }
-        }
-
-        const targetAngle = dx !== 0 || dy !== 1 ? -Math.atan2(dx, dy) : 0;
-        BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, targetAngle, this.scratchTargetQuat);
-
-        if (!node.rotationQuaternion) {
-          node.rotationQuaternion = new BABYLON.Quaternion();
-        }
-
-        BABYLON.Quaternion.SlerpToRef(
-          this.playerVisualRotation,
-          this.scratchTargetQuat,
-          0.2,
-          this.playerVisualRotation
-        );
-        node.rotationQuaternion.copyFrom(this.playerVisualRotation);
-
         const mesh = node as BABYLON.AbstractMesh;
         const mat = mesh?.material as BABYLON.PBRMaterial | null;
         if (mat && silk && trav) {
-          this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
+          this.updatePlayerEmissive(mat, silk.tension, trav.state);
         }
       } else if (id === this.refs.weaver && wAI) {
-        this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
-        this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
-
-        if (!node.rotationQuaternion) {
-          node.rotationQuaternion = new BABYLON.Quaternion();
-        }
-        BABYLON.Quaternion.SlerpToRef(
-          this.scratchPrevQuat,
-          this.scratchCurrQuat,
-          alpha,
-          node.rotationQuaternion
-        );
-
         const mesh = node as BABYLON.AbstractMesh;
         const mat = mesh?.material as BABYLON.PBRMaterial | null;
         if (mat) {
@@ -248,19 +215,6 @@ export class TransformSyncSystem implements ISystem {
             cachedColor.b * emissiveScale
           );
         }
-      } else {
-        this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
-        this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
-
-        if (!node.rotationQuaternion) {
-          node.rotationQuaternion = new BABYLON.Quaternion();
-        }
-        BABYLON.Quaternion.SlerpToRef(
-          this.scratchPrevQuat,
-          this.scratchCurrQuat,
-          alpha,
-          node.rotationQuaternion
-        );
       }
     }
   }
@@ -268,10 +222,8 @@ export class TransformSyncSystem implements ISystem {
   private updatePlayerEmissive(
     mat: BABYLON.PBRMaterial,
     tension: number,
-    state: string,
-    _alpha: number
+    state: string
   ): void {
-    void _alpha;
     let targetR: number;
     let targetG: number;
     let targetB: number;

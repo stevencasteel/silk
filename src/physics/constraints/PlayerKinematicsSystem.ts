@@ -14,6 +14,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
 import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import * as BABYLON from "@babylonjs/core";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -167,6 +168,34 @@ export class PlayerKinematicsSystem implements ISystem {
       pTrans.scaleX = sx + (targetScaleX - sx) * 15 * dt;
       pTrans.scaleY = sy + (targetScaleY - sy) * 15 * dt;
       pTrans.scaleZ = sz + (targetScaleZ - sz) * 15 * dt;
+
+      let rotDx = 0;
+      let rotDy = 1;
+
+      if (trav.state === "LAUNCHING") {
+        const vx = silk.dynamicVelX;
+        const vy = silk.dynamicVelY;
+        if (vx * vx + vy * vy > 1.0) {
+          rotDx = vx;
+          rotDy = vy;
+        }
+      } else if (trav.state === "AIRBORNE") {
+        rotDx = target.x - silk.anchorX;
+        rotDy = target.y - silk.anchorY;
+      }
+
+      const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
+      const targetQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, targetAngle);
+
+      const currentQuat = new BABYLON.Quaternion(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
+
+      const slerpFactor = 0.22;
+      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, slerpFactor, currentQuat);
+
+      pTrans.qx = currentQuat.x;
+      pTrans.qy = currentQuat.y;
+      pTrans.qz = currentQuat.z;
+      pTrans.qw = currentQuat.w;
     }
 
     if (trav.state !== this.lastTraversalState) {
