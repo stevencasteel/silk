@@ -7,7 +7,7 @@ type HintLevel = "none" | "charging" | "ready" | "maxout";
 
 export class DomHudSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-  private unsubscribes: (() => void)[] = [];
+  private subscriptions: (() => void)[] = [];
   private tensionBar: HTMLElement | null = null;
   private tensionText: HTMLElement | null = null;
   private playerHpText: HTMLElement | null = null;
@@ -53,13 +53,13 @@ export class DomHudSystem implements ISystem {
   }
 
   private registerSubscriptions(): void {
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
         this.updateTensionBar(tension);
         this.updateHint(tension);
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
         this.currentState = state;
         if (state !== "WALL_SLIDING") {
@@ -67,39 +67,39 @@ export class DomHudSystem implements ISystem {
         }
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
         this.updatePlayerHp(hp, maxHp);
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
         this.updateWeaverHp(hp, maxHp);
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
         this.updateWeaverStateLabel(state, hue);
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
         this.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hideOverlay();
         if (this.pauseOverlay) this.pauseOverlay.style.display = "none";
         this.setHint("none");
       })
     );
-    this.unsubscribes.push(
+    this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
         if (this.pauseOverlay) {
           this.pauseOverlay.style.display = isPaused ? "flex" : "none";
@@ -225,8 +225,8 @@ export class DomHudSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((u) => u());
-    this.unsubscribes = [];
+    this.subscriptions.forEach((u) => u());
+    this.subscriptions = [];
     this.tensionBar = null;
     this.tensionText = null;
     this.playerHpText = null;

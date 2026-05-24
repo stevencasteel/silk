@@ -13,17 +13,7 @@ export class AudioDirectorSystem implements ISystem {
   private noiseSynth: Tone.NoiseSynth | null = null;
   private initialized: boolean = false;
   
-  private unsub: (() => void) | null = null;
-  private unsubImpact: (() => void) | null = null;
-  private unsubWeaverHit: (() => void) | null = null;
-  private unsubState: (() => void) | null = null;
-  private unsubGameOver: (() => void) | null = null;
-  private unsubGameWin: (() => void) | null = null;
-  private unsubGameReset: (() => void) | null = null;
-  private unsubGamePaused: (() => void) | null = null;
-  private unsubWeaverDied: (() => void) | null = null;
-  private unsubPlayerDied: (() => void) | null = null;
-  
+  private subscriptions: (() => void)[] = [];
   private gestureTriggerRef: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
@@ -39,94 +29,114 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("touchend", this.gestureTriggerRef);
     window.addEventListener("mousedown", this.gestureTriggerRef);
 
-    this.unsub = this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, (payload) => {
-      if (this.initialized && this.tensionSynth) {
-        this.tensionSynth.updateDronePitch(payload.tension);
-      }
-    });
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, (payload) => {
+        if (this.initialized && this.tensionSynth) {
+          this.tensionSynth.updateDronePitch(payload.tension);
+        }
+      })
+    );
 
-    this.unsubImpact = this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-      const presets = AUDIO_PRESETS.PLAYER;
-      if (this.initialized && this.impactSynth) {
-        this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
-      }
-      if (this.initialized && this.noiseSynth) {
-        this.noiseSynth.triggerAttackRelease(presets.DAMAGED_DURATION);
-      }
-    });
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        const presets = AUDIO_PRESETS.PLAYER;
+        if (this.initialized && this.impactSynth) {
+          this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+        }
+        if (this.initialized && this.noiseSynth) {
+          this.noiseSynth.triggerAttackRelease(presets.DAMAGED_DURATION);
+        }
+      })
+    );
 
-    this.unsubWeaverHit = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const presets = AUDIO_PRESETS.WEAVER;
-      if (this.initialized && this.impactSynth) {
-        this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
-      }
-    });
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        const presets = AUDIO_PRESETS.WEAVER;
+        if (this.initialized && this.impactSynth) {
+          this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+        }
+      })
+    );
 
-    this.unsubState = this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
-      if (this.initialized && this.tensionSynth) {
-        this.tensionSynth.handleStateChange(payload.state);
-      }
-    });
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
+        if (this.initialized && this.tensionSynth) {
+          this.tensionSynth.handleStateChange(payload.state);
+        }
+      })
+    );
 
-    this.unsubGameOver = this.broker.subscribe(GameEvent.GAME_OVER, () => {
-      if (this.initialized && this.tensionSynth) {
-        this.tensionSynth.fadeOutAndMute();
-      }
-    });
-
-    this.unsubGameWin = this.broker.subscribe(GameEvent.GAME_WIN, () => {
-      if (this.initialized && this.tensionSynth) {
-        this.tensionSynth.fadeOutAndMute();
-      }
-    });
-
-    this.unsubGameReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
-      if (this.initialized && this.tensionSynth) {
-        this.tensionSynth.resetToBaseline();
-      }
-    });
-
-    this.unsubGamePaused = this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
-      if (this.initialized && this.tensionSynth) {
-        if (payload.isPaused) {
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.GAME_OVER, () => {
+        if (this.initialized && this.tensionSynth) {
           this.tensionSynth.fadeOutAndMute();
         }
-      }
-    });
+      })
+    );
 
-    this.unsubWeaverDied = this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-      if (this.initialized) {
-        const presets = AUDIO_PRESETS.WEAVER;
-        if (this.impactSynth) {
-          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.GAME_WIN, () => {
+        if (this.initialized && this.tensionSynth) {
+          this.tensionSynth.fadeOutAndMute();
         }
-        if (this.noiseSynth) {
-          this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-          this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-          setTimeout(() => {
-            if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-          }, presets.DEATH_NOISE_RESTORE_DELAY);
-        }
-      }
-    });
+      })
+    );
 
-    this.unsubPlayerDied = this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-      if (this.initialized) {
-        const presets = AUDIO_PRESETS.PLAYER;
-        if (this.impactSynth) {
-          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        if (this.initialized && this.tensionSynth) {
+          this.tensionSynth.resetToBaseline();
         }
-        if (this.noiseSynth) {
-          this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-          this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-          setTimeout(() => {
-            if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-          }, presets.DEATH_NOISE_RESTORE_DELAY);
+      })
+    );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
+        if (this.initialized && this.tensionSynth) {
+          if (payload.isPaused) {
+            this.tensionSynth.fadeOutAndMute();
+          }
         }
-      }
-    });
+      })
+    );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        if (this.initialized) {
+          const presets = AUDIO_PRESETS.WEAVER;
+          if (this.impactSynth) {
+            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+          }
+          if (this.noiseSynth) {
+            this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+            this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
+            setTimeout(() => {
+              if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+            }, presets.DEATH_NOISE_RESTORE_DELAY);
+          }
+        }
+      })
+    );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        if (this.initialized) {
+          const presets = AUDIO_PRESETS.PLAYER;
+          if (this.impactSynth) {
+            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+          }
+          if (this.noiseSynth) {
+            this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+            this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
+            setTimeout(() => {
+              if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+            }, presets.DEATH_NOISE_RESTORE_DELAY);
+          }
+        }
+      })
+    );
   }
 
   public update(): void {}
@@ -178,16 +188,8 @@ export class AudioDirectorSystem implements ISystem {
 
   public dispose(): void {
     this.removeGestureListeners();
-    if (this.unsub) this.unsub();
-    if (this.unsubImpact) this.unsubImpact();
-    if (this.unsubWeaverHit) this.unsubWeaverHit();
-    if (this.unsubState) this.unsubState();
-    if (this.unsubGameOver) this.unsubGameOver();
-    if (this.unsubGameWin) this.unsubGameWin();
-    if (this.unsubGameReset) this.unsubGameReset();
-    if (this.unsubGamePaused) this.unsubGamePaused();
-    if (this.unsubWeaverDied) this.unsubWeaverDied();
-    if (this.unsubPlayerDied) this.unsubPlayerDied();
+    this.subscriptions.forEach((unsub) => unsub());
+    this.subscriptions = [];
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
