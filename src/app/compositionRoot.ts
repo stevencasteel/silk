@@ -140,7 +140,8 @@ export class CompositionRoot {
       traversal,
       renderSystem,
       weaverAIs,
-      healths
+      healths,
+      velocities
     );
     const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
     const lightingSystem = new LightingSystem(broker, renderSystem);

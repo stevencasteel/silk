@@ -9,12 +9,14 @@ import {
   InvulnerabilityComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
   mesh: BABYLON.Mesh;
   aggregate: BABYLON.PhysicsAggregate | null;
   isStuck: boolean;
+  isStuckOnWall: boolean;
   lifeTime: number;
   fallbackVelocity?: BABYLON.Vector3;
 }
@@ -101,6 +103,7 @@ export class ProjectileSystem implements ISystem {
       mesh: sphere,
       aggregate: agg,
       isStuck: false,
+      isStuckOnWall: false,
       lifeTime: 0.0,
       fallbackVelocity: fallbackVel
     });
@@ -116,31 +119,53 @@ export class ProjectileSystem implements ISystem {
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
     const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
+    const currentScrollSpeed = TransformSyncSystem.currentScrollSpeed;
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.lifeTime += dt;
 
+      // Update position of flying projectiles
       if (!p.isStuck && p.fallbackVelocity) {
         p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
       }
 
       const pos = p.mesh.position;
       const wallLimit = 14.2;
-      const floorLimit = -7.6;
 
-      if (!p.isStuck && (Math.abs(pos.x) >= wallLimit || pos.y <= floorLimit)) {
-        p.isStuck = true;
+      // Stick only when contact is made with side walls (no floor collision)
+      if (!p.isStuck) {
+        if (Math.abs(pos.x) >= wallLimit) {
+          p.isStuck = true;
+          p.isStuckOnWall = true;
 
-        if (p.aggregate) {
-          p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
-          p.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
-          p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.STATIC);
-        } else {
-          p.fallbackVelocity = new BABYLON.Vector3(0, 0, 0);
+          if (p.aggregate) {
+            p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
+            p.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
+            p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.STATIC);
+          } else {
+            p.fallbackVelocity = new BABYLON.Vector3(0, 0, 0);
+          }
         }
       }
 
+      // Slide wall-stuck projectiles downward
+      if (p.isStuckOnWall) {
+        if (p.aggregate && p.aggregate.body.getMotionType() !== BABYLON.PhysicsMotionType.ANIMATED) {
+          p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
+        }
+
+        const deltaY = currentScrollSpeed * dt;
+        p.mesh.position.y -= deltaY;
+      }
+
+      // Offscreen vertical cleanup (below floor bounds Y = -15.0, or above ceiling Y = 42.0)
+      if (p.mesh.position.y < -15.0 || p.mesh.position.y > 42.0) {
+        this.removeProjectile(i);
+        continue;
+      }
+
+      // Collision with player only occurs while in-flight
       if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
         const isHit = p.mesh.intersectsMesh(pMesh, true);
 
@@ -164,7 +189,8 @@ export class ProjectileSystem implements ISystem {
         }
       }
 
-      if (p.lifeTime > 5.0) {
+      // Safety lifetime boundary fallback
+      if (p.lifeTime > 8.0) {
         this.removeProjectile(i);
       }
     }

@@ -16,10 +16,10 @@ export class EnvironmentCollisionSystem implements ISystem {
   private readonly FLOOR_Y = -8.0;
   private readonly CEILING_Y = 38.0;
   private readonly PLAYER_HALF_HEIGHT = 0.9;
-  private readonly SNAP_THRESHOLD = 0.9;
-  private readonly SNAP_BREAK_TIME = 2.6;
-  private readonly SNAP_DECAY_RATE = 2.5;
-  private strainAccum = 0.0;
+  
+  // Cutoff limits corresponding to standard and danger zone tensions
+  private readonly OVERLOAD_THRESHOLD = 1.0;
+  private readonly SNAP_LIMIT = 1.3;
 
   constructor(
     private refs: EntityRefs,
@@ -30,14 +30,14 @@ export class EnvironmentCollisionSystem implements ISystem {
     private broker: EventBroker
   ) {}
 
-  public update(dt: number): void {
+  public update(): void {
     const silk = this.silks.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
     const health = this.healths.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     if (!silk || !target || !health || !trav) return;
     this.clampToArenaBounds(target, silk);
-    this.updateStrainMeter(dt, silk, health, trav);
+    this.updateStrainMeter(silk, health, trav);
   }
 
   private clampToArenaBounds(target: KinematicTargetComponent, silk: SilkComponent): void {
@@ -53,33 +53,32 @@ export class EnvironmentCollisionSystem implements ISystem {
   }
 
   private updateStrainMeter(
-    dt: number,
     silk: SilkComponent,
     health: HealthComponent,
     trav: TraversalStateComponent
   ): void {
-    const overloaded = silk.tension >= this.SNAP_THRESHOLD && trav.state === "WALL_SLIDING";
-    if (overloaded) {
-      this.strainAccum += dt;
-      const strainRatio = this.strainAccum / this.SNAP_BREAK_TIME;
+    const isOverloaded = trav.state === "WALL_SLIDING" && silk.tension >= this.OVERLOAD_THRESHOLD;
+
+    if (isOverloaded) {
+      const overloadDelta = silk.tension - this.OVERLOAD_THRESHOLD;
+      const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD); // 0.0 to 1.0
+
       if (Math.random() < strainRatio * 0.25) {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: 0.1 + strainRatio * 0.25,
           duration: 0.08
         });
       }
-      if (this.strainAccum >= this.SNAP_BREAK_TIME) {
+
+      if (silk.tension >= this.SNAP_LIMIT) {
         this.snapSilk(silk, health);
       }
-    } else {
-      this.strainAccum = Math.max(0, this.strainAccum - this.SNAP_DECAY_RATE * dt);
     }
   }
 
   private snapSilk(silk: SilkComponent, health: HealthComponent): void {
     silk.isAttached = false;
     silk.tension = 0.0;
-    this.strainAccum = 0.0;
     health.current = 0;
     this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "SILK_SNAP" });
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });

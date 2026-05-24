@@ -7,19 +7,24 @@ import {
   SilkComponent,
   TraversalStateComponent,
   WeaverAIComponent,
-  HealthComponent
+  HealthComponent,
+  KinematicVelocityComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class TransformSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
+  
+  // Shared global variable updated every frame
+  public static currentScrollSpeed = 12.0;
+
   private scratchPrevQuat = new BABYLON.Quaternion();
   private scratchCurrQuat = new BABYLON.Quaternion();
   private playerVisualRotation = new BABYLON.Quaternion();
   private scratchTargetQuat = new BABYLON.Quaternion();
   private scrollOffset = 0.0;
-  private scrollSpeed = 5.0;
+  private scrollSpeed = 12.0;
   private currentEmissiveR = 0.05;
   private currentEmissiveG = 0.15;
   private currentEmissiveB = 0.05;
@@ -33,8 +38,47 @@ export class TransformSyncSystem implements ISystem {
     private traversal: ComponentStore<TraversalStateComponent>,
     private visualRegistry: IVisualRegistry,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private healthStore: ComponentStore<HealthComponent>
+    private healthStore: ComponentStore<HealthComponent>,
+    private velocities: ComponentStore<KinematicVelocityComponent>
   ) {}
+
+  /**
+   * Unified Scroll Speed Estimator (DRY calculation)
+   */
+  public static getDesiredScrollSpeed(
+    wAI: WeaverAIComponent | undefined,
+    wHealth: HealthComponent | undefined,
+    wVel: KinematicVelocityComponent | undefined
+  ): number {
+    if (!wHealth || wHealth.current <= 0 || !wAI) {
+      return 0.0;
+    }
+
+    if (wAI.state === "SWEEPING") {
+      const isBerserk = wHealth.current < wHealth.max * 0.5;
+      return isBerserk ? 20.0 : 12.0;
+    }
+
+    if (wAI.state === "DASHING") {
+      if (wVel) {
+        if (wVel.y < -0.1) {
+          // Downward Weaver thrust reverses wall scrolling
+          return wVel.y * 0.6;
+        } else if (wVel.y > 0.1) {
+          // Upward Weaver thrust speeds up wall scrolling
+          return wVel.y * 0.6;
+        }
+      }
+      return 0.0;
+    }
+
+    if (wAI.state === "RETURNING") {
+      const isBerserk = wHealth.current < wHealth.max * 0.5;
+      return isBerserk ? 20.0 : 12.0;
+    }
+
+    return 0.0;
+  }
 
   public render(alpha: number): void {
     this.scrollTicks();
@@ -47,23 +91,21 @@ export class TransformSyncSystem implements ISystem {
 
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const wHealth = this.healthStore.get(this.refs.weaver);
+    const wVel = this.velocities.get(this.refs.weaver);
 
-    let targetScrollSpeed = 5.0;
-    if (wHealth && wHealth.current <= 0) {
-      targetScrollSpeed = 0.0;
-    } else if (wAI) {
-      if (wAI.state === "DASHING" || wAI.state === "RETURNING" || wAI.state === "DEFEATED") {
-        targetScrollSpeed = 0.0;
-      } else if (wHealth && wHealth.current < wHealth.max * 0.5) {
-        targetScrollSpeed = 9.0;
-      }
-    }
+    const targetScrollSpeed = TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
-    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.1);
+    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
+    TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
+
     const totalRange = 140.0;
     this.scrollOffset += this.scrollSpeed * (1 / 60);
-    if (this.scrollOffset > totalRange) {
+    
+    while (this.scrollOffset > totalRange) {
       this.scrollOffset -= totalRange;
+    }
+    while (this.scrollOffset < 0) {
+      this.scrollOffset += totalRange;
     }
 
     if (!this.cachedTicks) {
@@ -76,6 +118,7 @@ export class TransformSyncSystem implements ISystem {
       const tick = this.cachedTicks[i];
       let y = tick.metadata.initialY - this.scrollOffset;
       while (y < -56.0) y += totalRange;
+      while (y > 84.0) y -= totalRange;
       tick.position.y = y;
     }
   }
@@ -187,9 +230,9 @@ export class TransformSyncSystem implements ISystem {
     let targetB: number;
 
     if (state === "WALL_SLIDING") {
-      targetR = 0.1 + tension * 0.9;
-      targetG = 0.1 + (1.0 - tension) * 0.1;
-      targetB = 0.1 * (1.0 - tension);
+      targetR = 0.1 + Math.min(1.0, tension) * 0.9;
+      targetG = 0.1 + (1.0 - Math.min(1.0, tension)) * 0.1;
+      targetB = 0.1 * (1.0 - Math.min(1.0, tension));
     } else if (state === "LAUNCHING") {
       targetR = 0.9;
       targetG = 0.9;

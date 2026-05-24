@@ -98,29 +98,41 @@ export class DomHudSystem implements ISystem {
   }
 
   private updateTensionBar(tension: number): void {
-    const clamped = Math.max(0, Math.min(1, tension));
-    const pct = (clamped * 100).toFixed(1) + "%";
+    const snapLimit = 1.3;
+    const clamped = Math.max(0, Math.min(snapLimit, tension));
+    
+    // Scale horizontal bar width relative to the snap limit
+    const barPercent = (clamped / snapLimit) * 100;
+    
+    // Display raw percentage relative to 100% being full standard charge
+    const displayPercent = (clamped * 100).toFixed(0);
+
     if (this.tensionBar) {
-      this.tensionBar.style.width = pct;
-      if (clamped >= 0.98) {
+      this.tensionBar.style.width = barPercent.toFixed(1) + "%";
+      
+      if (clamped >= 1.0) {
+        // Red overload danger zone (line is strained)
         this.tensionBar.style.backgroundColor = "rgb(239, 68, 68)";
       } else if (clamped >= 0.75) {
+        // Orange warning zone (nearly fully charged)
         this.tensionBar.style.backgroundColor = "rgb(245, 158, 11)";
       } else {
+        // Standard green charge zone
         this.tensionBar.style.backgroundColor = "rgb(16, 185, 129)";
       }
     }
+
     if (this.tensionText) {
-      this.tensionText.textContent = (clamped * 100).toFixed(0) + "%";
-      this.tensionText.style.color = clamped >= 0.9 ? "rgb(245, 158, 11)" : "rgb(244, 244, 245)";
+      this.tensionText.textContent = displayPercent + "%";
+      this.tensionText.style.color = clamped >= 1.0 ? "rgb(239, 68, 68)" : clamped >= 0.75 ? "rgb(245, 158, 11)" : "rgb(244, 244, 245)";
     }
   }
 
   private updateHint(tension: number): void {
     if (this.currentState !== "WALL_SLIDING") return;
-    if (tension >= 0.98) {
+    if (tension >= 1.0) {
       this.setHint("maxout");
-    } else if (tension >= 0.88) {
+    } else if (tension >= 0.85) {
       this.setHint("ready");
     } else if (tension > 0.02) {
       this.setHint("charging");

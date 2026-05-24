@@ -149,7 +149,9 @@ export class WeaverDashingState implements IWeaverState {
       }
     } else if (this.currentPhase === "THRUST") {
       const trav = ctx.weaverTraversal.get(ctx.weaverId);
-      const hitWallOrGround = trav ? trav.isWallClinging || trav.isGrounded : false;
+      // Give 0.15 seconds grace period (at 0.8s start) to escape any wall boundary it is currently on
+      const isGraceOver = this.phaseTimer < 0.65;
+      const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
       if (this.phaseTimer <= 0 || hitWallOrGround) {
         this.startRecover(ctx);
       }

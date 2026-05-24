@@ -12,6 +12,7 @@ import {
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -24,7 +25,6 @@ export class PlayerKinematicsSystem implements ISystem {
   private readonly MAX_SILK_LENGTH = 24.0;
 
   private readonly WALL_LIMIT_X = 14.2;
-  private readonly WALL_SLIDE_SPEED = -3.0;
   private readonly DRAG_DAMPING = 0.99;
 
   private readonly TENSION_CHARGE_RATE = 0.38;
@@ -133,6 +133,7 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitRight = nextX > this.WALL_LIMIT_X;
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
+    const currentScrollSpeed = TransformSyncSystem.currentScrollSpeed;
 
     if (trav.state === "WALL_SLIDING") {
       const stillPressingIn = input.x === trav.wallDir;
@@ -143,13 +144,21 @@ export class PlayerKinematicsSystem implements ISystem {
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
-      target.y = nextY;
+      
+      // Lock downward movement speed exactly to the wall scroll speed
       silk.dynamicVelX = 0;
-      silk.dynamicVelY = Math.max(silk.dynamicVelY, this.WALL_SLIDE_SPEED);
+      silk.dynamicVelY = -currentScrollSpeed;
+      target.y = target.y + silk.dynamicVelY * dt;
 
-      silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
+      if (silk.tension < 1.0) {
+        silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
+      } else {
+        const strainOverloadRate = 0.3 / 2.6;
+        silk.tension = Math.min(1.3, silk.tension + strainOverloadRate * dt);
+      }
+
       const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-      silk.maxLength = this.BASE_SILK_LENGTH + silk.tension * maxStretch;
+      silk.maxLength = this.BASE_SILK_LENGTH + Math.min(1.0, silk.tension) * maxStretch;
 
       if (input.jump) {
         this.triggerFling(silk, target, trav);
@@ -168,13 +177,21 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.wallNormalY = 0;
 
         target.x = wallDir * this.WALL_LIMIT_X;
-        target.y = nextY;
+        
+        // Lock instantly to wall scroll speed
         silk.dynamicVelX = 0;
-        silk.dynamicVelY = Math.max(silk.dynamicVelY, this.WALL_SLIDE_SPEED);
+        silk.dynamicVelY = -currentScrollSpeed;
+        target.y = target.y + silk.dynamicVelY * dt;
 
-        silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
+        if (silk.tension < 1.0) {
+          silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
+        } else {
+          const strainOverloadRate = 0.3 / 2.6;
+          silk.tension = Math.min(1.3, silk.tension + strainOverloadRate * dt);
+        }
+
         const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-        silk.maxLength = this.BASE_SILK_LENGTH + silk.tension * maxStretch;
+        silk.maxLength = this.BASE_SILK_LENGTH + Math.min(1.0, silk.tension) * maxStretch;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
@@ -216,17 +233,18 @@ export class PlayerKinematicsSystem implements ISystem {
     const dy = silk.anchorY - target.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-    const power = storedTension * this.FLING_IMPULSE;
+    const powerScale = Math.min(1.0, storedTension);
+    const power = powerScale * this.FLING_IMPULSE;
     silk.dynamicVelX = (dx / dist) * power;
     silk.dynamicVelY = (dy / dist) * power;
 
     trav.state = "LAUNCHING";
     trav.launchTimer = this.LAUNCH_DURATION;
-    trav.launchPower = storedTension;
+    trav.launchPower = powerScale;
     trav.wallDir = 0;
 
     this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-      amplitude: 0.25 + storedTension * 0.35,
+      amplitude: 0.25 + powerScale * 0.35,
       duration: 0.2
     });
   }
@@ -236,16 +254,18 @@ export class PlayerKinematicsSystem implements ISystem {
     const dy = target.y - silk.anchorY;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-    if (dist < silk.maxLength) {
+    const activeMaxLength = Math.min(this.MAX_SILK_LENGTH, silk.maxLength);
+
+    if (dist < activeMaxLength) {
       silk.maxLength = Math.max(this.BASE_SILK_LENGTH, dist);
     }
 
-    if (dist > silk.maxLength) {
+    if (dist > activeMaxLength) {
       const nx = dx / dist;
       const ny = dy / dist;
 
-      target.x = silk.anchorX + nx * silk.maxLength;
-      target.y = silk.anchorY + ny * silk.maxLength;
+      target.x = silk.anchorX + nx * activeMaxLength;
+      target.y = silk.anchorY + ny * activeMaxLength;
 
       const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
       if (dot > 0) {
