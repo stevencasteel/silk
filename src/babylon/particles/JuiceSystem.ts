@@ -71,19 +71,15 @@ export class JuiceSystem implements ISystem {
 
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const scene = this.visualRegistry.getScene();
-        if (!scene) return;
-        const playerMesh = scene.getMeshByName("playerVisual");
-        if (playerMesh) {
-          this.spawnBurst(playerMesh.position, new BABYLON.Color3(0.13, 0.77, 0.36), 15);
+        const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
+        if (playerNode) {
+          this.spawnBurst(playerNode.position, new BABYLON.Color3(0.13, 0.77, 0.36), 15);
         }
       })
     );
 
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const scene = this.visualRegistry.getScene();
-        if (!scene) return;
         const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
         if (weaverNode) {
           this.spawnBurst(weaverNode.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
@@ -93,11 +89,12 @@ export class JuiceSystem implements ISystem {
 
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-        const scene = this.visualRegistry.getScene();
-        if (!scene) return;
         const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
         if (weaverNode) {
-          this.spawnDeathDebris(weaverNode.position, scene);
+          const sceneObj = this.visualRegistry.getScene();
+          if (sceneObj) {
+            this.spawnDeathDebris(weaverNode.position, sceneObj);
+          }
           weaverNode.setEnabled(false);
         }
       })

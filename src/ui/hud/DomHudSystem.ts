@@ -21,6 +21,8 @@ export class DomHudSystem implements ISystem {
   private lastHintLevel: HintLevel = "none";
   private currentState: string = "AIRBORNE";
 
+  private playerHpLeds: (HTMLElement | null)[] = [];
+
   constructor(private broker: EventBroker) {}
 
   public init(): void {
@@ -40,6 +42,11 @@ export class DomHudSystem implements ISystem {
     this.overlay = document.getElementById("game-state-overlay");
     this.overlayTitle = document.getElementById("game-state-title");
     this.overlaySubtitle = document.getElementById("game-state-subtitle");
+
+    this.playerHpLeds = [];
+    for (let i = 0; i < 5; i++) {
+      this.playerHpLeds.push(document.getElementById(`player-hp-led-${i}`));
+    }
   }
 
   private registerSubscriptions(): void {
@@ -153,7 +160,7 @@ export class DomHudSystem implements ISystem {
       this.playerHpText.textContent = `${hp} / ${maxHp}`;
     }
     for (let i = 0; i < 5; i++) {
-      const led = document.getElementById(`player-hp-led-${i}`);
+      const led = this.playerHpLeds[i];
       if (led) {
         if (i < hp) {
           led.className = "hp-block hp-active";
@@ -211,5 +218,6 @@ export class DomHudSystem implements ISystem {
     this.overlay = null;
     this.overlayTitle = null;
     this.overlaySubtitle = null;
+    this.playerHpLeds = [];
   }
 }

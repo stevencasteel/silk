@@ -24,6 +24,8 @@ export class TransformSyncSystem implements ISystem {
   private currentEmissiveG = 0.15;
   private currentEmissiveB = 0.05;
 
+  private cachedTicks: BABYLON.AbstractMesh[] | null = null;
+
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
@@ -64,8 +66,14 @@ export class TransformSyncSystem implements ISystem {
       this.scrollOffset -= totalRange;
     }
 
-    const ticks = scene.meshes.filter((m) => m.metadata?.type === "scrolling_tick");
-    for (const tick of ticks) {
+    if (!this.cachedTicks) {
+      this.cachedTicks = scene.meshes.filter(
+        (m) => m.metadata?.type === "scrolling_tick"
+      ) as BABYLON.AbstractMesh[];
+    }
+
+    for (let i = 0; i < this.cachedTicks.length; i++) {
+      const tick = this.cachedTicks[i];
       let y = tick.metadata.initialY - this.scrollOffset;
       while (y < -56.0) y += totalRange;
       tick.position.y = y;
