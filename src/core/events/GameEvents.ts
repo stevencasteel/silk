@@ -5,6 +5,8 @@ export enum GameEvent {
   PLAYER_DAMAGED = "PLAYER_DAMAGED",
   PLAYER_DIED = "PLAYER_DIED",
   PLAYER_STATE_CHANGE = "PLAYER_STATE_CHANGE",
+  TETHER_TENSION_CHANGE = "TETHER_TENSION_CHANGE",
+  TETHER_LENGTH_CHANGE = "TETHER_LENGTH_CHANGE",
   SILK_TENSION_CHANGE = "SILK_TENSION_CHANGE",
   SILK_LENGTH_CHANGE = "SILK_LENGTH_CHANGE",
   WEAVER_STATE_CHANGE = "WEAVER_STATE_CHANGE",
@@ -29,6 +31,8 @@ export interface GameEventMap {
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
   [GameEvent.PLAYER_DIED]: void;
   [GameEvent.PLAYER_STATE_CHANGE]: { state: string };
+  [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
+  [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.SILK_TENSION_CHANGE]: { tension: number };
   [GameEvent.SILK_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string };

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 12:32:25 PM
+ [SYSTEM] Generated: 5/24/2026, 12:55:19 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2748,7 +2748,7 @@ export interface KinematicTargetComponent {
   active: boolean;
 }
 
-export interface SilkComponent {
+export interface TetherComponent {
   anchorX: number;
   anchorY: number;
   anchorZ: number;
@@ -2759,6 +2759,8 @@ export interface SilkComponent {
   dynamicVelX: number;
   dynamicVelY: number;
 }
+
+export type SilkComponent = TetherComponent;
 
 export interface HealthComponent {
   current: number;
@@ -2955,6 +2957,11 @@ export const CANONICAL_UNITS = {
     PLAYER_KINEMATIC: -24.0,
     JUICE_PARTICLE: -18.0,
   },
+  TETHER_STRAIN: {
+    OVERLOAD_LIMIT: 1.0,
+    SNAP_LIMIT: 1.3,
+    SNAP_DELAY_SECONDS: 2.6,
+  },
   SILK_STRAIN: {
     OVERLOAD_LIMIT: 1.0,
     SNAP_LIMIT: 1.3,
@@ -2997,6 +3004,11 @@ export const ARENA_CONFIG = {
   PROJECTILE: {
     OFFSCREEN_MIN_Y: -15.0,
     OFFSCREEN_MAX_Y: 42.0,
+  },
+  TETHER: {
+    BASE_LENGTH: 10.0,
+    MAX_LENGTH: 24.0,
+    INITIAL_LENGTH: 12.0,
   },
   SILK: {
     BASE_LENGTH: 10.0,
@@ -3141,6 +3153,19 @@ export const VISUAL_JUICE_CONFIG = {
       SHEEN_INTENSITY: 0.6,
       SHEEN_ROUGHNESS: 0.4,
     }
+  },
+  TETHER_ROPE: {
+    SEGMENTS: 24,
+    MAX_SAG: 3.8,
+    BASE_RADIUS: 0.07,
+    MAX_RADIUS: 0.13,
+    TENSION_VIB_FREQ: 0.025,
+    TENSION_VIB_THRESHOLD: 0.7,
+    TENSION_VIB_AMP: 0.35,
+    WAVINESS_FREQ: 0.005,
+    WAVINESS_AMP: 0.12,
+    WAVINESS_STRETCH: 2.5,
+    BEZIER_DEPTH: 0.35,
   },
   SILK_ROPE: {
     SEGMENTS: 24,
@@ -3465,6 +3490,8 @@ export enum GameEvent {
   PLAYER_DAMAGED = "PLAYER_DAMAGED",
   PLAYER_DIED = "PLAYER_DIED",
   PLAYER_STATE_CHANGE = "PLAYER_STATE_CHANGE",
+  TETHER_TENSION_CHANGE = "TETHER_TENSION_CHANGE",
+  TETHER_LENGTH_CHANGE = "TETHER_LENGTH_CHANGE",
   SILK_TENSION_CHANGE = "SILK_TENSION_CHANGE",
   SILK_LENGTH_CHANGE = "SILK_LENGTH_CHANGE",
   WEAVER_STATE_CHANGE = "WEAVER_STATE_CHANGE",
@@ -3489,6 +3516,8 @@ export interface GameEventMap {
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
   [GameEvent.PLAYER_DIED]: void;
   [GameEvent.PLAYER_STATE_CHANGE]: { state: string };
+  [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
+  [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.SILK_TENSION_CHANGE]: { tension: number };
   [GameEvent.SILK_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string };

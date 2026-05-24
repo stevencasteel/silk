@@ -33,7 +33,7 @@ export interface KinematicTargetComponent {
   active: boolean;
 }
 
-export interface SilkComponent {
+export interface TetherComponent {
   anchorX: number;
   anchorY: number;
   anchorZ: number;
@@ -44,6 +44,8 @@ export interface SilkComponent {
   dynamicVelX: number;
   dynamicVelY: number;
 }
+
+export type SilkComponent = TetherComponent;
 
 export interface HealthComponent {
   current: number;
