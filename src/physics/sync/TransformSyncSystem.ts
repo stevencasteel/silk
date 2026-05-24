@@ -16,7 +16,6 @@ import * as BABYLON from "@babylonjs/core";
 export class TransformSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   
-  // Shared global variable updated every frame
   public static currentScrollSpeed = 12.0;
 
   private scratchPrevQuat = new BABYLON.Quaternion();
@@ -42,9 +41,6 @@ export class TransformSyncSystem implements ISystem {
     private velocities: ComponentStore<KinematicVelocityComponent>
   ) {}
 
-  /**
-   * Unified Scroll Speed Estimator (DRY calculation)
-   */
   public static getDesiredScrollSpeed(
     wAI: WeaverAIComponent | undefined,
     wHealth: HealthComponent | undefined,
@@ -62,10 +58,8 @@ export class TransformSyncSystem implements ISystem {
     if (wAI.state === "DASHING") {
       if (wVel) {
         if (wVel.y < -0.1) {
-          // Downward Weaver thrust reverses wall scrolling
           return wVel.y * 0.6;
         } else if (wVel.y > 0.1) {
-          // Upward Weaver thrust speeds up wall scrolling
           return wVel.y * 0.6;
         }
       }
@@ -97,6 +91,10 @@ export class TransformSyncSystem implements ISystem {
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
     TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
+    
+    if (wAI) {
+      wAI.scrollSpeed = this.scrollSpeed;
+    }
 
     const totalRange = 140.0;
     this.scrollOffset += this.scrollSpeed * (1 / 60);

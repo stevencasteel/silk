@@ -54,6 +54,7 @@ export interface WeaverAIComponent {
   state: string;
   timeInState: number;
   hue: string;
+  scrollSpeed: number;
 }
 
 export interface PlayerTag {

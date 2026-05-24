@@ -176,7 +176,8 @@ export class CompositionRoot {
       refs,
       healths,
       iframes,
-      renderSystem
+      renderSystem,
+      weaverAIs
     );
     const audioSystem = new AudioDirectorSystem(broker);
     const juiceSystem = new JuiceSystem(broker, refs, renderSystem);

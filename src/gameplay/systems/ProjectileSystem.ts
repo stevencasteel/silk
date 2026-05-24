@@ -6,10 +6,10 @@ import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   HealthComponent,
-  InvulnerabilityComponent
+  InvulnerabilityComponent,
+  WeaverAIComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
@@ -35,7 +35,8 @@ export class ProjectileSystem implements ISystem {
     private refs: EntityRefs,
     private healths: ComponentStore<HealthComponent>,
     private iframes: ComponentStore<InvulnerabilityComponent>,
-    private visualRegistry: IVisualRegistry
+    private visualRegistry: IVisualRegistry,
+    private weaverAIs: ComponentStore<WeaverAIComponent>
   ) {}
 
   public init(): void {
@@ -120,7 +121,8 @@ export class ProjectileSystem implements ISystem {
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
     const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
-    const currentScrollSpeed = TransformSyncSystem.currentScrollSpeed;
+    const wAI = this.weaverAIs.get(this.refs.weaver);
+    const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];

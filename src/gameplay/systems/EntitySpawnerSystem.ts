@@ -68,7 +68,7 @@ export class EntitySpawnerSystem implements ISystem {
     });
     this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
     this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + "ef4444" });
+    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + "ef4444", scrollSpeed: 12.0 });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
     this.weaverTraversal.add(weaverId, {
