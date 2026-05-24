@@ -1,3 +1,4 @@
+import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -33,6 +34,7 @@ export class ProjectileSystem implements ISystem {
   private projMat: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
+  private noiseTime = 0.0;
 
   constructor(
     private broker: EventBroker,
@@ -55,6 +57,9 @@ export class ProjectileSystem implements ISystem {
     this.projMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
     this.projMat.sheen.isEnabled = true;
     this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+
+    const noisePlugin = new ProjectileNoisePlugin(this.projMat);
+    (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePlugin;
 
     if (scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2, scene);
@@ -96,6 +101,7 @@ export class ProjectileSystem implements ISystem {
 
     this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
       this.clearAll();
+      this.noiseTime = 0.0;
     });
   }
 
@@ -121,6 +127,7 @@ export class ProjectileSystem implements ISystem {
     proj.lifeTime = 0.0;
     proj.mesh.isVisible = true;
     proj.mesh.position.set(x, y, 0);
+    proj.mesh.scaling.set(1.0, 1.0, 1.0);
 
     const dx = tx - x;
     const dy = ty - y;
@@ -136,6 +143,14 @@ export class ProjectileSystem implements ISystem {
 
     if (!pHealth || !wHealth || !pIframe) return;
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
+
+    this.noiseTime += dt;
+    if (this.projMat) {
+      const noisePlugin = (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      if (noisePlugin) {
+        noisePlugin.time = this.noiseTime;
+      }
+    }
 
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
@@ -156,6 +171,8 @@ export class ProjectileSystem implements ISystem {
         if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
+          p.mesh.scaling.set(0.28, 1.45, 1.45);
+          p.mesh.position.x = Math.sign(p.mesh.position.x) * wallLimit;
           this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: true });
         }
 
@@ -195,6 +212,7 @@ export class ProjectileSystem implements ISystem {
     if (!p) return;
     p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
+    p.mesh.scaling.set(1.0, 1.0, 1.0);
     p.fallbackVelocity.set(0,0,0);
     p.isStuck = false;
     p.isStuckOnWall = false;

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 3:23:35 PM
+ [SYSTEM] Generated: 5/24/2026, 3:33:35 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -98,6 +98,7 @@
 │   │   │   └── CameraSystem.ts
 │   │   ├── lighting/
 │   │   │   ├── LightingSystem.ts
+│   │   │   ├── ProjectileNoisePlugin.ts
 │   │   │   └── WarpMaterialPlugin.ts
 │   │   ├── mesh/
 │   │   │   └── ArenaGeometry.ts
@@ -3326,6 +3327,7 @@ export class GameDirectorSystem implements ISystem {
 
 ● ./src/gameplay/combat/ProjectileSystem.ts
 ────────────────────────────────────────────────────
+import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -3361,6 +3363,7 @@ export class ProjectileSystem implements ISystem {
   private projMat: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
+  private noiseTime = 0.0;
 
   constructor(
     private broker: EventBroker,
@@ -3383,6 +3386,9 @@ export class ProjectileSystem implements ISystem {
     this.projMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
     this.projMat.sheen.isEnabled = true;
     this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+
+    const noisePlugin = new ProjectileNoisePlugin(this.projMat);
+    (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePlugin;
 
     if (scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2, scene);
@@ -3424,6 +3430,7 @@ export class ProjectileSystem implements ISystem {
 
     this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
       this.clearAll();
+      this.noiseTime = 0.0;
     });
   }
 
@@ -3449,6 +3456,7 @@ export class ProjectileSystem implements ISystem {
     proj.lifeTime = 0.0;
     proj.mesh.isVisible = true;
     proj.mesh.position.set(x, y, 0);
+    proj.mesh.scaling.set(1.0, 1.0, 1.0);
 
     const dx = tx - x;
     const dy = ty - y;
@@ -3464,6 +3472,14 @@ export class ProjectileSystem implements ISystem {
 
     if (!pHealth || !wHealth || !pIframe) return;
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
+
+    this.noiseTime += dt;
+    if (this.projMat) {
+      const noisePlugin = (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      if (noisePlugin) {
+        noisePlugin.time = this.noiseTime;
+      }
+    }
 
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
@@ -3484,6 +3500,8 @@ export class ProjectileSystem implements ISystem {
         if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
+          p.mesh.scaling.set(0.28, 1.45, 1.45);
+          p.mesh.position.x = Math.sign(p.mesh.position.x) * wallLimit;
           this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: true });
         }
 
@@ -3523,6 +3541,7 @@ export class ProjectileSystem implements ISystem {
     if (!p) return;
     p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
+    p.mesh.scaling.set(1.0, 1.0, 1.0);
     p.fallbackVelocity.set(0,0,0);
     p.isStuck = false;
     p.isStuckOnWall = false;
@@ -6748,6 +6767,69 @@ export class LightingSystem implements ISystem {
 
 
 
+● ./src/visual/lighting/ProjectileNoisePlugin.ts
+────────────────────────────────────────────────────
+import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer } from "@babylonjs/core";
+
+export class ProjectileNoisePlugin extends MaterialPluginBase {
+  public time = 0.0;
+
+  constructor(material: Material) {
+    super(material, "ProjectileNoise", 201, { NOISE: false });
+    this._enable(true);
+  }
+
+  public prepareDefines(defines: Record<string, boolean>) {
+    defines["NOISE"] = true;
+  }
+
+  public getClassName(): string {
+    return "ProjectileNoisePlugin";
+  }
+
+  public getUniforms() {
+    return {
+      "ubo": [
+        { name: "u_noiseTime", size: 1, type: "float" }
+      ]
+    };
+  }
+
+  public isCompatible(shaderLanguage: ShaderLanguage): boolean {
+    return shaderLanguage === ShaderLanguage.GLSL;
+  }
+
+  public getCustomCode(shaderType: string, shaderLanguage: ShaderLanguage) {
+    if (shaderType === "vertex") {
+      if (shaderLanguage === ShaderLanguage.GLSL) {
+        return {
+          "CUSTOM_VERTEX_DEFINITIONS": `
+            #ifdef NOISE
+            uniform float u_noiseTime;
+            #endif
+          `,
+          "CUSTOM_VERTEX_UPDATE_POSITION": `
+            #ifdef NOISE
+            float noiseVal = sin(positionUpdated.x * 6.0 + u_noiseTime * 5.0) * 
+                             cos(positionUpdated.y * 7.0 + u_noiseTime * 6.3) * 
+                             sin(positionUpdated.z * 8.0 + u_noiseTime * 4.1);
+            noiseVal += sin(positionUpdated.y * 15.0 - u_noiseTime * 11.0) * 0.35;
+            positionUpdated += normalUpdated * noiseVal * 0.08;
+            #endif
+          `
+        };
+      }
+    }
+    return null;
+  }
+
+  public bindForSubMesh(uniformBuffer: UniformBuffer): void {
+    uniformBuffer.updateFloat("u_noiseTime", this.time);
+  }
+}
+
+
+
 ● ./src/visual/lighting/WarpMaterialPlugin.ts
 ────────────────────────────────────────────────────
 import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer } from "@babylonjs/core";
@@ -6797,7 +6879,7 @@ export class WarpMaterialPlugin extends MaterialPluginBase {
             float shiverCenter = 3.0 - u_warpTime * 10.5;
             float dist = abs(positionUpdated.y - shiverCenter);
             float envelope = max(0.0, 1.0 - dist / 1.5);
-            positionUpdated.x += sin(positionUpdated.y * 12.0 + u_warpTime * 35.0) * envelope * u_warpIntensity * 0.65;
+            positionUpdated.x += sin(positionUpdated.y * 24.0 + u_warpTime * 70.0) * envelope * u_warpIntensity * 1.30;
             #endif
           `
         };
