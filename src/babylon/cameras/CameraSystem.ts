@@ -3,6 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -24,8 +25,9 @@ export class CameraSystem implements ISystem {
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
 
-      this.cameraNode.position.set(0, 14.0, -38.0);
-      this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
+      const preset = POST_PROCESSING_PRESETS.CAMERA;
+      this.cameraNode.position.set(preset.DEFAULT_POS.x, preset.DEFAULT_POS.y, preset.DEFAULT_POS.z);
+      this.cameraNode.setTarget(new BABYLON.Vector3(preset.DEFAULT_TARGET.x, preset.DEFAULT_TARGET.y, preset.DEFAULT_TARGET.z));
     }
 
     this.unsub = this.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
@@ -56,9 +58,19 @@ export class CameraSystem implements ISystem {
       }
     }
 
+    const preset = POST_PROCESSING_PRESETS.CAMERA;
+
     if (this.cameraNode) {
-      this.cameraNode.position.set(shakeOffsetX, 14.0 + shakeOffsetY, -38.0 + shakeOffsetZ);
-      this.cameraTarget.set(shakeOffsetX * 0.25, 14.0 + shakeOffsetY * 0.25, 0);
+      this.cameraNode.position.set(
+        preset.DEFAULT_POS.x + shakeOffsetX, 
+        preset.DEFAULT_POS.y + shakeOffsetY, 
+        preset.DEFAULT_POS.z + shakeOffsetZ
+      );
+      this.cameraTarget.set(
+        preset.DEFAULT_TARGET.x + shakeOffsetX * 0.25, 
+        preset.DEFAULT_TARGET.y + shakeOffsetY * 0.25, 
+        preset.DEFAULT_TARGET.z
+      );
       this.cameraNode.setTarget(this.cameraTarget);
     }
   }

@@ -1,6 +1,6 @@
 import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 
 const HASH = String.fromCharCode(35);
 
@@ -18,7 +18,7 @@ export class WeaverSweepingState implements IWeaverState {
     ctx.ai.hue = this.hue;
     const health = ctx.healths.get(ctx.weaverId);
     const isBerserk = health ? health.current < health.max * 0.5 : false;
-    const patrolSpeed = isBerserk ? 9.0 : 4.5;
+    const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.weaverId,
@@ -33,13 +33,13 @@ export class WeaverSweepingState implements IWeaverState {
   public update(ctx: AIContext, dt: number): WeaverStateType | null {
     ctx.ai.timeInState += dt;
     this.shootTimer += dt;
-    const telegraphThreshold = 1.8;
+    const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
       ctx.ai.hue = HASH + "eab308";
       ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
     }
-    if (this.shootTimer >= 2.4) {
+    if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
       this.shootTimer = 0.0;
       this.hasTelegraphed = false;
       ctx.ai.hue = this.hue;
@@ -48,7 +48,7 @@ export class WeaverSweepingState implements IWeaverState {
       if (playerTrans && wTrans) {
         ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
           x: wTrans.x,
-          y: wTrans.y - 1.8,
+          y: wTrans.y - WEAVER_AI_TUNING.SHOOT.OFFSET_Y,
           tx: playerTrans.x,
           ty: playerTrans.y
         });
@@ -81,7 +81,7 @@ export class WeaverDashingState implements IWeaverState {
 
   private startPrep(ctx: AIContext): void {
     this.currentPhase = "PREP";
-    this.phaseTimer = 0.6;
+    this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
     ctx.ai.hue = HASH + "eab308";
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
@@ -102,14 +102,14 @@ export class WeaverDashingState implements IWeaverState {
 
   private startThrust(ctx: AIContext): void {
     this.currentPhase = "THRUST";
-    this.phaseTimer = 0.8;
+    this.phaseTimer = WEAVER_AI_TUNING.DASH.THRUST_TIME;
     ctx.ai.hue = HASH + "ef4444";
     const weaverTrans = ctx.transforms.get(ctx.weaverId);
     if (weaverTrans) {
       const dx = this.targetPos.x - weaverTrans.x;
       const dy = this.targetPos.y - weaverTrans.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-      const speed = this.maxDashes === 3 ? 36.0 : 28.0;
+      const speed = this.maxDashes === 3 ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
       this.thrustVelocity.x = (dx / dist) * speed;
       this.thrustVelocity.y = (dy / dist) * speed;
       ctx.commands.dispatch({
@@ -124,7 +124,7 @@ export class WeaverDashingState implements IWeaverState {
 
   private startRecover(ctx: AIContext): void {
     this.currentPhase = "RECOVER";
-    this.phaseTimer = 0.5;
+    this.phaseTimer = WEAVER_AI_TUNING.DASH.RECOVER_TIME;
     ctx.ai.hue = HASH + "a5f3fc";
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
@@ -139,11 +139,14 @@ export class WeaverDashingState implements IWeaverState {
   public update(ctx: AIContext, dt: number): WeaverStateType | null {
     this.phaseTimer -= dt;
     if (this.currentPhase === "PREP") {
-      const StrobeHz = 16.0;
+      const StrobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
       const step = Math.floor(this.phaseTimer * StrobeHz);
       ctx.ai.hue = step % 2 === 0 ? HASH + "ef4444" : HASH + "eab308";
-      if (Math.random() < 0.4) {
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.08, duration: 0.05 });
+      if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP,
+          duration: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR
+        });
       }
       if (this.phaseTimer <= 0) {
         this.startThrust(ctx);
@@ -187,10 +190,10 @@ export class WeaverReturningState implements IWeaverState {
     if (wTrans) {
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
-      if (Math.abs(dy) < 0.3) {
+      if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {
         return "SWEEPING";
       }
-      const speed = 12.0;
+      const speed = WEAVER_AI_TUNING.RETURN.SPEED;
       ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
         entityId: ctx.weaverId,

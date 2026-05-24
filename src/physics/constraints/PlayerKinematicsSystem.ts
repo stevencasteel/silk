@@ -13,28 +13,16 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
-import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
   private readonly GRAVITY = CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC;
-  private readonly SWING_STEER_FORCE = 36.0;
-  private readonly LAUNCH_STEER_FORCE = 16.0;
-
   private readonly BASE_SILK_LENGTH = ARENA_CONFIG.SILK.BASE_LENGTH;
   private readonly MAX_SILK_LENGTH = ARENA_CONFIG.SILK.MAX_LENGTH;
-
   private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-  private readonly DRAG_DAMPING = 0.99;
-
-  private readonly TENSION_CHARGE_RATE = 0.38;
-  private readonly MIN_FLING_TENSION = 0.06;
-
-  private readonly FLING_IMPULSE = 76.0;
-  private readonly LAUNCH_DURATION = 0.7;
-  private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
   private lastTraversalState: string = "";
   private tensionPayload = { tension: 0.0 };
@@ -91,12 +79,14 @@ export class PlayerKinematicsSystem implements ISystem {
     let nextX = target.x;
     let nextY = target.y;
 
+    const tuning = GAMEPLAY_TUNING.PLAYER;
+
     if (trav.state === "LAUNCHING") {
       trav.launchTimer -= dt;
-      silk.dynamicVelX += input.x * this.LAUNCH_STEER_FORCE * dt;
-      silk.dynamicVelY += this.GRAVITY * this.LAUNCH_GRAVITY_MULT * dt;
+      silk.dynamicVelX += input.x * tuning.LAUNCH_STEER_FORCE * dt;
+      silk.dynamicVelY += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
 
-      const damp = Math.pow(this.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
+      const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
       silk.dynamicVelX *= damp;
       silk.dynamicVelY *= damp;
 
@@ -111,10 +101,10 @@ export class PlayerKinematicsSystem implements ISystem {
       silk.dynamicVelY += this.GRAVITY * dt;
 
       if (trav.state === "AIRBORNE") {
-        silk.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
+        silk.dynamicVelX += input.x * tuning.SWING_STEER_FORCE * dt;
       }
 
-      const damp = Math.pow(this.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
+      const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
       silk.dynamicVelX *= damp;
       silk.dynamicVelY *= damp;
 
@@ -145,17 +135,20 @@ export class PlayerKinematicsSystem implements ISystem {
       let targetScaleZ: number;
 
       if (trav.state === "LAUNCHING") {
-        const stretchFactor = 0.35 * trav.launchPower;
+        const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
         targetScaleY = 1.0 + stretchFactor;
         targetScaleX = 1.0 - stretchFactor * 0.5;
         targetScaleZ = 1.0 - stretchFactor * 0.5;
       } else if (trav.state === "WALL_SLIDING") {
-        targetScaleX = 0.75;
-        targetScaleY = 1.15;
-        targetScaleZ = 1.0;
+        targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
+        targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
+        targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
       } else {
         const speed = Math.sqrt(silk.dynamicVelX * silk.dynamicVelX + silk.dynamicVelY * silk.dynamicVelY);
-        const stretchFactor = Math.min(0.3, (speed / 30) * 0.3);
+        const stretchFactor = Math.min(
+          tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
+          (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
+        );
         targetScaleY = 1.0 + stretchFactor;
         targetScaleX = 1.0 - stretchFactor * 0.5;
         targetScaleZ = 1.0 - stretchFactor * 0.5;
@@ -165,9 +158,9 @@ export class PlayerKinematicsSystem implements ISystem {
       const sy = pTrans.scaleY ?? 1.0;
       const sz = pTrans.scaleZ ?? 1.0;
 
-      pTrans.scaleX = sx + (targetScaleX - sx) * 15 * dt;
-      pTrans.scaleY = sy + (targetScaleY - sy) * 15 * dt;
-      pTrans.scaleZ = sz + (targetScaleZ - sz) * 15 * dt;
+      pTrans.scaleX = sx + (targetScaleX - sx) * tuning.SCALE_INTERP_RATE * dt;
+      pTrans.scaleY = sy + (targetScaleY - sy) * tuning.SCALE_INTERP_RATE * dt;
+      pTrans.scaleZ = sz + (targetScaleZ - sz) * tuning.SCALE_INTERP_RATE * dt;
 
       let rotDx = 0;
       let rotDy = 1;
@@ -189,8 +182,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
       const currentQuat = new BABYLON.Quaternion(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
 
-      const slerpFactor = 0.22;
-      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, slerpFactor, currentQuat);
+      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, tuning.SLERP_FACTOR, currentQuat);
 
       pTrans.qx = currentQuat.x;
       pTrans.qy = currentQuat.y;
@@ -217,6 +209,7 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
     const currentScrollSpeed = TransformSyncSystem.currentScrollSpeed;
+    const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (trav.state === "WALL_SLIDING") {
       const stillPressingIn = input.x === trav.wallDir;
@@ -233,7 +226,7 @@ export class PlayerKinematicsSystem implements ISystem {
       target.y = target.y + silk.dynamicVelY * dt;
 
       if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
-        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + this.TENSION_CHARGE_RATE * dt);
+        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + tuning.TENSION_CHARGE_RATE * dt);
       } else {
         const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
         silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
@@ -260,8 +253,8 @@ export class PlayerKinematicsSystem implements ISystem {
           wallNormalX: -wallDir
         });
         if (pTrans) {
-          pTrans.scaleX = 0.72;
-          pTrans.scaleY = 1.22;
+          pTrans.scaleX = tuning.SQUASH_STRETCH.SQUASH_WALL_X;
+          pTrans.scaleY = tuning.SQUASH_STRETCH.SQUASH_WALL_Y;
         }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
@@ -275,7 +268,7 @@ export class PlayerKinematicsSystem implements ISystem {
         target.y = target.y + silk.dynamicVelY * dt;
 
         if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
-          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + this.TENSION_CHARGE_RATE * dt);
+          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + tuning.TENSION_CHARGE_RATE * dt);
         } else {
           const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
           silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
@@ -312,8 +305,9 @@ export class PlayerKinematicsSystem implements ISystem {
   ): void {
     const storedTension = silk.tension;
     silk.tension = 0.0;
+    const tuning = GAMEPLAY_TUNING.PLAYER;
 
-    if (storedTension < this.MIN_FLING_TENSION) {
+    if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
       trav.wallDir = 0;
       trav.launchPower = 0;
@@ -325,12 +319,12 @@ export class PlayerKinematicsSystem implements ISystem {
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
     const powerScale = Math.min(1.0, storedTension);
-    const power = powerScale * this.FLING_IMPULSE;
+    const power = powerScale * tuning.FLING_IMPULSE;
     silk.dynamicVelX = (dx / dist) * power;
     silk.dynamicVelY = (dy / dist) * power;
 
     trav.state = "LAUNCHING";
-    trav.launchTimer = this.LAUNCH_DURATION;
+    trav.launchTimer = tuning.LAUNCH_DURATION;
     trav.launchPower = powerScale;
     trav.wallDir = 0;
 

@@ -10,7 +10,7 @@ import {
   WeaverAIComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
@@ -63,7 +63,7 @@ export class ProjectileSystem implements ISystem {
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const sphere = BABYLON.MeshBuilder.CreateSphere(
         `projectile_pooled_${i}`,
-        { diameter: 0.65 },
+        { diameter: WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER },
         scene
       );
       sphere.position.set(0, -999, 0);
@@ -135,7 +135,7 @@ export class ProjectileSystem implements ISystem {
     const dx = tx - x;
     const dy = ty - y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const speed = 15.0;
+    const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
     const vx = (dx / dist) * speed;
     const vy = (dy / dist) * speed;
 
@@ -216,7 +216,7 @@ export class ProjectileSystem implements ISystem {
       if (
         p.mesh.position.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y ||
         p.mesh.position.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y ||
-        p.lifeTime > 8.0
+        p.lifeTime > WEAVER_AI_TUNING.SHOOT.MAX_LIFE
       ) {
         this.recycleProjectile(p);
         continue;
@@ -227,7 +227,7 @@ export class ProjectileSystem implements ISystem {
 
         if (isHit) {
           pHealth.current = Math.max(0, pHealth.current - 1);
-          pIframe.timeRemaining = 1.2;
+          pIframe.timeRemaining = GAMEPLAY_TUNING.COMBAT.PLAYER_IFRAME_DURATION;
           this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
 
           this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 1, source: "PROJECTILE" });
@@ -235,7 +235,10 @@ export class ProjectileSystem implements ISystem {
             hp: pHealth.current,
             maxHp: pHealth.max
           });
-          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.6, duration: 0.35 });
+          this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+            amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+            duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+          });
 
           if (pHealth.current <= 0) {
             this.broker.publish(GameEvent.PLAYER_DIED, undefined);

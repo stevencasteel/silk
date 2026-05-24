@@ -3,6 +3,7 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ArenaGeometry } from "../meshBuilders/ArenaGeometry";
 import { EntityId } from "../../core/ecs/Entity";
+import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem, IVisualRegistry {
@@ -26,12 +27,14 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     this.scene = new BABYLON.Scene(this.engine);
     this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.012, 1.0);
 
+    const preset = POST_PROCESSING_PRESETS;
+
     const camera = new BABYLON.FreeCamera(
       "renderCamera",
-      new BABYLON.Vector3(0, 14, -38),
+      new BABYLON.Vector3(preset.CAMERA.DEFAULT_POS.x, preset.CAMERA.DEFAULT_POS.y, preset.CAMERA.DEFAULT_POS.z),
       this.scene
     );
-    camera.setTarget(new BABYLON.Vector3(0, 14, 0));
+    camera.setTarget(new BABYLON.Vector3(preset.CAMERA.DEFAULT_TARGET.x, preset.CAMERA.DEFAULT_TARGET.y, preset.CAMERA.DEFAULT_TARGET.z));
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
 
     const ambientLight = new BABYLON.HemisphericLight(
@@ -39,31 +42,31 @@ export class RenderSystem implements ISystem, IVisualRegistry {
       new BABYLON.Vector3(0, 1, 0),
       this.scene
     );
-    ambientLight.intensity = 0.08;
+    ambientLight.intensity = preset.RENDERER.AMBIENT_LIGHT_INTENSITY;
 
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.3, -0.8, 0.5),
       this.scene
     );
-    dirLight.intensity = 3.2;
+    dirLight.intensity = preset.RENDERER.DIR_LIGHT_INTENSITY;
     dirLight.specular = new BABYLON.Color3(0.9, 0.9, 0.95);
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
     ]);
-    pipeline.samples = 4;
+    pipeline.samples = preset.RENDERER.SAMPLES;
     pipeline.fxaaEnabled = true;
     pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.6;
-    pipeline.bloomWeight = 1.2;
-    pipeline.bloomKernel = 64;
+    pipeline.bloomThreshold = preset.RENDERER.BLOOM_THRESHOLD;
+    pipeline.bloomWeight = preset.RENDERER.BLOOM_WEIGHT;
+    pipeline.bloomKernel = preset.RENDERER.BLOOM_KERNEL;
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
-    pipeline.imageProcessing.vignetteWeight = 2.8;
+    pipeline.imageProcessing.vignetteWeight = preset.RENDERER.VIGNETTE_WEIGHT;
     pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
-    pipeline.imageProcessing.exposure = 0.9;
-    pipeline.imageProcessing.contrast = 1.45;
+    pipeline.imageProcessing.exposure = preset.RENDERER.EXPOSURE;
+    pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
     pipeline.chromaticAberrationEnabled = false;
 
     const shadowGen = new BABYLON.ShadowGenerator(1024, dirLight);

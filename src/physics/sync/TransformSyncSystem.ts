@@ -1,4 +1,4 @@
-import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
@@ -162,6 +162,7 @@ export class TransformSyncSystem implements ISystem {
     const silk = this.silks.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     const wAI = this.weaverAIs.get(this.refs.weaver);
+    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     for (const [id, curr] of this.transforms.entries()) {
       const node = this.visualRegistry.getTransformNode(id);
@@ -208,12 +209,11 @@ export class TransformSyncSystem implements ISystem {
             cachedColor = new BABYLON.Color3(r, g, b);
             this.colorCache.set(wAI.hue, cachedColor);
           }
-          const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
-          const emissiveScale = 0.4;
+          const pulse = emissive.WEAVER_EMISSIVE_PULSE_BASE + Math.sin(Date.now() * emissive.WEAVER_EMISSIVE_PULSE_FREQ) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
           mat.emissiveColor.set(
-            cachedColor.r * emissiveScale + pulse,
-            cachedColor.g * emissiveScale,
-            cachedColor.b * emissiveScale
+            cachedColor.r * emissive.WEAVER_EMISSIVE_SCALE + pulse,
+            cachedColor.g * emissive.WEAVER_EMISSIVE_SCALE,
+            cachedColor.b * emissive.WEAVER_EMISSIVE_SCALE
           );
         }
       }
@@ -229,6 +229,8 @@ export class TransformSyncSystem implements ISystem {
     let targetG: number;
     let targetB: number;
 
+    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+
     if (state === "WALL_SLIDING") {
       targetR = 0.1 + Math.min(1.0, tension) * 0.9;
       targetG = 0.1 + (1.0 - Math.min(1.0, tension)) * 0.1;
@@ -243,15 +245,15 @@ export class TransformSyncSystem implements ISystem {
       targetB = 0.05;
     }
 
-    const lerpRate = 0.18;
+    const lerpRate = emissive.PLAYER_LERP_RATE;
     this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
     this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
     this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
-    const emissiveScale = 0.2;
+    
     mat.emissiveColor.set(
-      this.currentEmissiveR * emissiveScale,
-      this.currentEmissiveG * emissiveScale,
-      this.currentEmissiveB * emissiveScale
+      this.currentEmissiveR * emissive.PLAYER_EMISSIVE_SCALE,
+      this.currentEmissiveG * emissive.PLAYER_EMISSIVE_SCALE,
+      this.currentEmissiveB * emissive.PLAYER_EMISSIVE_SCALE
     );
   }
 

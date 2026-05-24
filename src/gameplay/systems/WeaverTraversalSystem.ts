@@ -10,7 +10,7 @@ import {
   HealthComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class WeaverTraversalSystem implements ISystem {
@@ -42,7 +42,7 @@ export class WeaverTraversalSystem implements ISystem {
     if (isSweeping) {
       let nextX = trans.x + vel.x * dt;
       const isBerserk = health ? health.current < health.max * 0.5 : false;
-      const sweepSpeed = isBerserk ? 9.0 : 4.5;
+      const sweepSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
       if (nextX >= this.maxX) {
         nextX = this.maxX;
         vel.x = -sweepSpeed;
@@ -117,21 +117,24 @@ export class WeaverTraversalSystem implements ISystem {
 
       if (ai) {
         if (ai.state === "SWEEPING") {
-          const pulse = Math.sin(ai.timeInState * 3.5) * 0.04;
+          const pulse = Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) * WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
           targetScaleX = 1.0 + pulse;
           targetScaleY = 1.0 - pulse;
 
-          const rollAngle = -vel.x * 0.02;
-          const yawAngle = Math.sin(ai.timeInState * 2.0) * 0.1;
+          const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
+          const yawAngle = Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
           BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
         } else if (ai.state === "DASHING") {
           const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-          if (speed < 0.1) {
-            targetScaleY = 0.82;
-            targetScaleX = 1.15;
-            targetScaleZ = 1.15;
+          if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
+            targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
+            targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
+            targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
           } else {
-            const stretch = Math.min(0.25, (speed / 36.0) * 0.25);
+            const stretch = Math.min(
+              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) * WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+            );
             targetScaleY = 1.0 + stretch;
             targetScaleX = 1.0 - stretch * 0.5;
             targetScaleZ = 1.0 - stretch * 0.5;
@@ -140,13 +143,13 @@ export class WeaverTraversalSystem implements ISystem {
             BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
           }
         } else if (ai.state === "RETURNING") {
-          targetScaleY = 1.08;
-          targetScaleX = 0.96;
+          targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
+          targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
           BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
         } else if (ai.state === "DEFEATED") {
-          targetScaleX = 0.2;
-          targetScaleY = 0.2;
-          targetScaleZ = 0.2;
+          targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
           BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
         }
       }
@@ -155,12 +158,12 @@ export class WeaverTraversalSystem implements ISystem {
       const sy = trans.scaleY ?? 1.0;
       const sz = trans.scaleZ ?? 1.0;
 
-      trans.scaleX = sx + (targetScaleX - sx) * 12 * dt;
-      trans.scaleY = sy + (targetScaleY - sy) * 12 * dt;
-      trans.scaleZ = sz + (targetScaleZ - sz) * 12 * dt;
+      trans.scaleX = sx + (targetScaleX - sx) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
+      trans.scaleY = sy + (targetScaleY - sy) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
+      trans.scaleZ = sz + (targetScaleZ - sz) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
 
       const currentQuat = new BABYLON.Quaternion(trans.qx, trans.qy, trans.qz, trans.qw);
-      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, 12 * dt, currentQuat);
+      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt, currentQuat);
       trans.qx = currentQuat.x;
       trans.qy = currentQuat.y;
       trans.qz = currentQuat.z;

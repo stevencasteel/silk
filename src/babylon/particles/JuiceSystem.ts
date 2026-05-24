@@ -1,4 +1,4 @@
-import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -75,11 +75,18 @@ export class JuiceSystem implements ISystem {
       });
     }
 
+    const config = VISUAL_JUICE_CONFIG.PARTICLES;
+
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
         if (playerNode) {
-          this.spawnBurst(playerNode.position, new BABYLON.Color3(0.13, 0.77, 0.36), 15);
+          this.spawnBurst(
+            playerNode.position,
+            new BABYLON.Color3(0.13, 0.77, 0.36),
+            config.BURST.PLAYER.COUNT,
+            config.BURST.PLAYER
+          );
         }
       })
     );
@@ -88,7 +95,12 @@ export class JuiceSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
         if (weaverNode) {
-          this.spawnBurst(weaverNode.position, new BABYLON.Color3(0.93, 0.22, 0.22), 20);
+          this.spawnBurst(
+            weaverNode.position,
+            new BABYLON.Color3(0.93, 0.22, 0.22),
+            config.BURST.WEAVER.COUNT,
+            config.BURST.WEAVER
+          );
         }
       })
     );
@@ -145,18 +157,34 @@ export class JuiceSystem implements ISystem {
     );
   }
 
-  private spawnBurst(position: BABYLON.Vector3, color: BABYLON.Color3, count: number): void {
+  private spawnBurst(
+    position: BABYLON.Vector3,
+    color: BABYLON.Color3,
+    count: number,
+    settings: {
+      readonly VELOCITY_Y_MIN: number;
+      readonly VELOCITY_Y_MAX: number;
+      readonly VELOCITY_Z_MAX: number;
+      readonly VELOCITY_SPEED_MIN: number;
+      readonly VELOCITY_SPEED_MAX: number;
+      readonly LIFE_MIN: number;
+      readonly LIFE_MAX: number;
+    }
+  ): void {
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
 
       const theta = Math.random() * 2.0 * Math.PI;
-      const r = 3.0 + Math.random() * 5.0;
-      const vy = 4.0 + Math.random() * 8.0;
-      const vz = (Math.random() - 0.5) * 4.0;
+      const speedSpan = settings.VELOCITY_SPEED_MAX - settings.VELOCITY_SPEED_MIN;
+      const r = settings.VELOCITY_SPEED_MIN + Math.random() * speedSpan;
+      
+      const ySpan = settings.VELOCITY_Y_MAX - settings.VELOCITY_Y_MIN;
+      const vy = settings.VELOCITY_Y_MIN + Math.random() * ySpan;
+      const vz = (Math.random() - 0.5) * settings.VELOCITY_Z_MAX;
 
       particle.velocity.set(Math.cos(theta) * r, vy, vz);
-      particle.lifeRemaining = 0.3 + Math.random() * 0.4;
+      particle.lifeRemaining = settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -171,18 +199,19 @@ export class JuiceSystem implements ISystem {
   }
 
   private spawnLandingDust(position: BABYLON.Vector3): void {
-    const count = 12;
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
+    const count = config.COUNT;
     const color = new BABYLON.Color3(0.65, 0.65, 0.68);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
 
-      const vx = (Math.random() - 0.5) * 6.0;
-      const vy = Math.random() * 1.5;
-      const vz = (Math.random() - 0.5) * 1.5;
+      const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
+      const vy = Math.random() * config.VELOCITY_Y_MAX;
+      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = 0.4 + Math.random() * 0.3;
+      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -195,18 +224,20 @@ export class JuiceSystem implements ISystem {
   }
 
   private spawnWallSparks(position: BABYLON.Vector3, wallNormalX: number): void {
-    const count = 8;
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.WALL;
+    const count = config.COUNT;
     const color = new BABYLON.Color3(1.0, 0.85, 0.35);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
 
-      const vx = wallNormalX * (4.0 + Math.random() * 6.0);
-      const vy = (Math.random() - 0.3) * 5.0;
-      const vz = (Math.random() - 0.5) * 2.0;
+      const xSpan = config.VELOCITY_X_MAX - config.VELOCITY_X_MIN;
+      const vx = wallNormalX * (config.VELOCITY_X_MIN + Math.random() * xSpan);
+      const vy = (Math.random() - 0.3) * config.VELOCITY_Y_MAX;
+      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = 0.25 + Math.random() * 0.25;
+      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -219,20 +250,21 @@ export class JuiceSystem implements ISystem {
   }
 
   private spawnWebSplat(position: BABYLON.Vector3): void {
-    const count = 10;
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
+    const count = config.COUNT;
     const color = new BABYLON.Color3(0.95, 0.95, 0.98);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
 
       const angle = Math.random() * Math.PI * 2.0;
-      const speed = 2.0 + Math.random() * 4.0;
+      const speed = config.SPEED_MIN + Math.random() * (config.SPEED_MAX - config.SPEED_MIN);
       const vx = Math.cos(angle) * speed;
       const vy = Math.sin(angle) * speed;
-      const vz = (Math.random() - 0.5) * 2.0;
+      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = 0.3 + Math.random() * 0.3;
+      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -251,9 +283,11 @@ export class JuiceSystem implements ISystem {
     const activeMat = weaverMesh?.material || this.debrisMat;
     const usePhysics = scene.isPhysicsEnabled();
 
-    const count = 12;
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
+    const count = config.COUNT;
+
     for (let i = 0; i < count; i++) {
-      const size = 1.0 + Math.random() * 1.5;
+      const size = config.SIZE_MIN + Math.random() * (config.SIZE_MAX - config.SIZE_MIN);
 
       let chunk: BABYLON.Mesh;
       if (i % 2 === 0) {
@@ -282,19 +316,19 @@ export class JuiceSystem implements ISystem {
       );
 
       let agg: BABYLON.PhysicsAggregate | null = null;
-      const vx = (Math.random() - 0.5) * 18.0;
-      const vy = 5.0 + Math.random() * 14.0;
-      const vz = (Math.random() - 0.5) * 8.0;
+      const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
+      const vy = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN);
+      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
-      const rx = (Math.random() - 0.5) * 12.0;
-      const ry = (Math.random() - 0.5) * 12.0;
-      const rz = (Math.random() - 0.5) * 12.0;
+      const rx = (Math.random() - 0.5) * config.ANGULAR_MAX;
+      const ry = (Math.random() - 0.5) * config.ANGULAR_MAX;
+      const rz = (Math.random() - 0.5) * config.ANGULAR_MAX;
 
       if (usePhysics) {
         agg = new BABYLON.PhysicsAggregate(
           chunk,
           BABYLON.PhysicsShapeType.BOX,
-          { mass: 3.0, friction: 0.5, restitution: 0.2 },
+          { mass: config.MASS, friction: config.FRICTION, restitution: config.RESTITUTION },
           scene
         );
         agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
@@ -306,24 +340,25 @@ export class JuiceSystem implements ISystem {
         aggregate: agg,
         velocity: new BABYLON.Vector3(vx, vy, vz),
         angularVelocity: new BABYLON.Vector3(rx, ry, rz),
-        lifeRemaining: 5.0
+        lifeRemaining: config.LIFE
       });
     }
   }
 
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
     const particle = this.particlePool[this.nextPoolIndex];
+    const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
 
     particle.mesh.position.copyFrom(position);
-    particle.mesh.position.x += (Math.random() - 0.5) * 0.3;
-    particle.mesh.position.y += (Math.random() - 0.5) * 0.8;
+    particle.mesh.position.x += (Math.random() - 0.5) * trail.OFFSET_X;
+    particle.mesh.position.y += (Math.random() - 0.5) * trail.OFFSET_Y;
 
-    const vx = (Math.random() - 0.5) * 1.2;
-    const vy = (Math.random() - 0.5) * 1.2;
-    const vz = (Math.random() - 0.5) * 1.0;
+    const vx = (Math.random() - 0.5) * trail.VELOCITY_X_MAX;
+    const vy = (Math.random() - 0.5) * trail.VELOCITY_Y_MAX;
+    const vz = (Math.random() - 0.5) * trail.VELOCITY_Z_MAX;
 
     particle.velocity.set(vx, vy, vz);
-    particle.lifeRemaining = 0.22 + Math.random() * 0.12;
+    particle.lifeRemaining = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
     particle.maxLife = particle.lifeRemaining;
     particle.active = true;
     particle.mesh.setEnabled(true);
@@ -365,6 +400,8 @@ export class JuiceSystem implements ISystem {
       }
     }
 
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
+
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
       const d = this.activeDebrisList[i];
       d.lifeRemaining -= dt;
@@ -376,11 +413,11 @@ export class JuiceSystem implements ISystem {
       } else {
         if (d.aggregate) {
           const pos = d.mesh.position;
-          if (Math.abs(pos.z) > 0.01) {
+          if (Math.abs(pos.z) > config.Z_FORCE_CLAMP) {
             d.mesh.position.z = 0;
           }
           const vel = d.aggregate.body.getLinearVelocity();
-          if (Math.abs(vel.z) > 0.01) {
+          if (Math.abs(vel.z) > config.Z_FORCE_CLAMP) {
             this.scratchVector.set(vel.x, vel.y, 0);
             d.aggregate.body.setLinearVelocity(this.scratchVector);
           }
@@ -393,8 +430,8 @@ export class JuiceSystem implements ISystem {
           d.mesh.rotation.z += d.angularVelocity.z * dt;
         }
 
-        if (d.lifeRemaining < 1.5) {
-          const ratio = d.lifeRemaining / 1.5;
+        if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
+          const ratio = d.lifeRemaining / config.SCALE_DECAY_TIME;
           d.mesh.scaling.set(ratio, ratio, ratio);
         }
       }

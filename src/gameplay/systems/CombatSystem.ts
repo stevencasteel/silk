@@ -1,4 +1,4 @@
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
@@ -20,12 +20,10 @@ import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
-  private readonly FLING_DAMAGE_THRESHOLD = 0.72;
-  private readonly WEAVER_CONTACT_DAMAGE = 1;
-  private readonly PLAYER_IFRAME_DURATION = 1.2;
-  private readonly PLAYER_FLING_DAMAGE = 35;
   private readonly COMBINED_RADIUS_THRESHOLD = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-  private readonly BROADPHASE_ENVELOPE = (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.4) * (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.4);
+  private readonly BROADPHASE_ENVELOPE = 
+    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN) * 
+    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN);
 
   constructor(
     private refs: EntityRefs,
@@ -72,7 +70,9 @@ export class CombatSystem implements ISystem {
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
     if (!isColliding) return;
 
-    if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
+    const tuning = GAMEPLAY_TUNING.COMBAT;
+
+    if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD) {
       this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);
       return;
     }
@@ -89,8 +89,6 @@ export class CombatSystem implements ISystem {
       const nx = dx / dist;
       const ny = dy / dist;
 
-      // Displace position and previous position by the exact same delta.
-      // This shifts the whole interpolation interval smoothly, preventing jitter.
       const shiftX = nx * overlap;
       const shiftY = ny * overlap;
 
@@ -107,8 +105,8 @@ export class CombatSystem implements ISystem {
 
       const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
       if (dot < 0) {
-        silk.dynamicVelX -= dot * nx * 1.3;
-        silk.dynamicVelY -= dot * ny * 1.3;
+        silk.dynamicVelX -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
+        silk.dynamicVelY -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
       }
     }
   }
@@ -121,10 +119,11 @@ export class CombatSystem implements ISystem {
     dy: number,
     distSq: number
   ): void {
-    wHealth.current -= this.PLAYER_FLING_DAMAGE;
+    const tuning = GAMEPLAY_TUNING.COMBAT;
+    wHealth.current -= tuning.PLAYER_FLING_DAMAGE;
 
     this.broker.publish(GameEvent.WEAVER_DAMAGED, {
-      amount: this.PLAYER_FLING_DAMAGE,
+      amount: tuning.PLAYER_FLING_DAMAGE,
       source: "PLAYER_FLING"
     });
 
@@ -136,8 +135,8 @@ export class CombatSystem implements ISystem {
     this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
     const dist = Math.sqrt(distSq) || 1;
-    silk.dynamicVelX = (dx / dist) * 22;
-    silk.dynamicVelY = (dy / dist) * 22;
+    silk.dynamicVelX = (dx / dist) * tuning.REBOUND_FORCE;
+    silk.dynamicVelY = (dy / dist) * tuning.REBOUND_FORCE;
     pTrav.state = "AIRBORNE";
     pTrav.launchPower = 0;
     pTrav.launchTimer = 0;
@@ -150,20 +149,21 @@ export class CombatSystem implements ISystem {
     dy: number,
     distSq: number
   ): void {
-    pHealth.current -= this.WEAVER_CONTACT_DAMAGE;
-    pIframe.timeRemaining = this.PLAYER_IFRAME_DURATION;
+    const tuning = GAMEPLAY_TUNING.COMBAT;
+    pHealth.current -= tuning.WEAVER_CONTACT_DAMAGE;
+    pIframe.timeRemaining = tuning.PLAYER_IFRAME_DURATION;
 
     const dist = Math.sqrt(distSq) || 1;
     this.commands.dispatch<ApplyImpulseCommand>({
       type: "APPLY_IMPULSE",
       entityId: this.refs.player,
-      x: (dx / dist) * 16,
-      y: (dy / dist) * 16 + 8,
+      x: (dx / dist) * tuning.KNOCKBACK_FORCE_X,
+      y: (dy / dist) * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y,
       z: 0
     });
 
     this.broker.publish(GameEvent.PLAYER_DAMAGED, {
-      amount: this.WEAVER_CONTACT_DAMAGE,
+      amount: tuning.WEAVER_CONTACT_DAMAGE,
       source: "WEAVER"
     });
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {

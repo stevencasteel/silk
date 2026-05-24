@@ -11,7 +11,7 @@ import {
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class EnvironmentCollisionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
@@ -45,14 +45,16 @@ export class EnvironmentCollisionSystem implements ISystem {
   private clampToArenaBounds(target: KinematicTargetComponent, silk: SilkComponent): void {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
+    const tuning = GAMEPLAY_TUNING.PLAYER;
+
     if (target.y < minY) {
-      if (silk.dynamicVelY < -1.0) {
+      if (silk.dynamicVelY < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
         this.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
         const pTrans = this.transforms.get(this.refs.player);
         if (pTrans) {
-          pTrans.scaleY = 0.72;
-          pTrans.scaleX = 1.22;
-          pTrans.scaleZ = 1.22;
+          pTrans.scaleY = tuning.SQUASH_STRETCH.SQUASH_LAND_Y;
+          pTrans.scaleX = tuning.SQUASH_STRETCH.SQUASH_LAND_X;
+          pTrans.scaleZ = tuning.SQUASH_STRETCH.SQUASH_LAND_Z;
         }
       }
       target.y = minY;
