@@ -6,7 +6,8 @@ import {
   KinematicTargetComponent,
   TraversalStateComponent,
   TransformComponent,
-  InputIntentComponent
+  InputIntentComponent,
+  HealthComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -26,10 +27,10 @@ export class PlayerKinematicsSystem implements ISystem {
   private readonly WALL_SLIDE_SPEED = -3.0;
   private readonly DRAG_DAMPING = 0.99;
 
-  private readonly TENSION_CHARGE_RATE = 0.38; // Upgraded: charges slower
+  private readonly TENSION_CHARGE_RATE = 0.38;
   private readonly MIN_FLING_TENSION = 0.06;
 
-  private readonly FLING_IMPULSE = 76.0; // Upgraded: launches with massive speed
+  private readonly FLING_IMPULSE = 76.0;
   private readonly LAUNCH_DURATION = 0.7;
   private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
@@ -42,7 +43,8 @@ export class PlayerKinematicsSystem implements ISystem {
     private traversal: ComponentStore<TraversalStateComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private inputs: ComponentStore<InputIntentComponent>,
-    private broker: EventBroker
+    private broker: EventBroker,
+    private healths: ComponentStore<HealthComponent>
   ) {}
 
   public update(dt: number): void {
@@ -53,6 +55,15 @@ export class PlayerKinematicsSystem implements ISystem {
     const input = this.inputs.get(this.refs.player);
 
     if (!silk || !target || !trav || !wTrans || !input) return;
+
+    const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
+
+    if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
+      silk.dynamicVelX = 0;
+      silk.dynamicVelY = 0;
+      return;
+    }
 
     silk.anchorX = wTrans.x;
     silk.anchorY = wTrans.y;
@@ -177,8 +188,6 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    // --- FIXED FALLBACK PROTECTION ---
-    // Only fall back to AIRBORNE if we are not actively in the middle of a LAUNCH
     if (trav.state !== "LAUNCHING") {
       trav.state = "AIRBORNE";
     }

@@ -104,6 +104,12 @@ export class RenderSystem implements ISystem, IVisualRegistry {
       this.visualNodes.delete(id);
     }
   }
+  public registerShadowCaster(mesh: BABYLON.AbstractMesh): void {
+    if (this.shadowGen) {
+      this.shadowGen.addShadowCaster(mesh);
+      mesh.receiveShadows = true;
+    }
+  }
 
   private handleResize = () => {
     if (this.engine) this.engine.resize();

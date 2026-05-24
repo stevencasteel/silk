@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 7:47:48 PM
+ [SYSTEM] Generated: 5/23/2026, 7:59:30 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -15,6 +15,7 @@
 ├── node_modules/ (contents skipped)
 ├── public/
 │   ├── all_source_code.txt
+│   ├── HavokPhysics.wasm
 │   └── source_code_manifest.json
 ├── scripts/
 │   ├── create_source_context.command
@@ -908,7 +909,7 @@ export class CompositionRoot {
       silks,
       renderSystem
     );
-    const inputSystem = new PlayerInputSystem(refs, inputs);
+    const inputSystem = new PlayerInputSystem(refs, inputs, healths);
     const weaverBrain = new WeaverBrainSystem(
       refs,
       weaverAIs,
@@ -935,7 +936,8 @@ export class CompositionRoot {
       traversal,
       transforms,
       inputs,
-      broker
+      broker,
+      healths
     );
     const environmentCollision = new EnvironmentCollisionSystem(
       refs,
@@ -966,7 +968,8 @@ export class CompositionRoot {
       iframes,
       traversal,
       broker,
-      commands
+      commands,
+      renderSystem
     );
     const gameDirector = new GameDirectorSystem(
       broker,
@@ -984,13 +987,12 @@ export class CompositionRoot {
     const projectileSystem = new ProjectileSystem(
       broker,
       refs,
-      transforms,
       healths,
       iframes,
       renderSystem
     );
     const audioSystem = new AudioDirectorSystem(broker);
-    const juiceSystem = new JuiceSystem(broker, refs, renderSystem); // Fixed: refs injected
+    const juiceSystem = new JuiceSystem(broker, refs, renderSystem);
     const hudSystem = new DomHudSystem(broker);
     const debugTelemetry = new DebugTelemetryOverlay(
       profiler,
@@ -1790,6 +1792,12 @@ export class RenderSystem implements ISystem, IVisualRegistry {
       this.visualNodes.delete(id);
     }
   }
+  public registerShadowCaster(mesh: BABYLON.AbstractMesh): void {
+    if (this.shadowGen) {
+      this.shadowGen.addShadowCaster(mesh);
+      mesh.receiveShadows = true;
+    }
+  }
 
   private handleResize = () => {
     if (this.engine) this.engine.resize();
@@ -1847,6 +1855,7 @@ export interface IVisualRegistry {
   getTransformNode(id: EntityId): BABYLON.TransformNode | null;
   registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void;
   unregisterTransformNode(id: EntityId): void;
+  registerShadowCaster?(mesh: BABYLON.AbstractMesh): void;
 }
 
 
@@ -2309,6 +2318,11 @@ export class EntityRefs {
 
   public set weaver(id: EntityId) {
     this._weaver = id;
+  }
+
+  public clear(): void {
+    this._player = -1;
+    this._weaver = -1;
   }
 }
 
@@ -2953,13 +2967,13 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
+import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import * as BABYLON from "@babylonjs/core";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
   private readonly FLING_DAMAGE_THRESHOLD = 0.8;
-  private readonly PLAYER_HIT_RADIUS = 0.8;
-  private readonly WEAVER_HIT_RADIUS = 2.4;
   private readonly WEAVER_CONTACT_DAMAGE = 1;
   private readonly PLAYER_IFRAME_DURATION = 1.2;
   private readonly PLAYER_FLING_DAMAGE = 35;
@@ -2973,12 +2987,11 @@ export class CombatSystem implements ISystem {
     private iframes: ComponentStore<InvulnerabilityComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private broker: EventBroker,
-    private commands: CommandBus
+    private commands: CommandBus,
+    private visualRegistry: IVisualRegistry
   ) {}
 
   public update(dt: number): void {
-    const pTrans = this.transforms.get(this.refs.player);
-    const wTrans = this.transforms.get(this.refs.weaver);
     const pHealth = this.healths.get(this.refs.player);
     const wHealth = this.healths.get(this.refs.weaver);
     const wAI = this.weaverAIs.get(this.refs.weaver);
@@ -2986,18 +2999,29 @@ export class CombatSystem implements ISystem {
     const silk = this.silks.get(this.refs.player);
     const pTrav = this.traversal.get(this.refs.player);
 
-    if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !silk || !pTrav) return;
+    if (!pHealth || !wHealth || !wAI || !pIframe || !silk || !pTrav) return;
+
+    if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
     if (pIframe.timeRemaining > 0) {
       pIframe.timeRemaining -= dt;
     }
 
+    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
+    const wMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.AbstractMesh;
+
+    if (!pMesh || !wMesh) return;
+
+    const isColliding = pMesh.intersectsMesh(wMesh, true);
+    if (!isColliding) return;
+
+    const pTrans = this.transforms.get(this.refs.player);
+    const wTrans = this.transforms.get(this.refs.weaver);
+    if (!pTrans || !wTrans) return;
+
     const dx = pTrans.x - wTrans.x;
     const dy = pTrans.y - wTrans.y;
     const distSq = dx * dx + dy * dy;
-    const hitDist = this.PLAYER_HIT_RADIUS + this.WEAVER_HIT_RADIUS;
-
-    if (distSq >= hitDist * hitDist) return;
 
     if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
       this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);
@@ -3007,7 +3031,7 @@ export class CombatSystem implements ISystem {
     const weaverIsHostile = wAI.state === "DASHING";
 
     if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
-      this.resolveWeaverContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
+      this.resolveWeaverContactHit(pHealth, pIframe, dx, dy, distSq);
     }
   }
 
@@ -3042,8 +3066,6 @@ export class CombatSystem implements ISystem {
   }
 
   private resolveWeaverContactHit(
-    _pTrans: TransformComponent,
-    _wTrans: TransformComponent,
     pHealth: HealthComponent,
     pIframe: InvulnerabilityComponent,
     dx: number,
@@ -3311,6 +3333,9 @@ export class GameDirectorSystem implements ISystem {
 
   private resetGame(): void {
     this.gameState = "PLAYING";
+
+    this.refs.clear();
+
     const pTrans = this.transforms.get(this.refs.player);
     const pHealth = this.healths.get(this.refs.player);
     const pSilk = this.silks.get(this.refs.player);
@@ -3418,7 +3443,7 @@ export class GameDirectorSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { InputIntentComponent } from "../../core/ecs/Components";
+import { InputIntentComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerInputSystem implements ISystem {
@@ -3427,7 +3452,8 @@ export class PlayerInputSystem implements ISystem {
 
   constructor(
     private refs: EntityRefs,
-    private inputs: ComponentStore<InputIntentComponent>
+    private inputs: ComponentStore<InputIntentComponent>,
+    private healths: ComponentStore<HealthComponent>
   ) {}
 
   public init(): void {
@@ -3438,6 +3464,16 @@ export class PlayerInputSystem implements ISystem {
   public update(): void {
     const input = this.inputs.get(this.refs.player);
     if (!input) return;
+
+    const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
+
+    if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
+      input.x = 0;
+      input.y = 0;
+      input.jump = false;
+      return;
+    }
 
     let x = 0;
     if (this.keysPressed["a"] || this.keysPressed["arrowleft"]) x -= 1;
@@ -3474,7 +3510,6 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-  TransformComponent,
   HealthComponent,
   InvulnerabilityComponent
 } from "../../core/ecs/Components";
@@ -3500,7 +3535,6 @@ export class ProjectileSystem implements ISystem {
   constructor(
     private broker: EventBroker,
     private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
     private healths: ComponentStore<HealthComponent>,
     private iframes: ComponentStore<InvulnerabilityComponent>,
     private visualRegistry: IVisualRegistry
@@ -3542,6 +3576,10 @@ export class ProjectileSystem implements ISystem {
     sphere.position.set(x, y, 0);
     sphere.material = this.projMat;
 
+    if (this.visualRegistry.registerShadowCaster) {
+      this.visualRegistry.registerShadowCaster(sphere);
+    }
+
     const dx = tx - x;
     const dy = ty - y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -3574,9 +3612,15 @@ export class ProjectileSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const pTrans = this.transforms.get(this.refs.player);
     const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
     const pIframe = this.iframes.get(this.refs.player);
+
+    if (!pHealth || !wHealth || !pIframe) return;
+
+    if (pHealth.current <= 0 || wHealth.current <= 0) return;
+
+    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
@@ -3602,13 +3646,10 @@ export class ProjectileSystem implements ISystem {
         }
       }
 
-      if (!p.isStuck && pTrans && pHealth && pIframe) {
-        const dx = pos.x - pTrans.x;
-        const dy = pos.y - pTrans.y;
-        const distSq = dx * dx + dy * dy;
-        const hitDist = 1.1;
+      if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
+        const isHit = p.mesh.intersectsMesh(pMesh, true);
 
-        if (distSq < hitDist * hitDist && pIframe.timeRemaining <= 0) {
+        if (isHit) {
           pHealth.current = Math.max(0, pHealth.current - 1);
           pIframe.timeRemaining = 1.2;
 
@@ -3936,6 +3977,18 @@ export class WeaverBrainSystem implements ISystem {
   public update(dt: number): void {
     const aiComp = this.ai.get(this.refs.weaver);
     if (!aiComp || !this.activeState) return;
+
+    const pHealth = this.healths.get(this.refs.player);
+    if (pHealth && pHealth.current <= 0) {
+      this.commands.dispatch({
+        type: "SET_KINEMATIC_VELOCITY",
+        entityId: this.refs.weaver,
+        x: 0,
+        y: 0,
+        z: 0
+      });
+      return;
+    }
 
     if (!this.contextCache) {
       this.contextCache = {
@@ -4448,7 +4501,8 @@ import {
   KinematicTargetComponent,
   TraversalStateComponent,
   TransformComponent,
-  InputIntentComponent
+  InputIntentComponent,
+  HealthComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -4468,10 +4522,10 @@ export class PlayerKinematicsSystem implements ISystem {
   private readonly WALL_SLIDE_SPEED = -3.0;
   private readonly DRAG_DAMPING = 0.99;
 
-  private readonly TENSION_CHARGE_RATE = 0.38; // Upgraded: charges slower
+  private readonly TENSION_CHARGE_RATE = 0.38;
   private readonly MIN_FLING_TENSION = 0.06;
 
-  private readonly FLING_IMPULSE = 76.0; // Upgraded: launches with massive speed
+  private readonly FLING_IMPULSE = 76.0;
   private readonly LAUNCH_DURATION = 0.7;
   private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
@@ -4484,7 +4538,8 @@ export class PlayerKinematicsSystem implements ISystem {
     private traversal: ComponentStore<TraversalStateComponent>,
     private transforms: ComponentStore<TransformComponent>,
     private inputs: ComponentStore<InputIntentComponent>,
-    private broker: EventBroker
+    private broker: EventBroker,
+    private healths: ComponentStore<HealthComponent>
   ) {}
 
   public update(dt: number): void {
@@ -4495,6 +4550,15 @@ export class PlayerKinematicsSystem implements ISystem {
     const input = this.inputs.get(this.refs.player);
 
     if (!silk || !target || !trav || !wTrans || !input) return;
+
+    const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
+
+    if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
+      silk.dynamicVelX = 0;
+      silk.dynamicVelY = 0;
+      return;
+    }
 
     silk.anchorX = wTrans.x;
     silk.anchorY = wTrans.y;
@@ -4619,8 +4683,6 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    // --- FIXED FALLBACK PROTECTION ---
-    // Only fall back to AIRBORNE if we are not actively in the middle of a LAUNCH
     if (trav.state !== "LAUNCHING") {
       trav.state = "AIRBORNE";
     }
@@ -4739,12 +4801,20 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
     const scene = this.visualRegistry.getScene();
     if (scene) {
       try {
-        const havokInstance = await HavokPhysics({
-          locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
-        });
+        let havokInstance;
+        try {
+          havokInstance = await HavokPhysics({
+            locateFile: () => "./HavokPhysics.wasm"
+          });
+        } catch {
+          havokInstance = await HavokPhysics({
+            locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+          });
+        }
+
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
         scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
-        console.log("[HavokPhysicsSystem] Havok initialized successfully from CDN.");
+        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
 
         const physFloor = BABYLON.MeshBuilder.CreateBox(
           "physFloor",
@@ -4789,7 +4859,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         );
       } catch (err) {
         console.warn(
-          "[HavokPhysicsSystem] Failed to load Havok WASM. Standing by with visual physics fallback.",
+          "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",
           err
         );
       }

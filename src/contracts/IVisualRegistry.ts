@@ -5,4 +5,5 @@ export interface IVisualRegistry {
   getTransformNode(id: EntityId): BABYLON.TransformNode | null;
   registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void;
   unregisterTransformNode(id: EntityId): void;
+  registerShadowCaster?(mesh: BABYLON.AbstractMesh): void;
 }

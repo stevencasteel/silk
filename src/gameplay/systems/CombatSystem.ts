@@ -14,13 +14,13 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
+import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import * as BABYLON from "@babylonjs/core";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
   private readonly FLING_DAMAGE_THRESHOLD = 0.8;
-  private readonly PLAYER_HIT_RADIUS = 0.8;
-  private readonly WEAVER_HIT_RADIUS = 2.4;
   private readonly WEAVER_CONTACT_DAMAGE = 1;
   private readonly PLAYER_IFRAME_DURATION = 1.2;
   private readonly PLAYER_FLING_DAMAGE = 35;
@@ -34,12 +34,11 @@ export class CombatSystem implements ISystem {
     private iframes: ComponentStore<InvulnerabilityComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private broker: EventBroker,
-    private commands: CommandBus
+    private commands: CommandBus,
+    private visualRegistry: IVisualRegistry
   ) {}
 
   public update(dt: number): void {
-    const pTrans = this.transforms.get(this.refs.player);
-    const wTrans = this.transforms.get(this.refs.weaver);
     const pHealth = this.healths.get(this.refs.player);
     const wHealth = this.healths.get(this.refs.weaver);
     const wAI = this.weaverAIs.get(this.refs.weaver);
@@ -47,18 +46,29 @@ export class CombatSystem implements ISystem {
     const silk = this.silks.get(this.refs.player);
     const pTrav = this.traversal.get(this.refs.player);
 
-    if (!pTrans || !wTrans || !pHealth || !wHealth || !wAI || !pIframe || !silk || !pTrav) return;
+    if (!pHealth || !wHealth || !wAI || !pIframe || !silk || !pTrav) return;
+
+    if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
     if (pIframe.timeRemaining > 0) {
       pIframe.timeRemaining -= dt;
     }
 
+    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
+    const wMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.AbstractMesh;
+
+    if (!pMesh || !wMesh) return;
+
+    const isColliding = pMesh.intersectsMesh(wMesh, true);
+    if (!isColliding) return;
+
+    const pTrans = this.transforms.get(this.refs.player);
+    const wTrans = this.transforms.get(this.refs.weaver);
+    if (!pTrans || !wTrans) return;
+
     const dx = pTrans.x - wTrans.x;
     const dy = pTrans.y - wTrans.y;
     const distSq = dx * dx + dy * dy;
-    const hitDist = this.PLAYER_HIT_RADIUS + this.WEAVER_HIT_RADIUS;
-
-    if (distSq >= hitDist * hitDist) return;
 
     if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
       this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);
@@ -68,7 +78,7 @@ export class CombatSystem implements ISystem {
     const weaverIsHostile = wAI.state === "DASHING";
 
     if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
-      this.resolveWeaverContactHit(pTrans, wTrans, pHealth, pIframe, dx, dy, distSq);
+      this.resolveWeaverContactHit(pHealth, pIframe, dx, dy, distSq);
     }
   }
 
@@ -103,8 +113,6 @@ export class CombatSystem implements ISystem {
   }
 
   private resolveWeaverContactHit(
-    _pTrans: TransformComponent,
-    _wTrans: TransformComponent,
     pHealth: HealthComponent,
     pIframe: InvulnerabilityComponent,
     dx: number,

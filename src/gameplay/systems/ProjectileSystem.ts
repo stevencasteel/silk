@@ -5,7 +5,6 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-  TransformComponent,
   HealthComponent,
   InvulnerabilityComponent
 } from "../../core/ecs/Components";
@@ -31,7 +30,6 @@ export class ProjectileSystem implements ISystem {
   constructor(
     private broker: EventBroker,
     private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
     private healths: ComponentStore<HealthComponent>,
     private iframes: ComponentStore<InvulnerabilityComponent>,
     private visualRegistry: IVisualRegistry
@@ -73,6 +71,10 @@ export class ProjectileSystem implements ISystem {
     sphere.position.set(x, y, 0);
     sphere.material = this.projMat;
 
+    if (this.visualRegistry.registerShadowCaster) {
+      this.visualRegistry.registerShadowCaster(sphere);
+    }
+
     const dx = tx - x;
     const dy = ty - y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -105,9 +107,15 @@ export class ProjectileSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const pTrans = this.transforms.get(this.refs.player);
     const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
     const pIframe = this.iframes.get(this.refs.player);
+
+    if (!pHealth || !wHealth || !pIframe) return;
+
+    if (pHealth.current <= 0 || wHealth.current <= 0) return;
+
+    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
@@ -133,13 +141,10 @@ export class ProjectileSystem implements ISystem {
         }
       }
 
-      if (!p.isStuck && pTrans && pHealth && pIframe) {
-        const dx = pos.x - pTrans.x;
-        const dy = pos.y - pTrans.y;
-        const distSq = dx * dx + dy * dy;
-        const hitDist = 1.1;
+      if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
+        const isHit = p.mesh.intersectsMesh(pMesh, true);
 
-        if (distSq < hitDist * hitDist && pIframe.timeRemaining <= 0) {
+        if (isHit) {
           pHealth.current = Math.max(0, pHealth.current - 1);
           pIframe.timeRemaining = 1.2;
 

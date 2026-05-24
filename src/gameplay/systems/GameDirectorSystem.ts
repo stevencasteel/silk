@@ -64,6 +64,9 @@ export class GameDirectorSystem implements ISystem {
 
   private resetGame(): void {
     this.gameState = "PLAYING";
+
+    this.refs.clear();
+
     const pTrans = this.transforms.get(this.refs.player);
     const pHealth = this.healths.get(this.refs.player);
     const pSilk = this.silks.get(this.refs.player);

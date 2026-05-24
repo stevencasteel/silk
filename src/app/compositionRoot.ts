@@ -94,7 +94,7 @@ export class CompositionRoot {
       silks,
       renderSystem
     );
-    const inputSystem = new PlayerInputSystem(refs, inputs);
+    const inputSystem = new PlayerInputSystem(refs, inputs, healths);
     const weaverBrain = new WeaverBrainSystem(
       refs,
       weaverAIs,
@@ -121,7 +121,8 @@ export class CompositionRoot {
       traversal,
       transforms,
       inputs,
-      broker
+      broker,
+      healths
     );
     const environmentCollision = new EnvironmentCollisionSystem(
       refs,
@@ -152,7 +153,8 @@ export class CompositionRoot {
       iframes,
       traversal,
       broker,
-      commands
+      commands,
+      renderSystem
     );
     const gameDirector = new GameDirectorSystem(
       broker,
@@ -170,13 +172,12 @@ export class CompositionRoot {
     const projectileSystem = new ProjectileSystem(
       broker,
       refs,
-      transforms,
       healths,
       iframes,
       renderSystem
     );
     const audioSystem = new AudioDirectorSystem(broker);
-    const juiceSystem = new JuiceSystem(broker, refs, renderSystem); // Fixed: refs injected
+    const juiceSystem = new JuiceSystem(broker, refs, renderSystem);
     const hudSystem = new DomHudSystem(broker);
     const debugTelemetry = new DebugTelemetryOverlay(
       profiler,

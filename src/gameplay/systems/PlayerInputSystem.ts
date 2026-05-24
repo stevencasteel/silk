@@ -1,7 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { InputIntentComponent } from "../../core/ecs/Components";
+import { InputIntentComponent, HealthComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerInputSystem implements ISystem {
@@ -10,7 +10,8 @@ export class PlayerInputSystem implements ISystem {
 
   constructor(
     private refs: EntityRefs,
-    private inputs: ComponentStore<InputIntentComponent>
+    private inputs: ComponentStore<InputIntentComponent>,
+    private healths: ComponentStore<HealthComponent>
   ) {}
 
   public init(): void {
@@ -21,6 +22,16 @@ export class PlayerInputSystem implements ISystem {
   public update(): void {
     const input = this.inputs.get(this.refs.player);
     if (!input) return;
+
+    const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
+
+    if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
+      input.x = 0;
+      input.y = 0;
+      input.jump = false;
+      return;
+    }
 
     let x = 0;
     if (this.keysPressed["a"] || this.keysPressed["arrowleft"]) x -= 1;

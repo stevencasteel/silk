@@ -44,12 +44,20 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
     const scene = this.visualRegistry.getScene();
     if (scene) {
       try {
-        const havokInstance = await HavokPhysics({
-          locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
-        });
+        let havokInstance;
+        try {
+          havokInstance = await HavokPhysics({
+            locateFile: () => "./HavokPhysics.wasm"
+          });
+        } catch {
+          havokInstance = await HavokPhysics({
+            locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+          });
+        }
+
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
         scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
-        console.log("[HavokPhysicsSystem] Havok initialized successfully from CDN.");
+        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
 
         const physFloor = BABYLON.MeshBuilder.CreateBox(
           "physFloor",
@@ -94,7 +102,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         );
       } catch (err) {
         console.warn(
-          "[HavokPhysicsSystem] Failed to load Havok WASM. Standing by with visual physics fallback.",
+          "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",
           err
         );
       }

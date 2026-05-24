@@ -117,6 +117,18 @@ export class WeaverBrainSystem implements ISystem {
     const aiComp = this.ai.get(this.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
+    const pHealth = this.healths.get(this.refs.player);
+    if (pHealth && pHealth.current <= 0) {
+      this.commands.dispatch({
+        type: "SET_KINEMATIC_VELOCITY",
+        entityId: this.refs.weaver,
+        x: 0,
+        y: 0,
+        z: 0
+      });
+      return;
+    }
+
     if (!this.contextCache) {
       this.contextCache = {
         weaverId: this.refs.weaver,
