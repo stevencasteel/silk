@@ -20,6 +20,7 @@ import {
   WeaverTraversalComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../babylon/scene/RenderSystem";
+import { VisualRegistry } from "../babylon/scene/VisualRegistry";
 import { CameraSystem } from "../babylon/cameras/CameraSystem";
 import { LightingSystem } from "../babylon/lighting/LightingSystem";
 import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
@@ -30,6 +31,7 @@ import { WeaverBrainSystem } from "../gameplay/systems/WeaverBrainSystem";
 import { WeaverTraversalSystem } from "../gameplay/systems/WeaverTraversalSystem";
 import { SilkVisualizerSystem } from "../gameplay/systems/SilkVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
+import { PlayerAnimationSystem } from "../gameplay/systems/PlayerAnimationSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
@@ -65,8 +67,9 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
-    const renderSystem = new RenderSystem(canvas);
-    const cameraSystem = new CameraSystem(renderSystem, broker);
+    const visualRegistry = new VisualRegistry();
+    const renderSystem = new RenderSystem(canvas, visualRegistry);
+    const cameraSystem = new CameraSystem(visualRegistry, broker);
     const spawner = new EntitySpawnerSystem(
       refs,
       entities,
@@ -79,7 +82,7 @@ export class CompositionRoot {
       weaverAIs,
       playerTags,
       weaverTags,
-      renderSystem,
+      visualRegistry,
       traversal,
       iframes,
       weaverTraversal
@@ -91,7 +94,7 @@ export class CompositionRoot {
       velocities,
       targets,
       silks,
-      renderSystem
+      visualRegistry
     );
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
     const weaverBrain = new WeaverBrainSystem(
@@ -123,6 +126,13 @@ export class CompositionRoot {
       broker,
       healths
     );
+    const playerAnimation = new PlayerAnimationSystem(
+      refs,
+      transforms,
+      silks,
+      traversal,
+      targets
+    );
     const environmentCollision = new EnvironmentCollisionSystem(
       refs,
       silks,
@@ -138,14 +148,14 @@ export class CompositionRoot {
       transforms,
       silks,
       traversal,
-      renderSystem,
+      visualRegistry,
       weaverAIs,
       healths,
       velocities,
       broker
     );
-    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
-    const lightingSystem = new LightingSystem(broker, renderSystem);
+    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, visualRegistry);
+    const lightingSystem = new LightingSystem(broker, visualRegistry);
     const combatSystem = new CombatSystem(
       refs,
       transforms,
@@ -176,11 +186,11 @@ export class CompositionRoot {
       refs,
       healths,
       iframes,
-      renderSystem,
+      visualRegistry,
       weaverAIs
     );
     const audioSystem = new AudioDirectorSystem(broker);
-    const juiceSystem = new JuiceSystem(broker, refs, renderSystem);
+    const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
     const hudSystem = new DomHudSystem(broker);
     const debugTelemetry = new DebugTelemetryOverlay(
       profiler,
@@ -198,6 +208,7 @@ export class CompositionRoot {
     systemManager.register(inputSystem);
     systemManager.register(weaverBrain);
     systemManager.register(playerKinematics);
+    systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
     systemManager.register(syncSystem);

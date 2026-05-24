@@ -1,21 +1,18 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ArenaGeometry } from "../meshBuilders/ArenaGeometry";
-import { EntityId } from "../../core/ecs/Entity";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import { VisualRegistry } from "./VisualRegistry";
 import * as BABYLON from "@babylonjs/core";
 
-export class RenderSystem implements ISystem, IVisualRegistry {
+export class RenderSystem implements ISystem {
   readonly phase = SystemPhase.PostRender;
   readonly initPhase = InitPhase.Bootstrap;
   private engine: BABYLON.Engine | null = null;
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
-  private visualNodes = new Map<EntityId, BABYLON.TransformNode>();
-  private shadowGen: BABYLON.ShadowGenerator | null = null;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, private visualRegistry: VisualRegistry) {
     this.canvas = canvas;
   }
 
@@ -73,7 +70,8 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     shadowGen.useBlurExponentialShadowMap = true;
     shadowGen.blurKernel = 16;
     shadowGen.darkness = 0.6;
-    this.shadowGen = shadowGen;
+
+    this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
 
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
@@ -87,39 +85,13 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     if (this.scene) this.scene.render();
   }
 
-  public getScene(): BABYLON.Scene | null {
-    return this.scene;
-  }
-  public getTransformNode(id: EntityId): BABYLON.TransformNode | null {
-    return this.visualNodes.get(id) || null;
-  }
-  public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void {
-    this.visualNodes.set(id, node);
-    if (this.shadowGen && node instanceof BABYLON.AbstractMesh) {
-      this.shadowGen.addShadowCaster(node);
-      node.receiveShadows = true;
-    }
-  }
-  public unregisterTransformNode(id: EntityId): void {
-    const node = this.visualNodes.get(id);
-    if (node) {
-      node.dispose();
-      this.visualNodes.delete(id);
-    }
-  }
-  public registerShadowCaster(mesh: BABYLON.AbstractMesh): void {
-    if (this.shadowGen) {
-      this.shadowGen.addShadowCaster(mesh);
-      mesh.receiveShadows = true;
-    }
-  }
-
   private handleResize = () => {
     if (this.engine) this.engine.resize();
   };
 
   public dispose(): void {
     window.removeEventListener("resize", this.handleResize);
+    this.visualRegistry.clear();
     if (this.scene) this.scene.dispose();
     if (this.engine) this.engine.dispose();
   }

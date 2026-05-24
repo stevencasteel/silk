@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 10:47:32 AM
+ [SYSTEM] Generated: 5/24/2026, 10:53:06 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -41,7 +41,8 @@
 │   │   ├── particles/
 │   │   │   └── JuiceSystem.ts
 │   │   └── scene/
-│   │       └── RenderSystem.ts
+│   │       ├── RenderSystem.ts
+│   │       └── VisualRegistry.ts
 │   ├── contracts/
 │   │   ├── IPhysicsWorld.ts
 │   │   ├── ISystem.ts
@@ -82,6 +83,7 @@
 │   │       ├── CombatSystem.ts
 │   │       ├── EntitySpawnerSystem.ts
 │   │       ├── GameDirectorSystem.ts
+│   │       ├── PlayerAnimationSystem.ts
 │   │       ├── PlayerInputSystem.ts
 │   │       ├── ProjectileSystem.ts
 │   │       ├── SilkVisualizerSystem.ts
@@ -844,6 +846,7 @@ import {
   WeaverTraversalComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../babylon/scene/RenderSystem";
+import { VisualRegistry } from "../babylon/scene/VisualRegistry";
 import { CameraSystem } from "../babylon/cameras/CameraSystem";
 import { LightingSystem } from "../babylon/lighting/LightingSystem";
 import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
@@ -854,6 +857,7 @@ import { WeaverBrainSystem } from "../gameplay/systems/WeaverBrainSystem";
 import { WeaverTraversalSystem } from "../gameplay/systems/WeaverTraversalSystem";
 import { SilkVisualizerSystem } from "../gameplay/systems/SilkVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
+import { PlayerAnimationSystem } from "../gameplay/systems/PlayerAnimationSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { TransformSyncSystem } from "../physics/sync/TransformSyncSystem";
@@ -889,8 +893,9 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
-    const renderSystem = new RenderSystem(canvas);
-    const cameraSystem = new CameraSystem(renderSystem, broker);
+    const visualRegistry = new VisualRegistry();
+    const renderSystem = new RenderSystem(canvas, visualRegistry);
+    const cameraSystem = new CameraSystem(visualRegistry, broker);
     const spawner = new EntitySpawnerSystem(
       refs,
       entities,
@@ -903,7 +908,7 @@ export class CompositionRoot {
       weaverAIs,
       playerTags,
       weaverTags,
-      renderSystem,
+      visualRegistry,
       traversal,
       iframes,
       weaverTraversal
@@ -915,7 +920,7 @@ export class CompositionRoot {
       velocities,
       targets,
       silks,
-      renderSystem
+      visualRegistry
     );
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
     const weaverBrain = new WeaverBrainSystem(
@@ -947,6 +952,13 @@ export class CompositionRoot {
       broker,
       healths
     );
+    const playerAnimation = new PlayerAnimationSystem(
+      refs,
+      transforms,
+      silks,
+      traversal,
+      targets
+    );
     const environmentCollision = new EnvironmentCollisionSystem(
       refs,
       silks,
@@ -962,14 +974,14 @@ export class CompositionRoot {
       transforms,
       silks,
       traversal,
-      renderSystem,
+      visualRegistry,
       weaverAIs,
       healths,
       velocities,
       broker
     );
-    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
-    const lightingSystem = new LightingSystem(broker, renderSystem);
+    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, visualRegistry);
+    const lightingSystem = new LightingSystem(broker, visualRegistry);
     const combatSystem = new CombatSystem(
       refs,
       transforms,
@@ -1000,11 +1012,11 @@ export class CompositionRoot {
       refs,
       healths,
       iframes,
-      renderSystem,
+      visualRegistry,
       weaverAIs
     );
     const audioSystem = new AudioDirectorSystem(broker);
-    const juiceSystem = new JuiceSystem(broker, refs, renderSystem);
+    const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
     const hudSystem = new DomHudSystem(broker);
     const debugTelemetry = new DebugTelemetryOverlay(
       profiler,
@@ -1022,6 +1034,7 @@ export class CompositionRoot {
     systemManager.register(inputSystem);
     systemManager.register(weaverBrain);
     systemManager.register(playerKinematics);
+    systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
     systemManager.register(syncSystem);
@@ -2143,22 +2156,19 @@ export class JuiceSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ArenaGeometry } from "../meshBuilders/ArenaGeometry";
-import { EntityId } from "../../core/ecs/Entity";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import { VisualRegistry } from "./VisualRegistry";
 import * as BABYLON from "@babylonjs/core";
 
-export class RenderSystem implements ISystem, IVisualRegistry {
+export class RenderSystem implements ISystem {
   readonly phase = SystemPhase.PostRender;
   readonly initPhase = InitPhase.Bootstrap;
   private engine: BABYLON.Engine | null = null;
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
-  private visualNodes = new Map<EntityId, BABYLON.TransformNode>();
-  private shadowGen: BABYLON.ShadowGenerator | null = null;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, private visualRegistry: VisualRegistry) {
     this.canvas = canvas;
   }
 
@@ -2216,7 +2226,8 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     shadowGen.useBlurExponentialShadowMap = true;
     shadowGen.blurKernel = 16;
     shadowGen.darkness = 0.6;
-    this.shadowGen = shadowGen;
+
+    this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
 
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
@@ -2230,12 +2241,44 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     if (this.scene) this.scene.render();
   }
 
+  private handleResize = () => {
+    if (this.engine) this.engine.resize();
+  };
+
+  public dispose(): void {
+    window.removeEventListener("resize", this.handleResize);
+    this.visualRegistry.clear();
+    if (this.scene) this.scene.dispose();
+    if (this.engine) this.engine.dispose();
+  }
+}
+
+
+
+● ./src/babylon/scene/VisualRegistry.ts
+────────────────────────────────────────────────────
+import * as BABYLON from "@babylonjs/core";
+import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { EntityId } from "../../core/ecs/Entity";
+
+export class VisualRegistry implements IVisualRegistry {
+  private scene: BABYLON.Scene | null = null;
+  private shadowGen: BABYLON.ShadowGenerator | null = null;
+  private visualNodes = new Map<EntityId, BABYLON.TransformNode>();
+
+  public setSceneAndShadows(scene: BABYLON.Scene, shadowGen: BABYLON.ShadowGenerator | null): void {
+    this.scene = scene;
+    this.shadowGen = shadowGen;
+  }
+
   public getScene(): BABYLON.Scene | null {
     return this.scene;
   }
+
   public getTransformNode(id: EntityId): BABYLON.TransformNode | null {
     return this.visualNodes.get(id) || null;
   }
+
   public registerTransformNode(id: EntityId, node: BABYLON.TransformNode): void {
     this.visualNodes.set(id, node);
     if (this.shadowGen && node instanceof BABYLON.AbstractMesh) {
@@ -2243,6 +2286,7 @@ export class RenderSystem implements ISystem, IVisualRegistry {
       node.receiveShadows = true;
     }
   }
+
   public unregisterTransformNode(id: EntityId): void {
     const node = this.visualNodes.get(id);
     if (node) {
@@ -2250,6 +2294,7 @@ export class RenderSystem implements ISystem, IVisualRegistry {
       this.visualNodes.delete(id);
     }
   }
+
   public registerShadowCaster(mesh: BABYLON.AbstractMesh): void {
     if (this.shadowGen) {
       this.shadowGen.addShadowCaster(mesh);
@@ -2257,14 +2302,9 @@ export class RenderSystem implements ISystem, IVisualRegistry {
     }
   }
 
-  private handleResize = () => {
-    if (this.engine) this.engine.resize();
-  };
-
-  public dispose(): void {
-    window.removeEventListener("resize", this.handleResize);
-    if (this.scene) this.scene.dispose();
-    if (this.engine) this.engine.dispose();
+  public clear(): void {
+    this.visualNodes.forEach((node) => node.dispose());
+    this.visualNodes.clear();
   }
 }
 
@@ -4451,6 +4491,117 @@ export class GameDirectorSystem implements ISystem {
 
 
 
+● ./src/gameplay/systems/PlayerAnimationSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { ComponentStore } from "../../core/ecs/ComponentStore";
+import {
+  TransformComponent,
+  SilkComponent,
+  TraversalStateComponent,
+  KinematicTargetComponent
+} from "../../core/ecs/Components";
+import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import * as BABYLON from "@babylonjs/core";
+
+export class PlayerAnimationSystem implements ISystem {
+  readonly phase = SystemPhase.Kinematics;
+
+  constructor(
+    private refs: EntityRefs,
+    private transforms: ComponentStore<TransformComponent>,
+    private silks: ComponentStore<SilkComponent>,
+    private traversal: ComponentStore<TraversalStateComponent>,
+    private targets: ComponentStore<KinematicTargetComponent>
+  ) {}
+
+  public update(dt: number): void {
+    const pTrans = this.transforms.get(this.refs.player);
+    const silk = this.silks.get(this.refs.player);
+    const trav = this.traversal.get(this.refs.player);
+    const target = this.targets.get(this.refs.player);
+
+    if (!pTrans || !silk || !trav || !target) return;
+
+    if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
+      pTrans.scaleX = 1.0;
+      pTrans.scaleY = 1.0;
+      pTrans.scaleZ = 1.0;
+      pTrans.prevScaleX = 1.0;
+      pTrans.prevScaleY = 1.0;
+      pTrans.prevScaleZ = 1.0;
+    }
+    pTrans.prevScaleX = pTrans.scaleX;
+    pTrans.prevScaleY = pTrans.scaleY;
+    pTrans.prevScaleZ = pTrans.scaleZ;
+
+    const tuning = GAMEPLAY_TUNING.PLAYER;
+
+    let targetScaleX: number;
+    let targetScaleY: number;
+    let targetScaleZ: number;
+
+    if (trav.state === "LAUNCHING") {
+      const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
+      targetScaleY = 1.0 + stretchFactor;
+      targetScaleX = 1.0 - stretchFactor * 0.5;
+      targetScaleZ = 1.0 - stretchFactor * 0.5;
+    } else if (trav.state === "WALL_SLIDING") {
+      targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
+      targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
+      targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
+    } else {
+      const speed = Math.sqrt(silk.dynamicVelX * silk.dynamicVelX + silk.dynamicVelY * silk.dynamicVelY);
+      const stretchFactor = Math.min(
+        tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
+        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
+      );
+      targetScaleY = 1.0 + stretchFactor;
+      targetScaleX = 1.0 - stretchFactor * 0.5;
+      targetScaleZ = 1.0 - stretchFactor * 0.5;
+    }
+
+    const sx = pTrans.scaleX ?? 1.0;
+    const sy = pTrans.scaleY ?? 1.0;
+    const sz = pTrans.scaleZ ?? 1.0;
+
+    pTrans.scaleX = sx + (targetScaleX - sx) * tuning.SCALE_INTERP_RATE * dt;
+    pTrans.scaleY = sy + (targetScaleY - sy) * tuning.SCALE_INTERP_RATE * dt;
+    pTrans.scaleZ = sz + (targetScaleZ - sz) * tuning.SCALE_INTERP_RATE * dt;
+
+    let rotDx = 0;
+    let rotDy = 1;
+
+    if (trav.state === "LAUNCHING") {
+      const vx = silk.dynamicVelX;
+      const vy = silk.dynamicVelY;
+      if (vx * vx + vy * vy > 1.0) {
+        rotDx = vx;
+        rotDy = vy;
+      }
+    } else if (trav.state === "AIRBORNE") {
+      rotDx = target.x - silk.anchorX;
+      rotDy = target.y - silk.anchorY;
+    }
+
+    const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
+    const targetQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, targetAngle);
+
+    const currentQuat = new BABYLON.Quaternion(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
+
+    BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, tuning.SLERP_FACTOR, currentQuat);
+
+    pTrans.qx = currentQuat.x;
+    pTrans.qy = currentQuat.y;
+    pTrans.qz = currentQuat.z;
+    pTrans.qw = currentQuat.w;
+  }
+}
+
+
+
 ● ./src/gameplay/systems/PlayerInputSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
@@ -5844,7 +5995,6 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import * as BABYLON from "@babylonjs/core";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -5877,21 +6027,6 @@ export class PlayerKinematicsSystem implements ISystem {
     const input = this.inputs.get(this.refs.player);
 
     if (!silk || !target || !trav || !wTrans || !input) return;
-
-    const pTrans = this.transforms.get(this.refs.player);
-    if (pTrans) {
-      if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
-        pTrans.scaleX = 1.0;
-        pTrans.scaleY = 1.0;
-        pTrans.scaleZ = 1.0;
-        pTrans.prevScaleX = 1.0;
-        pTrans.prevScaleY = 1.0;
-        pTrans.prevScaleZ = 1.0;
-      }
-      pTrans.prevScaleX = pTrans.scaleX;
-      pTrans.prevScaleY = pTrans.scaleY;
-      pTrans.prevScaleZ = pTrans.scaleZ;
-    }
 
     const pHealth = this.healths.get(this.refs.player);
     const wHealth = this.healths.get(this.refs.weaver);
@@ -5958,67 +6093,6 @@ export class PlayerKinematicsSystem implements ISystem {
     this.lengthPayload.length = silk.currentLength;
     this.lengthPayload.maxLength = silk.maxLength;
     this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, this.lengthPayload);
-
-    if (pTrans) {
-      let targetScaleX: number;
-      let targetScaleY: number;
-      let targetScaleZ: number;
-
-      if (trav.state === "LAUNCHING") {
-        const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
-        targetScaleY = 1.0 + stretchFactor;
-        targetScaleX = 1.0 - stretchFactor * 0.5;
-        targetScaleZ = 1.0 - stretchFactor * 0.5;
-      } else if (trav.state === "WALL_SLIDING") {
-        targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
-        targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
-        targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
-      } else {
-        const speed = Math.sqrt(silk.dynamicVelX * silk.dynamicVelX + silk.dynamicVelY * silk.dynamicVelY);
-        const stretchFactor = Math.min(
-          tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
-          (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
-        );
-        targetScaleY = 1.0 + stretchFactor;
-        targetScaleX = 1.0 - stretchFactor * 0.5;
-        targetScaleZ = 1.0 - stretchFactor * 0.5;
-      }
-
-      const sx = pTrans.scaleX ?? 1.0;
-      const sy = pTrans.scaleY ?? 1.0;
-      const sz = pTrans.scaleZ ?? 1.0;
-
-      pTrans.scaleX = sx + (targetScaleX - sx) * tuning.SCALE_INTERP_RATE * dt;
-      pTrans.scaleY = sy + (targetScaleY - sy) * tuning.SCALE_INTERP_RATE * dt;
-      pTrans.scaleZ = sz + (targetScaleZ - sz) * tuning.SCALE_INTERP_RATE * dt;
-
-      let rotDx = 0;
-      let rotDy = 1;
-
-      if (trav.state === "LAUNCHING") {
-        const vx = silk.dynamicVelX;
-        const vy = silk.dynamicVelY;
-        if (vx * vx + vy * vy > 1.0) {
-          rotDx = vx;
-          rotDy = vy;
-        }
-      } else if (trav.state === "AIRBORNE") {
-        rotDx = target.x - silk.anchorX;
-        rotDy = target.y - silk.anchorY;
-      }
-
-      const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
-      const targetQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, targetAngle);
-
-      const currentQuat = new BABYLON.Quaternion(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
-
-      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, tuning.SLERP_FACTOR, currentQuat);
-
-      pTrans.qx = currentQuat.x;
-      pTrans.qy = currentQuat.y;
-      pTrans.qz = currentQuat.z;
-      pTrans.qw = currentQuat.w;
-    }
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
