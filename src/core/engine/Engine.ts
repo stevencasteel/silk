@@ -9,8 +9,8 @@ export class Engine {
   private systemManager: SystemManager;
 
   constructor(
-    _canvas: HTMLCanvasElement, 
-    _broker: EventBroker, 
+    _canvas: HTMLCanvasElement,
+    _broker: EventBroker,
     systemManager: SystemManager,
     clock: IClock,
     scheduler: IScheduler

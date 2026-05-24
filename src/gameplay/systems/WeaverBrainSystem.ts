@@ -1,13 +1,23 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WeaverAIComponent, TransformComponent, WeaverTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import {
+  WeaverAIComponent,
+  TransformComponent,
+  WeaverTraversalComponent,
+  HealthComponent
+} from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { IWeaverState, AIContext, WeaverStateType } from "../states/IWeaverState";
-import { WeaverSweepingState, WeaverDashingState, WeaverReturningState, WeaverDefeatedState } from "../states/WeaverStates";
+import {
+  WeaverSweepingState,
+  WeaverDashingState,
+  WeaverReturningState,
+  WeaverDefeatedState
+} from "../states/WeaverStates";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -36,13 +46,13 @@ export class WeaverBrainSystem implements ISystem {
     if (aiComp) {
       const startState = aiComp.state as WeaverStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
-      
+
       aiComp.state = stateObj.type;
       aiComp.hue = stateObj.hue;
       aiComp.timeInState = 0;
-      
+
       this.activeState = stateObj;
-      
+
       this.contextCache = {
         weaverId: this.refs.weaver,
         playerId: this.refs.player,
@@ -73,14 +83,14 @@ export class WeaverBrainSystem implements ISystem {
 
   private publishStateChangeEvent(name: string, hue: string): void {
     const health = this.healths.get(this.refs.weaver);
-    const isBerserk = health ? (health.current < health.max * 0.5) : false;
+    const isBerserk = health ? health.current < health.max * 0.5 : false;
     let finalName = name;
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
     }
-    this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, { 
-      state: finalName, 
-      hue: hue 
+    this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
+      state: finalName,
+      hue: hue
     });
   }
 
@@ -91,7 +101,7 @@ export class WeaverBrainSystem implements ISystem {
     const nextStateObj = this.states.get(nextStateKey);
     if (nextStateObj && nextStateKey !== this.activeState.type) {
       this.activeState.exit(this.contextCache);
-      
+
       aiComp.state = nextStateObj.type;
       aiComp.hue = nextStateObj.hue;
       aiComp.timeInState = 0;

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 7:24:58 PM
+ [SYSTEM] Generated: 5/23/2026, 7:32:09 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1717,7 +1717,9 @@ export type CommandHandler<T extends ICommand> = (cmd: T) => void;
 
 export class CommandBus {
     private handlers = new Map<string, CommandHandler<ICommand>[]>();
-    private queue: ICommand[] = [];
+    private queueA: ICommand[] = [];
+    private queueB: ICommand[] = [];
+    private activeQueue: ICommand[] = this.queueA;
 
     public register<T extends ICommand>(type: string, handler: CommandHandler<T>): void {
         if (!this.handlers.has(type)) {
@@ -1727,14 +1729,17 @@ export class CommandBus {
     }
 
     public dispatch<T extends ICommand>(cmd: T): void {
-        this.queue.push(cmd);
+        this.activeQueue.push(cmd);
     }
 
     public flush(): void {
-        const currentQueue = this.queue;
-        this.queue = [];
-        for (let i = 0; i < currentQueue.length; i++) {
-            const cmd = currentQueue[i];
+        const pending = this.activeQueue;
+        if (pending.length === 0) return;
+
+        this.activeQueue = (pending === this.queueA) ? this.queueB : this.queueA;
+
+        for (let i = 0; i < pending.length; i++) {
+            const cmd = pending[i];
             const handlers = this.handlers.get(cmd.type);
             if (handlers) {
                 for (let j = 0; j < handlers.length; j++) {
@@ -1742,11 +1747,15 @@ export class CommandBus {
                 }
             }
         }
+        
+        pending.length = 0;
     }
-    
+
     public clear(): void {
         this.handlers.clear();
-        this.queue = [];
+        this.queueA.length = 0;
+        this.queueB.length = 0;
+        this.activeQueue = this.queueA;
     }
 }
 
@@ -1783,6 +1792,7 @@ export class DebugTelemetryOverlay implements ISystem {
 
   public init(): void {
     if (typeof document === "undefined") return;
+    this._profiler.isEnabled = true;
     this.overlay = document.createElement("div");
     
     this.overlay.style.cssText = "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
@@ -1866,6 +1876,7 @@ export class DebugTelemetryOverlay implements ISystem {
 ● ./src/core/diagnostics/Profiler.ts
 ────────────────────────────────────────────────────
 export class Profiler {
+    public isEnabled = false;
     private systemTimings = new Map<string, number>();
     private frameStart = 0;
     private frameTime = 0;
@@ -1874,10 +1885,12 @@ export class Profiler {
     private lastFpsUpdate = performance.now();
 
     public beginFrame(): void {
+        if (!this.isEnabled) return;
         this.frameStart = performance.now();
     }
 
     public endFrame(): void {
+        if (!this.isEnabled) return;
         this.frameTime = performance.now() - this.frameStart;
         this.frameCount++;
         const now = performance.now();
@@ -1889,6 +1902,7 @@ export class Profiler {
     }
 
     public recordSystem(name: string, duration: number): void {
+        if (!this.isEnabled) return;
         this.systemTimings.set(name, duration);
     }
 
@@ -1897,6 +1911,7 @@ export class Profiler {
     public getSystemTimings(): Map<string, number> { return this.systemTimings; }
     
     public clearFrame(): void {
+        if (!this.isEnabled) return;
         this.systemTimings.clear();
     }
 }
@@ -2365,34 +2380,47 @@ export class SystemManager {
   }
 
   public updateAll(dt: number): void {
-    this.profiler.clearFrame();
-    this.profiler.beginFrame();
-    for (const system of this.systems) {
-      if (system.update) {
-        const start = performance.now();
-        try {
-          system.update(dt);
-        } catch (err) {
-          console.error(`System ${this.systemNames.get(system)} crashed during update:`, err);
+    const isProfiling = this.profiler.isEnabled;
+    if (isProfiling) {
+        this.profiler.clearFrame();
+        this.profiler.beginFrame();
+    }
+    
+    for (let i = 0; i < this.systems.length; i++) {
+        const system = this.systems[i];
+        if (system.update) {
+            const start = isProfiling ? performance.now() : 0;
+            try {
+                system.update(dt);
+            } catch (err) {
+                console.error(`System ${this.systemNames.get(system)} crashed during update:`, err);
+            }
+            if (isProfiling) {
+                this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
+            }
         }
-        this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
-      }
     }
   }
 
   public renderAll(alpha: number): void {
-    for (const system of this.systems) {
-      if (system.render) {
-        const start = performance.now();
-        try {
-          system.render(alpha);
-        } catch (err) {
-          console.error(`System ${this.systemNames.get(system)} crashed during render:`, err);
+    const isProfiling = this.profiler.isEnabled;
+    for (let i = 0; i < this.systems.length; i++) {
+        const system = this.systems[i];
+        if (system.render) {
+            const start = isProfiling ? performance.now() : 0;
+            try {
+                system.render(alpha);
+            } catch (err) {
+                console.error(`System ${this.systemNames.get(system)} crashed during render:`, err);
+            }
+            if (isProfiling) {
+                this.profiler.recordSystem(this.systemNames.get(system)! + " (Render)", performance.now() - start);
+            }
         }
-        this.profiler.recordSystem(this.systemNames.get(system)! + " (Render)", performance.now() - start);
-      }
     }
-    this.profiler.endFrame();
+    if (isProfiling) {
+        this.profiler.endFrame();
+    }
   }
 
   public disposeAll(): void {
@@ -3051,7 +3079,7 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerInputSystem implements ISystem {
     readonly phase = SystemPhase.Input;
-    private keysPressed: Set<string> = new Set();
+    private keysPressed: Record<string, boolean> = {};
 
     constructor(private refs: EntityRefs, private inputs: ComponentStore<InputIntentComponent>) {}
 
@@ -3065,25 +3093,26 @@ export class PlayerInputSystem implements ISystem {
         if (!input) return;
 
         let x = 0;
-        if (this.keysPressed.has("a") || this.keysPressed.has("arrowleft")) x -= 1;
-        if (this.keysPressed.has("d") || this.keysPressed.has("arrowright")) x += 1;
+        if (this.keysPressed["a"] || this.keysPressed["arrowleft"]) x -= 1;
+        if (this.keysPressed["d"] || this.keysPressed["arrowright"]) x += 1;
         
         input.x = x;
         input.y = 0;
-        input.jump = this.keysPressed.has(" ") || this.keysPressed.has("w") || this.keysPressed.has("arrowup");
+        input.jump = !!(this.keysPressed[" "] || this.keysPressed["w"] || this.keysPressed["arrowup"]);
     }
 
     public dispose(): void {
         window.removeEventListener("keydown", this.handleKeyDown);
         window.removeEventListener("keyup", this.handleKeyUp);
+        this.keysPressed = {};
     }
 
     private handleKeyDown = (e: KeyboardEvent): void => {
-        this.keysPressed.add(e.key.toLowerCase());
+        this.keysPressed[e.key.toLowerCase()] = true;
     };
 
     private handleKeyUp = (e: KeyboardEvent): void => {
-        this.keysPressed.delete(e.key.toLowerCase());
+        this.keysPressed[e.key.toLowerCase()] = false;
     };
 }
 
@@ -4779,6 +4808,16 @@ if (this.overlay) this.overlay.style.display = "none";
 public dispose(): void {
 this.unsubscribes.forEach(u => u());
 this.unsubscribes = [];
+this.tensionBar = null;
+this.tensionText = null;
+this.playerHpText = null;
+this.weaverHpBar = null;
+this.weaverHpValue = null;
+this.weaverStateText = null;
+this.traversalHint = null;
+this.overlay = null;
+this.overlayTitle = null;
+this.overlaySubtitle = null;
 }
 }
 

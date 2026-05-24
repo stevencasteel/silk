@@ -1,40 +1,49 @@
 export interface ICommand {
-    readonly type: string;
+  readonly type: string;
 }
 
 export type CommandHandler<T extends ICommand> = (cmd: T) => void;
 
 export class CommandBus {
-    private handlers = new Map<string, CommandHandler<ICommand>[]>();
-    private queue: ICommand[] = [];
+  private handlers = new Map<string, CommandHandler<ICommand>[]>();
+  private queueA: ICommand[] = [];
+  private queueB: ICommand[] = [];
+  private activeQueue: ICommand[] = this.queueA;
 
-    public register<T extends ICommand>(type: string, handler: CommandHandler<T>): void {
-        if (!this.handlers.has(type)) {
-            this.handlers.set(type, []);
+  public register<T extends ICommand>(type: string, handler: CommandHandler<T>): void {
+    if (!this.handlers.has(type)) {
+      this.handlers.set(type, []);
+    }
+    this.handlers.get(type)!.push(handler as CommandHandler<ICommand>);
+  }
+
+  public dispatch<T extends ICommand>(cmd: T): void {
+    this.activeQueue.push(cmd);
+  }
+
+  public flush(): void {
+    const pending = this.activeQueue;
+    if (pending.length === 0) return;
+
+    this.activeQueue = pending === this.queueA ? this.queueB : this.queueA;
+
+    for (let i = 0; i < pending.length; i++) {
+      const cmd = pending[i];
+      const handlers = this.handlers.get(cmd.type);
+      if (handlers) {
+        for (let j = 0; j < handlers.length; j++) {
+          handlers[j](cmd);
         }
-        this.handlers.get(type)!.push(handler as CommandHandler<ICommand>);
+      }
     }
 
-    public dispatch<T extends ICommand>(cmd: T): void {
-        this.queue.push(cmd);
-    }
+    pending.length = 0;
+  }
 
-    public flush(): void {
-        const currentQueue = this.queue;
-        this.queue = [];
-        for (let i = 0; i < currentQueue.length; i++) {
-            const cmd = currentQueue[i];
-            const handlers = this.handlers.get(cmd.type);
-            if (handlers) {
-                for (let j = 0; j < handlers.length; j++) {
-                    handlers[j](cmd);
-                }
-            }
-        }
-    }
-    
-    public clear(): void {
-        this.handlers.clear();
-        this.queue = [];
-    }
+  public clear(): void {
+    this.handlers.clear();
+    this.queueA.length = 0;
+    this.queueB.length = 0;
+    this.activeQueue = this.queueA;
+  }
 }

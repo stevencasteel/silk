@@ -22,7 +22,7 @@ export class ComponentStore<T> {
   public entries(): IterableIterator<[EntityId, T]> {
     return this.data.entries();
   }
-  
+
   public clear(): void {
     this.data.clear();
   }

@@ -8,7 +8,7 @@ import * as BABYLON from "@babylonjs/core";
 export class LightingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   readonly initPhase = InitPhase.World;
-  
+
   private unsub: (() => void) | null = null;
   private weaverLight: BABYLON.PointLight | null = null;
   private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
@@ -23,7 +23,11 @@ export class LightingSystem implements ISystem {
     const scene = this.visualRegistry.getScene();
     if (!scene) return;
 
-    this.weaverLight = new BABYLON.PointLight("weaverEmotionLight", new BABYLON.Vector3(0, 5, -2), scene);
+    this.weaverLight = new BABYLON.PointLight(
+      "weaverEmotionLight",
+      new BABYLON.Vector3(0, 5, -2),
+      scene
+    );
     this.weaverLight.intensity = 1.5;
     this.weaverLight.diffuse = this.currentColor;
     this.weaverLight.specular = this.currentColor;
@@ -35,8 +39,13 @@ export class LightingSystem implements ISystem {
 
   public update(dt: number): void {
     if (!this.weaverLight) return;
-    
-    BABYLON.Color3.LerpToRef(this.currentColor, this.targetColor, Math.min(1, dt * 4), this.currentColor);
+
+    BABYLON.Color3.LerpToRef(
+      this.currentColor,
+      this.targetColor,
+      Math.min(1, dt * 4),
+      this.currentColor
+    );
     this.weaverLight.diffuse.copyFrom(this.currentColor);
     this.weaverLight.specular.copyFrom(this.currentColor);
   }

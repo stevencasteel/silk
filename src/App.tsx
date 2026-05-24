@@ -9,10 +9,10 @@ export default function App() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    
+
     let cancelled = false;
     let engineInstance: Engine | null = null;
-    
+
     bootstrapApplication(canvasRef.current).then((engine) => {
       if (cancelled) {
         engine.stop();

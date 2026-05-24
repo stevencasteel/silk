@@ -22,7 +22,7 @@ export class CameraSystem implements ISystem {
     const scene = this.visualRegistry.getScene();
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
-      
+
       this.cameraNode.position.set(0, 14.0, -38.0);
       this.cameraNode.setTarget(new BABYLON.Vector3(0, 14.0, 0));
     }
@@ -41,8 +41,8 @@ export class CameraSystem implements ISystem {
 
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
-      
-      const decay = this.shakeDuration > 0 ? (this.shakeTimer / this.shakeDuration) : 0;
+
+      const decay = this.shakeDuration > 0 ? this.shakeTimer / this.shakeDuration : 0;
       const currentIntensity = this.shakeIntensity * decay;
 
       shakeOffsetX = (Math.random() - 0.5) * currentIntensity * 2.0;
@@ -57,7 +57,9 @@ export class CameraSystem implements ISystem {
 
     if (this.cameraNode) {
       this.cameraNode.position.set(shakeOffsetX, 14.0 + shakeOffsetY, -38.0 + shakeOffsetZ);
-      this.cameraNode.setTarget(new BABYLON.Vector3(shakeOffsetX * 0.25, 14.0 + shakeOffsetY * 0.25, 0));
+      this.cameraNode.setTarget(
+        new BABYLON.Vector3(shakeOffsetX * 0.25, 14.0 + shakeOffsetY * 0.25, 0)
+      );
     }
   }
 

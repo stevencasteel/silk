@@ -22,7 +22,7 @@ interface PhysicalDebris {
 
 export class JuiceSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-  
+
   private particlePool: PooledParticle[] = [];
   private poolSize = 64;
   private nextPoolIndex = 0;
@@ -46,7 +46,7 @@ export class JuiceSystem implements ISystem {
 
     this.debrisMat = new BABYLON.PBRMaterial("debrisMat", scene);
     this.debrisMat.albedoColor = new BABYLON.Color3(0.1, 0.1, 0.15);
-    this.debrisMat.emissiveColor = new BABYLON.Color3(0.9, 0.1, 0.1); 
+    this.debrisMat.emissiveColor = new BABYLON.Color3(0.9, 0.1, 0.1);
     this.debrisMat.emissiveIntensity = 3.5;
     this.debrisMat.metallic = 0.8;
     this.debrisMat.roughness = 0.4;
@@ -98,7 +98,7 @@ export class JuiceSystem implements ISystem {
         const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
         if (weaverNode) {
           this.spawnDeathDebris(weaverNode.position, scene);
-          weaverNode.setEnabled(false); 
+          weaverNode.setEnabled(false);
         }
       })
     );
@@ -118,12 +118,12 @@ export class JuiceSystem implements ISystem {
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
-      
+
       const theta = Math.random() * 2.0 * Math.PI;
       const r = 3.0 + Math.random() * 5.0;
       const vy = 4.0 + Math.random() * 8.0;
       const vz = (Math.random() - 0.5) * 4.0;
-      
+
       particle.velocity.set(Math.cos(theta) * r, vy, vz);
       particle.lifeRemaining = 0.3 + Math.random() * 0.4;
       particle.maxLife = particle.lifeRemaining;
@@ -143,32 +143,43 @@ export class JuiceSystem implements ISystem {
     if (!this.debrisMat) return;
 
     if (!scene.isPhysicsEnabled()) {
-        this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
-        return;
+      this.spawnBurst(pos, new BABYLON.Color3(0.9, 0.1, 0.1), 35);
+      return;
     }
 
     const count = 25;
     for (let i = 0; i < count; i++) {
       const size = 0.3 + Math.random() * 0.5;
-      const cube = BABYLON.MeshBuilder.CreateBox("debris_" + Date.now() + "_" + i, { size: size }, scene);
+      const cube = BABYLON.MeshBuilder.CreateBox(
+        "debris_" + Date.now() + "_" + i,
+        { size: size },
+        scene
+      );
       cube.position.copyFrom(pos);
       cube.position.x += (Math.random() - 0.5) * 0.5;
       cube.position.y += (Math.random() - 0.5) * 0.5;
       cube.material = this.debrisMat;
 
-      const agg = new BABYLON.PhysicsAggregate(cube, BABYLON.PhysicsShapeType.BOX, { mass: 1.0, friction: 0.6, restitution: 0.4 }, scene);
-      
+      const agg = new BABYLON.PhysicsAggregate(
+        cube,
+        BABYLON.PhysicsShapeType.BOX,
+        { mass: 1.0, friction: 0.6, restitution: 0.4 },
+        scene
+      );
+
       const vx = (Math.random() - 0.5) * 14.0;
       const vy = 4.0 + Math.random() * 12.0;
       const vz = (Math.random() - 0.5) * 6.0;
-      
+
       agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, vz));
-      agg.body.setAngularVelocity(new BABYLON.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10));
+      agg.body.setAngularVelocity(
+        new BABYLON.Vector3(Math.random() * 10, Math.random() * 10, Math.random() * 10)
+      );
 
       this.physicalDebrisList.push({
         mesh: cube,
         aggregate: agg,
-        lifeRemaining: 6.0 
+        lifeRemaining: 6.0
       });
     }
   }
@@ -198,7 +209,7 @@ export class JuiceSystem implements ISystem {
     for (let i = this.physicalDebrisList.length - 1; i >= 0; i--) {
       const d = this.physicalDebrisList[i];
       d.lifeRemaining -= dt;
-      
+
       if (d.lifeRemaining <= 0) {
         d.aggregate.dispose();
         d.mesh.dispose();
@@ -216,11 +227,11 @@ export class JuiceSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach(unsub => unsub());
+    this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     this.clearDebris();
     if (this.parentNode) this.parentNode.dispose();
-    this.particlePool.forEach(p => {
+    this.particlePool.forEach((p) => {
       p.mesh.dispose();
       if (p.mesh.material) p.mesh.material.dispose();
     });

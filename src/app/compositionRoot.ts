@@ -5,7 +5,20 @@ import { CommandBus } from "../core/commands/CommandBus";
 import { EntityRegistry } from "../core/ecs/Entity";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
-import { TransformComponent, KinematicVelocityComponent, KinematicTargetComponent, SilkComponent, HealthComponent, InputIntentComponent, WeaverAIComponent, PlayerTag, WeaverTag, TraversalStateComponent, InvulnerabilityComponent, WeaverTraversalComponent } from "../core/ecs/Components";
+import {
+  TransformComponent,
+  KinematicVelocityComponent,
+  KinematicTargetComponent,
+  SilkComponent,
+  HealthComponent,
+  InputIntentComponent,
+  WeaverAIComponent,
+  PlayerTag,
+  WeaverTag,
+  TraversalStateComponent,
+  InvulnerabilityComponent,
+  WeaverTraversalComponent
+} from "../core/ecs/Components";
 import { RenderSystem } from "../babylon/scene/RenderSystem";
 import { CameraSystem } from "../babylon/cameras/CameraSystem";
 import { LightingSystem } from "../babylon/lighting/LightingSystem";
@@ -30,74 +43,174 @@ import { PerformanceClock } from "../core/clock/PerformanceClock";
 import { RafScheduler } from "../core/loop/RafScheduler";
 
 export class CompositionRoot {
-    public buildEngine(canvas: HTMLCanvasElement): Engine {
-        const broker = new EventBroker();
-        const commands = new CommandBus();
-        const profiler = new Profiler();
-        const systemManager = new SystemManager(profiler);
-        
-        const entities = new EntityRegistry();
-        const transforms = new ComponentStore<TransformComponent>();
-        const velocities = new ComponentStore<KinematicVelocityComponent>();
-        const targets = new ComponentStore<KinematicTargetComponent>();
-        const silks = new ComponentStore<SilkComponent>();
-        const healths = new ComponentStore<HealthComponent>();
-        const inputs = new ComponentStore<InputIntentComponent>();
-        const weaverAIs = new ComponentStore<WeaverAIComponent>();
-        const traversal = new ComponentStore<TraversalStateComponent>();
-        const iframes = new ComponentStore<InvulnerabilityComponent>();
-        const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
-        
-        const playerTags = new ComponentStore<PlayerTag>();
-        const weaverTags = new ComponentStore<WeaverTag>();
-        const refs = new EntityRefs(playerTags, weaverTags);
+  public buildEngine(canvas: HTMLCanvasElement): Engine {
+    const broker = new EventBroker();
+    const commands = new CommandBus();
+    const profiler = new Profiler();
+    const systemManager = new SystemManager(profiler);
 
-        const renderSystem = new RenderSystem(canvas);
-        const cameraSystem = new CameraSystem(renderSystem, broker);
-        const spawner = new EntitySpawnerSystem(refs, entities, transforms, velocities, targets, silks, healths, inputs, weaverAIs, playerTags, weaverTags, renderSystem, traversal, iframes, weaverTraversal);
-        const physicsSystem = new HavokPhysicsSystem(broker, commands, refs, transforms, velocities, targets, silks, renderSystem);
-        const inputSystem = new PlayerInputSystem(refs, inputs);
-        const weaverBrain = new WeaverBrainSystem(refs, weaverAIs, transforms, weaverTraversal, healths, broker, commands);
-        const weaverTraversalSystem = new WeaverTraversalSystem(refs, velocities, weaverTraversal, transforms, targets, weaverAIs, healths);
-        
-        const playerKinematics = new PlayerKinematicsSystem(refs, silks, targets, traversal, transforms, inputs, broker);
-        const environmentCollision = new EnvironmentCollisionSystem(refs, silks, targets, healths, traversal, broker);
-        
-        const syncSystem = new TransformSyncSystem(refs, transforms, silks, traversal, renderSystem, weaverAIs, healths);
-        const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
-        const lightingSystem = new LightingSystem(broker, renderSystem);
-        const combatSystem = new CombatSystem(refs, transforms, healths, weaverAIs, silks, iframes, traversal, broker, commands);
-        const gameDirector = new GameDirectorSystem(broker, refs, transforms, healths, silks, weaverAIs, velocities, iframes, targets, traversal);
-        
-        const projectileSystem = new ProjectileSystem(broker, refs, transforms, healths, iframes, renderSystem);
-        const audioSystem = new AudioDirectorSystem(broker);
-        const juiceSystem = new JuiceSystem(broker, refs, renderSystem); // Fixed: refs injected
-        const hudSystem = new DomHudSystem(broker);
-        const debugTelemetry = new DebugTelemetryOverlay(profiler, broker, entities, refs, transforms, silks, velocities);
+    const entities = new EntityRegistry();
+    const transforms = new ComponentStore<TransformComponent>();
+    const velocities = new ComponentStore<KinematicVelocityComponent>();
+    const targets = new ComponentStore<KinematicTargetComponent>();
+    const silks = new ComponentStore<SilkComponent>();
+    const healths = new ComponentStore<HealthComponent>();
+    const inputs = new ComponentStore<InputIntentComponent>();
+    const weaverAIs = new ComponentStore<WeaverAIComponent>();
+    const traversal = new ComponentStore<TraversalStateComponent>();
+    const iframes = new ComponentStore<InvulnerabilityComponent>();
+    const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
 
-        systemManager.register(spawner);
-        systemManager.register(renderSystem);
-        systemManager.register(physicsSystem);
-        systemManager.register(inputSystem);
-        systemManager.register(weaverBrain);
-        systemManager.register(playerKinematics);
-        systemManager.register(weaverTraversalSystem);
-        systemManager.register(environmentCollision);
-        systemManager.register(syncSystem);
-        systemManager.register(silkVisualizer);
-        systemManager.register(cameraSystem);
-        systemManager.register(combatSystem);
-        systemManager.register(projectileSystem);
-        systemManager.register(juiceSystem);
-        systemManager.register(gameDirector);
-        systemManager.register(audioSystem);
-        systemManager.register(lightingSystem);
-        systemManager.register(hudSystem);
-        systemManager.register(debugTelemetry);
+    const playerTags = new ComponentStore<PlayerTag>();
+    const weaverTags = new ComponentStore<WeaverTag>();
+    const refs = new EntityRefs(playerTags, weaverTags);
 
-        const clock = new PerformanceClock();
-        const scheduler = new RafScheduler();
+    const renderSystem = new RenderSystem(canvas);
+    const cameraSystem = new CameraSystem(renderSystem, broker);
+    const spawner = new EntitySpawnerSystem(
+      refs,
+      entities,
+      transforms,
+      velocities,
+      targets,
+      silks,
+      healths,
+      inputs,
+      weaverAIs,
+      playerTags,
+      weaverTags,
+      renderSystem,
+      traversal,
+      iframes,
+      weaverTraversal
+    );
+    const physicsSystem = new HavokPhysicsSystem(
+      broker,
+      commands,
+      refs,
+      transforms,
+      velocities,
+      targets,
+      silks,
+      renderSystem
+    );
+    const inputSystem = new PlayerInputSystem(refs, inputs);
+    const weaverBrain = new WeaverBrainSystem(
+      refs,
+      weaverAIs,
+      transforms,
+      weaverTraversal,
+      healths,
+      broker,
+      commands
+    );
+    const weaverTraversalSystem = new WeaverTraversalSystem(
+      refs,
+      velocities,
+      weaverTraversal,
+      transforms,
+      targets,
+      weaverAIs,
+      healths
+    );
 
-        return new Engine(canvas, broker, systemManager, clock, scheduler);
-    }
+    const playerKinematics = new PlayerKinematicsSystem(
+      refs,
+      silks,
+      targets,
+      traversal,
+      transforms,
+      inputs,
+      broker
+    );
+    const environmentCollision = new EnvironmentCollisionSystem(
+      refs,
+      silks,
+      targets,
+      healths,
+      traversal,
+      broker
+    );
+
+    const syncSystem = new TransformSyncSystem(
+      refs,
+      transforms,
+      silks,
+      traversal,
+      renderSystem,
+      weaverAIs,
+      healths
+    );
+    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, renderSystem);
+    const lightingSystem = new LightingSystem(broker, renderSystem);
+    const combatSystem = new CombatSystem(
+      refs,
+      transforms,
+      healths,
+      weaverAIs,
+      silks,
+      iframes,
+      traversal,
+      broker,
+      commands
+    );
+    const gameDirector = new GameDirectorSystem(
+      broker,
+      refs,
+      transforms,
+      healths,
+      silks,
+      weaverAIs,
+      velocities,
+      iframes,
+      targets,
+      traversal
+    );
+
+    const projectileSystem = new ProjectileSystem(
+      broker,
+      refs,
+      transforms,
+      healths,
+      iframes,
+      renderSystem
+    );
+    const audioSystem = new AudioDirectorSystem(broker);
+    const juiceSystem = new JuiceSystem(broker, refs, renderSystem); // Fixed: refs injected
+    const hudSystem = new DomHudSystem(broker);
+    const debugTelemetry = new DebugTelemetryOverlay(
+      profiler,
+      broker,
+      entities,
+      refs,
+      transforms,
+      silks,
+      velocities
+    );
+
+    systemManager.register(spawner);
+    systemManager.register(renderSystem);
+    systemManager.register(physicsSystem);
+    systemManager.register(inputSystem);
+    systemManager.register(weaverBrain);
+    systemManager.register(playerKinematics);
+    systemManager.register(weaverTraversalSystem);
+    systemManager.register(environmentCollision);
+    systemManager.register(syncSystem);
+    systemManager.register(silkVisualizer);
+    systemManager.register(cameraSystem);
+    systemManager.register(combatSystem);
+    systemManager.register(projectileSystem);
+    systemManager.register(juiceSystem);
+    systemManager.register(gameDirector);
+    systemManager.register(audioSystem);
+    systemManager.register(lightingSystem);
+    systemManager.register(hudSystem);
+    systemManager.register(debugTelemetry);
+
+    const clock = new PerformanceClock();
+    const scheduler = new RafScheduler();
+
+    return new Engine(canvas, broker, systemManager, clock, scheduler);
+  }
 }

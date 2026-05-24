@@ -11,14 +11,16 @@
   --accent-success: rgb(16, 185, 129);
 }
 
-html, body, #root {
+html,
+body,
+#root {
   margin: 0;
   padding: 0;
   width: 100vw;
   height: 100vh;
   background-color: var(--bg-void);
   overflow: hidden;
-  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-family: "SF Mono", Monaco, Consolas, "Courier New", monospace;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
@@ -32,7 +34,7 @@ html, body, #root {
   flex-direction: column;
   justify-content: space-between;
   pointer-events: none;
-  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-family: "SF Mono", Monaco, Consolas, "Courier New", monospace;
 }
 
 .hud-top {
@@ -124,7 +126,9 @@ html, body, #root {
 .hud-bar-fill {
   height: 100%;
   background: var(--accent-danger);
-  transition: width 0.15s ease, background-color 0.15s ease;
+  transition:
+    width 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .hud-state-text {

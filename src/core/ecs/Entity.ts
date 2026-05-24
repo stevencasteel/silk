@@ -17,11 +17,11 @@ export class EntityRegistry {
   public isAlive(id: EntityId): boolean {
     return this.alive.has(id);
   }
-  
+
   public count(): number {
     return this.alive.size;
   }
-  
+
   public clear(): void {
     this.alive.clear();
   }

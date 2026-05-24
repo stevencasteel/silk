@@ -29,34 +29,50 @@ export class SystemManager {
   }
 
   public updateAll(dt: number): void {
-    this.profiler.clearFrame();
-    this.profiler.beginFrame();
-    for (const system of this.systems) {
+    const isProfiling = this.profiler.isEnabled;
+    if (isProfiling) {
+      this.profiler.clearFrame();
+      this.profiler.beginFrame();
+    }
+
+    for (let i = 0; i < this.systems.length; i++) {
+      const system = this.systems[i];
       if (system.update) {
-        const start = performance.now();
+        const start = isProfiling ? performance.now() : 0;
         try {
           system.update(dt);
         } catch (err) {
           console.error(`System ${this.systemNames.get(system)} crashed during update:`, err);
         }
-        this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
+        if (isProfiling) {
+          this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
+        }
       }
     }
   }
 
   public renderAll(alpha: number): void {
-    for (const system of this.systems) {
+    const isProfiling = this.profiler.isEnabled;
+    for (let i = 0; i < this.systems.length; i++) {
+      const system = this.systems[i];
       if (system.render) {
-        const start = performance.now();
+        const start = isProfiling ? performance.now() : 0;
         try {
           system.render(alpha);
         } catch (err) {
           console.error(`System ${this.systemNames.get(system)} crashed during render:`, err);
         }
-        this.profiler.recordSystem(this.systemNames.get(system)! + " (Render)", performance.now() - start);
+        if (isProfiling) {
+          this.profiler.recordSystem(
+            this.systemNames.get(system)! + " (Render)",
+            performance.now() - start
+          );
+        }
       }
     }
-    this.profiler.endFrame();
+    if (isProfiling) {
+      this.profiler.endFrame();
+    }
   }
 
   public disposeAll(): void {

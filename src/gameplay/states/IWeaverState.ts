@@ -1,5 +1,10 @@
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { WeaverAIComponent, TransformComponent, WeaverTraversalComponent, HealthComponent } from "../../core/ecs/Components";
+import {
+  WeaverAIComponent,
+  TransformComponent,
+  WeaverTraversalComponent,
+  HealthComponent
+} from "../../core/ecs/Components";
 import { EventBroker } from "../../core/events/EventBroker";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { EntityId } from "../../core/ecs/Entity";

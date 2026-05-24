@@ -27,10 +27,12 @@ export class DebugTelemetryOverlay implements ISystem {
 
   public init(): void {
     if (typeof document === "undefined") return;
+    this._profiler.isEnabled = true;
     this.overlay = document.createElement("div");
-    
-    this.overlay.style.cssText = "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
-    
+
+    this.overlay.style.cssText =
+      "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
+
     this.sysText = document.createElement("pre");
     this.sysText.style.margin = "0";
     this.overlay.appendChild(this.sysText);
@@ -54,12 +56,12 @@ export class DebugTelemetryOverlay implements ISystem {
       })
     );
 
-    if (this.overlay) this.overlay.style.display = "none"; 
+    if (this.overlay) this.overlay.style.display = "none";
   }
 
   public update(): void {
     if (!this.overlay || this.overlay.style.display === "none") return;
-    
+
     const fps = this._profiler.getFps();
     const frameTime = this._profiler.getFrameTime().toFixed(1);
 
@@ -73,12 +75,15 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `Entities   : ${this._entities.count()}\n\n`;
 
     if (playerTrans && playerSilk) {
-      const spd = Math.sqrt(playerSilk.dynamicVelX * playerSilk.dynamicVelX + playerSilk.dynamicVelY * playerSilk.dynamicVelY);
+      const spd = Math.sqrt(
+        playerSilk.dynamicVelX * playerSilk.dynamicVelX +
+          playerSilk.dynamicVelY * playerSilk.dynamicVelY
+      );
       info += `=== PLAYER STATE ===\n`;
       info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
       info += `Vel X/Y    : ${playerSilk.dynamicVelX.toFixed(2)}, ${playerSilk.dynamicVelY.toFixed(2)}\n`;
       info += `Speed      : ${spd.toFixed(2)} units/s\n\n`;
-      
+
       info += `=== SILK / TETHER ===\n`;
       info += `Length     : ${playerSilk.currentLength.toFixed(2)} / ${playerSilk.maxLength.toFixed(1)}\n`;
       info += `Load/Tens  : ${(playerSilk.tension * 100).toFixed(1)}%\n`;
@@ -99,7 +104,7 @@ export class DebugTelemetryOverlay implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach(unsub => unsub());
+    this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
   }

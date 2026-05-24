@@ -45,7 +45,7 @@ export class TensionSynthesizer {
 
     const targetBaseFreq = 55 + clampedTension * 55;
     const targetModulationIndex = 5 + clampedTension * 25;
-    const targetGain = clampedTension > 0.02 ? (0.05 + clampedTension * 0.22) : 0.0;
+    const targetGain = clampedTension > 0.02 ? 0.05 + clampedTension * 0.22 : 0.0;
 
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, 0.1);
     this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, 0.1);

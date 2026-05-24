@@ -53,8 +53,7 @@ export class AudioDirectorSystem implements ISystem {
     });
   }
 
-  public update(): void {
-  }
+  public update(): void {}
 
   private bootAudioEngine(): void {
     if (this.initialized) return;
@@ -65,12 +64,18 @@ export class AudioDirectorSystem implements ISystem {
 
       this.tensionSynth = new TensionSynthesizer();
       this.tensionSynth.initialize();
-      
+
       this.impactSynth = new Tone.MembraneSynth({
         pitchDecay: 0.05,
         octaves: 4,
         oscillator: { type: "sine" },
-        envelope: { attack: 0.001, decay: 0.2, sustain: 0.01, release: 0.4, attackCurve: "exponential" }
+        envelope: {
+          attack: 0.001,
+          decay: 0.2,
+          sustain: 0.01,
+          release: 0.4,
+          attackCurve: "exponential"
+        }
       }).toDestination();
 
       this.noiseSynth = new Tone.NoiseSynth({

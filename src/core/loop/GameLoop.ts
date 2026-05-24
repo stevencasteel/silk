@@ -6,14 +6,14 @@ export class GameLoop {
   private lastTime: number = 0;
   private accumulator: number = 0;
   private readonly fixedStep: number = 1 / 60;
-  
+
   private onUpdate: (dt: number) => void;
   private onRender: (interpolationAlpha: number) => void;
   private clock: IClock;
   private scheduler: IScheduler;
 
   constructor(
-    onUpdate: (dt: number) => void, 
+    onUpdate: (dt: number) => void,
     onRender: (interpolationAlpha: number) => void,
     clock: IClock,
     scheduler: IScheduler
@@ -22,7 +22,7 @@ export class GameLoop {
     this.onRender = onRender;
     this.clock = clock;
     this.scheduler = scheduler;
-    
+
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", this.handleVisibilityChange);
     }
@@ -43,21 +43,21 @@ export class GameLoop {
 
   private tick(now: number): void {
     if (!this.isRunning) return;
-    
+
     let dt = (now - this.lastTime) / 1000;
     this.lastTime = now;
-    
+
     if (dt > 0.1) {
       dt = 0.1;
     }
-    
+
     this.accumulator += dt;
-    
+
     while (this.accumulator >= this.fixedStep) {
       this.onUpdate(this.fixedStep);
       this.accumulator -= this.fixedStep;
     }
-    
+
     const alpha = this.accumulator / this.fixedStep;
     this.onRender(alpha);
   }
