@@ -56,14 +56,14 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         const wallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
 
         const floorWidth = playHalfWidth * 2 + 4;
-        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: floorWidth, height: 1.0, depth: 6 }, scene);
+        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: floorWidth, height: 1.0, depth: 16 }, scene);
         physFloor.position.set(0, ARENA_CONFIG.VERTICAL.FLOOR_Y - 0.5, 0);
         physFloor.isVisible = false;
         
         const floorShape = new BABYLON.PhysicsShapeBox(
           BABYLON.Vector3.Zero(), 
           BABYLON.Quaternion.Identity(), 
-          new BABYLON.Vector3(floorWidth, 1.0, 6), 
+          new BABYLON.Vector3(floorWidth, 1.0, 16), 
           scene
         );
         floorShape.material = { friction: 0.5, restitution: 0.25 };
@@ -71,14 +71,14 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         floorBody.shape = floorShape;
         floorBody.setMassProperties({ mass: 0 });
 
-        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: wallThickness, height: wallHeight, depth: 6 }, scene);
+        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: wallThickness, height: wallHeight, depth: 16 }, scene);
         physLeft.position.set(-(playHalfWidth + wallThickness / 2), wallY, 0);
         physLeft.isVisible = false;
         
         const wallShape = new BABYLON.PhysicsShapeBox(
           BABYLON.Vector3.Zero(), 
           BABYLON.Quaternion.Identity(), 
-          new BABYLON.Vector3(wallThickness, wallHeight, 6), 
+          new BABYLON.Vector3(wallThickness, wallHeight, 16), 
           scene
         );
         wallShape.material = { friction: 0.3, restitution: 0.4 };
@@ -86,7 +86,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         leftBody.shape = wallShape;
         leftBody.setMassProperties({ mass: 0 });
 
-        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: wallThickness, height: wallHeight, depth: 6 }, scene);
+        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: wallThickness, height: wallHeight, depth: 16 }, scene);
         physRight.position.set((playHalfWidth + wallThickness / 2), wallY, 0);
         physRight.isVisible = false;
         
