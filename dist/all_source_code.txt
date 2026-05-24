@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 11:01:05 AM
+ [SYSTEM] Generated: 5/24/2026, 11:11:30 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -103,7 +103,8 @@
 │   ├── ui/
 │   │   └── hud/
 │   │       ├── DomHudSystem.ts
-│   │       └── HudOverlay.tsx
+│   │       ├── HudOverlay.tsx
+│   │       └── hudStore.ts
 │   ├── App.css
 │   ├── App.tsx
 │   ├── index.css
@@ -6740,66 +6741,35 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { useHudStore } from "./hudStore";
 
 type HintLevel = "none" | "charging" | "ready" | "maxout";
 
 export class DomHudSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private subscriptions: (() => void)[] = [];
-  private tensionBar: HTMLElement | null = null;
-  private tensionText: HTMLElement | null = null;
-  private playerHpText: HTMLElement | null = null;
-  private weaverHpBar: HTMLElement | null = null;
-  private weaverHpValue: HTMLElement | null = null;
-  private weaverStateText: HTMLElement | null = null;
-  private traversalHint: HTMLElement | null = null;
-  private overlay: HTMLElement | null = null;
-  private overlayTitle: HTMLElement | null = null;
-  private overlaySubtitle: HTMLElement | null = null;
-  private pauseOverlay: HTMLElement | null = null;
   private lastHintLevel: HintLevel = "none";
   private currentState: string = "AIRBORNE";
-  private lastTensionPercent = -1;
-
-  private playerHpLeds: (HTMLElement | null)[] = [];
 
   constructor(private broker: EventBroker) {}
 
   public init(): void {
-    this.cacheDomElements();
     this.registerSubscriptions();
   }
 
-  private cacheDomElements(): void {
-    if (typeof document === "undefined") return;
-    this.tensionBar = document.getElementById("tension-meter-bar");
-    this.tensionText = document.getElementById("tension-meter-text");
-    this.playerHpText = document.getElementById("player-hp-text");
-    this.weaverHpBar = document.getElementById("weaver-hp-bar");
-    this.weaverHpValue = document.getElementById("weaver-hp-value");
-    this.weaverStateText = document.getElementById("weaver-state-text");
-    this.traversalHint = document.getElementById("traversal-hint");
-    this.overlay = document.getElementById("game-state-overlay");
-    this.overlayTitle = document.getElementById("game-state-title");
-    this.overlaySubtitle = document.getElementById("game-state-subtitle");
-    this.pauseOverlay = document.getElementById("pause-overlay");
-
-    this.playerHpLeds = [];
-    for (let i = 0; i < 5; i++) {
-      this.playerHpLeds.push(document.getElementById(`player-hp-led-${i}`));
-    }
-  }
-
   private registerSubscriptions(): void {
+    const store = useHudStore.getState();
+
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
-        this.updateTensionBar(tension);
+        store.setTension(tension);
         this.updateHint(tension);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
         this.currentState = state;
+        store.setCurrentState(state);
         if (state !== "WALL_SLIDING") {
           this.setHint("none");
         }
@@ -6807,70 +6777,41 @@ export class DomHudSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-        this.updatePlayerHp(hp, maxHp);
+        store.setPlayerHp(hp, maxHp);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-        this.updateWeaverHp(hp, maxHp);
+        store.setWeaverHp(hp, maxHp);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
-        this.updateWeaverStateLabel(state, hue);
+        store.setWeaverState(state, hue);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
-        this.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
+        store.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        this.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
+        store.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        this.hideOverlay();
-        if (this.pauseOverlay) this.pauseOverlay.style.display = "none";
+        store.hideOverlay();
+        store.setPaused(false);
         this.setHint("none");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
-        if (this.pauseOverlay) {
-          this.pauseOverlay.style.display = isPaused ? "flex" : "none";
-        }
+        store.setPaused(isPaused);
       })
     );
-  }
-
-  private updateTensionBar(tension: number): void {
-    const snapLimit = 1.3;
-    const clamped = Math.max(0, Math.min(snapLimit, tension));
-    const displayPercent = Math.round(clamped * 100);
-
-    if (this.tensionBar) {
-      const scaleX = clamped / snapLimit;
-      this.tensionBar.style.transform = `scaleX(${scaleX.toFixed(3)})`;
-      
-      if (clamped >= 1.0) {
-        this.tensionBar.style.backgroundColor = "rgb(239, 68, 68)";
-      } else if (clamped >= 0.75) {
-        this.tensionBar.style.backgroundColor = "rgb(245, 158, 11)";
-      } else {
-        this.tensionBar.style.backgroundColor = "rgb(16, 185, 129)";
-      }
-    }
-
-    if (displayPercent !== this.lastTensionPercent) {
-      this.lastTensionPercent = displayPercent;
-      if (this.tensionText) {
-        this.tensionText.textContent = displayPercent + "%";
-        this.tensionText.style.color = clamped >= 1.0 ? "rgb(239, 68, 68)" : clamped >= 0.75 ? "rgb(245, 158, 11)" : "rgb(244, 244, 245)";
-      }
-    }
   }
 
   private updateHint(tension: number): void {
@@ -6887,96 +6828,28 @@ export class DomHudSystem implements ISystem {
   }
 
   private setHint(level: HintLevel): void {
-    if (!this.traversalHint || level === this.lastHintLevel) return;
+    if (level === this.lastHintLevel) return;
     this.lastHintLevel = level;
+    const store = useHudStore.getState();
     switch (level) {
       case "none":
-        this.traversalHint.style.opacity = "0";
-        this.traversalHint.textContent = "";
+        store.setTraversalHint("", "rgb(161, 161, 170)", 0);
         break;
       case "charging":
-        this.traversalHint.style.opacity = "1";
-        this.traversalHint.style.color = "rgb(161, 161, 170)";
-        this.traversalHint.textContent = "HOLD — CHARGING SILK";
+        store.setTraversalHint("HOLD — CHARGING SILK", "rgb(161, 161, 170)", 1);
         break;
       case "ready":
-        this.traversalHint.style.opacity = "1";
-        this.traversalHint.style.color = "rgb(245, 158, 11)";
-        this.traversalHint.textContent = "RELEASE TO FLING";
+        store.setTraversalHint("RELEASE TO FLING", "rgb(245, 158, 11)", 1);
         break;
       case "maxout":
-        this.traversalHint.style.opacity = "1";
-        this.traversalHint.style.color = "rgb(239, 68, 68)";
-        this.traversalHint.textContent = "MAX TENSION — FLING NOW";
+        store.setTraversalHint("MAX TENSION — FLING NOW", "rgb(239, 68, 68)", 1);
         break;
     }
-  }
-
-  private updatePlayerHp(hp: number, maxHp: number): void {
-    if (this.playerHpText) {
-      this.playerHpText.textContent = `${hp} / ${maxHp}`;
-    }
-    for (let i = 0; i < 5; i++) {
-      const led = this.playerHpLeds[i];
-      if (led) {
-        if (i < hp) {
-          led.className = "hp-block hp-active";
-        } else {
-          led.className = "hp-block";
-        }
-      }
-    }
-  }
-
-  private updateWeaverHp(hp: number, maxHp: number): void {
-    if (this.weaverHpValue) {
-      this.weaverHpValue.textContent = `${hp}/${maxHp}`;
-    }
-    if (this.weaverHpBar) {
-      const ratio = Math.max(0, hp / maxHp);
-      this.weaverHpBar.style.transform = `scaleX(${ratio.toFixed(3)})`;
-      this.weaverHpBar.style.backgroundColor =
-        hp <= maxHp * 0.3 ? "rgb(245, 158, 11)" : "rgb(239, 68, 68)";
-    }
-  }
-
-  private updateWeaverStateLabel(state: string, hue: string): void {
-    if (this.weaverStateText) {
-      this.weaverStateText.textContent = state.toUpperCase();
-      this.weaverStateText.style.color = hue;
-    }
-  }
-
-  private showOverlay(layoutTheme: string, color: string, subText: string): void {
-    if (this.overlay) this.overlay.style.display = "flex";
-    if (this.overlayTitle) {
-      this.overlayTitle.textContent = layoutTheme;
-      this.overlayTitle.style.color = color;
-    }
-    if (this.overlaySubtitle) {
-      this.overlaySubtitle.textContent = subText;
-    }
-  }
-
-  private hideOverlay(): void {
-    if (this.overlay) this.overlay.style.display = "none";
   }
 
   public dispose(): void {
     this.subscriptions.forEach((u) => u());
     this.subscriptions = [];
-    this.tensionBar = null;
-    this.tensionText = null;
-    this.playerHpText = null;
-    this.weaverHpBar = null;
-    this.weaverHpValue = null;
-    this.weaverStateText = null;
-    this.traversalHint = null;
-    this.overlay = null;
-    this.overlayTitle = null;
-    this.overlaySubtitle = null;
-    this.pauseOverlay = null;
-    this.playerHpLeds = [];
   }
 }
 
@@ -6985,8 +6858,25 @@ export class DomHudSystem implements ISystem {
 ● ./src/ui/hud/HudOverlay.tsx
 ────────────────────────────────────────────────────
 import React from "react";
+import { useHudStore } from "./hudStore";
 
 export const HudOverlay: React.FC = () => {
+  const playerHp = useHudStore((state) => state.playerHp);
+  const playerMaxHp = useHudStore((state) => state.playerMaxHp);
+  const weaverHp = useHudStore((state) => state.weaverHp);
+  const weaverMaxHp = useHudStore((state) => state.weaverMaxHp);
+  const weaverState = useHudStore((state) => state.weaverState);
+  const weaverHue = useHudStore((state) => state.weaverHue);
+  const tension = useHudStore((state) => state.tension);
+  const traversalHint = useHudStore((state) => state.traversalHint);
+  const traversalHintColor = useHudStore((state) => state.traversalHintColor);
+  const traversalHintOpacity = useHudStore((state) => state.traversalHintOpacity);
+  const overlayVisible = useHudStore((state) => state.overlayVisible);
+  const overlayTitle = useHudStore((state) => state.overlayTitle);
+  const overlayColor = useHudStore((state) => state.overlayColor);
+  const overlaySubtitle = useHudStore((state) => state.overlaySubtitle);
+  const isPaused = useHudStore((state) => state.isPaused);
+
   const handleRetryClick = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
   };
@@ -6994,6 +6884,24 @@ export const HudOverlay: React.FC = () => {
   const handleResumeClick = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP" }));
   };
+
+  const snapLimit = 1.3;
+  const clampedTension = Math.max(0, Math.min(snapLimit, tension));
+  const displayTensionPercent = Math.round(clampedTension * 100);
+  const tensionScaleX = clampedTension / snapLimit;
+
+  let tensionBarColor = "rgb(16, 185, 129)";
+  let tensionTextColor = "rgb(244, 244, 245)";
+  if (clampedTension >= 1.0) {
+    tensionBarColor = "rgb(239, 68, 68)";
+    tensionTextColor = "rgb(239, 68, 68)";
+  } else if (clampedTension >= 0.75) {
+    tensionBarColor = "rgb(245, 158, 11)";
+    tensionTextColor = "rgb(245, 158, 11)";
+  }
+
+  const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
+  const weaverHpBarColor = weaverHp <= weaverMaxHp * 0.3 ? "rgb(245, 158, 11)" : "rgb(239, 68, 68)";
 
   return (
     <>
@@ -7003,86 +6911,192 @@ export const HudOverlay: React.FC = () => {
             <div className="hud-label">PILOT INTEGRITY</div>
             <div className="hud-hp-row">
               {[...Array(5)].map((_, i) => (
-                <div key={i} id={`player-hp-led-${i}`} className="hp-block hp-active" />
+                <div
+                  key={i}
+                  className={`hp-block ${i < playerHp ? "hp-active" : ""}`}
+                />
               ))}
             </div>
-            <div id="player-hp-text" className="hud-subtext">
-              5 / 5
+            <div className="hud-subtext">
+              {playerHp} / {playerMaxHp}
             </div>
           </div>
 
           <div className="hud-panel hud-right">
             <div className="hud-label-row">
               <span className="hud-label">WEAVER CORE</span>
-              <span id="weaver-hp-value" className="hud-value">
-                100/100
+              <span className="hud-value">
+                {weaverHp}/{weaverMaxHp}
               </span>
             </div>
             <div className="hud-bar-track">
-              <div id="weaver-hp-bar" className="hud-bar-fill" />
+              <div
+                className="hud-bar-fill"
+                style={{
+                  transform: `scaleX(${weaverHpRatio.toFixed(3)})`,
+                  transformOrigin: "left",
+                  backgroundColor: weaverHpBarColor,
+                }}
+              />
             </div>
             <span
-              id="weaver-state-text"
               className="hud-state-text"
-              style={{ color: "rgb(239, 68, 68)" }}
+              style={{ color: weaverHue }}
             >
-              SWEEPING
+              {weaverState.toUpperCase()}
             </span>
           </div>
         </div>
 
         <div className="hud-bottom">
-          <div id="traversal-hint" className="hud-hint" />
+          <div
+            className="hud-hint"
+            style={{
+              opacity: traversalHintOpacity,
+              color: traversalHintColor,
+            }}
+          >
+            {traversalHint}
+          </div>
           <div className="hud-panel hud-center">
             <div className="hud-label-row">
               <span className="hud-label">SILK TENSION</span>
-              <span id="tension-meter-text" className="hud-value">
-                0%
+              <span className="hud-value" style={{ color: tensionTextColor }}>
+                {displayTensionPercent}%
               </span>
             </div>
             <div className="hud-bar-track">
               <div
-                id="tension-meter-bar"
                 className="hud-bar-fill"
-                style={{ backgroundColor: "rgb(16, 185, 129)" }}
+                style={{
+                  transform: `scaleX(${tensionScaleX.toFixed(3)})`,
+                  transformOrigin: "left",
+                  backgroundColor: tensionBarColor,
+                }}
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div id="game-state-overlay" className="overlay-root" style={{ display: "none" }}>
-        <div className="overlay-modal">
-          <h1 id="game-state-title" className="overlay-title">
-            VICTORY
-          </h1>
-          <div className="overlay-divider" />
-          <p id="game-state-subtitle" className="overlay-subtitle">
-            The shaft is clear.
-          </p>
-          <button onClick={handleRetryClick} className="overlay-btn">
-            PLAY AGAIN
-          </button>
+      {overlayVisible && (
+        <div className="overlay-root">
+          <div className="overlay-modal">
+            <h1 className="overlay-title" style={{ color: overlayColor }}>
+              {overlayTitle}
+            </h1>
+            <div className="overlay-divider" />
+            <p className="overlay-subtitle">
+              {overlaySubtitle}
+            </p>
+            <button onClick={handleRetryClick} className="overlay-btn">
+              PLAY AGAIN
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div id="pause-overlay" className="overlay-root" style={{ display: "none" }}>
-        <div className="overlay-modal" style={{ borderColor: "var(--accent-tension)" }}>
-          <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
-            PAUSED
-          </h1>
-          <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
-          <p className="overlay-subtitle">
-            SIMULATION SUSPENDED
-          </p>
-          <button onClick={handleResumeClick} className="overlay-btn">
-            RESUME
-          </button>
+      {isPaused && (
+        <div className="overlay-root">
+          <div className="overlay-modal" style={{ borderColor: "var(--accent-tension)" }}>
+            <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
+              PAUSED
+            </h1>
+            <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
+            <p className="overlay-subtitle">
+              SIMULATION SUSPENDED
+            </p>
+            <button onClick={handleResumeClick} className="overlay-btn">
+              RESUME
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 };
+
+
+
+● ./src/ui/hud/hudStore.ts
+────────────────────────────────────────────────────
+import { create } from "zustand";
+
+export interface HudState {
+  playerHp: number;
+  playerMaxHp: number;
+  weaverHp: number;
+  weaverMaxHp: number;
+  weaverState: string;
+  weaverHue: string;
+  tension: number;
+  currentState: string;
+  traversalHint: string;
+  traversalHintColor: string;
+  traversalHintOpacity: number;
+  overlayVisible: boolean;
+  overlayTitle: string;
+  overlayColor: string;
+  overlaySubtitle: string;
+  isPaused: boolean;
+
+  setPlayerHp: (hp: number, maxHp: number) => void;
+  setWeaverHp: (hp: number, maxHp: number) => void;
+  setWeaverState: (state: string, hue: string) => void;
+  setTension: (tension: number) => void;
+  setCurrentState: (state: string) => void;
+  setTraversalHint: (text: string, color: string, opacity: number) => void;
+  showOverlay: (title: string, color: string, subtitle: string) => void;
+  hideOverlay: () => void;
+  setPaused: (isPaused: boolean) => void;
+  reset: () => void;
+}
+
+export const useHudStore = create<HudState>((set) => ({
+  playerHp: 5,
+  playerMaxHp: 5,
+  weaverHp: 100,
+  weaverMaxHp: 100,
+  weaverState: "SWEEPING",
+  weaverHue: "rgb(239, 68, 68)",
+  tension: 0.0,
+  currentState: "AIRBORNE",
+  traversalHint: "",
+  traversalHintColor: "rgb(161, 161, 170)",
+  traversalHintOpacity: 0,
+  overlayVisible: false,
+  overlayTitle: "VICTORY",
+  overlayColor: "rgb(16, 185, 129)",
+  overlaySubtitle: "The shaft is clear.",
+  isPaused: false,
+
+  setPlayerHp: (hp, maxHp) => set({ playerHp: hp, playerMaxHp: maxHp }),
+  setWeaverHp: (hp, maxHp) => set({ weaverHp: hp, weaverMaxHp: maxHp }),
+  setWeaverState: (state, hue) => set({ weaverState: state, weaverHue: hue }),
+  setTension: (tension) => set({ tension }),
+  setCurrentState: (state) => set({ currentState: state }),
+  setTraversalHint: (text, color, opacity) =>
+    set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
+  showOverlay: (title, color, subtitle) =>
+    set({ overlayVisible: true, overlayTitle: title, overlayColor: color, overlaySubtitle: subtitle }),
+  hideOverlay: () => set({ overlayVisible: false }),
+  setPaused: (isPaused) => set({ isPaused }),
+  reset: () =>
+    set({
+      playerHp: 5,
+      playerMaxHp: 5,
+      weaverHp: 100,
+      weaverMaxHp: 100,
+      weaverState: "SWEEPING",
+      weaverHue: "rgb(239, 68, 68)",
+      tension: 0.0,
+      currentState: "AIRBORNE",
+      traversalHint: "",
+      traversalHintOpacity: 0,
+      overlayVisible: false,
+      isPaused: false,
+    }),
+}));
 
 
 
