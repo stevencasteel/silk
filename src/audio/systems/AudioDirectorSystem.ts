@@ -12,6 +12,7 @@ export class AudioDirectorSystem implements ISystem {
   private impactSynth: Tone.MembraneSynth | null = null;
   private noiseSynth: Tone.NoiseSynth | null = null;
   private initialized: boolean = false;
+  
   private unsub: (() => void) | null = null;
   private unsubImpact: (() => void) | null = null;
   private unsubWeaverHit: (() => void) | null = null;
@@ -20,6 +21,9 @@ export class AudioDirectorSystem implements ISystem {
   private unsubGameWin: (() => void) | null = null;
   private unsubGameReset: (() => void) | null = null;
   private unsubGamePaused: (() => void) | null = null;
+  private unsubWeaverDied: (() => void) | null = null;
+  private unsubPlayerDied: (() => void) | null = null;
+  
   private gestureTriggerRef: (() => void) | null = null;
 
   constructor(private broker: EventBroker) {}
@@ -89,6 +93,38 @@ export class AudioDirectorSystem implements ISystem {
         }
       }
     });
+
+    this.unsubWeaverDied = this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+      if (this.initialized) {
+        if (this.impactSynth) {
+          this.impactSynth.triggerAttackRelease("C1", "1n");
+          this.impactSynth.triggerAttackRelease("E1", "2n", "+0.12");
+        }
+        if (this.noiseSynth) {
+          this.noiseSynth.envelope.decay = 1.5;
+          this.noiseSynth.triggerAttackRelease("1n");
+          setTimeout(() => {
+            if (this.noiseSynth) this.noiseSynth.envelope.decay = 0.10;
+          }, 1600);
+        }
+      }
+    });
+
+    this.unsubPlayerDied = this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+      if (this.initialized) {
+        if (this.impactSynth) {
+          this.impactSynth.triggerAttackRelease("B4", "16n");
+          this.impactSynth.triggerAttackRelease("G2", "4n", "+0.06");
+        }
+        if (this.noiseSynth) {
+          this.noiseSynth.envelope.decay = 0.08;
+          this.noiseSynth.triggerAttackRelease("16n");
+          setTimeout(() => {
+            if (this.noiseSynth) this.noiseSynth.envelope.decay = 0.10;
+          }, 200);
+        }
+      }
+    });
   }
 
   public update(): void {}
@@ -148,6 +184,8 @@ export class AudioDirectorSystem implements ISystem {
     if (this.unsubGameWin) this.unsubGameWin();
     if (this.unsubGameReset) this.unsubGameReset();
     if (this.unsubGamePaused) this.unsubGamePaused();
+    if (this.unsubWeaverDied) this.unsubWeaverDied();
+    if (this.unsubPlayerDied) this.unsubPlayerDied();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();

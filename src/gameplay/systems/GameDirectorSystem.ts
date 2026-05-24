@@ -82,6 +82,21 @@ export class GameDirectorSystem implements ISystem {
     if (e.key.toLowerCase() === "r" && this.gameState !== "PLAYING") {
       this.resetRequested = true;
     }
+
+    if (e.key.toLowerCase() === "k" && this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+      const wHealth = this.healths.get(this.refs.weaver);
+      if (wHealth && wHealth.current > 0) {
+        wHealth.current = 0;
+        this.broker.publish(GameEvent.WEAVER_DAMAGED, {
+          amount: wHealth.max,
+          source: "CHEAT_CODE"
+        });
+        this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
+          hp: 0,
+          maxHp: wHealth.max
+        });
+      }
+    }
   };
 
   public update(dt: number): void {

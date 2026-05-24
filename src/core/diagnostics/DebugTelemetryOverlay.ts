@@ -105,6 +105,7 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `\n=== SYSTEM SHORTCUTS ===\n`;
     info += `[P] TOGGLE PAUSE : ${this.isPaused ? "PAUSED (PRESS P TO RESUME)" : "PLAYING"}\n`;
     info += `[R] RESET GAME   : ${this.isGameOver ? "ACTIVE (PRESS R NOW)" : "STANDBY"}\n`;
+    info += `[K] KILL WEAVER  : TRIGGER DEATH CINEMATIC\n`;
 
     if (this.sysText) {
       this.sysText.textContent = info;
