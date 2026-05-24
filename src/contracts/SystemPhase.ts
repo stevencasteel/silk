@@ -5,7 +5,8 @@ export enum SystemPhase {
   Collision = 3,
   PhysicsStep = 4,
   Gameplay = 5,
-  RenderSync = 6
+  RenderSync = 6,
+  PostRender = 7
 }
 
 export enum InitPhase {

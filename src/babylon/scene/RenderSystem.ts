@@ -6,7 +6,7 @@ import { EntityId } from "../../core/ecs/Entity";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem, IVisualRegistry {
-readonly phase = SystemPhase.RenderSync;
+readonly phase = SystemPhase.PostRender;
 readonly initPhase = InitPhase.Bootstrap;
 private engine: BABYLON.Engine | null = null;
 private scene: BABYLON.Scene | null = null;

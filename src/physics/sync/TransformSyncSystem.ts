@@ -10,6 +10,8 @@ export class TransformSyncSystem implements ISystem {
 readonly phase = SystemPhase.RenderSync;
 private scratchPrevQuat = new BABYLON.Quaternion();
 private scratchCurrQuat = new BABYLON.Quaternion();
+private playerVisualRotation = new BABYLON.Quaternion();
+private scratchTargetQuat = new BABYLON.Quaternion();
 private scrollOffset    = 0.0;
 private scrollSpeed     = 5.0;
 private currentEmissiveR = 0.05;
@@ -77,39 +79,84 @@ node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
 node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
 node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
-this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
-this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
+if (id === this.refs.player) {
+    let dx = 0;
+    let dy = 1;
 
-if (!node.rotationQuaternion) {
-node.rotationQuaternion = new BABYLON.Quaternion();
-}
-BABYLON.Quaternion.SlerpToRef(
-this.scratchPrevQuat,
-this.scratchCurrQuat,
-alpha,
-node.rotationQuaternion
-);
+    if (silk && trav) {
+        if (trav.state === "LAUNCHING") {
+            const vx = silk.dynamicVelX;
+            const vy = silk.dynamicVelY;
+            if (vx * vx + vy * vy > 1.0) {
+                dx = vx;
+                dy = vy;
+            }
+        } else if (trav.state === "AIRBORNE") {
+            const px = node.position.x;
+            const py = node.position.y;
+            dx = px - silk.anchorX;
+            dy = py - silk.anchorY;
+        }
+    }
 
-if (id === this.refs.player && silk && trav) {
-const mesh = node as BABYLON.AbstractMesh;
-const mat  = mesh?.material as BABYLON.PBRMaterial | null;
-if (mat) {
-this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
-}
-}
+    const targetAngle = (dx !== 0 || dy !== 1) ? -Math.atan2(dx, dy) : 0;
+    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, targetAngle, this.scratchTargetQuat);
 
-if (id === this.refs.weaver && wAI) {
-const mesh = node as BABYLON.AbstractMesh;
-const mat  = mesh?.material as BABYLON.PBRMaterial | null;
-if (mat) {
-const hex = wAI.hue.replace(String.fromCharCode(35), "");
-const r = parseInt(hex.substring(0, 2), 16) / 255;
-const g = parseInt(hex.substring(2, 4), 16) / 255;
-const b = parseInt(hex.substring(4, 6), 16) / 255;
-const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
-const emissiveScale = 0.4;
-mat.emissiveColor.set(r * emissiveScale + pulse, g * emissiveScale, b * emissiveScale);
-}
+    if (!node.rotationQuaternion) {
+        node.rotationQuaternion = new BABYLON.Quaternion();
+    }
+
+    BABYLON.Quaternion.SlerpToRef(
+        this.playerVisualRotation,
+        this.scratchTargetQuat,
+        0.20,
+        this.playerVisualRotation
+    );
+    node.rotationQuaternion.copyFrom(this.playerVisualRotation);
+
+    const mesh = node as BABYLON.AbstractMesh;
+    const mat  = mesh?.material as BABYLON.PBRMaterial | null;
+    if (mat && silk && trav) {
+        this.updatePlayerEmissive(mat, silk.tension, trav.state, alpha);
+    }
+} else if (id === this.refs.weaver && wAI) {
+    this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
+    this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
+
+    if (!node.rotationQuaternion) {
+        node.rotationQuaternion = new BABYLON.Quaternion();
+    }
+    BABYLON.Quaternion.SlerpToRef(
+        this.scratchPrevQuat,
+        this.scratchCurrQuat,
+        alpha,
+        node.rotationQuaternion
+    );
+
+    const mesh = node as BABYLON.AbstractMesh;
+    const mat  = mesh?.material as BABYLON.PBRMaterial | null;
+    if (mat) {
+        const hex = wAI.hue.replace(String.fromCharCode(35), "");
+        const r = parseInt(hex.substring(0, 2), 16) / 255;
+        const g = parseInt(hex.substring(2, 4), 16) / 255;
+        const b = parseInt(hex.substring(4, 6), 16) / 255;
+        const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
+        const emissiveScale = 0.4;
+        mat.emissiveColor.set(r * emissiveScale + pulse, g * emissiveScale, b * emissiveScale);
+    }
+} else {
+    this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
+    this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
+
+    if (!node.rotationQuaternion) {
+        node.rotationQuaternion = new BABYLON.Quaternion();
+    }
+    BABYLON.Quaternion.SlerpToRef(
+        this.scratchPrevQuat,
+        this.scratchCurrQuat,
+        alpha,
+        node.rotationQuaternion
+    );
 }
 }
 }

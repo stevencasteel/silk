@@ -39,14 +39,14 @@ export class ProjectileSystem implements ISystem {
 
         this.projMat = new BABYLON.PBRMaterial("projectileMat", scene);
         this.projMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
-this.projMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
-this.projMat.emissiveIntensity = 0.0;
-this.projMat.metallic = 0.0;
-this.projMat.roughness = 0.8;
-this.projMat.sheen.isEnabled = true;
-this.projMat.sheen.intensity = 0.6;
-this.projMat.sheen.roughness = 0.4;
-this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
+        this.projMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
+        this.projMat.emissiveIntensity = 0.0;
+        this.projMat.metallic = 0.0;
+        this.projMat.roughness = 0.8;
+        this.projMat.sheen.isEnabled = true;
+        this.projMat.sheen.intensity = 0.6;
+        this.projMat.sheen.roughness = 0.4;
+        this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
 
         this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
             this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
@@ -75,7 +75,6 @@ this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
         let agg: BABYLON.PhysicsAggregate | null = null;
         let fallbackVel: BABYLON.Vector3 | undefined;
 
-        // CRASH PROTECTION: Only use physics body if Havok is successfully active on the scene
         if (scene.isPhysicsEnabled()) {
             agg = new BABYLON.PhysicsAggregate(sphere, BABYLON.PhysicsShapeType.SPHERE, { mass: 1.0, friction: 0.2, restitution: 0.1 }, scene);
             agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, 0));
@@ -101,16 +100,14 @@ this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
             const p = this.projectiles[i];
             p.lifeTime += dt;
 
-            // Manual visual updates for offline/no-WASM fallback
             if (!p.isStuck && p.fallbackVelocity) {
                 p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
             }
 
             const pos = p.mesh.position;
-            const wallLimit = 14.05;
-            const floorLimit = 1.05;
+            const wallLimit = 14.2;
+            const floorLimit = -7.6;
 
-            // Wall Adhesion
             if (!p.isStuck && (Math.abs(pos.x) >= wallLimit || pos.y <= floorLimit)) {
                 p.isStuck = true;
                 
@@ -123,7 +120,6 @@ this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
                 }
             }
 
-            // Player Damage Overlaps
             if (!p.isStuck && pTrans && pHealth && pIframe) {
                 const dx = pos.x - pTrans.x;
                 const dy = pos.y - pTrans.y;
