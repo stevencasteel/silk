@@ -1,10 +1,23 @@
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.1 (Refined Havok & PBR Spec)
-Target Stack: React + TypeScript + Vite + Babylon.js + Havok Physics + Tone.js
+Version: 1.2 (Havok V2 Optimization & Procedural Shatter)
+Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
+Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
 Architecture: Strict Custom ECS (Entity Component System)
 ===============================================================================
+
+[AI ASSISTANT GUIDELINES: HAVOK V2 PHYSICS]
+You are fully encouraged to write, expand, and optimize physics-driven mechanics! 
+When generating physics code, please adhere to the Babylon.js V2 Physics API (Havok) 
+best practices:
+1. Object Pooling: Prefer separating collision bounds and mass by instantiating a 
+   reusable `PhysicsShape` and binding it to individual `PhysicsBody` instances. 
+   Please avoid the `PhysicsAggregate` wrapper for large pools to save memory.
+2. Legacy Code: Please ensure no V1 `PhysicsImpostor` syntax is generated.
+3. 2D Constraints: When constraining 3D physics to a 2D plane, rely on static 
+   invisible glass walls to natively sandwich the simulation plane rather than 
+   manually clamping the Z-axis in the render loop.
 
 PURPOSE
 -------------------------------------------------------------------------------
@@ -21,110 +34,70 @@ SILK starts in the vertical portrait arena immediately without title screens.
 - Vertical Boundaries: Flat solid PBR walls at X = -15.0 and X = 15.0. Measurement 
   unit ticks scroll downwards continuously, creating the endless vertical 
   ascension illusion.
+- 2D Physics Plane: The Z-axis is constrained natively via invisible front and 
+  back static Havok collision walls at Z = 3.5 and Z = -3.5.
 - Static Camera Lock: Fixed perspective camera at (0, 14, -38) looking at 
-  (0, 14, 0) with a fixed horizontal FOV mode. This completely locks the render 
-  view within the vertical portrait borders.
+  (0, 14, 0) with a fixed horizontal FOV mode. 
 
 ===============================================================================
 2. REALIZED CORE TRAVERSAL & PHYSICS SKELETON
 ===============================================================================
-- SPIDER CEILING SWEEP (WEAVER ANCHOR): 
-  Spawned as an autonomous metallic sphere patrolling along the ceiling line. 
-  The top end of the silk string (tether anchor coordinate) locks dynamically 
-  to the Weaver's real-time position.
+- GHOST ENTITIES (KINEMATICS):
+  The Player and Weaver move via strict custom trigonometric ECS logic, but exist 
+  in the Havok simulation as `ANIMATED` (Kinematic) PhysicsBodies. This allows 
+  Havok to track their exact hitboxes natively without gravity interfering.
 
 - THE TETHER AS A ONE-WAY RATCHET:
-  The tether acts as a strict, one-way ratchet. 
-  1. Elongation: The maximum length of the rope (maxLength) can *only* increase 
-     while the player is in the "WALL_SLIDING" state. Sliding down walls builds 
-     tension, stretching the silk up to a maximum limit (MAX_SILK_LENGTH).
-  2. Instant Reeling: In all other dynamic states ("AIRBORNE", "LAUNCHING"), any 
-     vertical or horizontal movement that brings the player closer to the Weaver 
-     instantly reels in the slack. The maxLength is immediately updated to match 
-     the new shorter distance, down to a rigid clamp (BASE_SILK_LENGTH).
-  3. Strict Fall Clamp: The silk can never stretch during dynamic flight. If 
-     the player falls, they are instantly arrested the moment they hit the 
-     ratcheted maxLength, converting vertical fall momentum cleanly into a arc.
-
-- TRUE PENDULUM SWING (TANGENT PROJECTION):
-  When the player reaches the tether constraint boundary, position is snapped to 
-  the circle edge and dynamic velocity is projected onto the circle's tangent vector. 
-  This creates mathematically accurate circular swing arcs while mid-air steering 
-  impulses allow the player to build momentum.
+  1. Elongation: The maximum length of the rope can only increase while wall sliding.
+  2. Instant Reeling: Reeling slack updates maxLength immediately.
+  3. Strict Fall Clamp: Momentum converts cleanly into a pendulum arc when arrested.
 
 - TENSION & FLINGING:
-  Releasing a wall-slide under tension flings the player across the screen 
-  (launch power based on accumulated tension). Remaining on the wall at critical 
-  tension accumulates strain. If critical strain persists for over 2.6s, the 
-  silk snaps, causing an immediate Game Over.
+  Releasing a wall-slide under tension flings the player. Persisting at critical 
+  strain for >2.6s snaps the silk, causing an immediate Game Over.
 
 ===============================================================================
 3. COMBAT & WEAVER AI STATE MACHINE
 ===============================================================================
-Combat resolves strictly through physics impacts and traversal states.
-
 - PLAYER OFFENSE (FLING ATTACKS):
-  Player damages the Weaver (35 DMG) by impacting them while in the "LAUNCHING" 
-  state with a launch power threshold >= 80%.
-
-- WEAVER OFFENSE (CONTACT DAMAGE):
-  Weaver damages the player (1 DMG, 1.2s i-frames) via direct physical overlap 
-  while the Weaver is actively in the hostile "DASHING" state. 
+  Impacts Weaver while "LAUNCHING" with >= 80% power.
+- WEAVER OFFENSE (CONTACT DAMAGE & PROJECTILES):
+  Weaver damages player via direct contact while "DASHING", or by firing 
+  object-pooled kinematic Web Projectiles.
 
 - WEAVER STATE MACHINE:
-  1. SWEEPING (Red): Dormant patrol. Moves along the ceiling at a fixed velocity.
-  2. DASHING (Orange/Red/Cyan): Triggered by taking damage. Enters a Prep phase 
-     (0.6s), a high-velocity Thrust phase towards the player's coordinates, and 
-     a Recovery phase (0.5s). Loops 2 times (3 times when Berserk).
-  3. RETURNING (Gray): Ascends vertically back to the ceiling patrol line.
-  4. DEFEATED (Dark): Triggers at 0 HP. Game Win state.
-
-- BERSERK OVERDRIVE (<= 50% HP):
-  Sweep patrol speed doubles. Dashing sequence increases from 2 strikes to 3.
+  1. SWEEPING (Red): Dormant patrol. Fires projectiles.
+  2. DASHING (Orange/Red/Cyan): Triggered by damage. Prep, Thrust, Recover phases.
+  3. RETURNING (Gray): Ascends back to patrol line.
+  4. DEFEATED (Dark): Triggers 2-Layer procedural shatter.
 
 ===============================================================================
 4. AUDIO-VISUAL JUICE & SPECTACLE
 ===============================================================================
-- HIGH-CONTRAST LIGHTING PIPELINE:
-  - Stark Spotlight Staging: Ambient hemispheric wash is minimized. A powerful 
-    directional light is cast diagonally to produce deep, dramatic 3D shadows and 
-    bring volume to the player capsule and Weaver sphere.
-  - Physically Based Rendering (PBR): Standard materials are upgraded to PBR 
-    to calculate physical roughness and metallic properties correctly under direct light.
-  - Default Rendering Pipeline (Post-Processing): Enables screen-space Bloom, 
-    making highly emissive colors (the silk and scrolling ticks) glow with an 
-    arcade aesthetic. Applies vignette framing and subtle chromatic aberration 
-    edges to simulate retro CRT lens distortion.
+- TWO-LAYER PROCEDURAL SHATTER:
+  On death, the Weaver's procedural mesh is partitioned into a dual-layer 
+  physics explosion:
+  1. Outer Shell: 20 flat triangles exploded outward via surface normals.
+  2. Inner Core: 10 solid, mathematically sealed wedges.
+  Collision meshes rely on extracted exact Bounding Boxes (`PhysicsShapeBox`) 
+  to guarantee non-zero volume physics resolution.
 
 - PROCEDURAL AUDIO (Tone.js):
-  - Tension Synthesizer: FM Oscillator paired with a Lowpass Filter and LFO. 
-    Frequency, harmonicity, and gain scale dynamically in real-time based on 
-    the current silk tension percentage (0.0 to 1.0).
-  - Combat Audio: Membrane synth for low-end player damage impacts; Pink noise 
-    synth for high-frequency hit-flashes.
-  - State Audio: Tension drone modulations scale oscillator harmonics and 
-    LFO speeds based on the Weaver's active state (Berserk/Defeated).
+  FM Oscillator paired with Lowpass Filter and LFO. Frequency and harmonicity 
+  scale dynamically based on silk tension and Boss states.
 
 - VISUAL JUICE:
-  - Screen Shake: Globally broadcast via Event Broker. Amplitudes and durations 
-    react to flings, Weaver dashes, damage hits, and silk-snap failures.
-  - Procedural Particles: Object-pooled geometric bursts tracking velocity vectors 
-    with linear gravity decay, color-coded by event source (Green = Player, 
-    Red = Weaver).
+  Screen Shake broadcast via Event Broker. Object-pooled Particles for player 
+  thrust, Weaver damage, and wall-sliding sparks. PBR materials with screen-space 
+  Bloom mapping.
 
 ===============================================================================
 5. DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
 ===============================================================================
 These items remain slated for future development phases:
-1. WEAVER PROJECTILES (HAVOK DRIVEN):
-   - Weaver spawns Havok physics-based projectiles targeted at player coordinates, 
-     which bounce and stick to walls.
-2. PHYSICAL DEBRIS SIMULATION:
-   - On Weaver defeat, spawning 20-30 physical Havok chunks that tumble, bounce, 
-     and settle on the arena floor.
-3. USER MENU & CONFIGURATION:
+1. USER MENU & CONFIGURATION:
    - Volume sliders mapped to native Tone.js Destination gain channels.
-4. PERSISTENCE MATRIX: 
+2. PERSISTENCE MATRIX: 
    - LocalStorage save slots with schema validation check passes for Win/Loss 
      tallies and custom key-rebinds.
 
