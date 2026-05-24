@@ -16,7 +16,10 @@ export enum GameEvent {
   GAME_WIN = "GAME_WIN",
   GAME_RESET = "GAME_RESET",
   WEAVER_SHOOT = "WEAVER_SHOOT",
-  GAME_PAUSED = "GAME_PAUSED"
+  GAME_PAUSED = "GAME_PAUSED",
+  PLAYER_LANDED = "PLAYER_LANDED",
+  PLAYER_WALL_HIT = "PLAYER_WALL_HIT",
+  PROJECTILE_IMPACT = "PROJECTILE_IMPACT"
 }
 
 export interface GameEventMap {
@@ -38,4 +41,7 @@ export interface GameEventMap {
   [GameEvent.GAME_RESET]: void;
   [GameEvent.WEAVER_SHOOT]: { x: number; y: number; tx: number; ty: number };
   [GameEvent.GAME_PAUSED]: { isPaused: boolean };
+  [GameEvent.PLAYER_LANDED]: { x: number; y: number };
+  [GameEvent.PLAYER_WALL_HIT]: { x: number; y: number; wallNormalX: number };
+  [GameEvent.PROJECTILE_IMPACT]: { x: number; y: number; isWall: boolean };
 }

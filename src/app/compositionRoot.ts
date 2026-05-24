@@ -129,7 +129,8 @@ export class CompositionRoot {
       targets,
       healths,
       traversal,
-      broker
+      broker,
+      transforms
     );
 
     const syncSystem = new TransformSyncSystem(

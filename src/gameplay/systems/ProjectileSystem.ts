@@ -176,6 +176,7 @@ export class ProjectileSystem implements ISystem {
         if (Math.abs(pos.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
+          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: pos.x, y: pos.y, isWall: true });
 
           if (p.aggregate) {
             p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
@@ -211,6 +212,7 @@ export class ProjectileSystem implements ISystem {
         if (isHit) {
           pHealth.current = Math.max(0, pHealth.current - 1);
           pIframe.timeRemaining = 1.2;
+          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
 
           this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 1, source: "PROJECTILE" });
           this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {

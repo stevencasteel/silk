@@ -59,6 +59,21 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (!silk || !target || !trav || !wTrans || !input) return;
 
+    const pTrans = this.transforms.get(this.refs.player);
+    if (pTrans) {
+      if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
+        pTrans.scaleX = 1.0;
+        pTrans.scaleY = 1.0;
+        pTrans.scaleZ = 1.0;
+        pTrans.prevScaleX = 1.0;
+        pTrans.prevScaleY = 1.0;
+        pTrans.prevScaleZ = 1.0;
+      }
+      pTrans.prevScaleX = pTrans.scaleX;
+      pTrans.prevScaleY = pTrans.scaleY;
+      pTrans.prevScaleZ = pTrans.scaleZ;
+    }
+
     const pHealth = this.healths.get(this.refs.player);
     const wHealth = this.healths.get(this.refs.weaver);
 
@@ -123,6 +138,37 @@ export class PlayerKinematicsSystem implements ISystem {
     this.lengthPayload.maxLength = silk.maxLength;
     this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, this.lengthPayload);
 
+    if (pTrans) {
+      let targetScaleX: number;
+      let targetScaleY: number;
+      let targetScaleZ: number;
+
+      if (trav.state === "LAUNCHING") {
+        const stretchFactor = 0.35 * trav.launchPower;
+        targetScaleY = 1.0 + stretchFactor;
+        targetScaleX = 1.0 - stretchFactor * 0.5;
+        targetScaleZ = 1.0 - stretchFactor * 0.5;
+      } else if (trav.state === "WALL_SLIDING") {
+        targetScaleX = 0.75;
+        targetScaleY = 1.15;
+        targetScaleZ = 1.0;
+      } else {
+        const speed = Math.sqrt(silk.dynamicVelX * silk.dynamicVelX + silk.dynamicVelY * silk.dynamicVelY);
+        const stretchFactor = Math.min(0.3, (speed / 30) * 0.3);
+        targetScaleY = 1.0 + stretchFactor;
+        targetScaleX = 1.0 - stretchFactor * 0.5;
+        targetScaleZ = 1.0 - stretchFactor * 0.5;
+      }
+
+      const sx = pTrans.scaleX ?? 1.0;
+      const sy = pTrans.scaleY ?? 1.0;
+      const sz = pTrans.scaleZ ?? 1.0;
+
+      pTrans.scaleX = sx + (targetScaleX - sx) * 15 * dt;
+      pTrans.scaleY = sy + (targetScaleY - sy) * 15 * dt;
+      pTrans.scaleZ = sz + (targetScaleZ - sz) * 15 * dt;
+    }
+
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
       this.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
@@ -178,6 +224,16 @@ export class PlayerKinematicsSystem implements ISystem {
       const pressingIn = input.x === wallDir;
 
       if (pressingIn) {
+        const pTrans = this.transforms.get(this.refs.player);
+        this.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+          x: target.x,
+          y: target.y,
+          wallNormalX: -wallDir
+        });
+        if (pTrans) {
+          pTrans.scaleX = 0.72;
+          pTrans.scaleY = 1.22;
+        }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
         trav.wallNormalX = -wallDir;

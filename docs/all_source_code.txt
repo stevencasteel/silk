@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 11:12:50 PM
+ [SYSTEM] Generated: 5/23/2026, 11:32:13 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -946,7 +946,8 @@ export class CompositionRoot {
       targets,
       healths,
       traversal,
-      broker
+      broker,
+      transforms
     );
 
     const syncSystem = new TransformSyncSystem(
@@ -1658,6 +1659,27 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_LANDED, (payload) => {
+        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+        this.spawnLandingDust(pos);
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload) => {
+        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+        this.spawnWallSparks(pos, payload.wallNormalX);
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
+        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+        this.spawnWebSplat(pos);
+      })
+    );
+
+    this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
         if (weaverNode) {
@@ -1701,6 +1723,80 @@ export class JuiceSystem implements ISystem {
       if (mat) {
         mat.emissiveColor.copyFrom(color);
       }
+
+      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    }
+  }
+
+  private spawnLandingDust(position: BABYLON.Vector3): void {
+    const count = 12;
+    const color = new BABYLON.Color3(0.65, 0.65, 0.68);
+    for (let i = 0; i < count; i++) {
+      const particle = this.particlePool[this.nextPoolIndex];
+      particle.mesh.position.copyFrom(position);
+
+      const vx = (Math.random() - 0.5) * 6.0;
+      const vy = Math.random() * 1.5;
+      const vz = (Math.random() - 0.5) * 1.5;
+
+      particle.velocity.set(vx, vy, vz);
+      particle.lifeRemaining = 0.4 + Math.random() * 0.3;
+      particle.maxLife = particle.lifeRemaining;
+      particle.active = true;
+      particle.mesh.setEnabled(true);
+
+      const mat = particle.mesh.material as BABYLON.StandardMaterial;
+      if (mat) mat.emissiveColor.copyFrom(color);
+
+      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    }
+  }
+
+  private spawnWallSparks(position: BABYLON.Vector3, wallNormalX: number): void {
+    const count = 8;
+    const color = new BABYLON.Color3(1.0, 0.85, 0.35);
+    for (let i = 0; i < count; i++) {
+      const particle = this.particlePool[this.nextPoolIndex];
+      particle.mesh.position.copyFrom(position);
+
+      const vx = wallNormalX * (4.0 + Math.random() * 6.0);
+      const vy = (Math.random() - 0.3) * 5.0;
+      const vz = (Math.random() - 0.5) * 2.0;
+
+      particle.velocity.set(vx, vy, vz);
+      particle.lifeRemaining = 0.25 + Math.random() * 0.25;
+      particle.maxLife = particle.lifeRemaining;
+      particle.active = true;
+      particle.mesh.setEnabled(true);
+
+      const mat = particle.mesh.material as BABYLON.StandardMaterial;
+      if (mat) mat.emissiveColor.copyFrom(color);
+
+      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    }
+  }
+
+  private spawnWebSplat(position: BABYLON.Vector3): void {
+    const count = 10;
+    const color = new BABYLON.Color3(0.95, 0.95, 0.98);
+    for (let i = 0; i < count; i++) {
+      const particle = this.particlePool[this.nextPoolIndex];
+      particle.mesh.position.copyFrom(position);
+
+      const angle = Math.random() * Math.PI * 2.0;
+      const speed = 2.0 + Math.random() * 4.0;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+      const vz = (Math.random() - 0.5) * 2.0;
+
+      particle.velocity.set(vx, vy, vz);
+      particle.lifeRemaining = 0.3 + Math.random() * 0.3;
+      particle.maxLife = particle.lifeRemaining;
+      particle.active = true;
+      particle.mesh.setEnabled(true);
+
+      const mat = particle.mesh.material as BABYLON.StandardMaterial;
+      if (mat) mat.emissiveColor.copyFrom(color);
 
       this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
     }
@@ -2306,6 +2402,12 @@ export interface TransformComponent {
   prevQy: number;
   prevQz: number;
   prevQw: number;
+  scaleX?: number;
+  scaleY?: number;
+  scaleZ?: number;
+  prevScaleX?: number;
+  prevScaleY?: number;
+  prevScaleZ?: number;
 }
 
 export interface KinematicVelocityComponent {
@@ -2723,7 +2825,10 @@ export enum GameEvent {
   GAME_WIN = "GAME_WIN",
   GAME_RESET = "GAME_RESET",
   WEAVER_SHOOT = "WEAVER_SHOOT",
-  GAME_PAUSED = "GAME_PAUSED"
+  GAME_PAUSED = "GAME_PAUSED",
+  PLAYER_LANDED = "PLAYER_LANDED",
+  PLAYER_WALL_HIT = "PLAYER_WALL_HIT",
+  PROJECTILE_IMPACT = "PROJECTILE_IMPACT"
 }
 
 export interface GameEventMap {
@@ -2745,6 +2850,9 @@ export interface GameEventMap {
   [GameEvent.GAME_RESET]: void;
   [GameEvent.WEAVER_SHOOT]: { x: number; y: number; tx: number; ty: number };
   [GameEvent.GAME_PAUSED]: { isPaused: boolean };
+  [GameEvent.PLAYER_LANDED]: { x: number; y: number };
+  [GameEvent.PLAYER_WALL_HIT]: { x: number; y: number; wallNormalX: number };
+  [GameEvent.PROJECTILE_IMPACT]: { x: number; y: number; isWall: boolean };
 }
 
 
@@ -3999,6 +4107,7 @@ export class ProjectileSystem implements ISystem {
         if (Math.abs(pos.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
+          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: pos.x, y: pos.y, isWall: true });
 
           if (p.aggregate) {
             p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
@@ -4034,6 +4143,7 @@ export class ProjectileSystem implements ISystem {
         if (isHit) {
           pHealth.current = Math.max(0, pHealth.current - 1);
           pIframe.timeRemaining = 1.2;
+          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
 
           this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 1, source: "PROJECTILE" });
           this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
@@ -4512,6 +4622,59 @@ export class WeaverTraversalSystem implements ISystem {
         trav.wallNormalX = 0;
       }
     }
+
+    if (trans) {
+      if (trans.scaleX === undefined || trans.scaleY === undefined || trans.scaleZ === undefined || trans.prevScaleX === undefined || trans.prevScaleY === undefined || trans.prevScaleZ === undefined) {
+        trans.scaleX = 1.0;
+        trans.scaleY = 1.0;
+        trans.scaleZ = 1.0;
+        trans.prevScaleX = 1.0;
+        trans.prevScaleY = 1.0;
+        trans.prevScaleZ = 1.0;
+      }
+      trans.prevScaleX = trans.scaleX;
+      trans.prevScaleY = trans.scaleY;
+      trans.prevScaleZ = trans.scaleZ;
+
+      let targetScaleX = 1.0;
+      let targetScaleY = 1.0;
+      let targetScaleZ = 1.0;
+
+      if (ai) {
+        if (ai.state === "SWEEPING") {
+          const pulse = Math.sin(ai.timeInState * 3.5) * 0.04;
+          targetScaleX = 1.0 + pulse;
+          targetScaleY = 1.0 - pulse;
+        } else if (ai.state === "DASHING") {
+          const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+          if (speed < 0.1) {
+            targetScaleY = 0.82;
+            targetScaleX = 1.15;
+            targetScaleZ = 1.15;
+          } else {
+            const stretch = Math.min(0.25, (speed / 36.0) * 0.25);
+            targetScaleY = 1.0 + stretch;
+            targetScaleX = 1.0 - stretch * 0.5;
+            targetScaleZ = 1.0 - stretch * 0.5;
+          }
+        } else if (ai.state === "RETURNING") {
+          targetScaleY = 1.08;
+          targetScaleX = 0.96;
+        } else if (ai.state === "DEFEATED") {
+          targetScaleX = 0.2;
+          targetScaleY = 0.2;
+          targetScaleZ = 0.2;
+        }
+      }
+
+      const sx = trans.scaleX ?? 1.0;
+      const sy = trans.scaleY ?? 1.0;
+      const sz = trans.scaleZ ?? 1.0;
+
+      trans.scaleX = sx + (targetScaleX - sx) * 12 * dt;
+      trans.scaleY = sy + (targetScaleY - sy) * 12 * dt;
+      trans.scaleZ = sz + (targetScaleZ - sz) * 12 * dt;
+    }
   }
 }
 
@@ -4775,7 +4938,8 @@ import {
   SilkComponent,
   KinematicTargetComponent,
   HealthComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  TransformComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -4797,7 +4961,8 @@ export class EnvironmentCollisionSystem implements ISystem {
     private targets: ComponentStore<KinematicTargetComponent>,
     private healths: ComponentStore<HealthComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
-    private broker: EventBroker
+    private broker: EventBroker,
+    private transforms: ComponentStore<TransformComponent>
   ) {}
 
   public update(): void {
@@ -4814,6 +4979,15 @@ export class EnvironmentCollisionSystem implements ISystem {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     if (target.y < minY) {
+      if (silk.dynamicVelY < -1.0) {
+        this.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
+        const pTrans = this.transforms.get(this.refs.player);
+        if (pTrans) {
+          pTrans.scaleY = 0.72;
+          pTrans.scaleX = 1.22;
+          pTrans.scaleZ = 1.22;
+        }
+      }
       target.y = minY;
       silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
     } else if (target.y > maxY) {
@@ -4952,6 +5126,21 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (!silk || !target || !trav || !wTrans || !input) return;
 
+    const pTrans = this.transforms.get(this.refs.player);
+    if (pTrans) {
+      if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
+        pTrans.scaleX = 1.0;
+        pTrans.scaleY = 1.0;
+        pTrans.scaleZ = 1.0;
+        pTrans.prevScaleX = 1.0;
+        pTrans.prevScaleY = 1.0;
+        pTrans.prevScaleZ = 1.0;
+      }
+      pTrans.prevScaleX = pTrans.scaleX;
+      pTrans.prevScaleY = pTrans.scaleY;
+      pTrans.prevScaleZ = pTrans.scaleZ;
+    }
+
     const pHealth = this.healths.get(this.refs.player);
     const wHealth = this.healths.get(this.refs.weaver);
 
@@ -5016,6 +5205,37 @@ export class PlayerKinematicsSystem implements ISystem {
     this.lengthPayload.maxLength = silk.maxLength;
     this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, this.lengthPayload);
 
+    if (pTrans) {
+      let targetScaleX: number;
+      let targetScaleY: number;
+      let targetScaleZ: number;
+
+      if (trav.state === "LAUNCHING") {
+        const stretchFactor = 0.35 * trav.launchPower;
+        targetScaleY = 1.0 + stretchFactor;
+        targetScaleX = 1.0 - stretchFactor * 0.5;
+        targetScaleZ = 1.0 - stretchFactor * 0.5;
+      } else if (trav.state === "WALL_SLIDING") {
+        targetScaleX = 0.75;
+        targetScaleY = 1.15;
+        targetScaleZ = 1.0;
+      } else {
+        const speed = Math.sqrt(silk.dynamicVelX * silk.dynamicVelX + silk.dynamicVelY * silk.dynamicVelY);
+        const stretchFactor = Math.min(0.3, (speed / 30) * 0.3);
+        targetScaleY = 1.0 + stretchFactor;
+        targetScaleX = 1.0 - stretchFactor * 0.5;
+        targetScaleZ = 1.0 - stretchFactor * 0.5;
+      }
+
+      const sx = pTrans.scaleX ?? 1.0;
+      const sy = pTrans.scaleY ?? 1.0;
+      const sz = pTrans.scaleZ ?? 1.0;
+
+      pTrans.scaleX = sx + (targetScaleX - sx) * 15 * dt;
+      pTrans.scaleY = sy + (targetScaleY - sy) * 15 * dt;
+      pTrans.scaleZ = sz + (targetScaleZ - sz) * 15 * dt;
+    }
+
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
       this.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
@@ -5071,6 +5291,16 @@ export class PlayerKinematicsSystem implements ISystem {
       const pressingIn = input.x === wallDir;
 
       if (pressingIn) {
+        const pTrans = this.transforms.get(this.refs.player);
+        this.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+          x: target.x,
+          y: target.y,
+          wallNormalX: -wallDir
+        });
+        if (pTrans) {
+          pTrans.scaleX = 0.72;
+          pTrans.scaleY = 1.22;
+        }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
         trav.wallNormalX = -wallDir;
@@ -5510,6 +5740,11 @@ export class TransformSyncSystem implements ISystem {
       node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
       node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
       node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
+
+      const sx = curr.prevScaleX !== undefined && curr.scaleX !== undefined ? curr.prevScaleX + (curr.scaleX - curr.prevScaleX) * alpha : 1.0;
+      const sy = curr.prevScaleY !== undefined && curr.scaleY !== undefined ? curr.prevScaleY + (curr.scaleY - curr.prevScaleY) * alpha : 1.0;
+      const sz = curr.prevScaleZ !== undefined && curr.scaleZ !== undefined ? curr.prevScaleZ + (curr.scaleZ - curr.prevScaleZ) * alpha : 1.0;
+      node.scaling.set(sx, sy, sz);
 
       if (id === this.refs.player) {
         let dx = 0;

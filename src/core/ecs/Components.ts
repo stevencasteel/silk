@@ -13,6 +13,12 @@ export interface TransformComponent {
   prevQy: number;
   prevQz: number;
   prevQw: number;
+  scaleX?: number;
+  scaleY?: number;
+  scaleZ?: number;
+  prevScaleX?: number;
+  prevScaleY?: number;
+  prevScaleZ?: number;
 }
 
 export interface KinematicVelocityComponent {

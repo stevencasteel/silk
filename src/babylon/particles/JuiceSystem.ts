@@ -89,6 +89,27 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_LANDED, (payload) => {
+        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+        this.spawnLandingDust(pos);
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload) => {
+        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+        this.spawnWallSparks(pos, payload.wallNormalX);
+      })
+    );
+
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
+        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+        this.spawnWebSplat(pos);
+      })
+    );
+
+    this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
         if (weaverNode) {
@@ -132,6 +153,80 @@ export class JuiceSystem implements ISystem {
       if (mat) {
         mat.emissiveColor.copyFrom(color);
       }
+
+      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    }
+  }
+
+  private spawnLandingDust(position: BABYLON.Vector3): void {
+    const count = 12;
+    const color = new BABYLON.Color3(0.65, 0.65, 0.68);
+    for (let i = 0; i < count; i++) {
+      const particle = this.particlePool[this.nextPoolIndex];
+      particle.mesh.position.copyFrom(position);
+
+      const vx = (Math.random() - 0.5) * 6.0;
+      const vy = Math.random() * 1.5;
+      const vz = (Math.random() - 0.5) * 1.5;
+
+      particle.velocity.set(vx, vy, vz);
+      particle.lifeRemaining = 0.4 + Math.random() * 0.3;
+      particle.maxLife = particle.lifeRemaining;
+      particle.active = true;
+      particle.mesh.setEnabled(true);
+
+      const mat = particle.mesh.material as BABYLON.StandardMaterial;
+      if (mat) mat.emissiveColor.copyFrom(color);
+
+      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    }
+  }
+
+  private spawnWallSparks(position: BABYLON.Vector3, wallNormalX: number): void {
+    const count = 8;
+    const color = new BABYLON.Color3(1.0, 0.85, 0.35);
+    for (let i = 0; i < count; i++) {
+      const particle = this.particlePool[this.nextPoolIndex];
+      particle.mesh.position.copyFrom(position);
+
+      const vx = wallNormalX * (4.0 + Math.random() * 6.0);
+      const vy = (Math.random() - 0.3) * 5.0;
+      const vz = (Math.random() - 0.5) * 2.0;
+
+      particle.velocity.set(vx, vy, vz);
+      particle.lifeRemaining = 0.25 + Math.random() * 0.25;
+      particle.maxLife = particle.lifeRemaining;
+      particle.active = true;
+      particle.mesh.setEnabled(true);
+
+      const mat = particle.mesh.material as BABYLON.StandardMaterial;
+      if (mat) mat.emissiveColor.copyFrom(color);
+
+      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    }
+  }
+
+  private spawnWebSplat(position: BABYLON.Vector3): void {
+    const count = 10;
+    const color = new BABYLON.Color3(0.95, 0.95, 0.98);
+    for (let i = 0; i < count; i++) {
+      const particle = this.particlePool[this.nextPoolIndex];
+      particle.mesh.position.copyFrom(position);
+
+      const angle = Math.random() * Math.PI * 2.0;
+      const speed = 2.0 + Math.random() * 4.0;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+      const vz = (Math.random() - 0.5) * 2.0;
+
+      particle.velocity.set(vx, vy, vz);
+      particle.lifeRemaining = 0.3 + Math.random() * 0.3;
+      particle.maxLife = particle.lifeRemaining;
+      particle.active = true;
+      particle.mesh.setEnabled(true);
+
+      const mat = particle.mesh.material as BABYLON.StandardMaterial;
+      if (mat) mat.emissiveColor.copyFrom(color);
 
       this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
     }

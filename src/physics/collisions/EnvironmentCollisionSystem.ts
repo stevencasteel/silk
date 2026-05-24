@@ -5,7 +5,8 @@ import {
   SilkComponent,
   KinematicTargetComponent,
   HealthComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  TransformComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -27,7 +28,8 @@ export class EnvironmentCollisionSystem implements ISystem {
     private targets: ComponentStore<KinematicTargetComponent>,
     private healths: ComponentStore<HealthComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
-    private broker: EventBroker
+    private broker: EventBroker,
+    private transforms: ComponentStore<TransformComponent>
   ) {}
 
   public update(): void {
@@ -44,6 +46,15 @@ export class EnvironmentCollisionSystem implements ISystem {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     if (target.y < minY) {
+      if (silk.dynamicVelY < -1.0) {
+        this.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
+        const pTrans = this.transforms.get(this.refs.player);
+        if (pTrans) {
+          pTrans.scaleY = 0.72;
+          pTrans.scaleX = 1.22;
+          pTrans.scaleZ = 1.22;
+        }
+      }
       target.y = minY;
       silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
     } else if (target.y > maxY) {

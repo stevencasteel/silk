@@ -94,5 +94,58 @@ export class WeaverTraversalSystem implements ISystem {
         trav.wallNormalX = 0;
       }
     }
+
+    if (trans) {
+      if (trans.scaleX === undefined || trans.scaleY === undefined || trans.scaleZ === undefined || trans.prevScaleX === undefined || trans.prevScaleY === undefined || trans.prevScaleZ === undefined) {
+        trans.scaleX = 1.0;
+        trans.scaleY = 1.0;
+        trans.scaleZ = 1.0;
+        trans.prevScaleX = 1.0;
+        trans.prevScaleY = 1.0;
+        trans.prevScaleZ = 1.0;
+      }
+      trans.prevScaleX = trans.scaleX;
+      trans.prevScaleY = trans.scaleY;
+      trans.prevScaleZ = trans.scaleZ;
+
+      let targetScaleX = 1.0;
+      let targetScaleY = 1.0;
+      let targetScaleZ = 1.0;
+
+      if (ai) {
+        if (ai.state === "SWEEPING") {
+          const pulse = Math.sin(ai.timeInState * 3.5) * 0.04;
+          targetScaleX = 1.0 + pulse;
+          targetScaleY = 1.0 - pulse;
+        } else if (ai.state === "DASHING") {
+          const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+          if (speed < 0.1) {
+            targetScaleY = 0.82;
+            targetScaleX = 1.15;
+            targetScaleZ = 1.15;
+          } else {
+            const stretch = Math.min(0.25, (speed / 36.0) * 0.25);
+            targetScaleY = 1.0 + stretch;
+            targetScaleX = 1.0 - stretch * 0.5;
+            targetScaleZ = 1.0 - stretch * 0.5;
+          }
+        } else if (ai.state === "RETURNING") {
+          targetScaleY = 1.08;
+          targetScaleX = 0.96;
+        } else if (ai.state === "DEFEATED") {
+          targetScaleX = 0.2;
+          targetScaleY = 0.2;
+          targetScaleZ = 0.2;
+        }
+      }
+
+      const sx = trans.scaleX ?? 1.0;
+      const sy = trans.scaleY ?? 1.0;
+      const sz = trans.scaleZ ?? 1.0;
+
+      trans.scaleX = sx + (targetScaleX - sx) * 12 * dt;
+      trans.scaleY = sy + (targetScaleY - sy) * 12 * dt;
+      trans.scaleZ = sz + (targetScaleZ - sz) * 12 * dt;
+    }
   }
 }
