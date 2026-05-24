@@ -16,8 +16,6 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import * as BABYLON from "@babylonjs/core";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -39,7 +37,6 @@ export class CombatSystem implements ISystem {
     private traversal: ComponentStore<TraversalStateComponent>,
     private broker: EventBroker,
     private commands: CommandBus,
-    private visualRegistry: IVisualRegistry,
     private targets: ComponentStore<KinematicTargetComponent>
   ) {}
 
@@ -71,15 +68,9 @@ export class CombatSystem implements ISystem {
       return;
     }
 
-    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
-    const wMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.AbstractMesh;
-
-    if (!pMesh || !wMesh) return;
-
-    const isColliding = pMesh.intersectsMesh(wMesh, true);
-    if (!isColliding) return;
-
     const dist = Math.sqrt(distSq) || 1.0;
+    const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
+    if (!isColliding) return;
 
     if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= this.FLING_DAMAGE_THRESHOLD) {
       this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);

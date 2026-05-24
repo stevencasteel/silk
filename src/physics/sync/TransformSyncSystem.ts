@@ -30,6 +30,7 @@ export class TransformSyncSystem implements ISystem {
   private currentEmissiveB = 0.05;
 
   private cachedTicks: BABYLON.AbstractMesh[] | null = null;
+  private colorCache = new Map<string, BABYLON.Color3>();
 
   constructor(
     private refs: EntityRefs,
@@ -192,13 +193,22 @@ export class TransformSyncSystem implements ISystem {
         const mesh = node as BABYLON.AbstractMesh;
         const mat = mesh?.material as BABYLON.PBRMaterial | null;
         if (mat) {
-          const hex = wAI.hue.replace(String.fromCharCode(35), "");
-          const r = parseInt(hex.substring(0, 2), 16) / 255;
-          const g = parseInt(hex.substring(2, 4), 16) / 255;
-          const b = parseInt(hex.substring(4, 6), 16) / 255;
+          let cachedColor = this.colorCache.get(wAI.hue);
+          if (!cachedColor) {
+            const hex = wAI.hue.replace(String.fromCharCode(35), "");
+            const r = parseInt(hex.substring(0, 2), 16) / 255;
+            const g = parseInt(hex.substring(2, 4), 16) / 255;
+            const b = parseInt(hex.substring(4, 6), 16) / 255;
+            cachedColor = new BABYLON.Color3(r, g, b);
+            this.colorCache.set(wAI.hue, cachedColor);
+          }
           const pulse = 0.05 + Math.sin(Date.now() * 0.01) * 0.04;
           const emissiveScale = 0.4;
-          mat.emissiveColor.set(r * emissiveScale + pulse, g * emissiveScale, b * emissiveScale);
+          mat.emissiveColor.set(
+            cachedColor.r * emissiveScale + pulse,
+            cachedColor.g * emissiveScale,
+            cachedColor.b * emissiveScale
+          );
         }
       } else {
         this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);

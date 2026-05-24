@@ -111,12 +111,11 @@ export class DomHudSystem implements ISystem {
     const snapLimit = 1.3;
     const clamped = Math.max(0, Math.min(snapLimit, tension));
     
-    const barPercent = (clamped / snapLimit) * 100;
-    
     const displayPercent = (clamped * 100).toFixed(0);
 
     if (this.tensionBar) {
-      this.tensionBar.style.width = barPercent.toFixed(1) + "%";
+      const scaleX = clamped / snapLimit;
+      this.tensionBar.style.transform = `scaleX(${scaleX.toFixed(3)})`;
       
       if (clamped >= 1.0) {
         this.tensionBar.style.backgroundColor = "rgb(239, 68, 68)";
@@ -193,8 +192,8 @@ export class DomHudSystem implements ISystem {
       this.weaverHpValue.textContent = `${hp}/${maxHp}`;
     }
     if (this.weaverHpBar) {
-      const pct = Math.max(0, (hp / maxHp) * 100).toFixed(0) + "%";
-      this.weaverHpBar.style.width = pct;
+      const ratio = Math.max(0, hp / maxHp);
+      this.weaverHpBar.style.transform = `scaleX(${ratio.toFixed(3)})`;
       this.weaverHpBar.style.backgroundColor =
         hp <= maxHp * 0.3 ? "rgb(245, 158, 11)" : "rgb(239, 68, 68)";
     }

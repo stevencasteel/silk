@@ -25,7 +25,10 @@ interface ActiveProjectile {
 export class ProjectileSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
-  private projectiles: ActiveProjectile[] = [];
+  private projectilePool: ActiveProjectile[] = [];
+  private readonly POOL_SIZE = 16;
+  private nextPoolIndex = 0;
+
   private projMat: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
@@ -54,6 +57,42 @@ export class ProjectileSystem implements ISystem {
     this.projMat.sheen.roughness = 0.4;
     this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
 
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      const sphere = BABYLON.MeshBuilder.CreateSphere(
+        `projectile_pooled_${i}`,
+        { diameter: 0.65 },
+        scene
+      );
+      sphere.position.set(0, -999, 0);
+      sphere.material = this.projMat;
+      sphere.setEnabled(false);
+
+      if (this.visualRegistry.registerShadowCaster) {
+        this.visualRegistry.registerShadowCaster(sphere);
+      }
+
+      let agg: BABYLON.PhysicsAggregate | null = null;
+      if (scene.isPhysicsEnabled()) {
+        agg = new BABYLON.PhysicsAggregate(
+          sphere,
+          BABYLON.PhysicsShapeType.SPHERE,
+          { mass: 1.0, friction: 0.2, restitution: 0.1 },
+          scene
+        );
+        agg.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
+        agg.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
+      }
+
+      this.projectilePool.push({
+        mesh: sphere,
+        aggregate: agg,
+        isStuck: false,
+        isStuckOnWall: false,
+        lifeTime: 0.0,
+        fallbackVelocity: undefined
+      });
+    }
+
     this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
       this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
     });
@@ -65,19 +104,30 @@ export class ProjectileSystem implements ISystem {
 
   private spawnProjectile(x: number, y: number, tx: number, ty: number): void {
     const scene = this.visualRegistry.getScene();
-    if (!scene || !this.projMat) return;
+    if (!scene) return;
 
-    const sphere = BABYLON.MeshBuilder.CreateSphere(
-      "proj_" + Date.now(),
-      { diameter: 0.65 },
-      scene
-    );
-    sphere.position.set(x, y, 0);
-    sphere.material = this.projMat;
-
-    if (this.visualRegistry.registerShadowCaster) {
-      this.visualRegistry.registerShadowCaster(sphere);
+    let proj: ActiveProjectile | null = null;
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      const idx = (this.nextPoolIndex + i) % this.POOL_SIZE;
+      const p = this.projectilePool[idx];
+      if (!p.mesh.isEnabled()) {
+        proj = p;
+        this.nextPoolIndex = (idx + 1) % this.POOL_SIZE;
+        break;
+      }
     }
+
+    if (!proj) {
+      proj = this.projectilePool[this.nextPoolIndex];
+      this.recycleProjectile(proj);
+      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.POOL_SIZE;
+    }
+
+    proj.isStuck = false;
+    proj.isStuckOnWall = false;
+    proj.lifeTime = 0.0;
+    proj.mesh.setEnabled(true);
+    proj.mesh.position.set(x, y, 0);
 
     const dx = tx - x;
     const dy = ty - y;
@@ -86,29 +136,14 @@ export class ProjectileSystem implements ISystem {
     const vx = (dx / dist) * speed;
     const vy = (dy / dist) * speed;
 
-    let agg: BABYLON.PhysicsAggregate | null = null;
-    let fallbackVel: BABYLON.Vector3 | undefined;
-
-    if (scene.isPhysicsEnabled()) {
-      agg = new BABYLON.PhysicsAggregate(
-        sphere,
-        BABYLON.PhysicsShapeType.SPHERE,
-        { mass: 1.0, friction: 0.2, restitution: 0.1 },
-        scene
-      );
-      agg.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, 0));
+    if (proj.aggregate) {
+      proj.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.DYNAMIC);
+      proj.aggregate.body.setLinearVelocity(new BABYLON.Vector3(vx, vy, 0));
+      proj.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
+      proj.fallbackVelocity = undefined;
     } else {
-      fallbackVel = new BABYLON.Vector3(vx, vy, 0);
+      proj.fallbackVelocity = new BABYLON.Vector3(vx, vy, 0);
     }
-
-    this.projectiles.push({
-      mesh: sphere,
-      aggregate: agg,
-      isStuck: false,
-      isStuckOnWall: false,
-      lifeTime: 0.0,
-      fallbackVelocity: fallbackVel
-    });
   }
 
   public update(dt: number): void {
@@ -124,8 +159,10 @@ export class ProjectileSystem implements ISystem {
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
 
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const p = this.projectiles[i];
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      const p = this.projectilePool[i];
+      if (!p.mesh.isEnabled()) continue;
+
       p.lifeTime += dt;
 
       if (!p.isStuck && p.fallbackVelocity) {
@@ -159,13 +196,17 @@ export class ProjectileSystem implements ISystem {
         p.mesh.position.y -= deltaY;
       }
 
-      if (p.mesh.position.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y || p.mesh.position.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y) {
-        this.removeProjectile(i);
+      if (
+        p.mesh.position.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y ||
+        p.mesh.position.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y ||
+        p.lifeTime > 8.0
+      ) {
+        this.recycleProjectile(p);
         continue;
       }
 
       if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
-        const isHit = p.mesh.intersectsMesh(pMesh, true);
+        const isHit = p.mesh.intersectsMesh(pMesh, false);
 
         if (isHit) {
           pHealth.current = Math.max(0, pHealth.current - 1);
@@ -182,27 +223,29 @@ export class ProjectileSystem implements ISystem {
             this.broker.publish(GameEvent.PLAYER_DIED, undefined);
           }
 
-          this.removeProjectile(i);
-          continue;
+          this.recycleProjectile(p);
         }
-      }
-
-      if (p.lifeTime > 8.0) {
-        this.removeProjectile(i);
       }
     }
   }
 
-  private removeProjectile(index: number): void {
-    const p = this.projectiles[index];
-    if (p.aggregate) p.aggregate.dispose();
-    p.mesh.dispose();
-    this.projectiles.splice(index, 1);
+  private recycleProjectile(p: ActiveProjectile): void {
+    p.mesh.setEnabled(false);
+    p.mesh.position.set(0, -999, 0);
+    if (p.aggregate) {
+      p.aggregate.body.setLinearVelocity(new BABYLON.Vector3(0, 0, 0));
+      p.aggregate.body.setAngularVelocity(new BABYLON.Vector3(0, 0, 0));
+      p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
+    }
+    p.fallbackVelocity = undefined;
+    p.isStuck = false;
+    p.isStuckOnWall = false;
+    p.lifeTime = 0.0;
   }
 
   private clearAll(): void {
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      this.removeProjectile(i);
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      this.recycleProjectile(this.projectilePool[i]);
     }
   }
 
@@ -210,5 +253,10 @@ export class ProjectileSystem implements ISystem {
     if (this.unsubShoot) this.unsubShoot();
     if (this.unsubReset) this.unsubReset();
     this.clearAll();
+    this.projectilePool.forEach(p => {
+      if (p.aggregate) p.aggregate.dispose();
+      p.mesh.dispose();
+    });
+    this.projectilePool = [];
   }
 }

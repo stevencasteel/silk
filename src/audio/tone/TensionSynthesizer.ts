@@ -6,6 +6,7 @@ export class TensionSynthesizer {
   private lowpassFilter: Tone.Filter | null = null;
   private gainNode: Tone.Gain | null = null;
   private lfo: Tone.LFO | null = null;
+  private lastTension: number = -999.0;
 
   public initialize(): void {
     this.lowpassFilter = new Tone.Filter({
@@ -43,9 +44,14 @@ export class TensionSynthesizer {
   public updateDronePitch(tensionVal: number): void {
     if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
 
-    const now = Tone.now();
     const clampedTension = Math.max(0, Math.min(1, tensionVal));
 
+    if (Math.abs(clampedTension - this.lastTension) < 0.005) {
+      return;
+    }
+    this.lastTension = clampedTension;
+
+    const now = Tone.now();
     const presets = AUDIO_PRESETS.WEAVER;
     const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
     const targetModulationIndex = 5 + clampedTension * 25;

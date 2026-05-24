@@ -85,7 +85,6 @@ export class CompositionRoot {
       weaverTraversal
     );
     const physicsSystem = new HavokPhysicsSystem(
-      broker,
       commands,
       refs,
       transforms,
@@ -155,7 +154,6 @@ export class CompositionRoot {
       traversal,
       broker,
       commands,
-      renderSystem,
       targets
     );
     const gameDirector = new GameDirectorSystem(

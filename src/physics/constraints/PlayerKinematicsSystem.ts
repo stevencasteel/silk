@@ -36,6 +36,8 @@ export class PlayerKinematicsSystem implements ISystem {
   private readonly LAUNCH_GRAVITY_MULT = 0.22;
 
   private lastTraversalState: string = "";
+  private tensionPayload = { tension: 0.0 };
+  private lengthPayload = { length: 0.0, maxLength: 0.0 };
 
   constructor(
     private refs: EntityRefs,
@@ -114,7 +116,12 @@ export class PlayerKinematicsSystem implements ISystem {
     const dy = target.y - silk.anchorY;
     silk.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-    this.broker.publish(GameEvent.SILK_TENSION_CHANGE, { tension: silk.tension });
+    this.tensionPayload.tension = silk.tension;
+    this.broker.publish(GameEvent.SILK_TENSION_CHANGE, this.tensionPayload);
+
+    this.lengthPayload.length = silk.currentLength;
+    this.lengthPayload.maxLength = silk.maxLength;
+    this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, this.lengthPayload);
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;

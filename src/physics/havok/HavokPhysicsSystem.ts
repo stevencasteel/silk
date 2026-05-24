@@ -1,8 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { IReadablePhysics, PhysicsTransform } from "../../contracts/IPhysicsWorld";
-import { EventBroker } from "../../core/events/EventBroker";
-import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
@@ -30,7 +28,6 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
   private havokPlugin: BABYLON.HavokPlugin | null = null;
 
   constructor(
-    private broker: EventBroker,
     private commands: CommandBus,
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
@@ -167,14 +164,6 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
       wTrans.x = wTarget.x;
       wTrans.y = wTarget.y;
       wTrans.z = wTarget.z;
-    }
-    const silk = this.silks.get(this.refs.player);
-    if (silk) {
-      this.broker.publish(GameEvent.SILK_TENSION_CHANGE, { tension: silk.tension });
-      this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, {
-        length: silk.currentLength,
-        maxLength: silk.maxLength
-      });
     }
   }
 
