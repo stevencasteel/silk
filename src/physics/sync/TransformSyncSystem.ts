@@ -1,4 +1,4 @@
-import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
@@ -19,13 +19,13 @@ import * as BABYLON from "@babylonjs/core";
 export class TransformSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   
-  public static currentScrollSpeed = 12.0;
+  public static currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
 
   private scratchPrevQuat = new BABYLON.Quaternion();
   private scratchCurrQuat = new BABYLON.Quaternion();
   private currentScrollOffset = 0.0;
   private prevScrollOffset = 0.0;
-  private scrollSpeed = 12.0;
+  private scrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
   private currentEmissiveR = 0.05;
   private currentEmissiveG = 0.15;
   private currentEmissiveB = 0.05;
@@ -64,6 +64,7 @@ export class TransformSyncSystem implements ISystem {
         this.hitStopTimer = 0.0;
         this.currentScrollOffset = 0.0;
         this.prevScrollOffset = 0.0;
+        this.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
       })
     );
   }
@@ -103,15 +104,15 @@ export class TransformSyncSystem implements ISystem {
 
     if (wAI.state === "SWEEPING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
-      return isBerserk ? 20.0 : 12.0;
+      return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
 
     if (wAI.state === "DASHING") {
       if (wVel) {
         if (wVel.y < -0.1) {
-          return wVel.y * 0.6;
+          return wVel.y * ARENA_CONFIG.SCROLL_SPEED.DASH_MULTIPLIER;
         } else if (wVel.y > 0.1) {
-          return wVel.y * 0.6;
+          return wVel.y * ARENA_CONFIG.SCROLL_SPEED.DASH_MULTIPLIER;
         }
       }
       return 0.0;
@@ -119,7 +120,7 @@ export class TransformSyncSystem implements ISystem {
 
     if (wAI.state === "RETURNING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
-      return isBerserk ? 20.0 : 12.0;
+      return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
 
     return 0.0;

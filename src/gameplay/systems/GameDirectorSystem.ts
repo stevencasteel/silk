@@ -203,7 +203,7 @@ export class GameDirectorSystem implements ISystem {
       wAI.state = "SWEEPING";
       wAI.timeInState = 0;
       wAI.hue = this.HASH + "ef4444";
-      wAI.scrollSpeed = 12.0;
+      wAI.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
     if (wVel) {
       wVel.x = 4.5;

@@ -57,5 +57,10 @@ export const ARENA_CONFIG = {
     BASE_LENGTH: 10.0,                // Uncharged physical string length
     MAX_LENGTH: 24.0,                 // Fully stretched dynamic string length
     INITIAL_LENGTH: 12.0,             // Spawning length on game start
+  },
+  SCROLL_SPEED: {
+    BASE: 9.0,                        // Standard vertical elevator scroll (decreased by 25%)
+    BERSERK: 15.0,                    // Boss low-health vertical elevator scroll (decreased by 25%)
+    DASH_MULTIPLIER: 0.45,            // Dynamic dash vertical displacement multiplier (decreased by 25%)
   }
 } as const;
