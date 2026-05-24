@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 12:23:16 PM
+ [SYSTEM] Generated: 5/24/2026, 12:28:27 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1039,14 +1039,9 @@ export class CompositionRoot {
     const gameDirector = new GameDirectorSystem(
       broker,
       refs,
-      transforms,
       healths,
       silks,
-      weaverAIs,
-      velocities,
-      iframes,
-      targets,
-      traversal
+      spawner
     );
 
     const projectileSystem = new ProjectileSystem(
@@ -2834,6 +2829,12 @@ export class EcsWorld {
     }
   }
 
+  public clearEntityComponents(id: EntityId): void {
+    for (const store of this.stores) {
+      store.remove(id);
+    }
+  }
+
   public registerStore(store: IComponentStore): void {
     this.stores.add(store);
   }
@@ -4193,6 +4194,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { EcsWorld } from "../../core/ecs/EcsWorld";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { EntityId } from "../../core/ecs/Entity";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -4211,8 +4213,6 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
-
-const HASH = String.fromCharCode(35);
 
 export class EntitySpawnerSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -4237,10 +4237,19 @@ export class EntitySpawnerSystem implements ISystem {
   ) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
-    if (!scene) return;
+    this.spawnWeaver();
+    this.spawnPlayer();
+  }
 
-    const weaverId = this.entities.create();
+  public spawnWeaver(existingId?: EntityId): EntityId {
+    const scene = this.visualRegistry.getScene();
+    if (!scene) return -1;
+
+    const weaverId = existingId ?? this.entities.create();
+    this.entities.clearEntityComponents(weaverId);
+
+    this.visualRegistry.unregisterTransformNode(weaverId);
+
     this.transforms.add(weaverId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
@@ -4259,7 +4268,12 @@ export class EntitySpawnerSystem implements ISystem {
     });
     this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
     this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING, scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE });
+    this.weaverAIs.add(weaverId, {
+      state: "SWEEPING",
+      timeInState: 0,
+      hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
+      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE
+    });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
     this.weaverTraversal.add(weaverId, {
@@ -4286,7 +4300,18 @@ export class EntitySpawnerSystem implements ISystem {
     wMesh.material = wMat;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
-    const playerId = this.entities.create();
+    return weaverId;
+  }
+
+  public spawnPlayer(existingId?: EntityId): EntityId {
+    const scene = this.visualRegistry.getScene();
+    if (!scene) return -1;
+
+    const playerId = existingId ?? this.entities.create();
+    this.entities.clearEntityComponents(playerId);
+
+    this.visualRegistry.unregisterTransformNode(playerId);
+
     this.transforms.add(playerId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
@@ -4345,6 +4370,8 @@ export class EntitySpawnerSystem implements ISystem {
     pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
     pMesh.material = pMat;
     this.visualRegistry.registerTransformNode(playerId, pMesh);
+
+    return playerId;
   }
 }
 
@@ -4358,17 +4385,12 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-  TransformComponent,
   HealthComponent,
-  SilkComponent,
-  WeaverAIComponent,
-  KinematicVelocityComponent,
-  InvulnerabilityComponent,
-  KinematicTargetComponent,
-  TraversalStateComponent
+  SilkComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { EntitySpawnerSystem } from "./EntitySpawnerSystem";
+import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -4386,14 +4408,9 @@ export class GameDirectorSystem implements ISystem {
   constructor(
     private broker: EventBroker,
     private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
     private healths: ComponentStore<HealthComponent>,
     private silks: ComponentStore<SilkComponent>,
-    private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>
+    private spawner: EntitySpawnerSystem
   ) {}
 
   public init(): void {
@@ -4484,90 +4501,17 @@ export class GameDirectorSystem implements ISystem {
     this.cinematicTimer = 0.0;
     GameDirectorSystem.timeScale = 1.0;
 
-    const pTrans = this.transforms.get(this.refs.player);
-    const pHealth = this.healths.get(this.refs.player);
-    const pSilk = this.silks.get(this.refs.player);
-    const pVel = this.velocities.get(this.refs.player);
-    const pIframe = this.iframes.get(this.refs.player);
-    const pTarget = this.targets.get(this.refs.player);
-    const pTrav = this.traversal.get(this.refs.player);
-
-    if (pTrans) {
-      pTrans.x = 0;
-      pTrans.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
-      pTrans.z = 0;
-      pTrans.prevX = 0;
-      pTrans.prevY = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
-      pTrans.prevZ = 0;
-    }
-    if (pTarget) {
-      pTarget.x = 0;
-      pTarget.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
-      pTarget.z = 0;
-      pTarget.active = true;
-    }
-    if (pHealth) pHealth.current = pHealth.max;
-    if (pSilk) {
-      pSilk.isAttached = true;
-      pSilk.maxLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
-      pSilk.currentLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
-      pSilk.dynamicVelX = 0;
-      pSilk.dynamicVelY = 0;
-      pSilk.tension = 0.0;
-      pSilk.anchorX = 0;
-      pSilk.anchorY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
-    }
-    if (pVel) {
-      pVel.x = 0;
-      pVel.y = 0;
-      pVel.z = 0;
-    }
-    if (pIframe) pIframe.timeRemaining = 0;
-    if (pTrav) {
-      pTrav.state = "AIRBORNE";
-      pTrav.wallNormalX = 0;
-      pTrav.wallNormalY = 0;
-      pTrav.wallDir = 0;
-      pTrav.launchTimer = 0;
-      pTrav.launchPower = 0;
-    }
-
-    const wTrans = this.transforms.get(this.refs.weaver);
-    const wHealth = this.healths.get(this.refs.weaver);
-    const wAI = this.weaverAIs.get(this.refs.weaver);
-    const wVel = this.velocities.get(this.refs.weaver);
-    const wTarget = this.targets.get(this.refs.weaver);
-
-    if (wTrans) {
-      wTrans.x = 0;
-      wTrans.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
-      wTrans.z = 0;
-      wTrans.prevX = 0;
-      wTrans.prevY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - 6.0;
-      wTrans.prevZ = 0;
-    }
-    if (wTarget) {
-      wTarget.x = 0;
-      wTarget.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
-      wTarget.z = 0;
-      wTarget.active = true;
-    }
-    if (wHealth) wHealth.current = wHealth.max;
-    if (wAI) {
-      wAI.state = "SWEEPING";
-      wAI.timeInState = 0;
-      wAI.hue = this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
-      wAI.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
-    }
-    if (wVel) {
-      wVel.x = 4.5;
-      wVel.y = 0;
-      wVel.z = 0;
-    }
+    // Delegate creation & initialization details entirely to the Entity Spawner
+    this.spawner.spawnWeaver(this.refs.weaver);
+    this.spawner.spawnPlayer(this.refs.player);
 
     this.broker.publish(GameEvent.GAME_RESET, undefined);
+
+    const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
+
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-      hp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+      hp: pHealth?.current || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
       maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
@@ -4575,7 +4519,7 @@ export class GameDirectorSystem implements ISystem {
       hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
-      hp: wHealth?.max || 100,
+      hp: wHealth?.current || 100,
       maxHp: wHealth?.max || 100
     });
   }
@@ -5373,6 +5317,7 @@ export class WeaverBrainSystem implements ISystem {
   private activeState: IWeaverState | null = null;
   private contextCache: AIContext | null = null;
   private unsubDamage: (() => void) | null = null;
+  private unsubReset: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
   constructor(
@@ -5391,9 +5336,29 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public init(): void {
+    this.resetBrain();
+
+    this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.resetBrain();
+    });
+
+    this.unsubDamage = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+      const aiComp = this.ai.get(this.refs.weaver);
+      const health = this.healths.get(this.refs.weaver);
+      if (aiComp && health) {
+        if (health.current <= 0) {
+          this.pendingTransition = "DEFEATED";
+        } else if (aiComp.state === "SWEEPING") {
+          this.pendingTransition = "DASHING";
+        }
+      }
+    });
+  }
+
+  private resetBrain(): void {
     const aiComp = this.ai.get(this.refs.weaver);
     if (aiComp) {
-      const startState = aiComp.state as WeaverStateType;
+      const startState = "SWEEPING" as WeaverStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
 
       aiComp.state = stateObj.type;
@@ -5416,18 +5381,7 @@ export class WeaverBrainSystem implements ISystem {
       this.activeState.enter(this.contextCache);
       this.publishStateChangeEvent(stateObj.name, stateObj.hue);
     }
-
-    this.unsubDamage = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.ai.get(this.refs.weaver);
-      const health = this.healths.get(this.refs.weaver);
-      if (aiComp && health) {
-        if (health.current <= 0) {
-          this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "SWEEPING") {
-          this.pendingTransition = "DASHING";
-        }
-      }
-    });
+    this.pendingTransition = null;
   }
 
   private publishStateChangeEvent(name: string, hue: string): void {
@@ -5504,9 +5458,8 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsubDamage) {
-      this.unsubDamage();
-    }
+    if (this.unsubDamage) this.unsubDamage();
+    if (this.unsubReset) this.unsubReset();
   }
 }
 

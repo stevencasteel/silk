@@ -16,6 +16,12 @@ export class EcsWorld {
     }
   }
 
+  public clearEntityComponents(id: EntityId): void {
+    for (const store of this.stores) {
+      store.remove(id);
+    }
+  }
+
   public registerStore(store: IComponentStore): void {
     this.stores.add(store);
   }

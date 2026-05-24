@@ -4,17 +4,12 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-  TransformComponent,
   HealthComponent,
-  SilkComponent,
-  WeaverAIComponent,
-  KinematicVelocityComponent,
-  InvulnerabilityComponent,
-  KinematicTargetComponent,
-  TraversalStateComponent
+  SilkComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { EntitySpawnerSystem } from "./EntitySpawnerSystem";
+import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -32,14 +27,9 @@ export class GameDirectorSystem implements ISystem {
   constructor(
     private broker: EventBroker,
     private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
     private healths: ComponentStore<HealthComponent>,
     private silks: ComponentStore<SilkComponent>,
-    private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>
+    private spawner: EntitySpawnerSystem
   ) {}
 
   public init(): void {
@@ -130,90 +120,17 @@ export class GameDirectorSystem implements ISystem {
     this.cinematicTimer = 0.0;
     GameDirectorSystem.timeScale = 1.0;
 
-    const pTrans = this.transforms.get(this.refs.player);
-    const pHealth = this.healths.get(this.refs.player);
-    const pSilk = this.silks.get(this.refs.player);
-    const pVel = this.velocities.get(this.refs.player);
-    const pIframe = this.iframes.get(this.refs.player);
-    const pTarget = this.targets.get(this.refs.player);
-    const pTrav = this.traversal.get(this.refs.player);
-
-    if (pTrans) {
-      pTrans.x = 0;
-      pTrans.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
-      pTrans.z = 0;
-      pTrans.prevX = 0;
-      pTrans.prevY = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
-      pTrans.prevZ = 0;
-    }
-    if (pTarget) {
-      pTarget.x = 0;
-      pTarget.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
-      pTarget.z = 0;
-      pTarget.active = true;
-    }
-    if (pHealth) pHealth.current = pHealth.max;
-    if (pSilk) {
-      pSilk.isAttached = true;
-      pSilk.maxLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
-      pSilk.currentLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
-      pSilk.dynamicVelX = 0;
-      pSilk.dynamicVelY = 0;
-      pSilk.tension = 0.0;
-      pSilk.anchorX = 0;
-      pSilk.anchorY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
-    }
-    if (pVel) {
-      pVel.x = 0;
-      pVel.y = 0;
-      pVel.z = 0;
-    }
-    if (pIframe) pIframe.timeRemaining = 0;
-    if (pTrav) {
-      pTrav.state = "AIRBORNE";
-      pTrav.wallNormalX = 0;
-      pTrav.wallNormalY = 0;
-      pTrav.wallDir = 0;
-      pTrav.launchTimer = 0;
-      pTrav.launchPower = 0;
-    }
-
-    const wTrans = this.transforms.get(this.refs.weaver);
-    const wHealth = this.healths.get(this.refs.weaver);
-    const wAI = this.weaverAIs.get(this.refs.weaver);
-    const wVel = this.velocities.get(this.refs.weaver);
-    const wTarget = this.targets.get(this.refs.weaver);
-
-    if (wTrans) {
-      wTrans.x = 0;
-      wTrans.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
-      wTrans.z = 0;
-      wTrans.prevX = 0;
-      wTrans.prevY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - 6.0;
-      wTrans.prevZ = 0;
-    }
-    if (wTarget) {
-      wTarget.x = 0;
-      wTarget.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
-      wTarget.z = 0;
-      wTarget.active = true;
-    }
-    if (wHealth) wHealth.current = wHealth.max;
-    if (wAI) {
-      wAI.state = "SWEEPING";
-      wAI.timeInState = 0;
-      wAI.hue = this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
-      wAI.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
-    }
-    if (wVel) {
-      wVel.x = 4.5;
-      wVel.y = 0;
-      wVel.z = 0;
-    }
+    // Delegate creation & initialization details entirely to the Entity Spawner
+    this.spawner.spawnWeaver(this.refs.weaver);
+    this.spawner.spawnPlayer(this.refs.player);
 
     this.broker.publish(GameEvent.GAME_RESET, undefined);
+
+    const pHealth = this.healths.get(this.refs.player);
+    const wHealth = this.healths.get(this.refs.weaver);
+
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-      hp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+      hp: pHealth?.current || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
       maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
@@ -221,7 +138,7 @@ export class GameDirectorSystem implements ISystem {
       hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
-      hp: wHealth?.max || 100,
+      hp: wHealth?.current || 100,
       maxHp: wHealth?.max || 100
     });
   }

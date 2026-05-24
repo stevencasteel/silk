@@ -26,6 +26,7 @@ export class WeaverBrainSystem implements ISystem {
   private activeState: IWeaverState | null = null;
   private contextCache: AIContext | null = null;
   private unsubDamage: (() => void) | null = null;
+  private unsubReset: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
   constructor(
@@ -44,9 +45,29 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public init(): void {
+    this.resetBrain();
+
+    this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.resetBrain();
+    });
+
+    this.unsubDamage = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+      const aiComp = this.ai.get(this.refs.weaver);
+      const health = this.healths.get(this.refs.weaver);
+      if (aiComp && health) {
+        if (health.current <= 0) {
+          this.pendingTransition = "DEFEATED";
+        } else if (aiComp.state === "SWEEPING") {
+          this.pendingTransition = "DASHING";
+        }
+      }
+    });
+  }
+
+  private resetBrain(): void {
     const aiComp = this.ai.get(this.refs.weaver);
     if (aiComp) {
-      const startState = aiComp.state as WeaverStateType;
+      const startState = "SWEEPING" as WeaverStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
 
       aiComp.state = stateObj.type;
@@ -69,18 +90,7 @@ export class WeaverBrainSystem implements ISystem {
       this.activeState.enter(this.contextCache);
       this.publishStateChangeEvent(stateObj.name, stateObj.hue);
     }
-
-    this.unsubDamage = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.ai.get(this.refs.weaver);
-      const health = this.healths.get(this.refs.weaver);
-      if (aiComp && health) {
-        if (health.current <= 0) {
-          this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "SWEEPING") {
-          this.pendingTransition = "DASHING";
-        }
-      }
-    });
+    this.pendingTransition = null;
   }
 
   private publishStateChangeEvent(name: string, hue: string): void {
@@ -157,8 +167,7 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsubDamage) {
-      this.unsubDamage();
-    }
+    if (this.unsubDamage) this.unsubDamage();
+    if (this.unsubReset) this.unsubReset();
   }
 }

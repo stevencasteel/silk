@@ -211,14 +211,9 @@ export class CompositionRoot {
     const gameDirector = new GameDirectorSystem(
       broker,
       refs,
-      transforms,
       healths,
       silks,
-      weaverAIs,
-      velocities,
-      iframes,
-      targets,
-      traversal
+      spawner
     );
 
     const projectileSystem = new ProjectileSystem(

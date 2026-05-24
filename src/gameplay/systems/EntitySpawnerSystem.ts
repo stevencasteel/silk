@@ -2,6 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { EcsWorld } from "../../core/ecs/EcsWorld";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { EntityId } from "../../core/ecs/Entity";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -20,8 +21,6 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
-
-const HASH = String.fromCharCode(35);
 
 export class EntitySpawnerSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -46,10 +45,19 @@ export class EntitySpawnerSystem implements ISystem {
   ) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
-    if (!scene) return;
+    this.spawnWeaver();
+    this.spawnPlayer();
+  }
 
-    const weaverId = this.entities.create();
+  public spawnWeaver(existingId?: EntityId): EntityId {
+    const scene = this.visualRegistry.getScene();
+    if (!scene) return -1;
+
+    const weaverId = existingId ?? this.entities.create();
+    this.entities.clearEntityComponents(weaverId);
+
+    this.visualRegistry.unregisterTransformNode(weaverId);
+
     this.transforms.add(weaverId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
@@ -68,7 +76,12 @@ export class EntitySpawnerSystem implements ISystem {
     });
     this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
     this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING, scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE });
+    this.weaverAIs.add(weaverId, {
+      state: "SWEEPING",
+      timeInState: 0,
+      hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
+      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE
+    });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
     this.weaverTraversal.add(weaverId, {
@@ -95,7 +108,18 @@ export class EntitySpawnerSystem implements ISystem {
     wMesh.material = wMat;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
-    const playerId = this.entities.create();
+    return weaverId;
+  }
+
+  public spawnPlayer(existingId?: EntityId): EntityId {
+    const scene = this.visualRegistry.getScene();
+    if (!scene) return -1;
+
+    const playerId = existingId ?? this.entities.create();
+    this.entities.clearEntityComponents(playerId);
+
+    this.visualRegistry.unregisterTransformNode(playerId);
+
     this.transforms.add(playerId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
@@ -154,5 +178,7 @@ export class EntitySpawnerSystem implements ISystem {
     pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
     pMesh.material = pMat;
     this.visualRegistry.registerTransformNode(playerId, pMesh);
+
+    return playerId;
   }
 }
