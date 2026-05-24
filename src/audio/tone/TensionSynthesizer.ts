@@ -21,7 +21,7 @@ export class TensionSynthesizer {
       modulationIndex: 5
     });
 
-    this.gainNode = new Tone.Gain(0.15);
+    this.gainNode = new Tone.Gain(0.0);
 
     this.lfo = new Tone.LFO({
       frequency: 0.2,
