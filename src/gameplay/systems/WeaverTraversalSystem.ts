@@ -10,11 +10,12 @@ import {
   HealthComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private minX = -13.0;
-  private maxX = 13.0;
+  private minX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MIN_X;
+  private maxX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MAX_X;
 
   constructor(
     private refs: EntityRefs,
@@ -49,7 +50,7 @@ export class WeaverTraversalSystem implements ISystem {
         vel.x = sweepSpeed;
       }
       target.x = nextX;
-      target.y = 34.0;
+      target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
       target.active = true;
       trav.velX = vel.x;
       trav.velY = 0;
@@ -61,7 +62,7 @@ export class WeaverTraversalSystem implements ISystem {
       trav.velY = vel.y;
     }
 
-    const wallLimit = 13.8;
+    const wallLimit = ARENA_CONFIG.HORIZONTAL.WEAVER_LIMIT_X;
     if (target.x > wallLimit) {
       target.x = wallLimit;
       if (vel.x > 0) vel.x = 0;
@@ -70,8 +71,8 @@ export class WeaverTraversalSystem implements ISystem {
       if (vel.x < 0) vel.x = 0;
     }
 
-    const ceilingLimit = 38.0;
-    const floorLimit = -8.0;
+    const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
+    const floorLimit = ARENA_CONFIG.VERTICAL.FLOOR_Y;
     if (target.y > ceilingLimit) {
       target.y = ceilingLimit;
       if (vel.y > 0) vel.y = 0;
@@ -84,7 +85,7 @@ export class WeaverTraversalSystem implements ISystem {
       trav.isWallClinging = false;
     } else {
       trav.isGrounded = false;
-      const wallThreshold = 13.6;
+      const wallThreshold = ARENA_CONFIG.HORIZONTAL.WALL_CLING_THRESHOLD_X;
       if (Math.abs(target.x) >= wallThreshold) {
         trav.isWallClinging = true;
         trav.wallNormalX = target.x > 0 ? -1 : 1;

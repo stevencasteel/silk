@@ -1,4 +1,5 @@
 import * as BABYLON from "@babylonjs/core";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class ArenaGeometry {
   constructor(private scene: BABYLON.Scene) {}
@@ -9,21 +10,25 @@ export class ArenaGeometry {
     wallMaterial.metallic = 0.1;
     wallMaterial.roughness = 0.85;
 
+    const wallThickness = 2.0;
+    const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
+    const wallX = ARENA_CONFIG.HORIZONTAL.WALL_GEOMETRY_X;
+
     const leftWall = BABYLON.MeshBuilder.CreateBox(
       "leftWall",
-      { width: 2, height: 140, depth: 4 },
+      { width: wallThickness, height: wallHeight, depth: 4 },
       this.scene
     );
-    leftWall.position.set(-16, 14, 0);
+    leftWall.position.set(-wallX, wallHeight * 0.1, 0);
     leftWall.material = wallMaterial;
     leftWall.receiveShadows = true;
 
     const rightWall = BABYLON.MeshBuilder.CreateBox(
       "rightWall",
-      { width: 2, height: 140, depth: 4 },
+      { width: wallThickness, height: wallHeight, depth: 4 },
       this.scene
     );
-    rightWall.position.set(16, 14, 0);
+    rightWall.position.set(wallX, wallHeight * 0.1, 0);
     rightWall.material = wallMaterial;
     rightWall.receiveShadows = true;
 
@@ -35,24 +40,30 @@ export class ArenaGeometry {
     tickMat.emissiveIntensity = 1.5;
 
     const tickCount = 70;
+    const tickSpacing = 2.0;
+    const initialYOffset = -56.0;
+    const tickX = ARENA_CONFIG.HORIZONTAL.TICK_GEOMETRY_X;
+
     for (let i = 0; i < tickCount; i++) {
+      const initialY = i * tickSpacing + initialYOffset;
+
       const leftTick = BABYLON.MeshBuilder.CreateBox(
         `leftTick_${i}`,
         { width: 0.2, height: 0.08, depth: 2.1 },
         this.scene
       );
-      leftTick.position.set(-14.9, i * 2.0 - 56.0, 0);
+      leftTick.position.set(-tickX, initialY, 0);
       leftTick.material = tickMat;
-      leftTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 - 56.0 };
+      leftTick.metadata = { type: "scrolling_tick", index: i, initialY: initialY };
 
       const rightTick = BABYLON.MeshBuilder.CreateBox(
         `rightTick_${i}`,
         { width: 0.2, height: 0.08, depth: 2.1 },
         this.scene
       );
-      rightTick.position.set(14.9, i * 2.0 - 56.0, 0);
+      rightTick.position.set(tickX, initialY, 0);
       rightTick.material = tickMat;
-      rightTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 - 56.0 };
+      rightTick.metadata = { type: "scrolling_tick", index: i, initialY: initialY };
     }
   }
 }

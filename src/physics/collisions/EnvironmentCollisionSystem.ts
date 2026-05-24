@@ -10,14 +10,14 @@ import {
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class EnvironmentCollisionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  private readonly FLOOR_Y = -8.0;
-  private readonly CEILING_Y = 38.0;
-  private readonly PLAYER_HALF_HEIGHT = 0.9;
+  private readonly FLOOR_Y = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+  private readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
+  private readonly PLAYER_HALF_HEIGHT = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
   
-  // Cutoff limits corresponding to standard and danger zone tensions
   private readonly OVERLOAD_THRESHOLD = 1.0;
   private readonly SNAP_LIMIT = 1.3;
 
@@ -61,7 +61,7 @@ export class EnvironmentCollisionSystem implements ISystem {
 
     if (isOverloaded) {
       const overloadDelta = silk.tension - this.OVERLOAD_THRESHOLD;
-      const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD); // 0.0 to 1.0
+      const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
 
       if (Math.random() < strainRatio * 0.25) {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {

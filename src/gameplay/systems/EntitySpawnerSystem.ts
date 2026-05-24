@@ -18,6 +18,7 @@ import {
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 const HASH = String.fromCharCode(35);
@@ -51,14 +52,14 @@ export class EntitySpawnerSystem implements ISystem {
     const weaverId = this.entities.create();
     this.transforms.add(weaverId, {
       x: 0,
-      y: 34.0,
+      y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       z: 0,
       qx: 0,
       qy: 0,
       qz: 0,
       qw: 1,
       prevX: 0,
-      prevY: 28.0,
+      prevY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - 6.0,
       prevZ: 0,
       prevQx: 0,
       prevQy: 0,
@@ -66,7 +67,7 @@ export class EntitySpawnerSystem implements ISystem {
       prevQw: 1
     });
     this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
-    this.targets.add(weaverId, { x: 0, y: 34.0, z: 0, active: true });
+    this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
     this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + "ef4444" });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
@@ -81,7 +82,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
-      { radius: 2.2, subdivisions: 3 },
+      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS, subdivisions: 3 },
       scene
     );
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
@@ -97,14 +98,14 @@ export class EntitySpawnerSystem implements ISystem {
     const playerId = this.entities.create();
     this.transforms.add(playerId, {
       x: 0,
-      y: 10.0,
+      y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
       z: 0,
       qx: 0,
       qy: 0,
       qz: 0,
       qw: 1,
       prevX: 0,
-      prevY: 10.0,
+      prevY: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
       prevZ: 0,
       prevQx: 0,
       prevQy: 0,
@@ -112,13 +113,13 @@ export class EntitySpawnerSystem implements ISystem {
       prevQw: 1
     });
     this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-    this.targets.add(playerId, { x: 0, y: 10.0, z: 0, active: true });
+    this.targets.add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
     this.silks.add(playerId, {
       anchorX: 0,
-      anchorY: 34.0,
+      anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       anchorZ: 0,
-      maxLength: 12.0,
-      currentLength: 12.0,
+      maxLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
+      currentLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
       isAttached: true,
       tension: 0.0,
       dynamicVelX: 0.0,
@@ -140,7 +141,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     const pMesh = BABYLON.MeshBuilder.CreateCapsule(
       "playerVisual",
-      { height: 1.8, radius: 0.4, subdivisions: 3 },
+      { height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT, radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS, subdivisions: 3 },
       scene
     );
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);

@@ -10,6 +10,7 @@ import {
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
@@ -125,15 +126,13 @@ export class ProjectileSystem implements ISystem {
       const p = this.projectiles[i];
       p.lifeTime += dt;
 
-      // Update position of flying projectiles
       if (!p.isStuck && p.fallbackVelocity) {
         p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
       }
 
       const pos = p.mesh.position;
-      const wallLimit = 14.2;
+      const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
-      // Stick only when contact is made with side walls (no floor collision)
       if (!p.isStuck) {
         if (Math.abs(pos.x) >= wallLimit) {
           p.isStuck = true;
@@ -149,7 +148,6 @@ export class ProjectileSystem implements ISystem {
         }
       }
 
-      // Slide wall-stuck projectiles downward
       if (p.isStuckOnWall) {
         if (p.aggregate && p.aggregate.body.getMotionType() !== BABYLON.PhysicsMotionType.ANIMATED) {
           p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
@@ -159,13 +157,11 @@ export class ProjectileSystem implements ISystem {
         p.mesh.position.y -= deltaY;
       }
 
-      // Offscreen vertical cleanup (below floor bounds Y = -15.0, or above ceiling Y = 42.0)
-      if (p.mesh.position.y < -15.0 || p.mesh.position.y > 42.0) {
+      if (p.mesh.position.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y || p.mesh.position.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y) {
         this.removeProjectile(i);
         continue;
       }
 
-      // Collision with player only occurs while in-flight
       if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
         const isHit = p.mesh.intersectsMesh(pMesh, true);
 
@@ -189,7 +185,6 @@ export class ProjectileSystem implements ISystem {
         }
       }
 
-      // Safety lifetime boundary fallback
       if (p.lifeTime > 8.0) {
         this.removeProjectile(i);
       }

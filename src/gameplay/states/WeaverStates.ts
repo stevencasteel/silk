@@ -1,5 +1,6 @@
 import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
 import { GameEvent } from "../../core/events/GameEvents";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 const HASH = String.fromCharCode(35);
 
@@ -149,7 +150,6 @@ export class WeaverDashingState implements IWeaverState {
       }
     } else if (this.currentPhase === "THRUST") {
       const trav = ctx.weaverTraversal.get(ctx.weaverId);
-      // Give 0.15 seconds grace period (at 0.8s start) to escape any wall boundary it is currently on
       const isGraceOver = this.phaseTimer < 0.65;
       const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
       if (this.phaseTimer <= 0 || hitWallOrGround) {
@@ -185,7 +185,7 @@ export class WeaverReturningState implements IWeaverState {
     ctx.ai.timeInState += dt;
     const wTrans = ctx.transforms.get(ctx.weaverId);
     if (wTrans) {
-      const targetY = 34.0;
+      const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
       if (Math.abs(dy) < 0.3) {
         return "SWEEPING";

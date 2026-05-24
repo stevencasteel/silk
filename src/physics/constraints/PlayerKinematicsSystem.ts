@@ -13,6 +13,7 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -21,10 +22,10 @@ export class PlayerKinematicsSystem implements ISystem {
   private readonly SWING_STEER_FORCE = 36.0;
   private readonly LAUNCH_STEER_FORCE = 16.0;
 
-  private readonly BASE_SILK_LENGTH = 10.0;
-  private readonly MAX_SILK_LENGTH = 24.0;
+  private readonly BASE_SILK_LENGTH = ARENA_CONFIG.SILK.BASE_LENGTH;
+  private readonly MAX_SILK_LENGTH = ARENA_CONFIG.SILK.MAX_LENGTH;
 
-  private readonly WALL_LIMIT_X = 14.2;
+  private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
   private readonly DRAG_DAMPING = 0.99;
 
   private readonly TENSION_CHARGE_RATE = 0.38;
@@ -145,7 +146,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
       
-      // Lock downward movement speed exactly to the wall scroll speed
       silk.dynamicVelX = 0;
       silk.dynamicVelY = -currentScrollSpeed;
       target.y = target.y + silk.dynamicVelY * dt;
@@ -178,7 +178,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
         target.x = wallDir * this.WALL_LIMIT_X;
         
-        // Lock instantly to wall scroll speed
         silk.dynamicVelX = 0;
         silk.dynamicVelY = -currentScrollSpeed;
         target.y = target.y + silk.dynamicVelY * dt;

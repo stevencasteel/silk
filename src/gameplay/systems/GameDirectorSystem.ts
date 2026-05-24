@@ -14,6 +14,7 @@ import {
   TraversalStateComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -77,28 +78,28 @@ export class GameDirectorSystem implements ISystem {
 
     if (pTrans) {
       pTrans.x = 0;
-      pTrans.y = 10.0;
+      pTrans.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
       pTrans.z = 0;
       pTrans.prevX = 0;
-      pTrans.prevY = 10.0;
+      pTrans.prevY = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
       pTrans.prevZ = 0;
     }
     if (pTarget) {
       pTarget.x = 0;
-      pTarget.y = 10.0;
+      pTarget.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
       pTarget.z = 0;
       pTarget.active = true;
     }
     if (pHealth) pHealth.current = pHealth.max;
     if (pSilk) {
       pSilk.isAttached = true;
-      pSilk.maxLength = 12.0;
-      pSilk.currentLength = 12.0;
+      pSilk.maxLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
+      pSilk.currentLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
       pSilk.dynamicVelX = 0;
       pSilk.dynamicVelY = 0;
       pSilk.tension = 0.0;
       pSilk.anchorX = 0;
-      pSilk.anchorY = 34.0;
+      pSilk.anchorY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
     }
     if (pVel) {
       pVel.x = 0;
@@ -123,15 +124,15 @@ export class GameDirectorSystem implements ISystem {
 
     if (wTrans) {
       wTrans.x = 0;
-      wTrans.y = 34.0;
+      wTrans.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
       wTrans.z = 0;
       wTrans.prevX = 0;
-      wTrans.prevY = 28.0;
+      wTrans.prevY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - 6.0;
       wTrans.prevZ = 0;
     }
     if (wTarget) {
       wTarget.x = 0;
-      wTarget.y = 34.0;
+      wTarget.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
       wTarget.z = 0;
       wTarget.active = true;
     }

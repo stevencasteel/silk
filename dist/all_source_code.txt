@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/23/2026, 8:39:47 PM
+ [SYSTEM] Generated: 5/23/2026, 8:56:26 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -61,6 +61,7 @@
 │   │   │   ├── Entity.ts
 │   │   │   └── EntityRefs.ts
 │   │   ├── engine/
+│   │   │   ├── ArenaConfig.ts
 │   │   │   └── Engine.ts
 │   │   ├── events/
 │   │   │   ├── EventBroker.ts
@@ -1384,6 +1385,7 @@ export class LightingSystem implements ISystem {
 ● ./src/babylon/meshBuilders/ArenaGeometry.ts
 ────────────────────────────────────────────────────
 import * as BABYLON from "@babylonjs/core";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class ArenaGeometry {
   constructor(private scene: BABYLON.Scene) {}
@@ -1394,21 +1396,25 @@ export class ArenaGeometry {
     wallMaterial.metallic = 0.1;
     wallMaterial.roughness = 0.85;
 
+    const wallThickness = 2.0;
+    const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
+    const wallX = ARENA_CONFIG.HORIZONTAL.WALL_GEOMETRY_X;
+
     const leftWall = BABYLON.MeshBuilder.CreateBox(
       "leftWall",
-      { width: 2, height: 140, depth: 4 },
+      { width: wallThickness, height: wallHeight, depth: 4 },
       this.scene
     );
-    leftWall.position.set(-16, 14, 0);
+    leftWall.position.set(-wallX, wallHeight * 0.1, 0);
     leftWall.material = wallMaterial;
     leftWall.receiveShadows = true;
 
     const rightWall = BABYLON.MeshBuilder.CreateBox(
       "rightWall",
-      { width: 2, height: 140, depth: 4 },
+      { width: wallThickness, height: wallHeight, depth: 4 },
       this.scene
     );
-    rightWall.position.set(16, 14, 0);
+    rightWall.position.set(wallX, wallHeight * 0.1, 0);
     rightWall.material = wallMaterial;
     rightWall.receiveShadows = true;
 
@@ -1420,24 +1426,30 @@ export class ArenaGeometry {
     tickMat.emissiveIntensity = 1.5;
 
     const tickCount = 70;
+    const tickSpacing = 2.0;
+    const initialYOffset = -56.0;
+    const tickX = ARENA_CONFIG.HORIZONTAL.TICK_GEOMETRY_X;
+
     for (let i = 0; i < tickCount; i++) {
+      const initialY = i * tickSpacing + initialYOffset;
+
       const leftTick = BABYLON.MeshBuilder.CreateBox(
         `leftTick_${i}`,
         { width: 0.2, height: 0.08, depth: 2.1 },
         this.scene
       );
-      leftTick.position.set(-14.9, i * 2.0 - 56.0, 0);
+      leftTick.position.set(-tickX, initialY, 0);
       leftTick.material = tickMat;
-      leftTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 - 56.0 };
+      leftTick.metadata = { type: "scrolling_tick", index: i, initialY: initialY };
 
       const rightTick = BABYLON.MeshBuilder.CreateBox(
         `rightTick_${i}`,
         { width: 0.2, height: 0.08, depth: 2.1 },
         this.scene
       );
-      rightTick.position.set(14.9, i * 2.0 - 56.0, 0);
+      rightTick.position.set(tickX, initialY, 0);
       rightTick.material = tickMat;
-      rightTick.metadata = { type: "scrolling_tick", index: i, initialY: i * 2.0 - 56.0 };
+      rightTick.metadata = { type: "scrolling_tick", index: i, initialY: initialY };
     }
   }
 }
@@ -2330,6 +2342,48 @@ export class EntityRefs {
 
 
 
+● ./src/core/engine/ArenaConfig.ts
+────────────────────────────────────────────────────
+export const ARENA_CONFIG = {
+  HORIZONTAL: {
+    WALL_LIMIT_X: 14.2,              // Player constraint wall limit
+    WALL_CLING_THRESHOLD_X: 13.6,     // Input wall-clinging registration threshold
+    WEAVER_LIMIT_X: 13.8,             // Weaver traversal wall limit
+    WEAVER_PATROL_MIN_X: -13.0,       // Weaver sweep patrol start boundary
+    WEAVER_PATROL_MAX_X: 13.0,        // Weaver sweep patrol end boundary
+    WALL_GEOMETRY_X: 16.0,            // Visual mesh wall center offset
+    TICK_GEOMETRY_X: 14.9,            // Visual scrolling tick line offset
+    PLAY_AREA_HALF_WIDTH: 15.0,       // Absolute play area edge for physics bounds
+  },
+  VERTICAL: {
+    FLOOR_Y: -8.0,                    // Gameplay floor plane
+    CEILING_Y: 38.0,                  // Gameplay ceiling plane
+    WEAVER_CEILING_Y: 34.0,           // Weaver sweep patrol baseline height
+    WEAVER_CEILING_RETURN_Y: 34.0,    // Weaver returning phase target threshold
+    WALL_GEOMETRY_HEIGHT: 140.0,      // Visual height of vertical columns
+    TOTAL_SCROLL_RANGE: 140.0,        // Tick wrap-around boundary range
+    PLAYER_SPAWN_Y: 10.0,             // Initial player spawner height
+    WEAVER_SPAWN_Y: 34.0,             // Initial weaver spawner height
+  },
+  ENTITY: {
+    PLAYER_HEIGHT: 1.8,               // Physical height of capsule
+    PLAYER_RADIUS: 0.4,               // Physical radius of capsule
+    PLAYER_HALF_HEIGHT: 0.9,          // Calculated half-height for floor clamping
+    WEAVER_RADIUS: 2.2,               // Visual radius of target sphere
+  },
+  PROJECTILE: {
+    OFFSCREEN_MIN_Y: -15.0,           // Lower garbage-collection boundary
+    OFFSCREEN_MAX_Y: 42.0,            // Upper garbage-collection boundary
+  },
+  SILK: {
+    BASE_LENGTH: 10.0,                // Uncharged physical string length
+    MAX_LENGTH: 24.0,                 // Fully stretched dynamic string length
+    INITIAL_LENGTH: 12.0,             // Spawning length on game start
+  }
+} as const;
+
+
+
 ● ./src/core/engine/Engine.ts
 ────────────────────────────────────────────────────
 import { GameLoop } from "../loop/GameLoop";
@@ -2721,6 +2775,7 @@ export interface IWeaverState {
 ────────────────────────────────────────────────────
 import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
 import { GameEvent } from "../../core/events/GameEvents";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 const HASH = String.fromCharCode(35);
 
@@ -2870,7 +2925,6 @@ export class WeaverDashingState implements IWeaverState {
       }
     } else if (this.currentPhase === "THRUST") {
       const trav = ctx.weaverTraversal.get(ctx.weaverId);
-      // Give 0.15 seconds grace period (at 0.8s start) to escape any wall boundary it is currently on
       const isGraceOver = this.phaseTimer < 0.65;
       const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
       if (this.phaseTimer <= 0 || hitWallOrGround) {
@@ -2906,7 +2960,7 @@ export class WeaverReturningState implements IWeaverState {
     ctx.ai.timeInState += dt;
     const wTrans = ctx.transforms.get(ctx.weaverId);
     if (wTrans) {
-      const targetY = 34.0;
+      const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
       if (Math.abs(dy) < 0.3) {
         return "SWEEPING";
@@ -3155,6 +3209,7 @@ import {
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 const HASH = String.fromCharCode(35);
@@ -3188,14 +3243,14 @@ export class EntitySpawnerSystem implements ISystem {
     const weaverId = this.entities.create();
     this.transforms.add(weaverId, {
       x: 0,
-      y: 34.0,
+      y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       z: 0,
       qx: 0,
       qy: 0,
       qz: 0,
       qw: 1,
       prevX: 0,
-      prevY: 28.0,
+      prevY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - 6.0,
       prevZ: 0,
       prevQx: 0,
       prevQy: 0,
@@ -3203,7 +3258,7 @@ export class EntitySpawnerSystem implements ISystem {
       prevQw: 1
     });
     this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
-    this.targets.add(weaverId, { x: 0, y: 34.0, z: 0, active: true });
+    this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
     this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + "ef4444" });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
@@ -3218,7 +3273,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
-      { radius: 2.2, subdivisions: 3 },
+      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS, subdivisions: 3 },
       scene
     );
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
@@ -3234,14 +3289,14 @@ export class EntitySpawnerSystem implements ISystem {
     const playerId = this.entities.create();
     this.transforms.add(playerId, {
       x: 0,
-      y: 10.0,
+      y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
       z: 0,
       qx: 0,
       qy: 0,
       qz: 0,
       qw: 1,
       prevX: 0,
-      prevY: 10.0,
+      prevY: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
       prevZ: 0,
       prevQx: 0,
       prevQy: 0,
@@ -3249,13 +3304,13 @@ export class EntitySpawnerSystem implements ISystem {
       prevQw: 1
     });
     this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-    this.targets.add(playerId, { x: 0, y: 10.0, z: 0, active: true });
+    this.targets.add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
     this.silks.add(playerId, {
       anchorX: 0,
-      anchorY: 34.0,
+      anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       anchorZ: 0,
-      maxLength: 12.0,
-      currentLength: 12.0,
+      maxLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
+      currentLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
       isAttached: true,
       tension: 0.0,
       dynamicVelX: 0.0,
@@ -3277,7 +3332,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     const pMesh = BABYLON.MeshBuilder.CreateCapsule(
       "playerVisual",
-      { height: 1.8, radius: 0.4, subdivisions: 3 },
+      { height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT, radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS, subdivisions: 3 },
       scene
     );
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);
@@ -3313,6 +3368,7 @@ import {
   TraversalStateComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -3376,28 +3432,28 @@ export class GameDirectorSystem implements ISystem {
 
     if (pTrans) {
       pTrans.x = 0;
-      pTrans.y = 10.0;
+      pTrans.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
       pTrans.z = 0;
       pTrans.prevX = 0;
-      pTrans.prevY = 10.0;
+      pTrans.prevY = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
       pTrans.prevZ = 0;
     }
     if (pTarget) {
       pTarget.x = 0;
-      pTarget.y = 10.0;
+      pTarget.y = ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y;
       pTarget.z = 0;
       pTarget.active = true;
     }
     if (pHealth) pHealth.current = pHealth.max;
     if (pSilk) {
       pSilk.isAttached = true;
-      pSilk.maxLength = 12.0;
-      pSilk.currentLength = 12.0;
+      pSilk.maxLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
+      pSilk.currentLength = ARENA_CONFIG.SILK.INITIAL_LENGTH;
       pSilk.dynamicVelX = 0;
       pSilk.dynamicVelY = 0;
       pSilk.tension = 0.0;
       pSilk.anchorX = 0;
-      pSilk.anchorY = 34.0;
+      pSilk.anchorY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
     }
     if (pVel) {
       pVel.x = 0;
@@ -3422,15 +3478,15 @@ export class GameDirectorSystem implements ISystem {
 
     if (wTrans) {
       wTrans.x = 0;
-      wTrans.y = 34.0;
+      wTrans.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
       wTrans.z = 0;
       wTrans.prevX = 0;
-      wTrans.prevY = 28.0;
+      wTrans.prevY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - 6.0;
       wTrans.prevZ = 0;
     }
     if (wTarget) {
       wTarget.x = 0;
-      wTarget.y = 34.0;
+      wTarget.y = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y;
       wTarget.z = 0;
       wTarget.active = true;
     }
@@ -3545,6 +3601,7 @@ import {
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
@@ -3660,15 +3717,13 @@ export class ProjectileSystem implements ISystem {
       const p = this.projectiles[i];
       p.lifeTime += dt;
 
-      // Update position of flying projectiles
       if (!p.isStuck && p.fallbackVelocity) {
         p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
       }
 
       const pos = p.mesh.position;
-      const wallLimit = 14.2;
+      const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
-      // Stick only when contact is made with side walls (no floor collision)
       if (!p.isStuck) {
         if (Math.abs(pos.x) >= wallLimit) {
           p.isStuck = true;
@@ -3684,7 +3739,6 @@ export class ProjectileSystem implements ISystem {
         }
       }
 
-      // Slide wall-stuck projectiles downward
       if (p.isStuckOnWall) {
         if (p.aggregate && p.aggregate.body.getMotionType() !== BABYLON.PhysicsMotionType.ANIMATED) {
           p.aggregate.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);
@@ -3694,13 +3748,11 @@ export class ProjectileSystem implements ISystem {
         p.mesh.position.y -= deltaY;
       }
 
-      // Offscreen vertical cleanup (below floor bounds Y = -15.0, or above ceiling Y = 42.0)
-      if (p.mesh.position.y < -15.0 || p.mesh.position.y > 42.0) {
+      if (p.mesh.position.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y || p.mesh.position.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y) {
         this.removeProjectile(i);
         continue;
       }
 
-      // Collision with player only occurs while in-flight
       if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
         const isHit = p.mesh.intersectsMesh(pMesh, true);
 
@@ -3724,7 +3776,6 @@ export class ProjectileSystem implements ISystem {
         }
       }
 
-      // Safety lifetime boundary fallback
       if (p.lifeTime > 8.0) {
         this.removeProjectile(i);
       }
@@ -4089,11 +4140,12 @@ import {
   HealthComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private minX = -13.0;
-  private maxX = 13.0;
+  private minX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MIN_X;
+  private maxX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MAX_X;
 
   constructor(
     private refs: EntityRefs,
@@ -4128,7 +4180,7 @@ export class WeaverTraversalSystem implements ISystem {
         vel.x = sweepSpeed;
       }
       target.x = nextX;
-      target.y = 34.0;
+      target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
       target.active = true;
       trav.velX = vel.x;
       trav.velY = 0;
@@ -4140,7 +4192,7 @@ export class WeaverTraversalSystem implements ISystem {
       trav.velY = vel.y;
     }
 
-    const wallLimit = 13.8;
+    const wallLimit = ARENA_CONFIG.HORIZONTAL.WEAVER_LIMIT_X;
     if (target.x > wallLimit) {
       target.x = wallLimit;
       if (vel.x > 0) vel.x = 0;
@@ -4149,8 +4201,8 @@ export class WeaverTraversalSystem implements ISystem {
       if (vel.x < 0) vel.x = 0;
     }
 
-    const ceilingLimit = 38.0;
-    const floorLimit = -8.0;
+    const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
+    const floorLimit = ARENA_CONFIG.VERTICAL.FLOOR_Y;
     if (target.y > ceilingLimit) {
       target.y = ceilingLimit;
       if (vel.y > 0) vel.y = 0;
@@ -4163,7 +4215,7 @@ export class WeaverTraversalSystem implements ISystem {
       trav.isWallClinging = false;
     } else {
       trav.isGrounded = false;
-      const wallThreshold = 13.6;
+      const wallThreshold = ARENA_CONFIG.HORIZONTAL.WALL_CLING_THRESHOLD_X;
       if (Math.abs(target.x) >= wallThreshold) {
         trav.isWallClinging = true;
         trav.wallNormalX = target.x > 0 ? -1 : 1;
@@ -4437,14 +4489,14 @@ import {
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class EnvironmentCollisionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  private readonly FLOOR_Y = -8.0;
-  private readonly CEILING_Y = 38.0;
-  private readonly PLAYER_HALF_HEIGHT = 0.9;
+  private readonly FLOOR_Y = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+  private readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
+  private readonly PLAYER_HALF_HEIGHT = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
   
-  // Cutoff limits corresponding to standard and danger zone tensions
   private readonly OVERLOAD_THRESHOLD = 1.0;
   private readonly SNAP_LIMIT = 1.3;
 
@@ -4488,7 +4540,7 @@ export class EnvironmentCollisionSystem implements ISystem {
 
     if (isOverloaded) {
       const overloadDelta = silk.tension - this.OVERLOAD_THRESHOLD;
-      const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD); // 0.0 to 1.0
+      const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
 
       if (Math.random() < strainRatio * 0.25) {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
@@ -4563,6 +4615,7 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -4571,10 +4624,10 @@ export class PlayerKinematicsSystem implements ISystem {
   private readonly SWING_STEER_FORCE = 36.0;
   private readonly LAUNCH_STEER_FORCE = 16.0;
 
-  private readonly BASE_SILK_LENGTH = 10.0;
-  private readonly MAX_SILK_LENGTH = 24.0;
+  private readonly BASE_SILK_LENGTH = ARENA_CONFIG.SILK.BASE_LENGTH;
+  private readonly MAX_SILK_LENGTH = ARENA_CONFIG.SILK.MAX_LENGTH;
 
-  private readonly WALL_LIMIT_X = 14.2;
+  private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
   private readonly DRAG_DAMPING = 0.99;
 
   private readonly TENSION_CHARGE_RATE = 0.38;
@@ -4695,7 +4748,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
       
-      // Lock downward movement speed exactly to the wall scroll speed
       silk.dynamicVelX = 0;
       silk.dynamicVelY = -currentScrollSpeed;
       target.y = target.y + silk.dynamicVelY * dt;
@@ -4728,7 +4780,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
         target.x = wallDir * this.WALL_LIMIT_X;
         
-        // Lock instantly to wall scroll speed
         silk.dynamicVelX = 0;
         silk.dynamicVelY = -currentScrollSpeed;
         target.y = target.y + silk.dynamicVelY * dt;
@@ -4852,6 +4903,7 @@ import {
   SetSilkAttachedCommand
 } from "../commands/PhysicsCommands";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
 
@@ -4891,12 +4943,17 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
         console.log("[HavokPhysicsSystem] Havok initialized successfully.");
 
+        const playHalfWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
+        const wallThickness = 1.0;
+        const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
+        const wallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
+
         const physFloor = BABYLON.MeshBuilder.CreateBox(
           "physFloor",
-          { width: 34, height: 1.0, depth: 6 },
+          { width: playHalfWidth * 2 + 4, height: 1.0, depth: 6 },
           scene
         );
-        physFloor.position.set(0, -8.5, 0);
+        physFloor.position.set(0, ARENA_CONFIG.VERTICAL.FLOOR_Y - 0.5, 0);
         physFloor.isVisible = false;
         new BABYLON.PhysicsAggregate(
           physFloor,
@@ -4907,10 +4964,10 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
 
         const physLeft = BABYLON.MeshBuilder.CreateBox(
           "physLeft",
-          { width: 1.0, height: 140, depth: 6 },
+          { width: wallThickness, height: wallHeight, depth: 6 },
           scene
         );
-        physLeft.position.set(-15.5, 14, 0);
+        physLeft.position.set(-(playHalfWidth + wallThickness / 2), wallY, 0);
         physLeft.isVisible = false;
         new BABYLON.PhysicsAggregate(
           physLeft,
@@ -4921,10 +4978,10 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
 
         const physRight = BABYLON.MeshBuilder.CreateBox(
           "physRight",
-          { width: 1.0, height: 140, depth: 6 },
+          { width: wallThickness, height: wallHeight, depth: 6 },
           scene
         );
-        physRight.position.set(15.5, 14, 0);
+        physRight.position.set((playHalfWidth + wallThickness / 2), wallY, 0);
         physRight.isVisible = false;
         new BABYLON.PhysicsAggregate(
           physRight,

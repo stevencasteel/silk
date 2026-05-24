@@ -20,6 +20,7 @@ import {
   SetSilkAttachedCommand
 } from "../commands/PhysicsCommands";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
 
@@ -59,12 +60,17 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
         console.log("[HavokPhysicsSystem] Havok initialized successfully.");
 
+        const playHalfWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
+        const wallThickness = 1.0;
+        const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
+        const wallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
+
         const physFloor = BABYLON.MeshBuilder.CreateBox(
           "physFloor",
-          { width: 34, height: 1.0, depth: 6 },
+          { width: playHalfWidth * 2 + 4, height: 1.0, depth: 6 },
           scene
         );
-        physFloor.position.set(0, -8.5, 0);
+        physFloor.position.set(0, ARENA_CONFIG.VERTICAL.FLOOR_Y - 0.5, 0);
         physFloor.isVisible = false;
         new BABYLON.PhysicsAggregate(
           physFloor,
@@ -75,10 +81,10 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
 
         const physLeft = BABYLON.MeshBuilder.CreateBox(
           "physLeft",
-          { width: 1.0, height: 140, depth: 6 },
+          { width: wallThickness, height: wallHeight, depth: 6 },
           scene
         );
-        physLeft.position.set(-15.5, 14, 0);
+        physLeft.position.set(-(playHalfWidth + wallThickness / 2), wallY, 0);
         physLeft.isVisible = false;
         new BABYLON.PhysicsAggregate(
           physLeft,
@@ -89,10 +95,10 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
 
         const physRight = BABYLON.MeshBuilder.CreateBox(
           "physRight",
-          { width: 1.0, height: 140, depth: 6 },
+          { width: wallThickness, height: wallHeight, depth: 6 },
           scene
         );
-        physRight.position.set(15.5, 14, 0);
+        physRight.position.set((playHalfWidth + wallThickness / 2), wallY, 0);
         physRight.isVisible = false;
         new BABYLON.PhysicsAggregate(
           physRight,
