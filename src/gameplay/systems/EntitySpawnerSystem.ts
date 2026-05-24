@@ -18,7 +18,7 @@ import {
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 const HASH = String.fromCharCode(35);
@@ -68,7 +68,7 @@ export class EntitySpawnerSystem implements ISystem {
     });
     this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
     this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + "ef4444", scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE });
+    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING, scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
     this.weaverTraversal.add(weaverId, {
@@ -87,11 +87,11 @@ export class EntitySpawnerSystem implements ISystem {
     );
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
     wMat.albedoColor = new BABYLON.Color3(0.15, 0.15, 0.18);
-    wMat.metallic = 0.3;
-    wMat.roughness = 0.5;
+    wMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.METALLIC;
+    wMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.ROUGHNESS;
     wMat.clearCoat.isEnabled = true;
-    wMat.clearCoat.intensity = 0.4;
-    wMat.clearCoat.roughness = 0.2;
+    wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
+    wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
     wMesh.material = wMat;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
@@ -125,7 +125,7 @@ export class EntitySpawnerSystem implements ISystem {
       dynamicVelX: 0.0,
       dynamicVelY: 0.0
     });
-    this.healths.add(playerId, { current: 5, max: 5 });
+    this.healths.add(playerId, { current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY, max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY });
     this.inputs.add(playerId, { x: 0, y: 0, jump: false });
     this.playerTags.add(playerId, {});
     this.traversal.add(playerId, {
@@ -146,11 +146,11 @@ export class EntitySpawnerSystem implements ISystem {
     );
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);
     pMat.albedoColor = new BABYLON.Color3(0.88, 0.9, 0.92);
-    pMat.metallic = 0.0;
-    pMat.roughness = 0.85;
+    pMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.METALLIC;
+    pMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.ROUGHNESS;
     pMat.sheen.isEnabled = true;
-    pMat.sheen.intensity = 0.5;
-    pMat.sheen.roughness = 0.4;
+    pMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_INTENSITY;
+    pMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_ROUGHNESS;
     pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
     pMesh.material = pMat;
     this.visualRegistry.registerTransformNode(playerId, pMesh);

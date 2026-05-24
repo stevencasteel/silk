@@ -4,15 +4,16 @@ import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TransformComponent, SilkComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class SilkVisualizerSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
-  private readonly SEGMENTS = 24;
-  private readonly MAX_SAG = 3.8;
-  private readonly BASE_RADIUS = 0.07;
-  private readonly MAX_RADIUS = 0.13;
+  private readonly SEGMENTS = VISUAL_JUICE_CONFIG.SILK_ROPE.SEGMENTS;
+  private readonly MAX_SAG = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_SAG;
+  private readonly BASE_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.BASE_RADIUS;
+  private readonly MAX_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_RADIUS;
 
   private silkMesh: BABYLON.Mesh | null = null;
   private silkMeshAnchor: BABYLON.Mesh | null = null;
@@ -127,15 +128,15 @@ export class SilkVisualizerSystem implements ISystem {
       const tension = Math.max(0, Math.min(1, silk.tension));
 
       const timeMs = performance.now();
-      const frequency = 0.025;
+      const frequency = VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      const vibAmp = Math.max(0, tension - 0.7) * 0.35;
+      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_AMP;
       const vibOffset = Math.sin(vibPhase) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
       const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
-      this.scratchCtrl.set(midX, midY - sag, 0.35);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
 
       for (let i = 0; i <= this.SEGMENTS; i++) {
         const t = i / this.SEGMENTS;
@@ -154,7 +155,7 @@ export class SilkVisualizerSystem implements ISystem {
           2 * t1 * t * this.scratchCtrl.z +
           t * t * this.scratchPlayer.z;
 
-        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5 + timeMs * 0.005) * 0.12;
+        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_AMP;
       }
 
       const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
@@ -210,7 +211,7 @@ export class SilkVisualizerSystem implements ISystem {
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
       const sag = this.MAX_SAG * (1.0 - silk.tension);
-      this.scratchCtrl.set(midX, midY - sag, 0.35);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
 
       const maxAnchorT = (1 - T) * 0.5;
       const whipOffset = Math.sin(T * Math.PI * 5) * (1 - T) * 1.8;

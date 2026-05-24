@@ -76,9 +76,9 @@ export class EnvironmentCollisionSystem implements ISystem {
       const overloadDelta = silk.tension - this.OVERLOAD_THRESHOLD;
       const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
 
-      if (Math.random() < strainRatio * 0.25) {
+      if (Math.random() < strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE) {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.1 + strainRatio * 0.25,
+          amplitude: 0.1 + strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE,
           duration: 0.08
         });
       }

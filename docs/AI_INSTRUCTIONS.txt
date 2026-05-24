@@ -103,8 +103,11 @@
      causing terminal lockup or truncation.
 
 2.9  Strict TypeScript Constraints
-     All unused variables, local variables, or unused imports must be stripped 
-     completely to comply with strict compiler checks ('noUnusedLocals').
+     Always comply with strict compiler rules (such as 'noUnusedLocals' and 'noUnusedParameters') 
+     by stripping unused variables, constants, or imports. When modifying or expanding strongly 
+     typed configurations, nested structures, or read-only literals (e.g., 'as const'), verify 
+     that all symmetrically accessed keys exist across all related record types or union branches 
+     to prevent compile-time property errors (TS2339).
 
 
 3. REMOTE INSPECTION & EDITING TECHNIQUES

@@ -12,6 +12,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { IWeaverState, AIContext, WeaverStateType } from "../states/IWeaverState";
+import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import {
   WeaverSweepingState,
   WeaverDashingState,
@@ -84,7 +85,7 @@ export class WeaverBrainSystem implements ISystem {
 
   private publishStateChangeEvent(name: string, hue: string): void {
     const health = this.healths.get(this.refs.weaver);
-    const isBerserk = health ? health.current < health.max * 0.5 : false;
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     let finalName = name;
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;

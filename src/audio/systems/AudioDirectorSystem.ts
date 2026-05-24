@@ -96,32 +96,34 @@ export class AudioDirectorSystem implements ISystem {
 
     this.unsubWeaverDied = this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
       if (this.initialized) {
+        const presets = AUDIO_PRESETS.WEAVER;
         if (this.impactSynth) {
-          this.impactSynth.triggerAttackRelease("C1", "1n");
-          this.impactSynth.triggerAttackRelease("E1", "2n", "+0.12");
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
         }
         if (this.noiseSynth) {
-          this.noiseSynth.envelope.decay = 1.5;
-          this.noiseSynth.triggerAttackRelease("1n");
+          this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+          this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
           setTimeout(() => {
-            if (this.noiseSynth) this.noiseSynth.envelope.decay = 0.10;
-          }, 1600);
+            if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+          }, presets.DEATH_NOISE_RESTORE_DELAY);
         }
       }
     });
 
     this.unsubPlayerDied = this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
       if (this.initialized) {
+        const presets = AUDIO_PRESETS.PLAYER;
         if (this.impactSynth) {
-          this.impactSynth.triggerAttackRelease("B4", "16n");
-          this.impactSynth.triggerAttackRelease("G2", "4n", "+0.06");
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
         }
         if (this.noiseSynth) {
-          this.noiseSynth.envelope.decay = 0.08;
-          this.noiseSynth.triggerAttackRelease("16n");
+          this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+          this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
           setTimeout(() => {
-            if (this.noiseSynth) this.noiseSynth.envelope.decay = 0.10;
-          }, 200);
+            if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+          }, presets.DEATH_NOISE_RESTORE_DELAY);
         }
       }
     });

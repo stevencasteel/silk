@@ -5,6 +5,7 @@ import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
 import { GameDirectorSystem } from "../../gameplay/systems/GameDirectorSystem";
+import { GAMEPLAY_TUNING } from "./ArenaConfig";
 
 export class Engine {
   private loop: GameLoop;
@@ -69,12 +70,12 @@ export class Engine {
   private initHitStopHandlers(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        this.hitStopTimer = 0.08;
+        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
       })
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        this.hitStopTimer = 0.15;
+        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
       })
     );
     this.unsubscribes.push(

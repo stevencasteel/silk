@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 10:29:55 AM
+ [SYSTEM] Generated: 5/24/2026, 10:47:32 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -227,8 +227,11 @@
      causing terminal lockup or truncation.
 
 2.9  Strict TypeScript Constraints
-     All unused variables, local variables, or unused imports must be stripped 
-     completely to comply with strict compiler checks ('noUnusedLocals').
+     Always comply with strict compiler rules (such as 'noUnusedLocals' and 'noUnusedParameters') 
+     by stripping unused variables, constants, or imports. When modifying or expanding strongly 
+     typed configurations, nested structures, or read-only literals (e.g., 'as const'), verify 
+     that all symmetrically accessed keys exist across all related record types or union branches 
+     to prevent compile-time property errors (TS2339).
 
 
 3. REMOTE INSPECTION & EDITING TECHNIQUES
@@ -1142,32 +1145,34 @@ export class AudioDirectorSystem implements ISystem {
 
     this.unsubWeaverDied = this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
       if (this.initialized) {
+        const presets = AUDIO_PRESETS.WEAVER;
         if (this.impactSynth) {
-          this.impactSynth.triggerAttackRelease("C1", "1n");
-          this.impactSynth.triggerAttackRelease("E1", "2n", "+0.12");
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
         }
         if (this.noiseSynth) {
-          this.noiseSynth.envelope.decay = 1.5;
-          this.noiseSynth.triggerAttackRelease("1n");
+          this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+          this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
           setTimeout(() => {
-            if (this.noiseSynth) this.noiseSynth.envelope.decay = 0.10;
-          }, 1600);
+            if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+          }, presets.DEATH_NOISE_RESTORE_DELAY);
         }
       }
     });
 
     this.unsubPlayerDied = this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
       if (this.initialized) {
+        const presets = AUDIO_PRESETS.PLAYER;
         if (this.impactSynth) {
-          this.impactSynth.triggerAttackRelease("B4", "16n");
-          this.impactSynth.triggerAttackRelease("G2", "4n", "+0.06");
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+          this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
         }
         if (this.noiseSynth) {
-          this.noiseSynth.envelope.decay = 0.08;
-          this.noiseSynth.triggerAttackRelease("16n");
+          this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+          this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
           setTimeout(() => {
-            if (this.noiseSynth) this.noiseSynth.envelope.decay = 0.10;
-          }, 200);
+            if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+          }, presets.DEATH_NOISE_RESTORE_DELAY);
         }
       }
     });
@@ -1248,10 +1253,18 @@ export const AUDIO_PRESETS = {
     DAMAGED_DURATION: "8n",
     NOISE_DECAY: 0.1,
     NOISE_VOLUME: -10,
+    DEATH_NOTE_1: "B4",
+    DEATH_NOTE_1_DURATION: "16n",
+    DEATH_NOTE_2: "G2",
+    DEATH_NOTE_2_DURATION: "4n",
+    DEATH_NOTE_2_DELAY: "+0.06",
+    DEATH_NOISE_DECAY: 0.08,
+    DEATH_NOISE_RESTORE_DELAY: 200,
   },
   WEAVER: {
     DAMAGED_NOTE: "E3",
     DAMAGED_DURATION: "16n",
+    NOISE_DECAY: 0.1,
     DRONE_BASE_FREQ: 55,
     DRONE_BERSERK_FREQ: 110,
     DRONE_DEFEATED_FREQ: 30,
@@ -1261,6 +1274,13 @@ export const AUDIO_PRESETS = {
     HARMONICITY_NORMAL: 1.5,
     HARMONICITY_BERSERK: 2.5,
     HARMONICITY_DEFEATED: 1.0,
+    DEATH_NOTE_1: "C1",
+    DEATH_NOTE_1_DURATION: "1n",
+    DEATH_NOTE_2: "E1",
+    DEATH_NOTE_2_DURATION: "2n",
+    DEATH_NOTE_2_DELAY: "+0.12",
+    DEATH_NOISE_DECAY: 1.5,
+    DEATH_NOISE_RESTORE_DELAY: 1600,
   }
 } as const;
 
@@ -2810,49 +2830,52 @@ export const CANONICAL_UNITS = {
 
 export const ARENA_CONFIG = {
   HORIZONTAL: {
-    WALL_LIMIT_X: 14.2,              // Player constraint wall limit
-    WALL_CLING_THRESHOLD_X: 13.6,     // Input wall-clinging registration threshold
-    WEAVER_LIMIT_X: 13.8,             // Weaver traversal wall limit
-    WEAVER_PATROL_MIN_X: -13.0,       // Weaver sweep patrol start boundary
-    WEAVER_PATROL_MAX_X: 13.0,        // Weaver sweep patrol end boundary
-    WALL_GEOMETRY_X: 16.0,            // Visual mesh wall center offset
-    TICK_GEOMETRY_X: 14.9,            // Visual scrolling tick line offset
-    PLAY_AREA_HALF_WIDTH: 15.0,       // Absolute play area edge for physics bounds
+    WALL_LIMIT_X: 14.2,
+    WALL_CLING_THRESHOLD_X: 13.6,
+    WEAVER_LIMIT_X: 13.8,
+    WEAVER_PATROL_MIN_X: -13.0,
+    WEAVER_PATROL_MAX_X: 13.0,
+    WALL_GEOMETRY_X: 16.0,
+    TICK_GEOMETRY_X: 14.9,
+    PLAY_AREA_HALF_WIDTH: 15.0,
   },
   VERTICAL: {
-    FLOOR_Y: -8.0,                    // Gameplay floor plane
-    CEILING_Y: 38.0,                  // Gameplay ceiling plane
-    WEAVER_CEILING_Y: 34.0,           // Weaver sweep patrol baseline height
-    WEAVER_CEILING_RETURN_Y: 34.0,    // Weaver returning phase target threshold
-    WALL_GEOMETRY_HEIGHT: 140.0,      // Visual height of vertical columns
-    TOTAL_SCROLL_RANGE: 140.0,        // Tick wrap-around boundary range
-    PLAYER_SPAWN_Y: 10.0,             // Initial player spawner height
-    WEAVER_SPAWN_Y: 34.0,             // Initial weaver spawner height
+    FLOOR_Y: -8.0,
+    CEILING_Y: 38.0,
+    WEAVER_CEILING_Y: 34.0,
+    WEAVER_CEILING_RETURN_Y: 34.0,
+    WALL_GEOMETRY_HEIGHT: 140.0,
+    TOTAL_SCROLL_RANGE: 140.0,
+    PLAYER_SPAWN_Y: 10.0,
+    WEAVER_SPAWN_Y: 34.0,
   },
   ENTITY: {
-    PLAYER_HEIGHT: 1.8,               // Physical height of capsule
-    PLAYER_RADIUS: 0.4,               // Physical radius of capsule
-    PLAYER_HALF_HEIGHT: 0.9,          // Calculated half-height for floor clamping
-    WEAVER_RADIUS: 2.2,               // Visual radius of target sphere
+    PLAYER_HEIGHT: 1.8,
+    PLAYER_RADIUS: 0.4,
+    PLAYER_HALF_HEIGHT: 0.9,
+    WEAVER_RADIUS: 2.2,
   },
   PROJECTILE: {
-    OFFSCREEN_MIN_Y: -15.0,           // Lower garbage-collection boundary
-    OFFSCREEN_MAX_Y: 42.0,            // Upper garbage-collection boundary
+    OFFSCREEN_MIN_Y: -15.0,
+    OFFSCREEN_MAX_Y: 42.0,
   },
   SILK: {
-    BASE_LENGTH: 10.0,                // Uncharged physical string length
-    MAX_LENGTH: 24.0,                 // Fully stretched dynamic string length
-    INITIAL_LENGTH: 12.0,             // Spawning length on game start
+    BASE_LENGTH: 10.0,
+    MAX_LENGTH: 24.0,
+    INITIAL_LENGTH: 12.0,
   },
   SCROLL_SPEED: {
-    BASE: 9.0,                        // Standard vertical elevator scroll (decreased by 25%)
-    BERSERK: 15.0,                    // Boss low-health vertical elevator scroll (decreased by 25%)
-    DASH_MULTIPLIER: 0.45,            // Dynamic dash vertical displacement multiplier (decreased by 25%)
+    BASE: 9.0,
+    BERSERK: 15.0,
+    DASH_MULTIPLIER: 0.45,
   }
 } as const;
 
 export const GAMEPLAY_TUNING = {
   PLAYER: {
+    MAX_INTEGRITY: 5,
+    TENSION_DECAY_RATE: 4.0,
+    STRAIN_RUMBLE_SCALE: 0.25,
     SWING_STEER_FORCE: 36.0,
     LAUNCH_STEER_FORCE: 16.0,
     TENSION_CHARGE_RATE: 0.38,
@@ -2889,10 +2912,13 @@ export const GAMEPLAY_TUNING = {
     REBOUND_FORCE: 22.0,
     BOUNCE_ELASTICITY_MULT: 1.3,
     BROADPHASE_MARGIN: 0.4,
+    HITSTOP_PLAYER: 0.08,
+    HITSTOP_WEAVER: 0.15,
   }
 } as const;
 
 export const WEAVER_AI_TUNING = {
+  BERSERK_HP_THRESHOLD: 0.5,
   PATROL: {
     SPEED_NORMAL: 4.5,
     SPEED_BERSERK: 9.0,
@@ -2915,6 +2941,7 @@ export const WEAVER_AI_TUNING = {
     SPEED_BERSERK: 36.0,
     STROBE_FREQ: 16.0,
     SPEED_THRESHOLD: 0.1,
+    COLLISION_GRACE_TIME: 0.15,
     SQUASH_STRETCH: {
       PREP_X: 1.15,
       PREP_Y: 0.82,
@@ -2948,6 +2975,47 @@ export const WEAVER_AI_TUNING = {
 } as const;
 
 export const VISUAL_JUICE_CONFIG = {
+  WEAVER_COLORS: {
+    SWEEPING: "ef4444",
+    DASH_PREP: "eab308",
+    DASH_THRUST: "ef4444",
+    DASH_RECOVER: "a5f3fc",
+    RETURNING: "4b5563",
+    DEFEATED: "111317",
+  },
+  MATERIALS: {
+    WEAVER: {
+      METALLIC: 0.3,
+      ROUGHNESS: 0.5,
+      CLEAR_COAT_INTENSITY: 0.4,
+      CLEAR_COAT_ROUGHNESS: 0.2,
+    },
+    PLAYER: {
+      METALLIC: 0.0,
+      ROUGHNESS: 0.85,
+      SHEEN_INTENSITY: 0.5,
+      SHEEN_ROUGHNESS: 0.4,
+    },
+    PROJECTILE: {
+      METALLIC: 0.0,
+      ROUGHNESS: 0.8,
+      SHEEN_INTENSITY: 0.6,
+      SHEEN_ROUGHNESS: 0.4,
+    }
+  },
+  SILK_ROPE: {
+    SEGMENTS: 24,
+    MAX_SAG: 3.8,
+    BASE_RADIUS: 0.07,
+    MAX_RADIUS: 0.13,
+    TENSION_VIB_FREQ: 0.025,
+    TENSION_VIB_THRESHOLD: 0.7,
+    TENSION_VIB_AMP: 0.35,
+    WAVINESS_FREQ: 0.005,
+    WAVINESS_AMP: 0.12,
+    WAVINESS_STRETCH: 2.5,
+    BEZIER_DEPTH: 0.35,
+  },
   PARTICLES: {
     BURST: {
       PLAYER: {
@@ -3023,12 +3091,30 @@ export const VISUAL_JUICE_CONFIG = {
     }
   },
   EMISSIVE: {
+    SCROLL_LERP_FACTOR: 0.15,
     PLAYER_LERP_RATE: 0.18,
     PLAYER_EMISSIVE_SCALE: 0.2,
     WEAVER_EMISSIVE_SCALE: 0.4,
     WEAVER_EMISSIVE_PULSE_BASE: 0.05,
     WEAVER_EMISSIVE_PULSE_AMP: 0.04,
     WEAVER_EMISSIVE_PULSE_FREQ: 0.01,
+    PLAYER_EMISSIVE_SLIDE: {
+      BASE_R: 0.1,
+      RANGE_R: 0.9,
+      BASE_G: 0.1,
+      RANGE_G: 0.1,
+      MULT_B: 0.1,
+    },
+    PLAYER_EMISSIVE_LAUNCH: {
+      R: 0.9,
+      G: 0.9,
+      B: 0.9,
+    },
+    PLAYER_EMISSIVE_DEFAULT: {
+      R: 0.05,
+      G: 0.05,
+      B: 0.05,
+    }
   }
 } as const;
 
@@ -3061,6 +3147,7 @@ import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
 import { GameDirectorSystem } from "../../gameplay/systems/GameDirectorSystem";
+import { GAMEPLAY_TUNING } from "./ArenaConfig";
 
 export class Engine {
   private loop: GameLoop;
@@ -3125,12 +3212,12 @@ export class Engine {
   private initHitStopHandlers(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        this.hitStopTimer = 0.08;
+        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
       })
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        this.hitStopTimer = 0.15;
+        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
       })
     );
     this.unsubscribes.push(
@@ -3543,14 +3630,14 @@ export interface IWeaverState {
 ────────────────────────────────────────────────────
 import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 const HASH = String.fromCharCode(35);
 
 export class WeaverSweepingState implements IWeaverState {
   public readonly type: WeaverStateType = "SWEEPING";
   public readonly name = "SWEEPING CEILING";
-  public readonly hue = HASH + "ef4444";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 
@@ -3560,7 +3647,7 @@ export class WeaverSweepingState implements IWeaverState {
     ctx.ai.timeInState = 0;
     ctx.ai.hue = this.hue;
     const health = ctx.healths.get(ctx.weaverId);
-    const isBerserk = health ? health.current < health.max * 0.5 : false;
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
@@ -3579,7 +3666,7 @@ export class WeaverSweepingState implements IWeaverState {
     const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
-      ctx.ai.hue = HASH + "eab308";
+      ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
     }
     if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
@@ -3604,7 +3691,7 @@ export class WeaverSweepingState implements IWeaverState {
 export class WeaverDashingState implements IWeaverState {
   public readonly type: WeaverStateType = "DASHING";
   public readonly name = "WEAVER DASH";
-  public readonly hue = HASH + "f59e0b";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
   private dashCount = 0;
   private maxDashes = 2;
   private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
@@ -3614,7 +3701,7 @@ export class WeaverDashingState implements IWeaverState {
 
   public enter(ctx: AIContext): void {
     const health = ctx.healths.get(ctx.weaverId);
-    const isBerserk = health ? health.current < health.max * 0.5 : false;
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     this.dashCount = 0;
     this.maxDashes = isBerserk ? 3 : 2;
     this.startPrep(ctx);
@@ -3625,7 +3712,7 @@ export class WeaverDashingState implements IWeaverState {
   private startPrep(ctx: AIContext): void {
     this.currentPhase = "PREP";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
-    ctx.ai.hue = HASH + "eab308";
+    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.weaverId,
@@ -3646,7 +3733,7 @@ export class WeaverDashingState implements IWeaverState {
   private startThrust(ctx: AIContext): void {
     this.currentPhase = "THRUST";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.THRUST_TIME;
-    ctx.ai.hue = HASH + "ef4444";
+    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
     const weaverTrans = ctx.transforms.get(ctx.weaverId);
     if (weaverTrans) {
       const dx = this.targetPos.x - weaverTrans.x;
@@ -3668,7 +3755,7 @@ export class WeaverDashingState implements IWeaverState {
   private startRecover(ctx: AIContext): void {
     this.currentPhase = "RECOVER";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.RECOVER_TIME;
-    ctx.ai.hue = HASH + "a5f3fc";
+    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.weaverId,
@@ -3684,7 +3771,7 @@ export class WeaverDashingState implements IWeaverState {
     if (this.currentPhase === "PREP") {
       const StrobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
       const step = Math.floor(this.phaseTimer * StrobeHz);
-      ctx.ai.hue = step % 2 === 0 ? HASH + "ef4444" : HASH + "eab308";
+      ctx.ai.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
         ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP,
@@ -3696,7 +3783,7 @@ export class WeaverDashingState implements IWeaverState {
       }
     } else if (this.currentPhase === "THRUST") {
       const trav = ctx.weaverTraversal.get(ctx.weaverId);
-      const isGraceOver = this.phaseTimer < 0.65;
+      const isGraceOver = this.phaseTimer < (WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME);
       const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
       if (this.phaseTimer <= 0 || hitWallOrGround) {
         this.startRecover(ctx);
@@ -3718,7 +3805,7 @@ export class WeaverDashingState implements IWeaverState {
 export class WeaverReturningState implements IWeaverState {
   public readonly type: WeaverStateType = "RETURNING";
   public readonly name = "RETURNING TO CEILING";
-  public readonly hue = HASH + "4b5563";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
@@ -3752,7 +3839,7 @@ export class WeaverReturningState implements IWeaverState {
 export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
   public readonly name = "WEAVER DEFEATED";
-  public readonly hue = HASH + "111317";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
@@ -3984,7 +4071,7 @@ import {
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 const HASH = String.fromCharCode(35);
@@ -4034,7 +4121,7 @@ export class EntitySpawnerSystem implements ISystem {
     });
     this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
     this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + "ef4444", scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE });
+    this.weaverAIs.add(weaverId, { state: "SWEEPING", timeInState: 0, hue: HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING, scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
     this.weaverTraversal.add(weaverId, {
@@ -4053,11 +4140,11 @@ export class EntitySpawnerSystem implements ISystem {
     );
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
     wMat.albedoColor = new BABYLON.Color3(0.15, 0.15, 0.18);
-    wMat.metallic = 0.3;
-    wMat.roughness = 0.5;
+    wMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.METALLIC;
+    wMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.ROUGHNESS;
     wMat.clearCoat.isEnabled = true;
-    wMat.clearCoat.intensity = 0.4;
-    wMat.clearCoat.roughness = 0.2;
+    wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
+    wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
     wMesh.material = wMat;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
@@ -4091,7 +4178,7 @@ export class EntitySpawnerSystem implements ISystem {
       dynamicVelX: 0.0,
       dynamicVelY: 0.0
     });
-    this.healths.add(playerId, { current: 5, max: 5 });
+    this.healths.add(playerId, { current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY, max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY });
     this.inputs.add(playerId, { x: 0, y: 0, jump: false });
     this.playerTags.add(playerId, {});
     this.traversal.add(playerId, {
@@ -4112,11 +4199,11 @@ export class EntitySpawnerSystem implements ISystem {
     );
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);
     pMat.albedoColor = new BABYLON.Color3(0.88, 0.9, 0.92);
-    pMat.metallic = 0.0;
-    pMat.roughness = 0.85;
+    pMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.METALLIC;
+    pMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.ROUGHNESS;
     pMat.sheen.isEnabled = true;
-    pMat.sheen.intensity = 0.5;
-    pMat.sheen.roughness = 0.4;
+    pMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_INTENSITY;
+    pMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_ROUGHNESS;
     pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
     pMesh.material = pMat;
     this.visualRegistry.registerTransformNode(playerId, pMesh);
@@ -4143,7 +4230,7 @@ import {
   TraversalStateComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -4331,7 +4418,7 @@ export class GameDirectorSystem implements ISystem {
     if (wAI) {
       wAI.state = "SWEEPING";
       wAI.timeInState = 0;
-      wAI.hue = this.HASH + "ef4444";
+      wAI.hue = this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
       wAI.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
     if (wVel) {
@@ -4342,12 +4429,12 @@ export class GameDirectorSystem implements ISystem {
 
     this.broker.publish(GameEvent.GAME_RESET, undefined);
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-      hp: pHealth?.max || 5,
-      maxHp: pHealth?.max || 5
+      hp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+      maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: "SWEEPING",
-      hue: this.HASH + "ef4444"
+      hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
       hp: wHealth?.max || 100,
@@ -4441,7 +4528,7 @@ import {
   WeaverAIComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG, GAMEPLAY_TUNING, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
@@ -4484,11 +4571,11 @@ export class ProjectileSystem implements ISystem {
     this.projMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
     this.projMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
     this.projMat.emissiveIntensity = 0.0;
-    this.projMat.metallic = 0.0;
-    this.projMat.roughness = 0.8;
+    this.projMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
+    this.projMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
     this.projMat.sheen.isEnabled = true;
-    this.projMat.sheen.intensity = 0.6;
-    this.projMat.sheen.roughness = 0.4;
+    this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+    this.projMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_ROUGHNESS;
     this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
@@ -4730,15 +4817,16 @@ import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TransformComponent, SilkComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class SilkVisualizerSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
-  private readonly SEGMENTS = 24;
-  private readonly MAX_SAG = 3.8;
-  private readonly BASE_RADIUS = 0.07;
-  private readonly MAX_RADIUS = 0.13;
+  private readonly SEGMENTS = VISUAL_JUICE_CONFIG.SILK_ROPE.SEGMENTS;
+  private readonly MAX_SAG = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_SAG;
+  private readonly BASE_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.BASE_RADIUS;
+  private readonly MAX_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_RADIUS;
 
   private silkMesh: BABYLON.Mesh | null = null;
   private silkMeshAnchor: BABYLON.Mesh | null = null;
@@ -4853,15 +4941,15 @@ export class SilkVisualizerSystem implements ISystem {
       const tension = Math.max(0, Math.min(1, silk.tension));
 
       const timeMs = performance.now();
-      const frequency = 0.025;
+      const frequency = VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      const vibAmp = Math.max(0, tension - 0.7) * 0.35;
+      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_AMP;
       const vibOffset = Math.sin(vibPhase) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
       const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
-      this.scratchCtrl.set(midX, midY - sag, 0.35);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
 
       for (let i = 0; i <= this.SEGMENTS; i++) {
         const t = i / this.SEGMENTS;
@@ -4880,7 +4968,7 @@ export class SilkVisualizerSystem implements ISystem {
           2 * t1 * t * this.scratchCtrl.z +
           t * t * this.scratchPlayer.z;
 
-        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * 2.5 + timeMs * 0.005) * 0.12;
+        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_AMP;
       }
 
       const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
@@ -4936,7 +5024,7 @@ export class SilkVisualizerSystem implements ISystem {
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
       const sag = this.MAX_SAG * (1.0 - silk.tension);
-      this.scratchCtrl.set(midX, midY - sag, 0.35);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
 
       const maxAnchorT = (1 - T) * 0.5;
       const whipOffset = Math.sin(T * Math.PI * 5) * (1 - T) * 1.8;
@@ -5022,6 +5110,7 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { CommandBus } from "../../core/commands/CommandBus";
 import { IWeaverState, AIContext, WeaverStateType } from "../states/IWeaverState";
+import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import {
   WeaverSweepingState,
   WeaverDashingState,
@@ -5094,7 +5183,7 @@ export class WeaverBrainSystem implements ISystem {
 
   private publishStateChangeEvent(name: string, hue: string): void {
     const health = this.healths.get(this.refs.weaver);
-    const isBerserk = health ? health.current < health.max * 0.5 : false;
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     let finalName = name;
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
@@ -5219,7 +5308,7 @@ export class WeaverTraversalSystem implements ISystem {
     const isSweeping = !ai || ai.state === "SWEEPING";
     if (isSweeping) {
       let nextX = trans.x + vel.x * dt;
-      const isBerserk = health ? health.current < health.max * 0.5 : false;
+      const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
       const sweepSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
       if (nextX >= this.maxX) {
         nextX = this.maxX;
@@ -5681,9 +5770,9 @@ export class EnvironmentCollisionSystem implements ISystem {
       const overloadDelta = silk.tension - this.OVERLOAD_THRESHOLD;
       const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
 
-      if (Math.random() < strainRatio * 0.25) {
+      if (Math.random() < strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE) {
         this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.1 + strainRatio * 0.25,
+          amplitude: 0.1 + strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE,
           duration: 0.08
         });
       }
@@ -6025,7 +6114,7 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
-        silk.tension = Math.max(0, silk.tension - 4.0 * dt);
+        silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
       }
       return;
     }
@@ -6034,7 +6123,7 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.state = "AIRBORNE";
     }
     trav.wallDir = 0;
-    silk.tension = Math.max(0, silk.tension - 4.0 * dt);
+    silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
     target.x = nextX;
     target.y = nextY;
   }
@@ -6384,7 +6473,8 @@ export class TransformSyncSystem implements ISystem {
       ? 0.0
       : TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
-    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
+    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, emissive.SCROLL_LERP_FACTOR);
     TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
     
     if (wAI) {
@@ -6534,17 +6624,17 @@ export class TransformSyncSystem implements ISystem {
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     if (state === "WALL_SLIDING") {
-      targetR = 0.1 + Math.min(1.0, tension) * 0.9;
-      targetG = 0.1 + (1.0 - Math.min(1.0, tension)) * 0.1;
-      targetB = 0.1 * (1.0 - Math.min(1.0, tension));
+      targetR = emissive.PLAYER_EMISSIVE_SLIDE.BASE_R + Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
+      targetG = emissive.PLAYER_EMISSIVE_SLIDE.BASE_G + (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
+      targetB = (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.MULT_B;
     } else if (state === "LAUNCHING") {
-      targetR = 0.9;
-      targetG = 0.9;
-      targetB = 0.9;
+      targetR = emissive.PLAYER_EMISSIVE_LAUNCH.R;
+      targetG = emissive.PLAYER_EMISSIVE_LAUNCH.G;
+      targetB = emissive.PLAYER_EMISSIVE_LAUNCH.B;
     } else {
-      targetR = 0.05;
-      targetG = 0.05;
-      targetB = 0.05;
+      targetR = emissive.PLAYER_EMISSIVE_DEFAULT.R;
+      targetG = emissive.PLAYER_EMISSIVE_DEFAULT.G;
+      targetB = emissive.PLAYER_EMISSIVE_DEFAULT.B;
     }
 
     const lerpRate = emissive.PLAYER_LERP_RATE;

@@ -41,7 +41,7 @@ export class WeaverTraversalSystem implements ISystem {
     const isSweeping = !ai || ai.state === "SWEEPING";
     if (isSweeping) {
       let nextX = trans.x + vel.x * dt;
-      const isBerserk = health ? health.current < health.max * 0.5 : false;
+      const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
       const sweepSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
       if (nextX >= this.maxX) {
         nextX = this.maxX;

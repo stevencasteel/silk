@@ -24,49 +24,52 @@ export const CANONICAL_UNITS = {
 
 export const ARENA_CONFIG = {
   HORIZONTAL: {
-    WALL_LIMIT_X: 14.2,              // Player constraint wall limit
-    WALL_CLING_THRESHOLD_X: 13.6,     // Input wall-clinging registration threshold
-    WEAVER_LIMIT_X: 13.8,             // Weaver traversal wall limit
-    WEAVER_PATROL_MIN_X: -13.0,       // Weaver sweep patrol start boundary
-    WEAVER_PATROL_MAX_X: 13.0,        // Weaver sweep patrol end boundary
-    WALL_GEOMETRY_X: 16.0,            // Visual mesh wall center offset
-    TICK_GEOMETRY_X: 14.9,            // Visual scrolling tick line offset
-    PLAY_AREA_HALF_WIDTH: 15.0,       // Absolute play area edge for physics bounds
+    WALL_LIMIT_X: 14.2,
+    WALL_CLING_THRESHOLD_X: 13.6,
+    WEAVER_LIMIT_X: 13.8,
+    WEAVER_PATROL_MIN_X: -13.0,
+    WEAVER_PATROL_MAX_X: 13.0,
+    WALL_GEOMETRY_X: 16.0,
+    TICK_GEOMETRY_X: 14.9,
+    PLAY_AREA_HALF_WIDTH: 15.0,
   },
   VERTICAL: {
-    FLOOR_Y: -8.0,                    // Gameplay floor plane
-    CEILING_Y: 38.0,                  // Gameplay ceiling plane
-    WEAVER_CEILING_Y: 34.0,           // Weaver sweep patrol baseline height
-    WEAVER_CEILING_RETURN_Y: 34.0,    // Weaver returning phase target threshold
-    WALL_GEOMETRY_HEIGHT: 140.0,      // Visual height of vertical columns
-    TOTAL_SCROLL_RANGE: 140.0,        // Tick wrap-around boundary range
-    PLAYER_SPAWN_Y: 10.0,             // Initial player spawner height
-    WEAVER_SPAWN_Y: 34.0,             // Initial weaver spawner height
+    FLOOR_Y: -8.0,
+    CEILING_Y: 38.0,
+    WEAVER_CEILING_Y: 34.0,
+    WEAVER_CEILING_RETURN_Y: 34.0,
+    WALL_GEOMETRY_HEIGHT: 140.0,
+    TOTAL_SCROLL_RANGE: 140.0,
+    PLAYER_SPAWN_Y: 10.0,
+    WEAVER_SPAWN_Y: 34.0,
   },
   ENTITY: {
-    PLAYER_HEIGHT: 1.8,               // Physical height of capsule
-    PLAYER_RADIUS: 0.4,               // Physical radius of capsule
-    PLAYER_HALF_HEIGHT: 0.9,          // Calculated half-height for floor clamping
-    WEAVER_RADIUS: 2.2,               // Visual radius of target sphere
+    PLAYER_HEIGHT: 1.8,
+    PLAYER_RADIUS: 0.4,
+    PLAYER_HALF_HEIGHT: 0.9,
+    WEAVER_RADIUS: 2.2,
   },
   PROJECTILE: {
-    OFFSCREEN_MIN_Y: -15.0,           // Lower garbage-collection boundary
-    OFFSCREEN_MAX_Y: 42.0,            // Upper garbage-collection boundary
+    OFFSCREEN_MIN_Y: -15.0,
+    OFFSCREEN_MAX_Y: 42.0,
   },
   SILK: {
-    BASE_LENGTH: 10.0,                // Uncharged physical string length
-    MAX_LENGTH: 24.0,                 // Fully stretched dynamic string length
-    INITIAL_LENGTH: 12.0,             // Spawning length on game start
+    BASE_LENGTH: 10.0,
+    MAX_LENGTH: 24.0,
+    INITIAL_LENGTH: 12.0,
   },
   SCROLL_SPEED: {
-    BASE: 9.0,                        // Standard vertical elevator scroll (decreased by 25%)
-    BERSERK: 15.0,                    // Boss low-health vertical elevator scroll (decreased by 25%)
-    DASH_MULTIPLIER: 0.45,            // Dynamic dash vertical displacement multiplier (decreased by 25%)
+    BASE: 9.0,
+    BERSERK: 15.0,
+    DASH_MULTIPLIER: 0.45,
   }
 } as const;
 
 export const GAMEPLAY_TUNING = {
   PLAYER: {
+    MAX_INTEGRITY: 5,
+    TENSION_DECAY_RATE: 4.0,
+    STRAIN_RUMBLE_SCALE: 0.25,
     SWING_STEER_FORCE: 36.0,
     LAUNCH_STEER_FORCE: 16.0,
     TENSION_CHARGE_RATE: 0.38,
@@ -103,10 +106,13 @@ export const GAMEPLAY_TUNING = {
     REBOUND_FORCE: 22.0,
     BOUNCE_ELASTICITY_MULT: 1.3,
     BROADPHASE_MARGIN: 0.4,
+    HITSTOP_PLAYER: 0.08,
+    HITSTOP_WEAVER: 0.15,
   }
 } as const;
 
 export const WEAVER_AI_TUNING = {
+  BERSERK_HP_THRESHOLD: 0.5,
   PATROL: {
     SPEED_NORMAL: 4.5,
     SPEED_BERSERK: 9.0,
@@ -129,6 +135,7 @@ export const WEAVER_AI_TUNING = {
     SPEED_BERSERK: 36.0,
     STROBE_FREQ: 16.0,
     SPEED_THRESHOLD: 0.1,
+    COLLISION_GRACE_TIME: 0.15,
     SQUASH_STRETCH: {
       PREP_X: 1.15,
       PREP_Y: 0.82,
@@ -162,6 +169,47 @@ export const WEAVER_AI_TUNING = {
 } as const;
 
 export const VISUAL_JUICE_CONFIG = {
+  WEAVER_COLORS: {
+    SWEEPING: "ef4444",
+    DASH_PREP: "eab308",
+    DASH_THRUST: "ef4444",
+    DASH_RECOVER: "a5f3fc",
+    RETURNING: "4b5563",
+    DEFEATED: "111317",
+  },
+  MATERIALS: {
+    WEAVER: {
+      METALLIC: 0.3,
+      ROUGHNESS: 0.5,
+      CLEAR_COAT_INTENSITY: 0.4,
+      CLEAR_COAT_ROUGHNESS: 0.2,
+    },
+    PLAYER: {
+      METALLIC: 0.0,
+      ROUGHNESS: 0.85,
+      SHEEN_INTENSITY: 0.5,
+      SHEEN_ROUGHNESS: 0.4,
+    },
+    PROJECTILE: {
+      METALLIC: 0.0,
+      ROUGHNESS: 0.8,
+      SHEEN_INTENSITY: 0.6,
+      SHEEN_ROUGHNESS: 0.4,
+    }
+  },
+  SILK_ROPE: {
+    SEGMENTS: 24,
+    MAX_SAG: 3.8,
+    BASE_RADIUS: 0.07,
+    MAX_RADIUS: 0.13,
+    TENSION_VIB_FREQ: 0.025,
+    TENSION_VIB_THRESHOLD: 0.7,
+    TENSION_VIB_AMP: 0.35,
+    WAVINESS_FREQ: 0.005,
+    WAVINESS_AMP: 0.12,
+    WAVINESS_STRETCH: 2.5,
+    BEZIER_DEPTH: 0.35,
+  },
   PARTICLES: {
     BURST: {
       PLAYER: {
@@ -237,12 +285,30 @@ export const VISUAL_JUICE_CONFIG = {
     }
   },
   EMISSIVE: {
+    SCROLL_LERP_FACTOR: 0.15,
     PLAYER_LERP_RATE: 0.18,
     PLAYER_EMISSIVE_SCALE: 0.2,
     WEAVER_EMISSIVE_SCALE: 0.4,
     WEAVER_EMISSIVE_PULSE_BASE: 0.05,
     WEAVER_EMISSIVE_PULSE_AMP: 0.04,
     WEAVER_EMISSIVE_PULSE_FREQ: 0.01,
+    PLAYER_EMISSIVE_SLIDE: {
+      BASE_R: 0.1,
+      RANGE_R: 0.9,
+      BASE_G: 0.1,
+      RANGE_G: 0.1,
+      MULT_B: 0.1,
+    },
+    PLAYER_EMISSIVE_LAUNCH: {
+      R: 0.9,
+      G: 0.9,
+      B: 0.9,
+    },
+    PLAYER_EMISSIVE_DEFAULT: {
+      R: 0.05,
+      G: 0.05,
+      B: 0.05,
+    }
   }
 } as const;
 

@@ -284,7 +284,7 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
-        silk.tension = Math.max(0, silk.tension - 4.0 * dt);
+        silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
       }
       return;
     }
@@ -293,7 +293,7 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.state = "AIRBORNE";
     }
     trav.wallDir = 0;
-    silk.tension = Math.max(0, silk.tension - 4.0 * dt);
+    silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
     target.x = nextX;
     target.y = nextY;
   }

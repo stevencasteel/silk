@@ -1,13 +1,13 @@
 import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 const HASH = String.fromCharCode(35);
 
 export class WeaverSweepingState implements IWeaverState {
   public readonly type: WeaverStateType = "SWEEPING";
   public readonly name = "SWEEPING CEILING";
-  public readonly hue = HASH + "ef4444";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 
@@ -17,7 +17,7 @@ export class WeaverSweepingState implements IWeaverState {
     ctx.ai.timeInState = 0;
     ctx.ai.hue = this.hue;
     const health = ctx.healths.get(ctx.weaverId);
-    const isBerserk = health ? health.current < health.max * 0.5 : false;
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
@@ -36,7 +36,7 @@ export class WeaverSweepingState implements IWeaverState {
     const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
-      ctx.ai.hue = HASH + "eab308";
+      ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
     }
     if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
@@ -61,7 +61,7 @@ export class WeaverSweepingState implements IWeaverState {
 export class WeaverDashingState implements IWeaverState {
   public readonly type: WeaverStateType = "DASHING";
   public readonly name = "WEAVER DASH";
-  public readonly hue = HASH + "f59e0b";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
   private dashCount = 0;
   private maxDashes = 2;
   private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
@@ -71,7 +71,7 @@ export class WeaverDashingState implements IWeaverState {
 
   public enter(ctx: AIContext): void {
     const health = ctx.healths.get(ctx.weaverId);
-    const isBerserk = health ? health.current < health.max * 0.5 : false;
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     this.dashCount = 0;
     this.maxDashes = isBerserk ? 3 : 2;
     this.startPrep(ctx);
@@ -82,7 +82,7 @@ export class WeaverDashingState implements IWeaverState {
   private startPrep(ctx: AIContext): void {
     this.currentPhase = "PREP";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
-    ctx.ai.hue = HASH + "eab308";
+    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.weaverId,
@@ -103,7 +103,7 @@ export class WeaverDashingState implements IWeaverState {
   private startThrust(ctx: AIContext): void {
     this.currentPhase = "THRUST";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.THRUST_TIME;
-    ctx.ai.hue = HASH + "ef4444";
+    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
     const weaverTrans = ctx.transforms.get(ctx.weaverId);
     if (weaverTrans) {
       const dx = this.targetPos.x - weaverTrans.x;
@@ -125,7 +125,7 @@ export class WeaverDashingState implements IWeaverState {
   private startRecover(ctx: AIContext): void {
     this.currentPhase = "RECOVER";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.RECOVER_TIME;
-    ctx.ai.hue = HASH + "a5f3fc";
+    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
       entityId: ctx.weaverId,
@@ -141,7 +141,7 @@ export class WeaverDashingState implements IWeaverState {
     if (this.currentPhase === "PREP") {
       const StrobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
       const step = Math.floor(this.phaseTimer * StrobeHz);
-      ctx.ai.hue = step % 2 === 0 ? HASH + "ef4444" : HASH + "eab308";
+      ctx.ai.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
         ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP,
@@ -153,7 +153,7 @@ export class WeaverDashingState implements IWeaverState {
       }
     } else if (this.currentPhase === "THRUST") {
       const trav = ctx.weaverTraversal.get(ctx.weaverId);
-      const isGraceOver = this.phaseTimer < 0.65;
+      const isGraceOver = this.phaseTimer < (WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME);
       const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
       if (this.phaseTimer <= 0 || hitWallOrGround) {
         this.startRecover(ctx);
@@ -175,7 +175,7 @@ export class WeaverDashingState implements IWeaverState {
 export class WeaverReturningState implements IWeaverState {
   public readonly type: WeaverStateType = "RETURNING";
   public readonly name = "RETURNING TO CEILING";
-  public readonly hue = HASH + "4b5563";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;
@@ -209,7 +209,7 @@ export class WeaverReturningState implements IWeaverState {
 export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
   public readonly name = "WEAVER DEFEATED";
-  public readonly hue = HASH + "111317";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
 
   public enter(ctx: AIContext): void {
     ctx.ai.timeInState = 0;

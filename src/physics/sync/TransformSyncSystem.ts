@@ -82,7 +82,8 @@ export class TransformSyncSystem implements ISystem {
       ? 0.0
       : TransformSyncSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
-    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
+    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+    this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, emissive.SCROLL_LERP_FACTOR);
     TransformSyncSystem.currentScrollSpeed = this.scrollSpeed;
     
     if (wAI) {
@@ -232,17 +233,17 @@ export class TransformSyncSystem implements ISystem {
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     if (state === "WALL_SLIDING") {
-      targetR = 0.1 + Math.min(1.0, tension) * 0.9;
-      targetG = 0.1 + (1.0 - Math.min(1.0, tension)) * 0.1;
-      targetB = 0.1 * (1.0 - Math.min(1.0, tension));
+      targetR = emissive.PLAYER_EMISSIVE_SLIDE.BASE_R + Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
+      targetG = emissive.PLAYER_EMISSIVE_SLIDE.BASE_G + (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
+      targetB = (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.MULT_B;
     } else if (state === "LAUNCHING") {
-      targetR = 0.9;
-      targetG = 0.9;
-      targetB = 0.9;
+      targetR = emissive.PLAYER_EMISSIVE_LAUNCH.R;
+      targetG = emissive.PLAYER_EMISSIVE_LAUNCH.G;
+      targetB = emissive.PLAYER_EMISSIVE_LAUNCH.B;
     } else {
-      targetR = 0.05;
-      targetG = 0.05;
-      targetB = 0.05;
+      targetR = emissive.PLAYER_EMISSIVE_DEFAULT.R;
+      targetG = emissive.PLAYER_EMISSIVE_DEFAULT.G;
+      targetB = emissive.PLAYER_EMISSIVE_DEFAULT.B;
     }
 
     const lerpRate = emissive.PLAYER_LERP_RATE;

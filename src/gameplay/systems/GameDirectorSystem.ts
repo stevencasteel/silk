@@ -14,7 +14,7 @@ import {
   TraversalStateComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -202,7 +202,7 @@ export class GameDirectorSystem implements ISystem {
     if (wAI) {
       wAI.state = "SWEEPING";
       wAI.timeInState = 0;
-      wAI.hue = this.HASH + "ef4444";
+      wAI.hue = this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
       wAI.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
     if (wVel) {
@@ -213,12 +213,12 @@ export class GameDirectorSystem implements ISystem {
 
     this.broker.publish(GameEvent.GAME_RESET, undefined);
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-      hp: pHealth?.max || 5,
-      maxHp: pHealth?.max || 5
+      hp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+      maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: "SWEEPING",
-      hue: this.HASH + "ef4444"
+      hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
       hp: wHealth?.max || 100,

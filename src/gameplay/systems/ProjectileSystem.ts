@@ -10,7 +10,7 @@ import {
   WeaverAIComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG, GAMEPLAY_TUNING, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
@@ -53,11 +53,11 @@ export class ProjectileSystem implements ISystem {
     this.projMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
     this.projMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
     this.projMat.emissiveIntensity = 0.0;
-    this.projMat.metallic = 0.0;
-    this.projMat.roughness = 0.8;
+    this.projMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
+    this.projMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
     this.projMat.sheen.isEnabled = true;
-    this.projMat.sheen.intensity = 0.6;
-    this.projMat.sheen.roughness = 0.4;
+    this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+    this.projMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_ROUGHNESS;
     this.projMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
