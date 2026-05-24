@@ -101,7 +101,7 @@ export const HudOverlay: React.FC = () => {
           </div>
           <div className="hud-panel hud-center">
             <div className="hud-label-row">
-              <span className="hud-label">SILK TENSION</span>
+              <span className="hud-label">TETHER TENSION</span>
               <span className="hud-value" style={{ color: tensionTextColor }}>
                 {displayTensionPercent}%
               </span>

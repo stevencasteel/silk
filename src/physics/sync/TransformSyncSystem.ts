@@ -5,7 +5,7 @@ import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
-  SilkComponent,
+  TetherComponent,
   TraversalStateComponent,
   WeaverAIComponent,
   HealthComponent,
@@ -39,7 +39,7 @@ export class TransformSyncSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private visualRegistry: IVisualRegistry,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
@@ -160,7 +160,7 @@ export class TransformSyncSystem implements ISystem {
   }
 
   private syncTransforms(alpha: number): void {
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
@@ -194,8 +194,8 @@ export class TransformSyncSystem implements ISystem {
       if (id === this.refs.player) {
         const mesh = node as BABYLON.AbstractMesh;
         const mat = mesh?.material as BABYLON.PBRMaterial | null;
-        if (mat && silk && trav) {
-          this.updatePlayerEmissive(mat, silk.tension, trav.state);
+        if (mat && tether && trav) {
+          this.updatePlayerEmissive(mat, tether.tension, trav.state);
         }
       } else if (id === this.refs.weaver && wAI) {
         const mesh = node as BABYLON.AbstractMesh;

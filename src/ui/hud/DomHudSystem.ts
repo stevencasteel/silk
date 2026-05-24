@@ -22,7 +22,7 @@ export class DomHudSystem implements ISystem {
     const store = useHudStore.getState();
 
     this.subscriptions.push(
-      this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
+      this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         store.setTension(tension);
         this.updateHint(tension);
       })
@@ -97,7 +97,7 @@ export class DomHudSystem implements ISystem {
         store.setTraversalHint("", "rgb(161, 161, 170)", 0);
         break;
       case "charging":
-        store.setTraversalHint("HOLD — CHARGING SILK", "rgb(161, 161, 170)", 1);
+        store.setTraversalHint("HOLD — CHARGING TETHER", "rgb(161, 161, 170)", 1);
         break;
       case "ready":
         store.setTraversalHint("RELEASE TO FLING", "rgb(245, 158, 11)", 1);

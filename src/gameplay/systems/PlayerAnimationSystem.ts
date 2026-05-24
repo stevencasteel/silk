@@ -3,7 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
-  SilkComponent,
+  TetherComponent,
   TraversalStateComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
@@ -17,18 +17,18 @@ export class PlayerAnimationSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private targets: ComponentStore<KinematicTargetComponent>
   ) {}
 
   public update(dt: number): void {
     const pTrans = this.transforms.get(this.refs.player);
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
 
-    if (!pTrans || !silk || !trav || !target) return;
+    if (!pTrans || !tether || !trav || !target) return;
 
     if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
       pTrans.scaleX = 1.0;
@@ -58,7 +58,7 @@ export class PlayerAnimationSystem implements ISystem {
       targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
       targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
     } else {
-      const speed = Math.sqrt(silk.dynamicVelX * silk.dynamicVelX + silk.dynamicVelY * silk.dynamicVelY);
+      const speed = Math.sqrt(tether.dynamicVelX * tether.dynamicVelX + tether.dynamicVelY * tether.dynamicVelY);
       const stretchFactor = Math.min(
         tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
         (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
@@ -80,15 +80,15 @@ export class PlayerAnimationSystem implements ISystem {
     let rotDy = 1;
 
     if (trav.state === "LAUNCHING") {
-      const vx = silk.dynamicVelX;
-      const vy = silk.dynamicVelY;
+      const vx = tether.dynamicVelX;
+      const vy = tether.dynamicVelY;
       if (vx * vx + vy * vy > 1.0) {
         rotDx = vx;
         rotDy = vy;
       }
     } else if (trav.state === "AIRBORNE") {
-      rotDx = target.x - silk.anchorX;
-      rotDy = target.y - silk.anchorY;
+      rotDx = target.x - tether.anchorX;
+      rotDy = target.y - tether.anchorY;
     }
 
     const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;

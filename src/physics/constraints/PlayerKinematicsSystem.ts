@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-  SilkComponent,
+  TetherComponent,
   KinematicTargetComponent,
   TraversalStateComponent,
   TransformComponent,
@@ -21,8 +21,8 @@ export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
   private readonly GRAVITY = CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC;
-  private readonly BASE_SILK_LENGTH = ARENA_CONFIG.SILK.BASE_LENGTH;
-  private readonly MAX_SILK_LENGTH = ARENA_CONFIG.SILK.MAX_LENGTH;
+  private readonly BASE_TETHER_LENGTH = ARENA_CONFIG.TETHER.BASE_LENGTH;
+  private readonly MAX_TETHER_LENGTH = ARENA_CONFIG.TETHER.MAX_LENGTH;
   private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
   private lastTraversalState: string = "";
@@ -31,7 +31,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
   constructor(
     private refs: EntityRefs,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private transforms: ComponentStore<TransformComponent>,
@@ -44,36 +44,36 @@ export class PlayerKinematicsSystem implements ISystem {
   public init(): void {
     this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
       if (cmd.entityId === this.refs.player) {
-        const silk = this.silks.get(this.refs.player);
-        if (silk) {
-          silk.dynamicVelX += cmd.x;
-          silk.dynamicVelY += cmd.y;
+        const tether = this.tethers.get(this.refs.player);
+        if (tether) {
+          tether.dynamicVelX += cmd.x;
+          tether.dynamicVelY += cmd.y;
         }
       }
     });
   }
 
   public update(dt: number): void {
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     const wTrans = this.transforms.get(this.refs.weaver);
     const input = this.inputs.get(this.refs.player);
 
-    if (!silk || !target || !trav || !wTrans || !input) return;
+    if (!tether || !target || !trav || !wTrans || !input) return;
 
     const pHealth = this.healths.get(this.refs.player);
     const wHealth = this.healths.get(this.refs.weaver);
 
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
-      silk.dynamicVelX = 0;
-      silk.dynamicVelY = 0;
+      tether.dynamicVelX = 0;
+      tether.dynamicVelY = 0;
       return;
     }
 
-    silk.anchorX = wTrans.x;
-    silk.anchorY = wTrans.y;
-    silk.anchorZ = wTrans.z;
+    tether.anchorX = wTrans.x;
+    tether.anchorY = wTrans.y;
+    tether.anchorZ = wTrans.z;
 
     let nextX = target.x;
     let nextY = target.y;
@@ -82,51 +82,51 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state === "LAUNCHING") {
       trav.launchTimer -= dt;
-      silk.dynamicVelX += input.x * tuning.LAUNCH_STEER_FORCE * dt;
-      silk.dynamicVelY += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
+      tether.dynamicVelX += input.x * tuning.LAUNCH_STEER_FORCE * dt;
+      tether.dynamicVelY += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      silk.dynamicVelX *= damp;
-      silk.dynamicVelY *= damp;
+      tether.dynamicVelX *= damp;
+      tether.dynamicVelY *= damp;
 
-      nextX += silk.dynamicVelX * dt;
-      nextY += silk.dynamicVelY * dt;
+      nextX += tether.dynamicVelX * dt;
+      nextY += tether.dynamicVelY * dt;
 
       if (trav.launchTimer <= 0) {
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
       }
     } else {
-      silk.dynamicVelY += this.GRAVITY * dt;
+      tether.dynamicVelY += this.GRAVITY * dt;
 
       if (trav.state === "AIRBORNE") {
-        silk.dynamicVelX += input.x * tuning.SWING_STEER_FORCE * dt;
+        tether.dynamicVelX += input.x * tuning.SWING_STEER_FORCE * dt;
       }
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      silk.dynamicVelX *= damp;
-      silk.dynamicVelY *= damp;
+      tether.dynamicVelX *= damp;
+      tether.dynamicVelY *= damp;
 
-      nextX += silk.dynamicVelX * dt;
-      nextY += silk.dynamicVelY * dt;
+      nextX += tether.dynamicVelX * dt;
+      nextY += tether.dynamicVelY * dt;
     }
 
-    this.resolveWallContact(nextX, nextY, dt, target, silk, trav, input);
+    this.resolveWallContact(nextX, nextY, dt, target, tether, trav, input);
 
     if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
-      this.enforcePendulumConstraint(target, silk);
+      this.enforcePendulumConstraint(target, tether);
     }
 
-    const dx = target.x - silk.anchorX;
-    const dy = target.y - silk.anchorY;
-    silk.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    const dx = target.x - tether.anchorX;
+    const dy = target.y - tether.anchorY;
+    tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-    this.tensionPayload.tension = silk.tension;
-    this.broker.publish(GameEvent.SILK_TENSION_CHANGE, this.tensionPayload);
+    this.tensionPayload.tension = tether.tension;
+    this.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
 
-    this.lengthPayload.length = silk.currentLength;
-    this.lengthPayload.maxLength = silk.maxLength;
-    this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, this.lengthPayload);
+    this.lengthPayload.length = tether.currentLength;
+    this.lengthPayload.maxLength = tether.maxLength;
+    this.broker.publish(GameEvent.TETHER_LENGTH_CHANGE, this.lengthPayload);
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
@@ -139,7 +139,7 @@ export class PlayerKinematicsSystem implements ISystem {
     nextY: number,
     dt: number,
     target: KinematicTargetComponent,
-    silk: SilkComponent,
+    tether: TetherComponent,
     trav: TraversalStateComponent,
     input: InputIntentComponent
   ): void {
@@ -153,28 +153,28 @@ export class PlayerKinematicsSystem implements ISystem {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (!stillPressingIn) {
-        this.triggerFling(silk, target, trav);
+        this.triggerFling(tether, target, trav);
         return;
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
       
-      silk.dynamicVelX = 0;
-      silk.dynamicVelY = -currentScrollSpeed;
-      target.y = target.y + silk.dynamicVelY * dt;
+      tether.dynamicVelX = 0;
+      tether.dynamicVelY = -currentScrollSpeed;
+      target.y = target.y + tether.dynamicVelY * dt;
 
-      if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
-        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + tuning.TENSION_CHARGE_RATE * dt);
+      if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+        tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
       } else {
-        const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
-        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
+        const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+        tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
       }
 
-      const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-      silk.maxLength = this.BASE_SILK_LENGTH + Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension) * maxStretch;
+      const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
+      tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
 
       if (input.jump) {
-        this.triggerFling(silk, target, trav);
+        this.triggerFling(tether, target, trav);
         input.jump = false;
       }
       return;
@@ -201,28 +201,28 @@ export class PlayerKinematicsSystem implements ISystem {
 
         target.x = wallDir * this.WALL_LIMIT_X;
         
-        silk.dynamicVelX = 0;
-        silk.dynamicVelY = -currentScrollSpeed;
-        target.y = target.y + silk.dynamicVelY * dt;
+        tether.dynamicVelX = 0;
+        tether.dynamicVelY = -currentScrollSpeed;
+        target.y = target.y + tether.dynamicVelY * dt;
 
-        if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
-          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + tuning.TENSION_CHARGE_RATE * dt);
+        if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
         } else {
-          const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
-          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
+          const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
         }
 
-        const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-        silk.maxLength = this.BASE_SILK_LENGTH + Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension) * maxStretch;
+        const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
+        tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
-        if (Math.sign(silk.dynamicVelX) === wallDir) {
-          silk.dynamicVelX *= -0.2;
+        if (Math.sign(tether.dynamicVelX) === wallDir) {
+          tether.dynamicVelX *= -0.2;
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
-        silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+        tether.tension = Math.max(0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
       }
       return;
     }
@@ -231,18 +231,18 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.state = "AIRBORNE";
     }
     trav.wallDir = 0;
-    silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+    tether.tension = Math.max(0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
     target.x = nextX;
     target.y = nextY;
   }
 
   private triggerFling(
-    silk: SilkComponent,
+    tether: TetherComponent,
     target: KinematicTargetComponent,
     trav: TraversalStateComponent
   ): void {
-    const storedTension = silk.tension;
-    silk.tension = 0.0;
+    const storedTension = tether.tension;
+    tether.tension = 0.0;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
@@ -252,14 +252,14 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    const dx = silk.anchorX - target.x;
-    const dy = silk.anchorY - target.y;
+    const dx = tether.anchorX - target.x;
+    const dy = tether.anchorY - target.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
     const powerScale = Math.min(1.0, storedTension);
     const power = powerScale * tuning.FLING_IMPULSE;
-    silk.dynamicVelX = (dx / dist) * power;
-    silk.dynamicVelY = (dy / dist) * power;
+    tether.dynamicVelX = (dx / dist) * power;
+    tether.dynamicVelY = (dy / dist) * power;
 
     trav.state = "LAUNCHING";
     trav.launchTimer = tuning.LAUNCH_DURATION;
@@ -272,28 +272,28 @@ export class PlayerKinematicsSystem implements ISystem {
     });
   }
 
-  private enforcePendulumConstraint(target: KinematicTargetComponent, silk: SilkComponent): void {
-    const dx = target.x - silk.anchorX;
-    const dy = target.y - silk.anchorY;
+  private enforcePendulumConstraint(target: KinematicTargetComponent, tether: TetherComponent): void {
+    const dx = target.x - tether.anchorX;
+    const dy = target.y - tether.anchorY;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-    const activeMaxLength = Math.min(this.MAX_SILK_LENGTH, silk.maxLength);
+    const activeMaxLength = Math.min(this.MAX_TETHER_LENGTH, tether.maxLength);
 
     if (dist < activeMaxLength) {
-      silk.maxLength = Math.max(this.BASE_SILK_LENGTH, dist);
+      tether.maxLength = Math.max(this.BASE_TETHER_LENGTH, dist);
     }
 
     if (dist > activeMaxLength) {
       const nx = dx / dist;
       const ny = dy / dist;
 
-      target.x = silk.anchorX + nx * activeMaxLength;
-      target.y = silk.anchorY + ny * activeMaxLength;
+      target.x = tether.anchorX + nx * activeMaxLength;
+      target.y = tether.anchorY + ny * activeMaxLength;
 
-      const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
+      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
       if (dot > 0) {
-        silk.dynamicVelX -= dot * nx;
-        silk.dynamicVelY -= dot * ny;
+        tether.dynamicVelX -= dot * nx;
+        tether.dynamicVelY -= dot * ny;
       }
     }
   }

@@ -6,7 +6,7 @@ import {
   TransformComponent,
   HealthComponent,
   WeaverAIComponent,
-  SilkComponent,
+  TetherComponent,
   InvulnerabilityComponent,
   TraversalStateComponent,
   KinematicTargetComponent
@@ -30,7 +30,7 @@ export class CombatSystem implements ISystem {
     private transforms: ComponentStore<TransformComponent>,
     private healths: ComponentStore<HealthComponent>,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private iframes: ComponentStore<InvulnerabilityComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private broker: EventBroker,
@@ -43,10 +43,10 @@ export class CombatSystem implements ISystem {
     const wHealth = this.healths.get(this.refs.weaver);
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const pIframe = this.iframes.get(this.refs.player);
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const pTrav = this.traversal.get(this.refs.player);
 
-    if (!pHealth || !wHealth || !wAI || !pIframe || !silk || !pTrav) return;
+    if (!pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
 
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
@@ -73,7 +73,7 @@ export class CombatSystem implements ISystem {
     const tuning = GAMEPLAY_TUNING.COMBAT;
 
     if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD) {
-      this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);
+      this.resolvePlayerFlingHit(wHealth, tether, pTrav, dx, dy, distSq);
       return;
     }
 
@@ -103,17 +103,17 @@ export class CombatSystem implements ISystem {
         pTarget.y += shiftY;
       }
 
-      const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
+      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
       if (dot < 0) {
-        silk.dynamicVelX -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
-        silk.dynamicVelY -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
+        tether.dynamicVelX -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
+        tether.dynamicVelY -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
       }
     }
   }
 
   private resolvePlayerFlingHit(
     wHealth: HealthComponent,
-    silk: SilkComponent,
+    tether: TetherComponent,
     pTrav: TraversalStateComponent,
     dx: number,
     dy: number,
@@ -135,8 +135,8 @@ export class CombatSystem implements ISystem {
     this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
     const dist = Math.sqrt(distSq) || 1;
-    silk.dynamicVelX = (dx / dist) * tuning.REBOUND_FORCE;
-    silk.dynamicVelY = (dy / dist) * tuning.REBOUND_FORCE;
+    tether.dynamicVelX = (dx / dist) * tuning.REBOUND_FORCE;
+    tether.dynamicVelY = (dy / dist) * tuning.REBOUND_FORCE;
     pTrav.state = "AIRBORNE";
     pTrav.launchPower = 0;
     pTrav.launchTimer = 0;

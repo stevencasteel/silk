@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 12:55:19 PM
+ [SYSTEM] Generated: 5/24/2026, 12:59:03 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -87,7 +87,7 @@
 │   │       ├── PlayerAnimationSystem.ts
 │   │       ├── PlayerInputSystem.ts
 │   │       ├── ProjectileSystem.ts
-│   │       ├── SilkVisualizerSystem.ts
+│   │       ├── TetherVisualizerSystem.ts
 │   │       ├── WeaverBrainSystem.ts
 │   │       └── WeaverTraversalSystem.ts
 │   ├── physics/
@@ -837,7 +837,7 @@ import {
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
-  SilkComponent,
+  TetherComponent,
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
@@ -857,7 +857,7 @@ import { EntitySpawnerSystem } from "../gameplay/systems/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/systems/WeaverBrainSystem";
 import { WeaverTraversalSystem } from "../gameplay/systems/WeaverTraversalSystem";
-import { SilkVisualizerSystem } from "../gameplay/systems/SilkVisualizerSystem";
+import { TetherVisualizerSystem } from "../gameplay/systems/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
 import { PlayerAnimationSystem } from "../gameplay/systems/PlayerAnimationSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
@@ -874,22 +874,16 @@ import { RafScheduler } from "../core/loop/RafScheduler";
 
 export class CompositionRoot {
   public buildEngine(canvas: HTMLCanvasElement): Engine {
-    // ------------------------------------------------------------------------
-    // STAGE 1: CORE INFRASTRUCTURE
-    // ------------------------------------------------------------------------
     const broker = new EventBroker();
     const commands = new CommandBus();
     const profiler = new Profiler();
     const systemManager = new SystemManager(profiler);
 
-    // ------------------------------------------------------------------------
-    // STAGE 2: CUSTOM ECS COMPONENT STORES
-    // ------------------------------------------------------------------------
     const world = new EcsWorld();
     const transforms = new ComponentStore<TransformComponent>();
     const velocities = new ComponentStore<KinematicVelocityComponent>();
     const targets = new ComponentStore<KinematicTargetComponent>();
-    const silks = new ComponentStore<SilkComponent>();
+    const tethers = new ComponentStore<TetherComponent>();
     const healths = new ComponentStore<HealthComponent>();
     const inputs = new ComponentStore<InputIntentComponent>();
     const weaverAIs = new ComponentStore<WeaverAIComponent>();
@@ -901,11 +895,10 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
-    // Register all component stores to the world for automated lifecycle cleanup
     world.registerStore(transforms);
     world.registerStore(velocities);
     world.registerStore(targets);
-    world.registerStore(silks);
+    world.registerStore(tethers);
     world.registerStore(healths);
     world.registerStore(inputs);
     world.registerStore(weaverAIs);
@@ -915,20 +908,14 @@ export class CompositionRoot {
     world.registerStore(playerTags);
     world.registerStore(weaverTags);
 
-    // ------------------------------------------------------------------------
-    // STAGE 3: GRAPHICS, AUDIO, & VISUAL PRESENTATION ENGINE
-    // ------------------------------------------------------------------------
     const visualRegistry = new VisualRegistry();
     const renderSystem = new RenderSystem(canvas, visualRegistry);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
     const lightingSystem = new LightingSystem(broker, visualRegistry);
-    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, visualRegistry);
+    const tetherVisualizer = new TetherVisualizerSystem(refs, transforms, tethers, visualRegistry);
     const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
     const audioSystem = new AudioDirectorSystem(broker);
 
-    // ------------------------------------------------------------------------
-    // STAGE 4: KINEMATICS, PHYSICS & COLLISION SIMULATION
-    // ------------------------------------------------------------------------
     const physicsSystem = new HavokPhysicsSystem(
       commands,
       refs,
@@ -940,7 +927,7 @@ export class CompositionRoot {
     
     const playerKinematics = new PlayerKinematicsSystem(
       refs,
-      silks,
+      tethers,
       targets,
       traversal,
       transforms,
@@ -953,14 +940,14 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(
       refs,
       transforms,
-      silks,
+      tethers,
       traversal,
       targets
     );
 
     const environmentCollision = new EnvironmentCollisionSystem(
       refs,
-      silks,
+      tethers,
       targets,
       healths,
       traversal,
@@ -971,7 +958,7 @@ export class CompositionRoot {
     const syncSystem = new TransformSyncSystem(
       refs,
       transforms,
-      silks,
+      tethers,
       traversal,
       visualRegistry,
       weaverAIs,
@@ -980,9 +967,6 @@ export class CompositionRoot {
       broker
     );
 
-    // ------------------------------------------------------------------------
-    // STAGE 5: GAMEPLAY, AI, COMBAT, & INTERFACE
-    // ------------------------------------------------------------------------
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
     
     const spawner = new EntitySpawnerSystem(
@@ -991,7 +975,7 @@ export class CompositionRoot {
       transforms,
       velocities,
       targets,
-      silks,
+      tethers,
       healths,
       inputs,
       weaverAIs,
@@ -1028,7 +1012,7 @@ export class CompositionRoot {
       transforms,
       healths,
       weaverAIs,
-      silks,
+      tethers,
       iframes,
       traversal,
       broker,
@@ -1040,7 +1024,7 @@ export class CompositionRoot {
       broker,
       refs,
       healths,
-      silks,
+      tethers,
       spawner
     );
 
@@ -1061,13 +1045,10 @@ export class CompositionRoot {
       world,
       refs,
       transforms,
-      silks,
+      tethers,
       velocities
     );
 
-    // ------------------------------------------------------------------------
-    // STAGE 6: SYSTEM REGISTRY & SCHEDULING
-    // ------------------------------------------------------------------------
     systemManager.register(spawner);
     systemManager.register(renderSystem);
     systemManager.register(physicsSystem);
@@ -1078,7 +1059,7 @@ export class CompositionRoot {
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
     systemManager.register(syncSystem);
-    systemManager.register(silkVisualizer);
+    systemManager.register(tetherVisualizer);
     systemManager.register(cameraSystem);
     systemManager.register(combatSystem);
     systemManager.register(projectileSystem);
@@ -1132,7 +1113,7 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("mousedown", this.gestureTriggerRef);
 
     this.subscriptions.push(
-      this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, (payload) => {
+      this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.updateDronePitch(payload.tension);
         }
@@ -2505,7 +2486,7 @@ import { EventBroker } from "../events/EventBroker";
 import { EcsWorld } from "../ecs/EcsWorld";
 import { EntityRefs } from "../ecs/EntityRefs";
 import { ComponentStore } from "../ecs/ComponentStore";
-import { TransformComponent, SilkComponent, KinematicVelocityComponent } from "../ecs/Components";
+import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
 
 export class DebugTelemetryOverlay implements ISystem {
@@ -2522,7 +2503,7 @@ export class DebugTelemetryOverlay implements ISystem {
     private _entities: EcsWorld,
     private _refs: EntityRefs,
     private _transforms: ComponentStore<TransformComponent>,
-    private _silks: ComponentStore<SilkComponent>,
+    private _tethers: ComponentStore<TetherComponent>,
     private _velocities: ComponentStore<KinematicVelocityComponent>
   ) {}
 
@@ -2573,7 +2554,7 @@ export class DebugTelemetryOverlay implements ISystem {
     const frameTime = this._profiler.getFrameTime().toFixed(1);
 
     const playerTrans = this._transforms.get(this._refs.player);
-    const playerSilk = this._silks.get(this._refs.player);
+    const playerTether = this._tethers.get(this._refs.player);
     const weaverTrans = this._transforms.get(this._refs.weaver);
     const weaverVel = this._velocities.get(this._refs.weaver);
 
@@ -2581,19 +2562,19 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
     info += `Entities   : ${this._entities.count()}\n\n`;
 
-    if (playerTrans && playerSilk) {
+    if (playerTrans && playerTether) {
       const spd = Math.sqrt(
-        playerSilk.dynamicVelX * playerSilk.dynamicVelX +
-          playerSilk.dynamicVelY * playerSilk.dynamicVelY
+        playerTether.dynamicVelX * playerTether.dynamicVelX +
+          playerTether.dynamicVelY * playerTether.dynamicVelY
       );
       info += `=== PLAYER STATE ===\n`;
       info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
-      info += `Vel X/Y    : ${playerSilk.dynamicVelX.toFixed(2)}, ${playerSilk.dynamicVelY.toFixed(2)}\n`;
+      info += `Vel X/Y    : ${playerTether.dynamicVelX.toFixed(2)}, ${playerTether.dynamicVelY.toFixed(2)}\n`;
       info += `Speed      : ${spd.toFixed(2)} units/s\n\n`;
 
-      info += `=== SILK / TETHER ===\n`;
-      info += `Length     : ${playerSilk.currentLength.toFixed(2)} / ${playerSilk.maxLength.toFixed(1)}\n`;
-      info += `Load/Tens  : ${(playerSilk.tension * 100).toFixed(1)}%\n`;
+      info += `=== TETHER ===\n`;
+      info += `Length     : ${playerTether.currentLength.toFixed(2)} / ${playerTether.maxLength.toFixed(1)}\n`;
+      info += `Load/Tens  : ${(playerTether.tension * 100).toFixed(1)}%\n`;
     }
 
     if (weaverTrans && weaverVel) {
@@ -2759,8 +2740,6 @@ export interface TetherComponent {
   dynamicVelX: number;
   dynamicVelY: number;
 }
-
-export type SilkComponent = TetherComponent;
 
 export interface HealthComponent {
   current: number;
@@ -2962,11 +2941,6 @@ export const CANONICAL_UNITS = {
     SNAP_LIMIT: 1.3,
     SNAP_DELAY_SECONDS: 2.6,
   },
-  SILK_STRAIN: {
-    OVERLOAD_LIMIT: 1.0,
-    SNAP_LIMIT: 1.3,
-    SNAP_DELAY_SECONDS: 2.6,
-  },
   SCROLL_MAPPING: {
     TOTAL_RANGE: 140.0,
     BOTTOM_BOUNDARY: -56.0,
@@ -3006,11 +2980,6 @@ export const ARENA_CONFIG = {
     OFFSCREEN_MAX_Y: 42.0,
   },
   TETHER: {
-    BASE_LENGTH: 10.0,
-    MAX_LENGTH: 24.0,
-    INITIAL_LENGTH: 12.0,
-  },
-  SILK: {
     BASE_LENGTH: 10.0,
     MAX_LENGTH: 24.0,
     INITIAL_LENGTH: 12.0,
@@ -3155,19 +3124,6 @@ export const VISUAL_JUICE_CONFIG = {
     }
   },
   TETHER_ROPE: {
-    SEGMENTS: 24,
-    MAX_SAG: 3.8,
-    BASE_RADIUS: 0.07,
-    MAX_RADIUS: 0.13,
-    TENSION_VIB_FREQ: 0.025,
-    TENSION_VIB_THRESHOLD: 0.7,
-    TENSION_VIB_AMP: 0.35,
-    WAVINESS_FREQ: 0.005,
-    WAVINESS_AMP: 0.12,
-    WAVINESS_STRETCH: 2.5,
-    BEZIER_DEPTH: 0.35,
-  },
-  SILK_ROPE: {
     SEGMENTS: 24,
     MAX_SAG: 3.8,
     BASE_RADIUS: 0.07,
@@ -3492,8 +3448,6 @@ export enum GameEvent {
   PLAYER_STATE_CHANGE = "PLAYER_STATE_CHANGE",
   TETHER_TENSION_CHANGE = "TETHER_TENSION_CHANGE",
   TETHER_LENGTH_CHANGE = "TETHER_LENGTH_CHANGE",
-  SILK_TENSION_CHANGE = "SILK_TENSION_CHANGE",
-  SILK_LENGTH_CHANGE = "SILK_LENGTH_CHANGE",
   WEAVER_STATE_CHANGE = "WEAVER_STATE_CHANGE",
   WEAVER_DAMAGED = "WEAVER_DAMAGED",
   WEAVER_HEALTH_CHANGED = "WEAVER_HEALTH_CHANGED",
@@ -3518,8 +3472,6 @@ export interface GameEventMap {
   [GameEvent.PLAYER_STATE_CHANGE]: { state: string };
   [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
   [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
-  [GameEvent.SILK_TENSION_CHANGE]: { tension: number };
-  [GameEvent.SILK_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string };
   [GameEvent.WEAVER_DAMAGED]: { amount: number; source: string };
   [GameEvent.WEAVER_HEALTH_CHANGED]: { hp: number; maxHp: number };
@@ -4042,7 +3994,7 @@ import {
   TransformComponent,
   HealthComponent,
   WeaverAIComponent,
-  SilkComponent,
+  TetherComponent,
   InvulnerabilityComponent,
   TraversalStateComponent,
   KinematicTargetComponent
@@ -4066,7 +4018,7 @@ export class CombatSystem implements ISystem {
     private transforms: ComponentStore<TransformComponent>,
     private healths: ComponentStore<HealthComponent>,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private iframes: ComponentStore<InvulnerabilityComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private broker: EventBroker,
@@ -4079,10 +4031,10 @@ export class CombatSystem implements ISystem {
     const wHealth = this.healths.get(this.refs.weaver);
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const pIframe = this.iframes.get(this.refs.player);
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const pTrav = this.traversal.get(this.refs.player);
 
-    if (!pHealth || !wHealth || !wAI || !pIframe || !silk || !pTrav) return;
+    if (!pHealth || !wHealth || !wAI || !pIframe || !tether || !pTrav) return;
 
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
@@ -4109,7 +4061,7 @@ export class CombatSystem implements ISystem {
     const tuning = GAMEPLAY_TUNING.COMBAT;
 
     if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD) {
-      this.resolvePlayerFlingHit(wHealth, silk, pTrav, dx, dy, distSq);
+      this.resolvePlayerFlingHit(wHealth, tether, pTrav, dx, dy, distSq);
       return;
     }
 
@@ -4139,17 +4091,17 @@ export class CombatSystem implements ISystem {
         pTarget.y += shiftY;
       }
 
-      const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
+      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
       if (dot < 0) {
-        silk.dynamicVelX -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
-        silk.dynamicVelY -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
+        tether.dynamicVelX -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
+        tether.dynamicVelY -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
       }
     }
   }
 
   private resolvePlayerFlingHit(
     wHealth: HealthComponent,
-    silk: SilkComponent,
+    tether: TetherComponent,
     pTrav: TraversalStateComponent,
     dx: number,
     dy: number,
@@ -4171,8 +4123,8 @@ export class CombatSystem implements ISystem {
     this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
     const dist = Math.sqrt(distSq) || 1;
-    silk.dynamicVelX = (dx / dist) * tuning.REBOUND_FORCE;
-    silk.dynamicVelY = (dy / dist) * tuning.REBOUND_FORCE;
+    tether.dynamicVelX = (dx / dist) * tuning.REBOUND_FORCE;
+    tether.dynamicVelY = (dy / dist) * tuning.REBOUND_FORCE;
     pTrav.state = "AIRBORNE";
     pTrav.launchPower = 0;
     pTrav.launchTimer = 0;
@@ -4228,7 +4180,7 @@ import {
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
-  SilkComponent,
+  TetherComponent,
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
@@ -4253,7 +4205,7 @@ export class EntitySpawnerSystem implements ISystem {
     private transforms: ComponentStore<TransformComponent>,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private healths: ComponentStore<HealthComponent>,
     private inputs: ComponentStore<InputIntentComponent>,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
@@ -4359,12 +4311,12 @@ export class EntitySpawnerSystem implements ISystem {
     });
     this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
     this.targets.add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
-    this.silks.add(playerId, {
+    this.tethers.add(playerId, {
       anchorX: 0,
       anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       anchorZ: 0,
-      maxLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
-      currentLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
+      maxLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
+      currentLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
       isAttached: true,
       tension: 0.0,
       dynamicVelX: 0.0,
@@ -4415,7 +4367,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   HealthComponent,
-  SilkComponent
+  TetherComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntitySpawnerSystem } from "./EntitySpawnerSystem";
@@ -4438,7 +4390,7 @@ export class GameDirectorSystem implements ISystem {
     private broker: EventBroker,
     private refs: EntityRefs,
     private healths: ComponentStore<HealthComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private spawner: EntitySpawnerSystem
   ) {}
 
@@ -4451,10 +4403,10 @@ export class GameDirectorSystem implements ISystem {
           this.maxCinematicSimTime = 0.60;
           GameDirectorSystem.timeScale = 0.20;
 
-          const pSilk = this.silks.get(this.refs.player);
-          if (pSilk) {
-            pSilk.isAttached = false;
-            pSilk.tension = 0.0;
+          const pTether = this.tethers.get(this.refs.player);
+          if (pTether) {
+            pTether.isAttached = false;
+            pTether.tension = 0.0;
           }
 
           this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.2 });
@@ -4530,7 +4482,6 @@ export class GameDirectorSystem implements ISystem {
     this.cinematicTimer = 0.0;
     GameDirectorSystem.timeScale = 1.0;
 
-    // Delegate creation & initialization details entirely to the Entity Spawner
     this.spawner.spawnWeaver(this.refs.weaver);
     this.spawner.spawnPlayer(this.refs.player);
 
@@ -4569,7 +4520,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
-  SilkComponent,
+  TetherComponent,
   TraversalStateComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
@@ -4583,18 +4534,18 @@ export class PlayerAnimationSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private targets: ComponentStore<KinematicTargetComponent>
   ) {}
 
   public update(dt: number): void {
     const pTrans = this.transforms.get(this.refs.player);
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
 
-    if (!pTrans || !silk || !trav || !target) return;
+    if (!pTrans || !tether || !trav || !target) return;
 
     if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
       pTrans.scaleX = 1.0;
@@ -4624,7 +4575,7 @@ export class PlayerAnimationSystem implements ISystem {
       targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
       targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
     } else {
-      const speed = Math.sqrt(silk.dynamicVelX * silk.dynamicVelX + silk.dynamicVelY * silk.dynamicVelY);
+      const speed = Math.sqrt(tether.dynamicVelX * tether.dynamicVelX + tether.dynamicVelY * tether.dynamicVelY);
       const stretchFactor = Math.min(
         tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
         (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
@@ -4646,15 +4597,15 @@ export class PlayerAnimationSystem implements ISystem {
     let rotDy = 1;
 
     if (trav.state === "LAUNCHING") {
-      const vx = silk.dynamicVelX;
-      const vy = silk.dynamicVelY;
+      const vx = tether.dynamicVelX;
+      const vy = tether.dynamicVelY;
       if (vx * vx + vy * vy > 1.0) {
         rotDx = vx;
         rotDy = vy;
       }
     } else if (trav.state === "AIRBORNE") {
-      rotDx = target.x - silk.anchorX;
-      rotDy = target.y - silk.anchorY;
+      rotDx = target.x - tether.anchorX;
+      rotDy = target.y - tether.anchorY;
     }
 
     const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
@@ -5031,29 +4982,29 @@ export class ProjectileSystem implements ISystem {
 
 
 
-● ./src/gameplay/systems/SilkVisualizerSystem.ts
+● ./src/gameplay/systems/TetherVisualizerSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, SilkComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
-export class SilkVisualizerSystem implements ISystem {
+export class TetherVisualizerSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
-  private readonly SEGMENTS = VISUAL_JUICE_CONFIG.SILK_ROPE.SEGMENTS;
-  private readonly MAX_SAG = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_SAG;
-  private readonly BASE_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.BASE_RADIUS;
-  private readonly MAX_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_RADIUS;
+  private readonly SEGMENTS = VISUAL_JUICE_CONFIG.TETHER_ROPE.SEGMENTS;
+  private readonly MAX_SAG = VISUAL_JUICE_CONFIG.TETHER_ROPE.MAX_SAG;
+  private readonly BASE_RADIUS = VISUAL_JUICE_CONFIG.TETHER_ROPE.BASE_RADIUS;
+  private readonly MAX_RADIUS = VISUAL_JUICE_CONFIG.TETHER_ROPE.MAX_RADIUS;
 
-  private silkMesh: BABYLON.Mesh | null = null;
-  private silkMeshAnchor: BABYLON.Mesh | null = null;
-  private silkMeshPlayer: BABYLON.Mesh | null = null;
-  private silkMat: BABYLON.PBRMaterial | null = null;
+  private tetherMesh: BABYLON.Mesh | null = null;
+  private tetherMeshAnchor: BABYLON.Mesh | null = null;
+  private tetherMeshPlayer: BABYLON.Mesh | null = null;
+  private tetherMat: BABYLON.PBRMaterial | null = null;
   
   private points: BABYLON.Vector3[] = [];
   private pointsAnchor: BABYLON.Vector3[] = [];
@@ -5071,7 +5022,7 @@ export class SilkVisualizerSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private visualRegistry: IVisualRegistry
   ) {
     for (let i = 0; i <= this.SEGMENTS; i++) {
@@ -5087,18 +5038,18 @@ export class SilkVisualizerSystem implements ISystem {
     const scene = this.visualRegistry.getScene();
     if (!scene) return;
 
-    this.silkMat = new BABYLON.PBRMaterial("silkMat", scene);
-    this.silkMat.metallic = 0.0;
-    this.silkMat.roughness = 0.6;
-    this.silkMat.sheen.isEnabled = true;
-    this.silkMat.sheen.intensity = 0.8;
-    this.silkMat.sheen.roughness = 0.3;
-    this.silkMat.emissiveIntensity = 2.5;
-    this.silkMat.albedoColor = new BABYLON.Color3(0.6, 0.85, 1.0);
-    this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-    this.silkMat.disableLighting = false;
+    this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
+    this.tetherMat.metallic = 0.0;
+    this.tetherMat.roughness = 0.6;
+    this.tetherMat.sheen.isEnabled = true;
+    this.tetherMat.sheen.intensity = 0.8;
+    this.tetherMat.sheen.roughness = 0.3;
+    this.tetherMat.emissiveIntensity = 2.5;
+    this.tetherMat.albedoColor = new BABYLON.Color3(0.6, 0.85, 1.0);
+    this.tetherMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+    this.tetherMat.disableLighting = false;
 
-    this.silkMesh = BABYLON.MeshBuilder.CreateTube(
+    this.tetherMesh = BABYLON.MeshBuilder.CreateTube(
       "tetherTube",
       {
         path: this.points,
@@ -5109,9 +5060,9 @@ export class SilkVisualizerSystem implements ISystem {
       },
       scene
     );
-    this.silkMesh.material = this.silkMat;
+    this.tetherMesh.material = this.tetherMat;
 
-    this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube(
+    this.tetherMeshAnchor = BABYLON.MeshBuilder.CreateTube(
       "tetherTubeAnchor",
       {
         path: this.pointsAnchor,
@@ -5122,10 +5073,10 @@ export class SilkVisualizerSystem implements ISystem {
       },
       scene
     );
-    this.silkMeshAnchor.material = this.silkMat;
-    this.silkMeshAnchor.setEnabled(false);
+    this.tetherMeshAnchor.material = this.tetherMat;
+    this.tetherMeshAnchor.setEnabled(false);
 
-    this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube(
+    this.tetherMeshPlayer = BABYLON.MeshBuilder.CreateTube(
       "tetherTubePlayer",
       {
         path: this.pointsPlayer,
@@ -5136,42 +5087,42 @@ export class SilkVisualizerSystem implements ISystem {
       },
       scene
     );
-    this.silkMeshPlayer.material = this.silkMat;
-    this.silkMeshPlayer.setEnabled(false);
+    this.tetherMeshPlayer.material = this.tetherMat;
+    this.tetherMeshPlayer.setEnabled(false);
   }
 
   public render(alpha: number): void {
-    if (!this.silkMesh || !this.silkMat || !this.silkMeshAnchor || !this.silkMeshPlayer) return;
+    if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer) return;
 
     const pTrans = this.transforms.get(this.refs.player);
-    const silk = this.silks.get(this.refs.player);
-    if (!pTrans || !silk) return;
+    const tether = this.tethers.get(this.refs.player);
+    if (!pTrans || !tether) return;
 
-    if (silk.isAttached) {
+    if (tether.isAttached) {
       this.isSnapped = false;
       this.snapTimer = 0.0;
-      this.silkMesh.setEnabled(true);
-      this.silkMeshAnchor.setEnabled(false);
-      this.silkMeshPlayer.setEnabled(false);
+      this.tetherMesh.setEnabled(true);
+      this.tetherMeshAnchor.setEnabled(false);
+      this.tetherMeshPlayer.setEnabled(false);
 
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
 
-      const tension = Math.max(0, Math.min(1, silk.tension));
+      const tension = Math.max(0, Math.min(1, tether.tension));
 
       const timeMs = performance.now();
-      const frequency = VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_FREQ;
+      const frequency = VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_AMP;
+      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       const vibOffset = Math.sin(vibPhase) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
       const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
-      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       for (let i = 0; i <= this.SEGMENTS; i++) {
         const t = i / this.SEGMENTS;
@@ -5190,36 +5141,36 @@ export class SilkVisualizerSystem implements ISystem {
           2 * t1 * t * this.scratchCtrl.z +
           t * t * this.scratchPlayer.z;
 
-        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_AMP;
+        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
       }
 
       const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
-      this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+      this.tetherMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
         path: this.points,
         radius: radius,
         tessellation: 8,
         cap: BABYLON.Mesh.NO_CAP,
-        instance: this.silkMesh
+        instance: this.tetherMesh
       });
 
       const r = tension < 0.5 ? 0.55 + tension * 0.9 : 1.0;
       const g = tension < 0.5 ? 0.78 + tension * 0.44 : 1.0 - (tension - 0.5) * 1.1;
       const b = tension < 0.5 ? 1.0 - tension * 0.2 : 0.9 - (tension - 0.5) * 1.7;
 
-      this.silkMat.albedoColor.set(
+      this.tetherMat.albedoColor.set(
         Math.max(0, Math.min(1, r)),
         Math.max(0, Math.min(1, g)),
         Math.max(0, Math.min(1, b))
       );
 
       const eBrightness = 0.1 + tension * 0.5;
-      this.silkMat.emissiveColor.set(
+      this.tetherMat.emissiveColor.set(
         eBrightness * (0.3 + tension * 0.7),
         eBrightness * (0.6 - tension * 0.4),
         eBrightness * (1.0 - tension * 0.9)
       );
     } else {
-      this.silkMesh.setEnabled(false);
+      this.tetherMesh.setEnabled(false);
 
       if (!this.isSnapped) {
         this.isSnapped = true;
@@ -5228,25 +5179,25 @@ export class SilkVisualizerSystem implements ISystem {
 
       this.snapTimer += 0.016;
       if (this.snapTimer >= this.maxSnapDuration) {
-        this.silkMeshAnchor.setEnabled(false);
-        this.silkMeshPlayer.setEnabled(false);
+        this.tetherMeshAnchor.setEnabled(false);
+        this.tetherMeshPlayer.setEnabled(false);
         return;
       }
 
-      this.silkMeshAnchor.setEnabled(true);
-      this.silkMeshPlayer.setEnabled(true);
+      this.tetherMeshAnchor.setEnabled(true);
+      this.tetherMeshPlayer.setEnabled(true);
 
       const T = this.snapTimer / this.maxSnapDuration;
 
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-      const sag = this.MAX_SAG * (1.0 - silk.tension);
-      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
+      const sag = this.MAX_SAG * (1.0 - tether.tension);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       const maxAnchorT = (1 - T) * 0.5;
       const whipOffset = Math.sin(T * Math.PI * 5) * (1 - T) * 1.8;
@@ -5283,23 +5234,23 @@ export class SilkVisualizerSystem implements ISystem {
 
       const radius = this.BASE_RADIUS * (1 - T);
       if (radius > 0.01) {
-        this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube("tetherTubeAnchor", {
+        this.tetherMeshAnchor = BABYLON.MeshBuilder.CreateTube("tetherTubeAnchor", {
           path: this.pointsAnchor,
           radius: radius,
           tessellation: 8,
           cap: BABYLON.Mesh.NO_CAP,
-          instance: this.silkMeshAnchor
+          instance: this.tetherMeshAnchor
         });
-        this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube("tetherTubePlayer", {
+        this.tetherMeshPlayer = BABYLON.MeshBuilder.CreateTube("tetherTubePlayer", {
           path: this.pointsPlayer,
           radius: radius,
           tessellation: 8,
           cap: BABYLON.Mesh.NO_CAP,
-          instance: this.silkMeshPlayer
+          instance: this.tetherMeshPlayer
         });
       } else {
-        this.silkMeshAnchor.setEnabled(false);
-        this.silkMeshPlayer.setEnabled(false);
+        this.tetherMeshAnchor.setEnabled(false);
+        this.tetherMeshPlayer.setEnabled(false);
       }
     }
 
@@ -5307,10 +5258,10 @@ export class SilkVisualizerSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.silkMesh) this.silkMesh.dispose();
-    if (this.silkMeshAnchor) this.silkMeshAnchor.dispose();
-    if (this.silkMeshPlayer) this.silkMeshPlayer.dispose();
-    if (this.silkMat) this.silkMat.dispose();
+    if (this.tetherMesh) this.tetherMesh.dispose();
+    if (this.tetherMeshAnchor) this.tetherMeshAnchor.dispose();
+    if (this.tetherMeshPlayer) this.tetherMeshPlayer.dispose();
+    if (this.tetherMat) this.tetherMat.dispose();
   }
 }
 
@@ -5927,7 +5878,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-  SilkComponent,
+  TetherComponent,
   KinematicTargetComponent,
   HealthComponent,
   TraversalStateComponent,
@@ -5944,12 +5895,12 @@ export class EnvironmentCollisionSystem implements ISystem {
   private readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
   private readonly PLAYER_HALF_HEIGHT = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
   
-  private readonly OVERLOAD_THRESHOLD = CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT;
-  private readonly SNAP_LIMIT = CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT;
+  private readonly OVERLOAD_THRESHOLD = CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT;
+  private readonly SNAP_LIMIT = CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT;
 
   constructor(
     private refs: EntityRefs,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
     private healths: ComponentStore<HealthComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
@@ -5958,22 +5909,22 @@ export class EnvironmentCollisionSystem implements ISystem {
   ) {}
 
   public update(): void {
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
     const health = this.healths.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
-    if (!silk || !target || !health || !trav) return;
-    this.clampToArenaBounds(target, silk);
-    this.updateStrainMeter(silk, health, trav);
+    if (!tether || !target || !health || !trav) return;
+    this.clampToArenaBounds(target, tether);
+    this.updateStrainMeter(tether, health, trav);
   }
 
-  private clampToArenaBounds(target: KinematicTargetComponent, silk: SilkComponent): void {
+  private clampToArenaBounds(target: KinematicTargetComponent, tether: TetherComponent): void {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (target.y < minY) {
-      if (silk.dynamicVelY < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
+      if (tether.dynamicVelY < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
         this.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
         const pTrans = this.transforms.get(this.refs.player);
         if (pTrans) {
@@ -5983,22 +5934,22 @@ export class EnvironmentCollisionSystem implements ISystem {
         }
       }
       target.y = minY;
-      silk.dynamicVelY = Math.max(0, silk.dynamicVelY);
+      tether.dynamicVelY = Math.max(0, tether.dynamicVelY);
     } else if (target.y > maxY) {
       target.y = maxY;
-      silk.dynamicVelY = Math.min(0, silk.dynamicVelY);
+      tether.dynamicVelY = Math.min(0, tether.dynamicVelY);
     }
   }
 
   private updateStrainMeter(
-    silk: SilkComponent,
+    tether: TetherComponent,
     health: HealthComponent,
     trav: TraversalStateComponent
   ): void {
-    const isOverloaded = trav.state === "WALL_SLIDING" && silk.tension >= this.OVERLOAD_THRESHOLD;
+    const isOverloaded = trav.state === "WALL_SLIDING" && tether.tension >= this.OVERLOAD_THRESHOLD;
 
     if (isOverloaded) {
-      const overloadDelta = silk.tension - this.OVERLOAD_THRESHOLD;
+      const overloadDelta = tether.tension - this.OVERLOAD_THRESHOLD;
       const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
 
       if (Math.random() < strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE) {
@@ -6008,17 +5959,17 @@ export class EnvironmentCollisionSystem implements ISystem {
         });
       }
 
-      if (silk.tension >= this.SNAP_LIMIT) {
-        this.snapSilk(silk, health);
+      if (tether.tension >= this.SNAP_LIMIT) {
+        this.snapTether(tether, health);
       }
     }
   }
 
-  private snapSilk(silk: SilkComponent, health: HealthComponent): void {
-    silk.isAttached = false;
-    silk.tension = 0.0;
+  private snapTether(tether: TetherComponent, health: HealthComponent): void {
+    tether.isAttached = false;
+    tether.tension = 0.0;
     health.current = 0;
-    this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "SILK_SNAP" });
+    this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
     this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
     this.broker.publish(GameEvent.PLAYER_DIED, undefined);
     this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
@@ -6055,7 +6006,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
-  SilkComponent,
+  TetherComponent,
   KinematicTargetComponent,
   TraversalStateComponent,
   TransformComponent,
@@ -6074,8 +6025,8 @@ export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
   private readonly GRAVITY = CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC;
-  private readonly BASE_SILK_LENGTH = ARENA_CONFIG.SILK.BASE_LENGTH;
-  private readonly MAX_SILK_LENGTH = ARENA_CONFIG.SILK.MAX_LENGTH;
+  private readonly BASE_TETHER_LENGTH = ARENA_CONFIG.TETHER.BASE_LENGTH;
+  private readonly MAX_TETHER_LENGTH = ARENA_CONFIG.TETHER.MAX_LENGTH;
   private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
   private lastTraversalState: string = "";
@@ -6084,7 +6035,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
   constructor(
     private refs: EntityRefs,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private transforms: ComponentStore<TransformComponent>,
@@ -6097,36 +6048,36 @@ export class PlayerKinematicsSystem implements ISystem {
   public init(): void {
     this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd) => {
       if (cmd.entityId === this.refs.player) {
-        const silk = this.silks.get(this.refs.player);
-        if (silk) {
-          silk.dynamicVelX += cmd.x;
-          silk.dynamicVelY += cmd.y;
+        const tether = this.tethers.get(this.refs.player);
+        if (tether) {
+          tether.dynamicVelX += cmd.x;
+          tether.dynamicVelY += cmd.y;
         }
       }
     });
   }
 
   public update(dt: number): void {
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const target = this.targets.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     const wTrans = this.transforms.get(this.refs.weaver);
     const input = this.inputs.get(this.refs.player);
 
-    if (!silk || !target || !trav || !wTrans || !input) return;
+    if (!tether || !target || !trav || !wTrans || !input) return;
 
     const pHealth = this.healths.get(this.refs.player);
     const wHealth = this.healths.get(this.refs.weaver);
 
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
-      silk.dynamicVelX = 0;
-      silk.dynamicVelY = 0;
+      tether.dynamicVelX = 0;
+      tether.dynamicVelY = 0;
       return;
     }
 
-    silk.anchorX = wTrans.x;
-    silk.anchorY = wTrans.y;
-    silk.anchorZ = wTrans.z;
+    tether.anchorX = wTrans.x;
+    tether.anchorY = wTrans.y;
+    tether.anchorZ = wTrans.z;
 
     let nextX = target.x;
     let nextY = target.y;
@@ -6135,51 +6086,51 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state === "LAUNCHING") {
       trav.launchTimer -= dt;
-      silk.dynamicVelX += input.x * tuning.LAUNCH_STEER_FORCE * dt;
-      silk.dynamicVelY += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
+      tether.dynamicVelX += input.x * tuning.LAUNCH_STEER_FORCE * dt;
+      tether.dynamicVelY += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      silk.dynamicVelX *= damp;
-      silk.dynamicVelY *= damp;
+      tether.dynamicVelX *= damp;
+      tether.dynamicVelY *= damp;
 
-      nextX += silk.dynamicVelX * dt;
-      nextY += silk.dynamicVelY * dt;
+      nextX += tether.dynamicVelX * dt;
+      nextY += tether.dynamicVelY * dt;
 
       if (trav.launchTimer <= 0) {
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
       }
     } else {
-      silk.dynamicVelY += this.GRAVITY * dt;
+      tether.dynamicVelY += this.GRAVITY * dt;
 
       if (trav.state === "AIRBORNE") {
-        silk.dynamicVelX += input.x * tuning.SWING_STEER_FORCE * dt;
+        tether.dynamicVelX += input.x * tuning.SWING_STEER_FORCE * dt;
       }
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      silk.dynamicVelX *= damp;
-      silk.dynamicVelY *= damp;
+      tether.dynamicVelX *= damp;
+      tether.dynamicVelY *= damp;
 
-      nextX += silk.dynamicVelX * dt;
-      nextY += silk.dynamicVelY * dt;
+      nextX += tether.dynamicVelX * dt;
+      nextY += tether.dynamicVelY * dt;
     }
 
-    this.resolveWallContact(nextX, nextY, dt, target, silk, trav, input);
+    this.resolveWallContact(nextX, nextY, dt, target, tether, trav, input);
 
     if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
-      this.enforcePendulumConstraint(target, silk);
+      this.enforcePendulumConstraint(target, tether);
     }
 
-    const dx = target.x - silk.anchorX;
-    const dy = target.y - silk.anchorY;
-    silk.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    const dx = target.x - tether.anchorX;
+    const dy = target.y - tether.anchorY;
+    tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-    this.tensionPayload.tension = silk.tension;
-    this.broker.publish(GameEvent.SILK_TENSION_CHANGE, this.tensionPayload);
+    this.tensionPayload.tension = tether.tension;
+    this.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
 
-    this.lengthPayload.length = silk.currentLength;
-    this.lengthPayload.maxLength = silk.maxLength;
-    this.broker.publish(GameEvent.SILK_LENGTH_CHANGE, this.lengthPayload);
+    this.lengthPayload.length = tether.currentLength;
+    this.lengthPayload.maxLength = tether.maxLength;
+    this.broker.publish(GameEvent.TETHER_LENGTH_CHANGE, this.lengthPayload);
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
@@ -6192,7 +6143,7 @@ export class PlayerKinematicsSystem implements ISystem {
     nextY: number,
     dt: number,
     target: KinematicTargetComponent,
-    silk: SilkComponent,
+    tether: TetherComponent,
     trav: TraversalStateComponent,
     input: InputIntentComponent
   ): void {
@@ -6206,28 +6157,28 @@ export class PlayerKinematicsSystem implements ISystem {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (!stillPressingIn) {
-        this.triggerFling(silk, target, trav);
+        this.triggerFling(tether, target, trav);
         return;
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
       
-      silk.dynamicVelX = 0;
-      silk.dynamicVelY = -currentScrollSpeed;
-      target.y = target.y + silk.dynamicVelY * dt;
+      tether.dynamicVelX = 0;
+      tether.dynamicVelY = -currentScrollSpeed;
+      target.y = target.y + tether.dynamicVelY * dt;
 
-      if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
-        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + tuning.TENSION_CHARGE_RATE * dt);
+      if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+        tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
       } else {
-        const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
-        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
+        const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+        tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
       }
 
-      const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-      silk.maxLength = this.BASE_SILK_LENGTH + Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension) * maxStretch;
+      const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
+      tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
 
       if (input.jump) {
-        this.triggerFling(silk, target, trav);
+        this.triggerFling(tether, target, trav);
         input.jump = false;
       }
       return;
@@ -6254,28 +6205,28 @@ export class PlayerKinematicsSystem implements ISystem {
 
         target.x = wallDir * this.WALL_LIMIT_X;
         
-        silk.dynamicVelX = 0;
-        silk.dynamicVelY = -currentScrollSpeed;
-        target.y = target.y + silk.dynamicVelY * dt;
+        tether.dynamicVelX = 0;
+        tether.dynamicVelY = -currentScrollSpeed;
+        target.y = target.y + tether.dynamicVelY * dt;
 
-        if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
-          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + tuning.TENSION_CHARGE_RATE * dt);
+        if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
         } else {
-          const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
-          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
+          const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
         }
 
-        const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-        silk.maxLength = this.BASE_SILK_LENGTH + Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension) * maxStretch;
+        const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
+        tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
-        if (Math.sign(silk.dynamicVelX) === wallDir) {
-          silk.dynamicVelX *= -0.2;
+        if (Math.sign(tether.dynamicVelX) === wallDir) {
+          tether.dynamicVelX *= -0.2;
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
-        silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+        tether.tension = Math.max(0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
       }
       return;
     }
@@ -6284,18 +6235,18 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.state = "AIRBORNE";
     }
     trav.wallDir = 0;
-    silk.tension = Math.max(0, silk.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+    tether.tension = Math.max(0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
     target.x = nextX;
     target.y = nextY;
   }
 
   private triggerFling(
-    silk: SilkComponent,
+    tether: TetherComponent,
     target: KinematicTargetComponent,
     trav: TraversalStateComponent
   ): void {
-    const storedTension = silk.tension;
-    silk.tension = 0.0;
+    const storedTension = tether.tension;
+    tether.tension = 0.0;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
@@ -6305,14 +6256,14 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    const dx = silk.anchorX - target.x;
-    const dy = silk.anchorY - target.y;
+    const dx = tether.anchorX - target.x;
+    const dy = tether.anchorY - target.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
     const powerScale = Math.min(1.0, storedTension);
     const power = powerScale * tuning.FLING_IMPULSE;
-    silk.dynamicVelX = (dx / dist) * power;
-    silk.dynamicVelY = (dy / dist) * power;
+    tether.dynamicVelX = (dx / dist) * power;
+    tether.dynamicVelY = (dy / dist) * power;
 
     trav.state = "LAUNCHING";
     trav.launchTimer = tuning.LAUNCH_DURATION;
@@ -6325,28 +6276,28 @@ export class PlayerKinematicsSystem implements ISystem {
     });
   }
 
-  private enforcePendulumConstraint(target: KinematicTargetComponent, silk: SilkComponent): void {
-    const dx = target.x - silk.anchorX;
-    const dy = target.y - silk.anchorY;
+  private enforcePendulumConstraint(target: KinematicTargetComponent, tether: TetherComponent): void {
+    const dx = target.x - tether.anchorX;
+    const dy = target.y - tether.anchorY;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-    const activeMaxLength = Math.min(this.MAX_SILK_LENGTH, silk.maxLength);
+    const activeMaxLength = Math.min(this.MAX_TETHER_LENGTH, tether.maxLength);
 
     if (dist < activeMaxLength) {
-      silk.maxLength = Math.max(this.BASE_SILK_LENGTH, dist);
+      tether.maxLength = Math.max(this.BASE_TETHER_LENGTH, dist);
     }
 
     if (dist > activeMaxLength) {
       const nx = dx / dist;
       const ny = dy / dist;
 
-      target.x = silk.anchorX + nx * activeMaxLength;
-      target.y = silk.anchorY + ny * activeMaxLength;
+      target.x = tether.anchorX + nx * activeMaxLength;
+      target.y = tether.anchorY + ny * activeMaxLength;
 
-      const dot = silk.dynamicVelX * nx + silk.dynamicVelY * ny;
+      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
       if (dot > 0) {
-        silk.dynamicVelX -= dot * nx;
-        silk.dynamicVelY -= dot * ny;
+        tether.dynamicVelX -= dot * nx;
+        tether.dynamicVelY -= dot * ny;
       }
     }
   }
@@ -6533,7 +6484,7 @@ import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
-  SilkComponent,
+  TetherComponent,
   TraversalStateComponent,
   WeaverAIComponent,
   HealthComponent,
@@ -6567,7 +6518,7 @@ export class TransformSyncSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private traversal: ComponentStore<TraversalStateComponent>,
     private visualRegistry: IVisualRegistry,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
@@ -6688,7 +6639,7 @@ export class TransformSyncSystem implements ISystem {
   }
 
   private syncTransforms(alpha: number): void {
-    const silk = this.silks.get(this.refs.player);
+    const tether = this.tethers.get(this.refs.player);
     const trav = this.traversal.get(this.refs.player);
     const wAI = this.weaverAIs.get(this.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
@@ -6722,8 +6673,8 @@ export class TransformSyncSystem implements ISystem {
       if (id === this.refs.player) {
         const mesh = node as BABYLON.AbstractMesh;
         const mat = mesh?.material as BABYLON.PBRMaterial | null;
-        if (mat && silk && trav) {
-          this.updatePlayerEmissive(mat, silk.tension, trav.state);
+        if (mat && tether && trav) {
+          this.updatePlayerEmissive(mat, tether.tension, trav.state);
         }
       } else if (id === this.refs.weaver && wAI) {
         const mesh = node as BABYLON.AbstractMesh;
@@ -6821,7 +6772,7 @@ export class DomHudSystem implements ISystem {
     const store = useHudStore.getState();
 
     this.subscriptions.push(
-      this.broker.subscribe(GameEvent.SILK_TENSION_CHANGE, ({ tension }) => {
+      this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         store.setTension(tension);
         this.updateHint(tension);
       })
@@ -6896,7 +6847,7 @@ export class DomHudSystem implements ISystem {
         store.setTraversalHint("", "rgb(161, 161, 170)", 0);
         break;
       case "charging":
-        store.setTraversalHint("HOLD — CHARGING SILK", "rgb(161, 161, 170)", 1);
+        store.setTraversalHint("HOLD — CHARGING TETHER", "rgb(161, 161, 170)", 1);
         break;
       case "ready":
         store.setTraversalHint("RELEASE TO FLING", "rgb(245, 158, 11)", 1);
@@ -7020,7 +6971,7 @@ export const HudOverlay: React.FC = () => {
           </div>
           <div className="hud-panel hud-center">
             <div className="hud-label-row">
-              <span className="hud-label">SILK TENSION</span>
+              <span className="hud-label">TETHER TENSION</span>
               <span className="hud-value" style={{ color: tensionTextColor }}>
                 {displayTensionPercent}%
               </span>

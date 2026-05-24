@@ -7,7 +7,7 @@ import {
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
-  SilkComponent,
+  TetherComponent,
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
@@ -32,7 +32,7 @@ export class EntitySpawnerSystem implements ISystem {
     private transforms: ComponentStore<TransformComponent>,
     private velocities: ComponentStore<KinematicVelocityComponent>,
     private targets: ComponentStore<KinematicTargetComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private healths: ComponentStore<HealthComponent>,
     private inputs: ComponentStore<InputIntentComponent>,
     private weaverAIs: ComponentStore<WeaverAIComponent>,
@@ -138,12 +138,12 @@ export class EntitySpawnerSystem implements ISystem {
     });
     this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
     this.targets.add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
-    this.silks.add(playerId, {
+    this.tethers.add(playerId, {
       anchorX: 0,
       anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       anchorZ: 0,
-      maxLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
-      currentLength: ARENA_CONFIG.SILK.INITIAL_LENGTH,
+      maxLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
+      currentLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
       isAttached: true,
       tension: 0.0,
       dynamicVelX: 0.0,

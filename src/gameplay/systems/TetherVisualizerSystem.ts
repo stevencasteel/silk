@@ -2,23 +2,23 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
-import { TransformComponent, SilkComponent } from "../../core/ecs/Components";
+import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
-export class SilkVisualizerSystem implements ISystem {
+export class TetherVisualizerSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
-  private readonly SEGMENTS = VISUAL_JUICE_CONFIG.SILK_ROPE.SEGMENTS;
-  private readonly MAX_SAG = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_SAG;
-  private readonly BASE_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.BASE_RADIUS;
-  private readonly MAX_RADIUS = VISUAL_JUICE_CONFIG.SILK_ROPE.MAX_RADIUS;
+  private readonly SEGMENTS = VISUAL_JUICE_CONFIG.TETHER_ROPE.SEGMENTS;
+  private readonly MAX_SAG = VISUAL_JUICE_CONFIG.TETHER_ROPE.MAX_SAG;
+  private readonly BASE_RADIUS = VISUAL_JUICE_CONFIG.TETHER_ROPE.BASE_RADIUS;
+  private readonly MAX_RADIUS = VISUAL_JUICE_CONFIG.TETHER_ROPE.MAX_RADIUS;
 
-  private silkMesh: BABYLON.Mesh | null = null;
-  private silkMeshAnchor: BABYLON.Mesh | null = null;
-  private silkMeshPlayer: BABYLON.Mesh | null = null;
-  private silkMat: BABYLON.PBRMaterial | null = null;
+  private tetherMesh: BABYLON.Mesh | null = null;
+  private tetherMeshAnchor: BABYLON.Mesh | null = null;
+  private tetherMeshPlayer: BABYLON.Mesh | null = null;
+  private tetherMat: BABYLON.PBRMaterial | null = null;
   
   private points: BABYLON.Vector3[] = [];
   private pointsAnchor: BABYLON.Vector3[] = [];
@@ -36,7 +36,7 @@ export class SilkVisualizerSystem implements ISystem {
   constructor(
     private refs: EntityRefs,
     private transforms: ComponentStore<TransformComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private visualRegistry: IVisualRegistry
   ) {
     for (let i = 0; i <= this.SEGMENTS; i++) {
@@ -52,18 +52,18 @@ export class SilkVisualizerSystem implements ISystem {
     const scene = this.visualRegistry.getScene();
     if (!scene) return;
 
-    this.silkMat = new BABYLON.PBRMaterial("silkMat", scene);
-    this.silkMat.metallic = 0.0;
-    this.silkMat.roughness = 0.6;
-    this.silkMat.sheen.isEnabled = true;
-    this.silkMat.sheen.intensity = 0.8;
-    this.silkMat.sheen.roughness = 0.3;
-    this.silkMat.emissiveIntensity = 2.5;
-    this.silkMat.albedoColor = new BABYLON.Color3(0.6, 0.85, 1.0);
-    this.silkMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
-    this.silkMat.disableLighting = false;
+    this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
+    this.tetherMat.metallic = 0.0;
+    this.tetherMat.roughness = 0.6;
+    this.tetherMat.sheen.isEnabled = true;
+    this.tetherMat.sheen.intensity = 0.8;
+    this.tetherMat.sheen.roughness = 0.3;
+    this.tetherMat.emissiveIntensity = 2.5;
+    this.tetherMat.albedoColor = new BABYLON.Color3(0.6, 0.85, 1.0);
+    this.tetherMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+    this.tetherMat.disableLighting = false;
 
-    this.silkMesh = BABYLON.MeshBuilder.CreateTube(
+    this.tetherMesh = BABYLON.MeshBuilder.CreateTube(
       "tetherTube",
       {
         path: this.points,
@@ -74,9 +74,9 @@ export class SilkVisualizerSystem implements ISystem {
       },
       scene
     );
-    this.silkMesh.material = this.silkMat;
+    this.tetherMesh.material = this.tetherMat;
 
-    this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube(
+    this.tetherMeshAnchor = BABYLON.MeshBuilder.CreateTube(
       "tetherTubeAnchor",
       {
         path: this.pointsAnchor,
@@ -87,10 +87,10 @@ export class SilkVisualizerSystem implements ISystem {
       },
       scene
     );
-    this.silkMeshAnchor.material = this.silkMat;
-    this.silkMeshAnchor.setEnabled(false);
+    this.tetherMeshAnchor.material = this.tetherMat;
+    this.tetherMeshAnchor.setEnabled(false);
 
-    this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube(
+    this.tetherMeshPlayer = BABYLON.MeshBuilder.CreateTube(
       "tetherTubePlayer",
       {
         path: this.pointsPlayer,
@@ -101,42 +101,42 @@ export class SilkVisualizerSystem implements ISystem {
       },
       scene
     );
-    this.silkMeshPlayer.material = this.silkMat;
-    this.silkMeshPlayer.setEnabled(false);
+    this.tetherMeshPlayer.material = this.tetherMat;
+    this.tetherMeshPlayer.setEnabled(false);
   }
 
   public render(alpha: number): void {
-    if (!this.silkMesh || !this.silkMat || !this.silkMeshAnchor || !this.silkMeshPlayer) return;
+    if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer) return;
 
     const pTrans = this.transforms.get(this.refs.player);
-    const silk = this.silks.get(this.refs.player);
-    if (!pTrans || !silk) return;
+    const tether = this.tethers.get(this.refs.player);
+    if (!pTrans || !tether) return;
 
-    if (silk.isAttached) {
+    if (tether.isAttached) {
       this.isSnapped = false;
       this.snapTimer = 0.0;
-      this.silkMesh.setEnabled(true);
-      this.silkMeshAnchor.setEnabled(false);
-      this.silkMeshPlayer.setEnabled(false);
+      this.tetherMesh.setEnabled(true);
+      this.tetherMeshAnchor.setEnabled(false);
+      this.tetherMeshPlayer.setEnabled(false);
 
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
 
-      const tension = Math.max(0, Math.min(1, silk.tension));
+      const tension = Math.max(0, Math.min(1, tether.tension));
 
       const timeMs = performance.now();
-      const frequency = VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_FREQ;
+      const frequency = VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.SILK_ROPE.TENSION_VIB_AMP;
+      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       const vibOffset = Math.sin(vibPhase) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
       const sag = this.MAX_SAG * (1.0 - tension) + vibOffset;
-      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       for (let i = 0; i <= this.SEGMENTS; i++) {
         const t = i / this.SEGMENTS;
@@ -155,36 +155,36 @@ export class SilkVisualizerSystem implements ISystem {
           2 * t1 * t * this.scratchCtrl.z +
           t * t * this.scratchPlayer.z;
 
-        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.SILK_ROPE.WAVINESS_AMP;
+        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
       }
 
       const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
-      this.silkMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
+      this.tetherMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
         path: this.points,
         radius: radius,
         tessellation: 8,
         cap: BABYLON.Mesh.NO_CAP,
-        instance: this.silkMesh
+        instance: this.tetherMesh
       });
 
       const r = tension < 0.5 ? 0.55 + tension * 0.9 : 1.0;
       const g = tension < 0.5 ? 0.78 + tension * 0.44 : 1.0 - (tension - 0.5) * 1.1;
       const b = tension < 0.5 ? 1.0 - tension * 0.2 : 0.9 - (tension - 0.5) * 1.7;
 
-      this.silkMat.albedoColor.set(
+      this.tetherMat.albedoColor.set(
         Math.max(0, Math.min(1, r)),
         Math.max(0, Math.min(1, g)),
         Math.max(0, Math.min(1, b))
       );
 
       const eBrightness = 0.1 + tension * 0.5;
-      this.silkMat.emissiveColor.set(
+      this.tetherMat.emissiveColor.set(
         eBrightness * (0.3 + tension * 0.7),
         eBrightness * (0.6 - tension * 0.4),
         eBrightness * (1.0 - tension * 0.9)
       );
     } else {
-      this.silkMesh.setEnabled(false);
+      this.tetherMesh.setEnabled(false);
 
       if (!this.isSnapped) {
         this.isSnapped = true;
@@ -193,25 +193,25 @@ export class SilkVisualizerSystem implements ISystem {
 
       this.snapTimer += 0.016;
       if (this.snapTimer >= this.maxSnapDuration) {
-        this.silkMeshAnchor.setEnabled(false);
-        this.silkMeshPlayer.setEnabled(false);
+        this.tetherMeshAnchor.setEnabled(false);
+        this.tetherMeshPlayer.setEnabled(false);
         return;
       }
 
-      this.silkMeshAnchor.setEnabled(true);
-      this.silkMeshPlayer.setEnabled(true);
+      this.tetherMeshAnchor.setEnabled(true);
+      this.tetherMeshPlayer.setEnabled(true);
 
       const T = this.snapTimer / this.maxSnapDuration;
 
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      this.scratchAnchor.set(silk.anchorX, silk.anchorY, silk.anchorZ);
+      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-      const sag = this.MAX_SAG * (1.0 - silk.tension);
-      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.SILK_ROPE.BEZIER_DEPTH);
+      const sag = this.MAX_SAG * (1.0 - tether.tension);
+      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       const maxAnchorT = (1 - T) * 0.5;
       const whipOffset = Math.sin(T * Math.PI * 5) * (1 - T) * 1.8;
@@ -248,23 +248,23 @@ export class SilkVisualizerSystem implements ISystem {
 
       const radius = this.BASE_RADIUS * (1 - T);
       if (radius > 0.01) {
-        this.silkMeshAnchor = BABYLON.MeshBuilder.CreateTube("tetherTubeAnchor", {
+        this.tetherMeshAnchor = BABYLON.MeshBuilder.CreateTube("tetherTubeAnchor", {
           path: this.pointsAnchor,
           radius: radius,
           tessellation: 8,
           cap: BABYLON.Mesh.NO_CAP,
-          instance: this.silkMeshAnchor
+          instance: this.tetherMeshAnchor
         });
-        this.silkMeshPlayer = BABYLON.MeshBuilder.CreateTube("tetherTubePlayer", {
+        this.tetherMeshPlayer = BABYLON.MeshBuilder.CreateTube("tetherTubePlayer", {
           path: this.pointsPlayer,
           radius: radius,
           tessellation: 8,
           cap: BABYLON.Mesh.NO_CAP,
-          instance: this.silkMeshPlayer
+          instance: this.tetherMeshPlayer
         });
       } else {
-        this.silkMeshAnchor.setEnabled(false);
-        this.silkMeshPlayer.setEnabled(false);
+        this.tetherMeshAnchor.setEnabled(false);
+        this.tetherMeshPlayer.setEnabled(false);
       }
     }
 
@@ -272,9 +272,9 @@ export class SilkVisualizerSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.silkMesh) this.silkMesh.dispose();
-    if (this.silkMeshAnchor) this.silkMeshAnchor.dispose();
-    if (this.silkMeshPlayer) this.silkMeshPlayer.dispose();
-    if (this.silkMat) this.silkMat.dispose();
+    if (this.tetherMesh) this.tetherMesh.dispose();
+    if (this.tetherMeshAnchor) this.tetherMeshAnchor.dispose();
+    if (this.tetherMeshPlayer) this.tetherMeshPlayer.dispose();
+    if (this.tetherMat) this.tetherMat.dispose();
   }
 }

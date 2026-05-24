@@ -9,7 +9,7 @@ import {
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
-  SilkComponent,
+  TetherComponent,
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
@@ -29,7 +29,7 @@ import { EntitySpawnerSystem } from "../gameplay/systems/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/systems/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/systems/WeaverBrainSystem";
 import { WeaverTraversalSystem } from "../gameplay/systems/WeaverTraversalSystem";
-import { SilkVisualizerSystem } from "../gameplay/systems/SilkVisualizerSystem";
+import { TetherVisualizerSystem } from "../gameplay/systems/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../physics/constraints/PlayerKinematicsSystem";
 import { PlayerAnimationSystem } from "../gameplay/systems/PlayerAnimationSystem";
 import { EnvironmentCollisionSystem } from "../physics/collisions/EnvironmentCollisionSystem";
@@ -46,22 +46,16 @@ import { RafScheduler } from "../core/loop/RafScheduler";
 
 export class CompositionRoot {
   public buildEngine(canvas: HTMLCanvasElement): Engine {
-    // ------------------------------------------------------------------------
-    // STAGE 1: CORE INFRASTRUCTURE
-    // ------------------------------------------------------------------------
     const broker = new EventBroker();
     const commands = new CommandBus();
     const profiler = new Profiler();
     const systemManager = new SystemManager(profiler);
 
-    // ------------------------------------------------------------------------
-    // STAGE 2: CUSTOM ECS COMPONENT STORES
-    // ------------------------------------------------------------------------
     const world = new EcsWorld();
     const transforms = new ComponentStore<TransformComponent>();
     const velocities = new ComponentStore<KinematicVelocityComponent>();
     const targets = new ComponentStore<KinematicTargetComponent>();
-    const silks = new ComponentStore<SilkComponent>();
+    const tethers = new ComponentStore<TetherComponent>();
     const healths = new ComponentStore<HealthComponent>();
     const inputs = new ComponentStore<InputIntentComponent>();
     const weaverAIs = new ComponentStore<WeaverAIComponent>();
@@ -73,11 +67,10 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
-    // Register all component stores to the world for automated lifecycle cleanup
     world.registerStore(transforms);
     world.registerStore(velocities);
     world.registerStore(targets);
-    world.registerStore(silks);
+    world.registerStore(tethers);
     world.registerStore(healths);
     world.registerStore(inputs);
     world.registerStore(weaverAIs);
@@ -87,20 +80,14 @@ export class CompositionRoot {
     world.registerStore(playerTags);
     world.registerStore(weaverTags);
 
-    // ------------------------------------------------------------------------
-    // STAGE 3: GRAPHICS, AUDIO, & VISUAL PRESENTATION ENGINE
-    // ------------------------------------------------------------------------
     const visualRegistry = new VisualRegistry();
     const renderSystem = new RenderSystem(canvas, visualRegistry);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
     const lightingSystem = new LightingSystem(broker, visualRegistry);
-    const silkVisualizer = new SilkVisualizerSystem(refs, transforms, silks, visualRegistry);
+    const tetherVisualizer = new TetherVisualizerSystem(refs, transforms, tethers, visualRegistry);
     const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
     const audioSystem = new AudioDirectorSystem(broker);
 
-    // ------------------------------------------------------------------------
-    // STAGE 4: KINEMATICS, PHYSICS & COLLISION SIMULATION
-    // ------------------------------------------------------------------------
     const physicsSystem = new HavokPhysicsSystem(
       commands,
       refs,
@@ -112,7 +99,7 @@ export class CompositionRoot {
     
     const playerKinematics = new PlayerKinematicsSystem(
       refs,
-      silks,
+      tethers,
       targets,
       traversal,
       transforms,
@@ -125,14 +112,14 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(
       refs,
       transforms,
-      silks,
+      tethers,
       traversal,
       targets
     );
 
     const environmentCollision = new EnvironmentCollisionSystem(
       refs,
-      silks,
+      tethers,
       targets,
       healths,
       traversal,
@@ -143,7 +130,7 @@ export class CompositionRoot {
     const syncSystem = new TransformSyncSystem(
       refs,
       transforms,
-      silks,
+      tethers,
       traversal,
       visualRegistry,
       weaverAIs,
@@ -152,9 +139,6 @@ export class CompositionRoot {
       broker
     );
 
-    // ------------------------------------------------------------------------
-    // STAGE 5: GAMEPLAY, AI, COMBAT, & INTERFACE
-    // ------------------------------------------------------------------------
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
     
     const spawner = new EntitySpawnerSystem(
@@ -163,7 +147,7 @@ export class CompositionRoot {
       transforms,
       velocities,
       targets,
-      silks,
+      tethers,
       healths,
       inputs,
       weaverAIs,
@@ -200,7 +184,7 @@ export class CompositionRoot {
       transforms,
       healths,
       weaverAIs,
-      silks,
+      tethers,
       iframes,
       traversal,
       broker,
@@ -212,7 +196,7 @@ export class CompositionRoot {
       broker,
       refs,
       healths,
-      silks,
+      tethers,
       spawner
     );
 
@@ -233,13 +217,10 @@ export class CompositionRoot {
       world,
       refs,
       transforms,
-      silks,
+      tethers,
       velocities
     );
 
-    // ------------------------------------------------------------------------
-    // STAGE 6: SYSTEM REGISTRY & SCHEDULING
-    // ------------------------------------------------------------------------
     systemManager.register(spawner);
     systemManager.register(renderSystem);
     systemManager.register(physicsSystem);
@@ -250,7 +231,7 @@ export class CompositionRoot {
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
     systemManager.register(syncSystem);
-    systemManager.register(silkVisualizer);
+    systemManager.register(tetherVisualizer);
     systemManager.register(cameraSystem);
     systemManager.register(combatSystem);
     systemManager.register(projectileSystem);

@@ -5,7 +5,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   HealthComponent,
-  SilkComponent
+  TetherComponent
 } from "../../core/ecs/Components";
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EntitySpawnerSystem } from "./EntitySpawnerSystem";
@@ -28,7 +28,7 @@ export class GameDirectorSystem implements ISystem {
     private broker: EventBroker,
     private refs: EntityRefs,
     private healths: ComponentStore<HealthComponent>,
-    private silks: ComponentStore<SilkComponent>,
+    private tethers: ComponentStore<TetherComponent>,
     private spawner: EntitySpawnerSystem
   ) {}
 
@@ -41,10 +41,10 @@ export class GameDirectorSystem implements ISystem {
           this.maxCinematicSimTime = 0.60;
           GameDirectorSystem.timeScale = 0.20;
 
-          const pSilk = this.silks.get(this.refs.player);
-          if (pSilk) {
-            pSilk.isAttached = false;
-            pSilk.tension = 0.0;
+          const pTether = this.tethers.get(this.refs.player);
+          if (pTether) {
+            pTether.isAttached = false;
+            pTether.tension = 0.0;
           }
 
           this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.2 });
@@ -120,7 +120,6 @@ export class GameDirectorSystem implements ISystem {
     this.cinematicTimer = 0.0;
     GameDirectorSystem.timeScale = 1.0;
 
-    // Delegate creation & initialization details entirely to the Entity Spawner
     this.spawner.spawnWeaver(this.refs.weaver);
     this.spawner.spawnPlayer(this.refs.player);
 

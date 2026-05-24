@@ -45,8 +45,6 @@ export interface TetherComponent {
   dynamicVelY: number;
 }
 
-export type SilkComponent = TetherComponent;
-
 export interface HealthComponent {
   current: number;
   max: number;
