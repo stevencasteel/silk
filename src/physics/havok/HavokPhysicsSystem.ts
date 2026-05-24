@@ -20,7 +20,7 @@ import {
   SetSilkAttachedCommand
 } from "../commands/PhysicsCommands";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
 
@@ -57,7 +57,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         }
 
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
-        scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), this.havokPlugin);
+        scene.enablePhysics(new BABYLON.Vector3(0, CANONICAL_UNITS.GRAVITY.PHYSICAL_EARTH, 0), this.havokPlugin);
         console.log("[HavokPhysicsSystem] Havok initialized successfully.");
 
         const playHalfWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;

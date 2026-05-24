@@ -1,3 +1,4 @@
+import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IVisualRegistry } from "../../contracts/IVisualRegistry";
@@ -96,8 +97,8 @@ export class TransformSyncSystem implements ISystem {
       wAI.scrollSpeed = this.scrollSpeed;
     }
 
-    const totalRange = 140.0;
-    this.scrollOffset += this.scrollSpeed * (1 / 60);
+    const totalRange = CANONICAL_UNITS.SCROLL_MAPPING.TOTAL_RANGE;
+    this.scrollOffset += this.scrollSpeed * (1 / CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
     
     while (this.scrollOffset > totalRange) {
       this.scrollOffset -= totalRange;
@@ -115,8 +116,8 @@ export class TransformSyncSystem implements ISystem {
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
       let y = tick.metadata.initialY - this.scrollOffset;
-      while (y < -56.0) y += totalRange;
-      while (y > 84.0) y -= totalRange;
+      while (y < CANONICAL_UNITS.SCROLL_MAPPING.BOTTOM_BOUNDARY) y += totalRange;
+      while (y > CANONICAL_UNITS.SCROLL_MAPPING.TOP_BOUNDARY) y -= totalRange;
       tick.position.y = y;
     }
   }

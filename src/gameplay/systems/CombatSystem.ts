@@ -1,3 +1,4 @@
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { ComponentStore } from "../../core/ecs/ComponentStore";
@@ -25,7 +26,8 @@ export class CombatSystem implements ISystem {
   private readonly WEAVER_CONTACT_DAMAGE = 1;
   private readonly PLAYER_IFRAME_DURATION = 1.2;
   private readonly PLAYER_FLING_DAMAGE = 35;
-  private readonly COMBINED_RADIUS_THRESHOLD = 2.6;
+  private readonly COMBINED_RADIUS_THRESHOLD = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+  private readonly BROADPHASE_ENVELOPE = (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.4) * (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.4);
 
   constructor(
     private refs: EntityRefs,
@@ -65,7 +67,7 @@ export class CombatSystem implements ISystem {
     const dy = pTrans.y - wTrans.y;
     const distSq = dx * dx + dy * dy;
 
-    if (distSq > 9.0) {
+    if (distSq > this.BROADPHASE_ENVELOPE) {
       return;
     }
 

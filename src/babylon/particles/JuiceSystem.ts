@@ -1,3 +1,4 @@
+import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -182,7 +183,7 @@ export class JuiceSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const gravity = -18.0;
+    const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
       if (!p.active) continue;

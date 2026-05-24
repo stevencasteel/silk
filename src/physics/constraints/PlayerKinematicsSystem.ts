@@ -13,12 +13,12 @@ import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TransformSyncSystem } from "../../physics/sync/TransformSyncSystem";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
-  private readonly GRAVITY = -24.0;
+  private readonly GRAVITY = CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC;
   private readonly SWING_STEER_FORCE = 36.0;
   private readonly LAUNCH_STEER_FORCE = 16.0;
 
@@ -78,7 +78,7 @@ export class PlayerKinematicsSystem implements ISystem {
       silk.dynamicVelX += input.x * this.LAUNCH_STEER_FORCE * dt;
       silk.dynamicVelY += this.GRAVITY * this.LAUNCH_GRAVITY_MULT * dt;
 
-      const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
+      const damp = Math.pow(this.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
       silk.dynamicVelX *= damp;
       silk.dynamicVelY *= damp;
 
@@ -96,7 +96,7 @@ export class PlayerKinematicsSystem implements ISystem {
         silk.dynamicVelX += input.x * this.SWING_STEER_FORCE * dt;
       }
 
-      const damp = Math.pow(this.DRAG_DAMPING, dt * 60);
+      const damp = Math.pow(this.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
       silk.dynamicVelX *= damp;
       silk.dynamicVelY *= damp;
 
@@ -150,15 +150,15 @@ export class PlayerKinematicsSystem implements ISystem {
       silk.dynamicVelY = -currentScrollSpeed;
       target.y = target.y + silk.dynamicVelY * dt;
 
-      if (silk.tension < 1.0) {
-        silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
+      if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
+        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + this.TENSION_CHARGE_RATE * dt);
       } else {
-        const strainOverloadRate = 0.3 / 2.6;
-        silk.tension = Math.min(1.3, silk.tension + strainOverloadRate * dt);
+        const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
+        silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
       }
 
       const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-      silk.maxLength = this.BASE_SILK_LENGTH + Math.min(1.0, silk.tension) * maxStretch;
+      silk.maxLength = this.BASE_SILK_LENGTH + Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension) * maxStretch;
 
       if (input.jump) {
         this.triggerFling(silk, target, trav);
@@ -182,15 +182,15 @@ export class PlayerKinematicsSystem implements ISystem {
         silk.dynamicVelY = -currentScrollSpeed;
         target.y = target.y + silk.dynamicVelY * dt;
 
-        if (silk.tension < 1.0) {
-          silk.tension = Math.min(1.0, silk.tension + this.TENSION_CHARGE_RATE * dt);
+        if (silk.tension < CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) {
+          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension + this.TENSION_CHARGE_RATE * dt);
         } else {
-          const strainOverloadRate = 0.3 / 2.6;
-          silk.tension = Math.min(1.3, silk.tension + strainOverloadRate * dt);
+          const strainOverloadRate = (CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.SILK_STRAIN.SNAP_DELAY_SECONDS;
+          silk.tension = Math.min(CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT, silk.tension + strainOverloadRate * dt);
         }
 
         const maxStretch = this.MAX_SILK_LENGTH - this.BASE_SILK_LENGTH;
-        silk.maxLength = this.BASE_SILK_LENGTH + Math.min(1.0, silk.tension) * maxStretch;
+        silk.maxLength = this.BASE_SILK_LENGTH + Math.min(CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT, silk.tension) * maxStretch;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;

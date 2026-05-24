@@ -1,3 +1,27 @@
+export const CANONICAL_UNITS = {
+  SPATIAL: {
+    METERS_PER_UNIT: 1.0,
+  },
+  TEMPORAL: {
+    LEGACY_FPS_BASIS: 60.0,
+  },
+  GRAVITY: {
+    PHYSICAL_EARTH: -9.81,
+    PLAYER_KINEMATIC: -24.0,
+    JUICE_PARTICLE: -18.0,
+  },
+  SILK_STRAIN: {
+    OVERLOAD_LIMIT: 1.0,
+    SNAP_LIMIT: 1.3,
+    SNAP_DELAY_SECONDS: 2.6,
+  },
+  SCROLL_MAPPING: {
+    TOTAL_RANGE: 140.0,
+    BOTTOM_BOUNDARY: -56.0,
+    TOP_BOUNDARY: 84.0,
+  }
+} as const;
+
 export const ARENA_CONFIG = {
   HORIZONTAL: {
     WALL_LIMIT_X: 14.2,              // Player constraint wall limit

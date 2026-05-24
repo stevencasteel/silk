@@ -10,7 +10,7 @@ import {
 import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 
 export class EnvironmentCollisionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
@@ -18,8 +18,8 @@ export class EnvironmentCollisionSystem implements ISystem {
   private readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
   private readonly PLAYER_HALF_HEIGHT = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
   
-  private readonly OVERLOAD_THRESHOLD = 1.0;
-  private readonly SNAP_LIMIT = 1.3;
+  private readonly OVERLOAD_THRESHOLD = CANONICAL_UNITS.SILK_STRAIN.OVERLOAD_LIMIT;
+  private readonly SNAP_LIMIT = CANONICAL_UNITS.SILK_STRAIN.SNAP_LIMIT;
 
   constructor(
     private refs: EntityRefs,
