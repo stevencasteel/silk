@@ -55,6 +55,8 @@ export class WeaverBrainSystem implements ISystem {
       const aiComp = this.ai.get(this.refs.weaver);
       const health = this.healths.get(this.refs.weaver);
       if (aiComp && health) {
+        aiComp.damageWarpIntensity = 1.0;
+        aiComp.damageWarpTime = 0.0;
         if (health.current <= 0) {
           this.pendingTransition = "DEFEATED";
         } else if (aiComp.state === "SWEEPING") {

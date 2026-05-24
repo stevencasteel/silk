@@ -61,6 +61,8 @@ export interface WeaverAIComponent {
   timeInState: number;
   hue: string;
   scrollSpeed: number;
+  damageWarpIntensity: number;
+  damageWarpTime: number;
 }
 
 export interface PlayerTag {

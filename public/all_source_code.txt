@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 3:08:03 PM
+ [SYSTEM] Generated: 5/24/2026, 3:23:35 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -97,7 +97,8 @@
 │   │   ├── cameras/
 │   │   │   └── CameraSystem.ts
 │   │   ├── lighting/
-│   │   │   └── LightingSystem.ts
+│   │   │   ├── LightingSystem.ts
+│   │   │   └── WarpMaterialPlugin.ts
 │   │   ├── mesh/
 │   │   │   └── ArenaGeometry.ts
 │   │   ├── scene/
@@ -1850,6 +1851,8 @@ export interface WeaverAIComponent {
   timeInState: number;
   hue: string;
   scrollSpeed: number;
+  damageWarpIntensity: number;
+  damageWarpTime: number;
 }
 
 export interface PlayerTag {
@@ -2805,6 +2808,7 @@ export class SystemManager {
 
 ● ./src/gameplay/EntitySpawnerSystem.ts
 ────────────────────────────────────────────────────
+import { WarpMaterialPlugin } from "../visual/lighting/WarpMaterialPlugin";
 import { ISystem } from "../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
 import { EcsWorld } from "../core/ecs/EcsWorld";
@@ -2895,7 +2899,9 @@ export class EntitySpawnerSystem implements ISystem {
       state: "SWEEPING",
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
-      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE
+      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE,
+      damageWarpIntensity: 0.0,
+      damageWarpTime: 0.0
     });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
@@ -2921,6 +2927,8 @@ export class EntitySpawnerSystem implements ISystem {
     wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
     wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
     wMesh.material = wMat;
+    const warpPlugin = new WarpMaterialPlugin(wMat);
+    (wMat as BABYLON.PBRMaterial & { _warpPlugin?: WarpMaterialPlugin })._warpPlugin = warpPlugin;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {
@@ -5185,6 +5193,8 @@ export class WeaverBrainSystem implements ISystem {
       const aiComp = this.ai.get(this.refs.weaver);
       const health = this.healths.get(this.refs.weaver);
       if (aiComp && health) {
+        aiComp.damageWarpIntensity = 1.0;
+        aiComp.damageWarpTime = 0.0;
         if (health.current <= 0) {
           this.pendingTransition = "DEFEATED";
         } else if (aiComp.state === "SWEEPING") {
@@ -6738,6 +6748,72 @@ export class LightingSystem implements ISystem {
 
 
 
+● ./src/visual/lighting/WarpMaterialPlugin.ts
+────────────────────────────────────────────────────
+import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer } from "@babylonjs/core";
+
+export class WarpMaterialPlugin extends MaterialPluginBase {
+  public warpIntensity = 0.0;
+  public warpTime = 0.0;
+
+  constructor(material: Material) {
+    super(material, "Warp", 200, { WARP: false });
+    this._enable(true);
+  }
+
+  public prepareDefines(defines: Record<string, boolean>) {
+    defines["WARP"] = true;
+  }
+
+  public getClassName(): string {
+    return "WarpMaterialPlugin";
+  }
+
+  public getUniforms() {
+    return {
+      "ubo": [
+        { name: "u_warpIntensity", size: 1, type: "float" },
+        { name: "u_warpTime", size: 1, type: "float" }
+      ]
+    };
+  }
+
+  public isCompatible(shaderLanguage: ShaderLanguage): boolean {
+    return shaderLanguage === ShaderLanguage.GLSL;
+  }
+
+  public getCustomCode(shaderType: string, shaderLanguage: ShaderLanguage) {
+    if (shaderType === "vertex") {
+      if (shaderLanguage === ShaderLanguage.GLSL) {
+        return {
+          "CUSTOM_VERTEX_DEFINITIONS": `
+            #ifdef WARP
+            uniform float u_warpIntensity;
+            uniform float u_warpTime;
+            #endif
+          `,
+          "CUSTOM_VERTEX_UPDATE_POSITION": `
+            #ifdef WARP
+            float shiverCenter = 3.0 - u_warpTime * 10.5;
+            float dist = abs(positionUpdated.y - shiverCenter);
+            float envelope = max(0.0, 1.0 - dist / 1.5);
+            positionUpdated.x += sin(positionUpdated.y * 12.0 + u_warpTime * 35.0) * envelope * u_warpIntensity * 0.65;
+            #endif
+          `
+        };
+      }
+    }
+    return null;
+  }
+
+  public bindForSubMesh(uniformBuffer: UniformBuffer): void {
+    uniformBuffer.updateFloat("u_warpIntensity", this.warpIntensity);
+    uniformBuffer.updateFloat("u_warpTime", this.warpTime);
+  }
+}
+
+
+
 ● ./src/visual/mesh/ArenaGeometry.ts
 ────────────────────────────────────────────────────
 import * as BABYLON from "@babylonjs/core";
@@ -7163,6 +7239,7 @@ export class RenderInterpolationSystem implements ISystem {
 
 ● ./src/visual/systems/VisualStateDressingSystem.ts
 ────────────────────────────────────────────────────
+import { WarpMaterialPlugin } from "../lighting/WarpMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -7178,6 +7255,16 @@ import * as BABYLON from "@babylonjs/core";
 
 export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
+
+  public update(dt: number): void {
+    const wAI = this.weaverAIs.get(this.refs.weaver);
+    if (wAI) {
+      wAI.damageWarpTime += dt;
+      if (wAI.damageWarpIntensity > 0.0) {
+        wAI.damageWarpIntensity = Math.max(0.0, wAI.damageWarpIntensity - dt * 1.75);
+      }
+    }
+  }
 
   private currentEmissiveR = 0.05;
   private currentEmissiveG = 0.15;
@@ -7231,6 +7318,12 @@ export class VisualStateDressingSystem implements ISystem {
           cachedColor.g * emissive.WEAVER_EMISSIVE_SCALE,
           cachedColor.b * emissive.WEAVER_EMISSIVE_SCALE
         );
+
+        const warpPlugin = (mat as BABYLON.PBRMaterial & { _warpPlugin?: WarpMaterialPlugin })._warpPlugin;
+        if (warpPlugin) {
+          warpPlugin.warpIntensity = wAI.damageWarpIntensity;
+          warpPlugin.warpTime = wAI.damageWarpTime;
+        }
       }
     }
   }

@@ -1,3 +1,4 @@
+import { WarpMaterialPlugin } from "../visual/lighting/WarpMaterialPlugin";
 import { ISystem } from "../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
 import { EcsWorld } from "../core/ecs/EcsWorld";
@@ -88,7 +89,9 @@ export class EntitySpawnerSystem implements ISystem {
       state: "SWEEPING",
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
-      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE
+      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE,
+      damageWarpIntensity: 0.0,
+      damageWarpTime: 0.0
     });
     this.healths.add(weaverId, { current: 100, max: 100 });
     this.weaverTags.add(weaverId, {});
@@ -114,6 +117,8 @@ export class EntitySpawnerSystem implements ISystem {
     wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
     wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
     wMesh.material = wMat;
+    const warpPlugin = new WarpMaterialPlugin(wMat);
+    (wMat as BABYLON.PBRMaterial & { _warpPlugin?: WarpMaterialPlugin })._warpPlugin = warpPlugin;
     this.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {

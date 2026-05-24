@@ -1,3 +1,4 @@
+import { WarpMaterialPlugin } from "../lighting/WarpMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -13,6 +14,16 @@ import * as BABYLON from "@babylonjs/core";
 
 export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
+
+  public update(dt: number): void {
+    const wAI = this.weaverAIs.get(this.refs.weaver);
+    if (wAI) {
+      wAI.damageWarpTime += dt;
+      if (wAI.damageWarpIntensity > 0.0) {
+        wAI.damageWarpIntensity = Math.max(0.0, wAI.damageWarpIntensity - dt * 1.75);
+      }
+    }
+  }
 
   private currentEmissiveR = 0.05;
   private currentEmissiveG = 0.15;
@@ -66,6 +77,12 @@ export class VisualStateDressingSystem implements ISystem {
           cachedColor.g * emissive.WEAVER_EMISSIVE_SCALE,
           cachedColor.b * emissive.WEAVER_EMISSIVE_SCALE
         );
+
+        const warpPlugin = (mat as BABYLON.PBRMaterial & { _warpPlugin?: WarpMaterialPlugin })._warpPlugin;
+        if (warpPlugin) {
+          warpPlugin.warpIntensity = wAI.damageWarpIntensity;
+          warpPlugin.warpTime = wAI.damageWarpTime;
+        }
       }
     }
   }
