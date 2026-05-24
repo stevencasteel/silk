@@ -79,7 +79,7 @@ export class ProjectileSystem implements ISystem {
         agg = new BABYLON.PhysicsAggregate(
           sphere,
           BABYLON.PhysicsShapeType.SPHERE,
-          { mass: 1.0, friction: 0.2, restitution: 0.1 },
+          { mass: 1.0, friction: 0.1, restitution: 0.6 },
           scene
         );
         agg.body.setMotionType(BABYLON.PhysicsMotionType.ANIMATED);

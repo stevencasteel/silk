@@ -65,7 +65,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         new BABYLON.PhysicsAggregate(
           physFloor,
           BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.8, restitution: 0.2 },
+          { mass: 0, friction: 0.5, restitution: 0.25 },
           scene
         );
 
@@ -79,7 +79,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         new BABYLON.PhysicsAggregate(
           physLeft,
           BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.8 },
+          { mass: 0, friction: 0.3, restitution: 0.4 },
           scene
         );
 
@@ -93,7 +93,7 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
         new BABYLON.PhysicsAggregate(
           physRight,
           BABYLON.PhysicsShapeType.BOX,
-          { mass: 0, friction: 0.8 },
+          { mass: 0, friction: 0.3, restitution: 0.4 },
           scene
         );
       } catch (err) {
