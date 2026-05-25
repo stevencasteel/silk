@@ -32,7 +32,7 @@ export class EntitySpawnerSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (scene && scene.isPhysicsEnabled()) {
       this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), ARENA_CONFIG.ENTITY.WEAVER_RADIUS, scene);
-      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_RADIUS - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
       this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(new BABYLON.Vector3(0, -cylHalfHeight, 0), new BABYLON.Vector3(0, cylHalfHeight, 0), ARENA_CONFIG.ENTITY.PLAYER_RADIUS, scene);
     }
     this.spawnWeaver();

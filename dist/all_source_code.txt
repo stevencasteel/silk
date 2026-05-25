@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 12:37:45 PM
+ [SYSTEM] Generated: 5/25/2026, 12:40:54 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2831,7 +2831,7 @@ export class EntitySpawnerSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (scene && scene.isPhysicsEnabled()) {
       this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), ARENA_CONFIG.ENTITY.WEAVER_RADIUS, scene);
-      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_RADIUS - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
       this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(new BABYLON.Vector3(0, -cylHalfHeight, 0), new BABYLON.Vector3(0, cylHalfHeight, 0), ARENA_CONFIG.ENTITY.PLAYER_RADIUS, scene);
     }
     this.spawnWeaver();
@@ -3946,7 +3946,6 @@ export class TetherVisualizerSystem implements ISystem {
   private scratchAnchor = new BABYLON.Vector3();
   private scratchPlayer = new BABYLON.Vector3();
   private scratchCtrl = new BABYLON.Vector3();
-  private scratchPt = new BABYLON.Vector3();
 
   private isSnapped = false;
   private snapTimer = 0.0;
@@ -4184,8 +4183,6 @@ export class TetherVisualizerSystem implements ISystem {
         this.tetherMeshPlayer.setEnabled(false);
       }
     }
-
-    this.scratchPt.set(0, 0, 0);
   }
 
   public dispose(): void {
@@ -7389,7 +7386,7 @@ export class EntityInterpolationSystem implements ISystem {
 
 ● ./src/visual/systems/ParallaxScrollSystem.ts
 ────────────────────────────────────────────────────
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import {
@@ -7499,7 +7496,8 @@ export class ParallaxScrollSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    const totalRange = 140.0;
+    const mapping = CANONICAL_UNITS.SCROLL_MAPPING;
+    const totalRange = mapping.TOTAL_RANGE;
     const interpolatedOffset = this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
     
     let wrappedOffset = interpolatedOffset % totalRange;
@@ -7516,8 +7514,8 @@ export class ParallaxScrollSystem implements ISystem {
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
       let y = tick.metadata.initialY - wrappedOffset;
-      while (y < -56.0) y += totalRange;
-      while (y > 84.0) y -= totalRange;
+      while (y < mapping.BOTTOM_BOUNDARY) y += totalRange;
+      while (y > mapping.TOP_BOUNDARY) y -= totalRange;
       tick.position.y = y;
     }
   }

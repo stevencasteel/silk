@@ -1,1 +1,0 @@
-import{Mr as e}from"./compositionRoot-cl05Ozvc.js";export{e as backgroundVertexShader};

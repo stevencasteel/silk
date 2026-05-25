@@ -1,4 +1,4 @@
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import {
@@ -108,7 +108,8 @@ export class ParallaxScrollSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    const totalRange = 140.0;
+    const mapping = CANONICAL_UNITS.SCROLL_MAPPING;
+    const totalRange = mapping.TOTAL_RANGE;
     const interpolatedOffset = this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
     
     let wrappedOffset = interpolatedOffset % totalRange;
@@ -125,8 +126,8 @@ export class ParallaxScrollSystem implements ISystem {
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
       let y = tick.metadata.initialY - wrappedOffset;
-      while (y < -56.0) y += totalRange;
-      while (y > 84.0) y -= totalRange;
+      while (y < mapping.BOTTOM_BOUNDARY) y += totalRange;
+      while (y > mapping.TOP_BOUNDARY) y -= totalRange;
       tick.position.y = y;
     }
   }

@@ -25,7 +25,6 @@ export class TetherVisualizerSystem implements ISystem {
   private scratchAnchor = new BABYLON.Vector3();
   private scratchPlayer = new BABYLON.Vector3();
   private scratchCtrl = new BABYLON.Vector3();
-  private scratchPt = new BABYLON.Vector3();
 
   private isSnapped = false;
   private snapTimer = 0.0;
@@ -263,8 +262,6 @@ export class TetherVisualizerSystem implements ISystem {
         this.tetherMeshPlayer.setEnabled(false);
       }
     }
-
-    this.scratchPt.set(0, 0, 0);
   }
 
   public dispose(): void {
