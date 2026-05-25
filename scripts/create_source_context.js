@@ -7,13 +7,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const docsDir = path.join(rootDir, 'docs');
-const outputFile = path.join(docsDir, 'all_source_code.txt');
+const outputFile = path.join(docsDir, 'silk_source_code.txt');
 
 function shouldInclude(filePath) {
   const relPath = path.relative(rootDir, filePath).split(path.sep).join('/');
   
   if (
-    path.basename(filePath) === 'all_source_code.txt' || 
+    path.basename(filePath) === 'silk_source_code.txt' || 
     path.basename(filePath) === 'source_code_manifest.json' ||
     path.basename(filePath) === 'sourceCodeManifest.ts'
   ) {
@@ -123,7 +123,7 @@ async function main() {
     }
 
     await fsp.writeFile(outputFile, content, 'utf8');
-    const publicOutputFile = path.join(rootDir, 'public', 'all_source_code.txt');
+    const publicOutputFile = path.join(rootDir, 'public', 'silk_source_code.txt');
     await fsp.writeFile(publicOutputFile, content, 'utf8');
     
     console.log('Source context assembled successfully.');
