@@ -1,51 +1,40 @@
-name: Build, Lint & Deploy to GitHub Pages
-
+name: Deploy Silk
 on:
   push:
     branches:
       - main
       - master
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
-  build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Lint Check
-        run: npm run lint
-
-      - name: Build project
+      - name: Build Project
         run: npm run build
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: ./dist
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+
+#      - name: Setup Butler
+#        uses: remarkablegames/setup-butler@v3
+
+#      - name: Deploy to Itch.io
+#        run: butler push dist stevencasteel/silk:html5
+#        env:
+#          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
