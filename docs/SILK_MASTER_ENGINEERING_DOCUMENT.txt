@@ -1,20 +1,18 @@
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.2 (Havok V2 Optimization & Procedural Shatter)
+Version: 1.3 (Shatter Extraction & De-monolithization Refactor)
 Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
 Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
 Architecture: Strict Custom ECS (Entity Component System)
 ===============================================================================
 
 [AI ASSISTANT GUIDELINES: HAVOK V2 PHYSICS]
-You are fully encouraged to write, expand, and optimize physics-driven mechanics! 
-When generating physics code, please adhere to the Babylon.js V2 Physics API (Havok) 
-best practices:
+When expanding or optimizing physics-driven mechanics, adhere to the Babylon.js V2 Physics API (Havok) best practices:
 1. Object Pooling: Prefer separating collision bounds and mass by instantiating a 
-   reusable `PhysicsShape` and binding it to individual `PhysicsBody` instances. 
-   Please avoid the `PhysicsAggregate` wrapper for large pools to save memory.
-2. Legacy Code: Please ensure no V1 `PhysicsImpostor` syntax is generated.
+   reusable PhysicsShape and binding it to individual PhysicsBody instances. 
+   Avoid the PhysicsAggregate wrapper for large pools to save memory.
+2. Legacy Code: Ensure no V1 PhysicsImpostor syntax is generated.
 3. 2D Constraints: When constraining 3D physics to a 2D plane, rely on static 
    invisible glass walls to natively sandwich the simulation plane rather than 
    manually clamping the Z-axis in the render loop.
@@ -32,8 +30,8 @@ SILK starts in the vertical portrait arena immediately without title screens.
 ===============================================================================
 - Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [1.0, 27.5]
 - Vertical Boundaries: Flat solid PBR walls at X = -15.0 and X = 15.0. Measurement 
-  unit ticks scroll downwards continuously, creating the endless vertical 
-  ascension illusion.
+  unit ticks scroll downwards continuously, managed by ParallaxScrollSystem, 
+  creating the endless vertical ascension illusion.
 - 2D Physics Plane: The Z-axis is constrained natively via invisible front and 
   back static Havok collision walls at Z = 3.5 and Z = -3.5.
 - Static Camera Lock: Fixed perspective camera at (0, 14, -38) looking at 
@@ -43,9 +41,10 @@ SILK starts in the vertical portrait arena immediately without title screens.
 2. REALIZED CORE TRAVERSAL & PHYSICS SKELETON
 ===============================================================================
 - GHOST ENTITIES (KINEMATICS):
-  The Player and Weaver move via strict custom trigonometric ECS logic, but exist 
-  in the Havok simulation as `ANIMATED` (Kinematic) PhysicsBodies. This allows 
-  Havok to track their exact hitboxes natively without gravity interfering.
+  The Player and Weaver move via strict custom trigonometric ECS logic (processed 
+  by PlayerKinematicsSystem and WeaverTraversalSystem), but exist in the Havok 
+  simulation as ANIMATED (Kinematic) PhysicsBodies. This allows Havok to track 
+  their exact hitboxes natively without gravity interfering.
 
 - THE TETHER AS A ONE-WAY RATCHET:
   1. Elongation: The maximum length of the rope can only increase while wall sliding.
@@ -60,46 +59,43 @@ SILK starts in the vertical portrait arena immediately without title screens.
 3. COMBAT & WEAVER AI STATE MACHINE
 ===============================================================================
 - PLAYER OFFENSE (FLING ATTACKS):
-  Impacts Weaver while "LAUNCHING" with >= 80% power.
+  Impacts Weaver while LAUNCHING with >= 80% power.
 - WEAVER OFFENSE (CONTACT DAMAGE & PROJECTILES):
-  Weaver damages player via direct contact while "DASHING", or by firing 
-  object-pooled kinematic Web Projectiles.
+  Weaver damages player via direct contact while DASHING, or by firing 
+  object-pooled kinematic Web Projectiles (managed by ProjectileSystem).
 
 - WEAVER STATE MACHINE:
-  1. SWEEPING (Red): Dormant patrol. Fires projectiles.
-  2. DASHING (Orange/Red/Cyan): Triggered by damage. Prep, Thrust, Recover phases.
-  3. RETURNING (Gray): Ascends back to patrol line.
-  4. DEFEATED (Dark): Triggers 2-Layer procedural shatter.
+  The state machine is evaluated by WeaverBrainSystem, which delegates runtime 
+  updates to isolated single-responsibility state classes:
+  1. SWEEPING (WeaverSweepingState - Red): Dormant patrol. Fires projectiles.
+  2. DASHING (WeaverDashingState - Orange/Red/Cyan): Triggered by damage. 
+     Prep, Thrust, and Recover sub-phases.
+  3. RETURNING (WeaverReturningState - Gray): Ascends back to patrol line.
+  4. DEFEATED (WeaverDefeatedState - Dark): Triggers 2-Layer procedural shatter.
 
 ===============================================================================
 4. AUDIO-VISUAL JUICE & SPECTACLE
 ===============================================================================
-- TWO-LAYER PROCEDURAL SHATTER:
+- TWO-LAYER PROCEDURAL SHATTER (WeaverShatterSystem):
   On death, the Weaver's procedural mesh is partitioned into a dual-layer 
-  physics explosion:
+  physics explosion managed by WeaverShatterSystem:
   1. Outer Shell: 20 flat triangles exploded outward via surface normals.
   2. Inner Core: 10 solid, mathematically sealed wedges.
-  Collision meshes rely on extracted exact Bounding Boxes (`PhysicsShapeBox`) 
-  to guarantee non-zero volume physics resolution.
+  Debris physics simulations run custom boundary collisions and size-decay scaling.
 
 - PROCEDURAL AUDIO (Tone.js):
   FM Oscillator paired with Lowpass Filter and LFO. Frequency and harmonicity 
-  scale dynamically based on silk tension and Boss states.
+  scale dynamically based on silk tension and Boss states (managed by 
+  AudioDirectorSystem and TensionSynthesizer).
 
-- VISUAL JUICE:
-  Screen Shake broadcast via Event Broker. Object-pooled Particles for player 
-  thrust, Weaver damage, and wall-sliding sparks. PBR materials with screen-space 
-  Bloom mapping.
-
-===============================================================================
-5. DEFERRED POST-SKELETON IMPLEMENTATION ITEMS
-===============================================================================
-These items remain slated for future development phases:
-1. USER MENU & CONFIGURATION:
-   - Volume sliders mapped to native Tone.js Destination gain channels.
-2. PERSISTENCE MATRIX: 
-   - LocalStorage save slots with schema validation check passes for Win/Loss 
-     tallies and custom key-rebinds.
+- VISUAL JUICE & INTERPOLATION:
+  * Screen Shake: Broadcast via Event Broker and handled by CameraSystem.
+  * Particle Effects: Managed by JuiceSystem (sparks, dust, splats, and trails).
+  * Parallax Scrolling: Decorative ticks scroll under ParallaxScrollSystem control.
+  * Render Interpolation: Entity visual node positions, scale, and rotations are 
+    interpolated smoothly by EntityInterpolationSystem.
+  * Materials: PBR materials with screen-space Bloom mapping and customized 
+    displacement/warp shader plugins (WarpMaterialPlugin, ProjectileNoisePlugin).
 
 ===============================================================================
 END OF DOCUMENT
