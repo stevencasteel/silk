@@ -1,18 +1,13 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { SystemContext } from "../../core/engine/SystemContext";
 import { InputIntentComponent, HealthComponent } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
 
 export class PlayerInputSystem implements ISystem {
   readonly phase = SystemPhase.Input;
   private keysPressed: Record<string, boolean> = {};
 
-  constructor(
-    private refs: EntityRefs,
-    private inputs: ComponentStore<InputIntentComponent>,
-    private healths: ComponentStore<HealthComponent>
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
     window.addEventListener("keydown", this.handleKeyDown);
@@ -20,11 +15,13 @@ export class PlayerInputSystem implements ISystem {
   }
 
   public update(): void {
-    const input = this.inputs.get(this.refs.player);
+    const inputStore = this.context.stores.get<InputIntentComponent>("input");
+    const input = inputStore.get(this.context.refs.player);
     if (!input) return;
 
-    const pHealth = this.healths.get(this.refs.player);
-    const wHealth = this.healths.get(this.refs.weaver);
+    const healths = this.context.stores.get<HealthComponent>("health");
+    const pHealth = healths.get(this.context.refs.player);
+    const wHealth = healths.get(this.context.refs.weaver);
 
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       input.x = 0;

@@ -1,1 +1,0 @@
-import{ln as e}from"./compositionRoot-DgmNzPXL.js";export{e as pickingVertexShader};

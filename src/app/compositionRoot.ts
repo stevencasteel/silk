@@ -116,14 +116,7 @@ export class CompositionRoot {
     const juiceSystem = new JuiceSystem(context);
     const audioSystem = new AudioDirectorSystem(broker);
 
-    const physicsSystem = new HavokPhysicsSystem(
-      commands,
-      refs,
-      transforms,
-      velocities,
-      targets,
-      visualRegistry
-    );
+    const physicsSystem = new HavokPhysicsSystem(context);
     
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
@@ -132,7 +125,7 @@ export class CompositionRoot {
     const interpolationSystem = new RenderInterpolationSystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
-    const inputSystem = new PlayerInputSystem(refs, inputs, healths);
+    const inputSystem = new PlayerInputSystem(context);
     const spawner = new EntitySpawnerSystem(context);
 
     const weaverBrain = new WeaverBrainSystem(context);

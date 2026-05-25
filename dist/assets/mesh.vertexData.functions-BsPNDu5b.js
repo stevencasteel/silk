@@ -1,1 +1,0 @@
-import{Ir as e}from"./compositionRoot-DgmNzPXL.js";export{e as OptimizeIndices};
