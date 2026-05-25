@@ -1,1 +1,0 @@
-import{Sr as e}from"./compositionRoot-JY_INRI-.js";export{e as colorVertexShader};
