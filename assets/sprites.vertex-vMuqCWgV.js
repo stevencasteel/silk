@@ -1,0 +1,1 @@
+import{Xt as e}from"./compositionRoot-BlvJUpRp.js";export{e as spritesVertexShader};

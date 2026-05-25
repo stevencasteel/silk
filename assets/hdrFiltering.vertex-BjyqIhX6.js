@@ -1,0 +1,1 @@
+import{X as e}from"./compositionRoot-BlvJUpRp.js";export{e as hdrFilteringVertexShaderWGSL};
