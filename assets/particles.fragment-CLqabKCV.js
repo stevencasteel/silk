@@ -1,0 +1,1 @@
+import{E as e}from"./compositionRoot-VOojpLl0.js";export{e as particlesPixelShaderWGSL};
