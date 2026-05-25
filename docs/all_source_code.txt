@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 1:41:13 PM
+ [SYSTEM] Generated: 5/25/2026, 2:19:58 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -98,6 +98,7 @@
 │   │       └── HavokPhysicsSystem.ts
 │   ├── ui/
 │   │   └── hud/
+│   │       ├── ErrorBoundary.tsx
 │   │       ├── HudOverlay.tsx
 │   │       ├── hudStore.ts
 │   │       └── HudSyncSystem.ts
@@ -751,6 +752,7 @@ console.log('Manifest and dynamic source assets compiled successfully.');
 import { useEffect, useRef } from "react";
 import { bootstrapApplication } from "./app/bootstrap";
 import { HudOverlay } from "./ui/hud/HudOverlay";
+import { ErrorBoundary } from "./ui/hud/ErrorBoundary";
 import { Engine } from "./core/engine/Engine";
 import "./App.css";
 
@@ -784,7 +786,10 @@ export default function App() {
     <div className="cabinet-outer">
       <div className="viewport-container">
         <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
-        <HudOverlay />
+        <ErrorBoundary>
+          <HudOverlay />
+        </ErrorBoundary>
+        <div id="debug-telemetry-root" />
       </div>
     </div>
   );
@@ -795,22 +800,22 @@ export default function App() {
 ● ./src/app/bootstrap.ts
 ────────────────────────────────────────────────────
 import { Engine } from "../core/engine/Engine";
-import { useHudStore } from "../ui/hud/hudStore";
+import { useOverlayStore } from "../ui/hud/hudStore";
 
 export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<Engine> {
-  const store = useHudStore.getState();
+  const overlay = useOverlayStore.getState();
 
-  store.setBootStatus("STREAMING SYSTEM ASSETS...");
+  overlay.setBootStatus("STREAMING SYSTEM ASSETS...");
+  overlay.setAwaitingGesture(true);
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  store.setBootStatus("COMPILING PHYSICAL WEB QUANTUMS...");
+  overlay.setBootStatus("COMPILING PHYSICAL WEB QUANTUMS...");
   const { CompositionRoot } = await import("./compositionRoot");
 
-  store.setBootStatus("MOUNTING ENGINES...");
+  overlay.setBootStatus("MOUNTING ENGINES...");
   const root = new CompositionRoot();
   const engine = root.buildEngine(canvas);
 
-  store.setBootStatus("READY");
   return engine;
 }
 
@@ -1018,9 +1023,7 @@ export class AudioDirectorSystem implements ISystem {
   private subscriptions: (() => void)[] = [];
   private gestureTriggerRef: (() => void) | null = null;
 
-  constructor(private broker: EventBroker) {}
-
-  public init(): void {
+  constructor(private broker: EventBroker) {
     this.gestureTriggerRef = (): void => {
       this.bootAudioEngine();
       this.removeGestureListeners();
@@ -1030,7 +1033,9 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("keydown", this.gestureTriggerRef);
     window.addEventListener("touchend", this.gestureTriggerRef);
     window.addEventListener("mousedown", this.gestureTriggerRef);
+  }
 
+  public init(): void {
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
@@ -1579,15 +1584,18 @@ export class DebugTelemetryOverlay implements ISystem {
   public init(): void {
     if (typeof document === "undefined") return;
     this._profiler.isEnabled = true;
+    const root = document.getElementById("debug-telemetry-root");
+    if (!root) return;
+
     this.overlay = document.createElement("div");
 
     this.overlay.style.cssText =
-      "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
+      "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:10;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
 
     this.sysText = document.createElement("pre");
     this.sysText.style.margin = "0";
     this.overlay.appendChild(this.sysText);
-    document.body.appendChild(this.overlay);
+    root.appendChild(this.overlay);
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
@@ -1960,8 +1968,9 @@ export class EntityRefs {
   ) {}
 
   public get player(): EntityId {
-    if (this._player !== -1) return this._player;
+    if (this._player !== -1 && this.playerTags.has(this._player)) return this._player;
     for (const [id] of this.playerTags.entries()) {
+      this._player = id;
       return id;
     }
     return -1;
@@ -1972,8 +1981,9 @@ export class EntityRefs {
   }
 
   public get weaver(): EntityId {
-    if (this._weaver !== -1) return this._weaver;
+    if (this._weaver !== -1 && this.weaverTags.has(this._weaver)) return this._weaver;
     for (const [id] of this.weaverTags.entries()) {
+      this._weaver = id;
       return id;
     }
     return -1;
@@ -2064,7 +2074,20 @@ export const ARENA_CONFIG = {
     PLAYER_HEIGHT: 1.8,
     PLAYER_RADIUS: 0.4,
     PLAYER_HALF_HEIGHT: 0.9,
-    WEAVER_RADIUS: 4.4
+    WEAVER_RADIUS: 4.4,
+    WEAVER_ICOSPHERE_SUBDIVISIONS: 5,
+    WEAVER_MESH_POSITION_MODIFY: true,
+    PLAYER_CAPSULE_SUBDIVISIONS: 3
+  },
+  ENTITY_COLORS: {
+    WEAVER_ALBEDO: { r: 0.15, g: 0.15, b: 0.18 },
+    PLAYER_ALBEDO: { r: 0.88, g: 0.9, b: 0.92 },
+    PLAYER_SHEEN: { r: 0.95, g: 0.95, b: 1.0 }
+  },
+  ENTITY_SPAWNER: {
+    WEAVER_INITIAL_VELOCITY_X: 4.5,
+    WEAVER_PHYSICS_MASS: 100.0,
+    PLAYER_PHYSICS_MASS: 10.0
   },
   PROJECTILE: {
     OFFSCREEN_MIN_Y: -15.0,
@@ -2135,6 +2158,7 @@ export const WEAVER_AI_TUNING = {
     SPEED_BERSERK: 9.0
   },
   SHOOT: {
+    POOL_SIZE: 16,
     TELEGRAPH_TIME: 1.8,
     RELOAD_TIME: 2.4,
     OFFSET_Y: 1.8,
@@ -2399,7 +2423,9 @@ export class Engine {
   }
 
   public async start(): Promise<void> {
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "INITIALIZING SYSTEMS..." });
     await this.systemManager.initAll();
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "AWAITING INPUT" });
     this.initPauseHandlers();
     this.initHitStopHandlers();
     this.loop.start();
@@ -2567,6 +2593,7 @@ export class EventBroker {
 ────────────────────────────────────────────────────
 export enum GameEvent {
   GAME_INITIALIZED = "GAME_INITIALIZED",
+  GAME_BOOT_PROGRESS = "GAME_BOOT_PROGRESS",
   USER_GESTURE_REGISTERED = "USER_GESTURE_REGISTERED",
   PLAYER_HEALTH_CHANGED = "PLAYER_HEALTH_CHANGED",
   PLAYER_DAMAGED = "PLAYER_DAMAGED",
@@ -2591,6 +2618,7 @@ export enum GameEvent {
 
 export interface GameEventMap {
   [GameEvent.GAME_INITIALIZED]: void;
+  [GameEvent.GAME_BOOT_PROGRESS]: { status: string };
   [GameEvent.USER_GESTURE_REGISTERED]: void;
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
@@ -2926,7 +2954,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     this.context.stores
       .get<KinematicVelocityComponent>("velocity")
-      .add(weaverId, { x: 4.5, y: 0, z: 0 });
+      .add(weaverId, { x: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X, y: 0, z: 0 });
     this.context.stores
       .get<KinematicTargetComponent>("target")
       .add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
@@ -2954,40 +2982,43 @@ export class EntitySpawnerSystem implements ISystem {
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
-      { radius: radius, subdivisions: 5 },
+      { radius: radius, subdivisions: ARENA_CONFIG.ENTITY.WEAVER_ICOSPHERE_SUBDIVISIONS },
       scene
     );
 
-    const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
-    if (positions) {
-      for (let i = 0; i < positions.length; i += 3) {
-        const x = positions[i];
-        const y = positions[i + 1];
-        const z = positions[i + 2];
-        if (y < 0) {
-          const r_sphere = Math.sqrt(radius * radius - y * y);
-          if (r_sphere > 0.001) {
-            const r_cone = radius * (1.0 + y / radius);
-            const scaleFactor = r_cone / r_sphere;
-            positions[i] = x * scaleFactor;
-            positions[i + 2] = z * scaleFactor;
-          } else {
-            positions[i] = 0;
-            positions[i + 2] = 0;
+    if (ARENA_CONFIG.ENTITY.WEAVER_MESH_POSITION_MODIFY) {
+      const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+      if (positions) {
+        for (let i = 0; i < positions.length; i += 3) {
+          const x = positions[i];
+          const y = positions[i + 1];
+          const z = positions[i + 2];
+          if (y < 0) {
+            const r_sphere = Math.sqrt(radius * radius - y * y);
+            if (r_sphere > 0.001) {
+              const r_cone = radius * (1.0 + y / radius);
+              const scaleFactor = r_cone / r_sphere;
+              positions[i] = x * scaleFactor;
+              positions[i + 2] = z * scaleFactor;
+            } else {
+              positions[i] = 0;
+              positions[i + 2] = 0;
+            }
           }
         }
-      }
-      wMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
-      const normals: number[] = [];
-      const indices = wMesh.getIndices();
-      if (indices) {
-        BABYLON.VertexData.ComputeNormals(positions, indices, normals);
-        wMesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
+        wMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+        const normals: number[] = [];
+        const indices = wMesh.getIndices();
+        if (indices) {
+          BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+          wMesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
+        }
       }
     }
 
+    const wc = ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO;
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
-    wMat.albedoColor = new BABYLON.Color3(0.15, 0.15, 0.18);
+    wMat.albedoColor = new BABYLON.Color3(wc.r, wc.g, wc.b);
     wMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.METALLIC;
     wMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.ROUGHNESS;
     wMat.clearCoat.isEnabled = true;
@@ -3007,7 +3038,7 @@ export class EntitySpawnerSystem implements ISystem {
       );
       const wShape = new BABYLON.PhysicsShapeConvexHull(wMesh, scene);
       wBody.shape = wShape;
-      wBody.setMassProperties({ mass: 100.0 });
+      wBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_PHYSICS_MASS });
     }
 
     return weaverId;
@@ -3091,18 +3122,20 @@ public spawnPlayer(existingId?: EntityId): EntityId {
       {
         height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
         radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
-        subdivisions: 3
+        subdivisions: ARENA_CONFIG.ENTITY.PLAYER_CAPSULE_SUBDIVISIONS
       },
       scene
     );
+    const pc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_ALBEDO;
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);
-    pMat.albedoColor = new BABYLON.Color3(0.88, 0.9, 0.92);
+    pMat.albedoColor = new BABYLON.Color3(pc.r, pc.g, pc.b);
     pMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.METALLIC;
     pMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.ROUGHNESS;
     pMat.sheen.isEnabled = true;
     pMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_INTENSITY;
     pMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_ROUGHNESS;
-    pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
+    const psc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_SHEEN;
+    pMat.sheen.color = new BABYLON.Color3(psc.r, psc.g, psc.b);
     pMesh.material = pMat;
     this.context.visualRegistry.registerTransformNode(playerId, pMesh);
 
@@ -3114,7 +3147,7 @@ public spawnPlayer(existingId?: EntityId): EntityId {
         scene
       );
       pBody.shape = this.sharedPlayerShape;
-      pBody.setMassProperties({ mass: 10.0 });
+      pBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.PLAYER_PHYSICS_MASS });
     }
 
     return playerId;
@@ -3562,7 +3595,7 @@ export class ProjectileSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
   private projectilePool: ActiveProjectile[] = [];
-  private readonly POOL_SIZE = 16;
+  private readonly POOL_SIZE = WEAVER_AI_TUNING.SHOOT.POOL_SIZE;
   private nextPoolIndex = 0;
   private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
 
@@ -3811,11 +3844,16 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
+import {
+  TransformComponent,
+  TetherComponent,
+  TraversalStateComponent
+} from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledParticle {
@@ -4107,6 +4145,62 @@ export class JuiceSystem implements ISystem {
     this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
   }
 
+  private emitWallSlideSparks(
+    pTrans: TransformComponent,
+    pTether: TetherComponent,
+    pTrav: TraversalStateComponent,
+    dt: number
+  ): void {
+    const wallX = pTrav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const contactPos = new BABYLON.Vector3(wallX, pTrans.y, 0);
+
+    const tension = Math.max(0, pTether.tension);
+    const baseChance = 0.15;
+    const tensionBonus = tension * 0.85;
+    const totalChance = Math.min(1.0, baseChance + tensionBonus);
+
+    const ticks = Math.max(1, Math.round(dt * 60.0));
+    for (let t = 0; t < ticks; t++) {
+      if (Math.random() < totalChance) {
+        this.spawnSingleSlideSpark(contactPos, pTrav.wallNormalX, tension);
+      }
+    }
+  }
+
+  private spawnSingleSlideSpark(
+    position: BABYLON.Vector3,
+    wallNormalX: number,
+    tension: number
+  ): void {
+    const particle = this.particlePool[this.nextPoolIndex];
+    particle.mesh.position.copyFrom(position);
+
+    const speedMult = 1.0 + tension * 1.5;
+    const vx = wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
+    const vy = (Math.random() - 0.2) * 4.0 * speedMult;
+    const vz = (Math.random() - 0.5) * 1.5;
+
+    particle.velocity.set(vx, vy, vz);
+    particle.lifeRemaining = 0.15 + Math.random() * 0.25;
+    particle.maxLife = particle.lifeRemaining;
+    particle.active = true;
+    particle.mesh.setEnabled(true);
+
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+    const mat = particle.mesh.material as BABYLON.StandardMaterial;
+    if (mat) {
+      if (tension > 0.8) {
+        mat.emissiveColor.set(1.0, 0.95, 0.8);
+      } else if (tension > 0.4) {
+        mat.emissiveColor.set(1.0, 0.65, 0.15);
+      } else {
+        mat.emissiveColor.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
+      }
+    }
+
+    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+  }
+
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
@@ -4140,6 +4234,18 @@ export class JuiceSystem implements ISystem {
       if (playerNode) {
         this.spawnLaunchTrail(playerNode.position);
       }
+    }
+
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const tethers = this.context.stores.get<TetherComponent>("tether");
+    const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
+
+    const pTrans = transforms.get(this.context.refs.player);
+    const pTether = tethers.get(this.context.refs.player);
+    const pTrav = traversal.get(this.context.refs.player);
+
+    if (pTrans && pTether && pTrav && pTrav.state === "WALL_SLIDING") {
+      this.emitWallSlideSparks(pTrans, pTether, pTrav, dt);
     }
   }
 
@@ -5717,6 +5823,9 @@ export class WeaverBrainSystem implements ISystem {
       .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
+    // Globally increment elapsed state time for dynamic visual animations
+    aiComp.timeInState += dt;
+
     if (this.pendingTransition !== null) {
       this.transitionTo(this.pendingTransition);
       this.pendingTransition = null;
@@ -5895,7 +6004,13 @@ export class WeaverTraversalSystem implements ISystem {
             targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
             targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
             targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
-          } else {
+
+          // Hornet windup shiver wobble along Z (roll)
+          const wobbleFreq = 65.0;
+          const wobbleAmp = 0.15 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+          const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
+        } else {
             const stretch = Math.min(
               WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
               (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
@@ -6191,10 +6306,9 @@ export class WeaverReturningState implements IWeaverState {
   public exit(): void {}
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState += dt;
-    }
+    // State timer is incremented globally in WeaverBrainSystem
+    void dt;
+    void dt;
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const wTrans = transforms.get(ctx.refs.weaver);
@@ -6275,9 +6389,7 @@ export class WeaverSweepingState implements IWeaverState {
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState += dt;
-    }
+    // State timer is incremented globally in WeaverBrainSystem
 
     this.shootTimer += dt;
     const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
@@ -6604,9 +6716,19 @@ import {
 } from "../../core/ecs/Components";
 import { SetKinematicVelocityCommand } from "../commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import * as BABYLON from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    )
+  ]);
+}
 
 export class HavokPhysicsSystem implements ISystem {
   readonly phase = SystemPhase.PhysicsStep;
@@ -6619,16 +6741,29 @@ export class HavokPhysicsSystem implements ISystem {
     this.registerCommands();
     const scene = this.context.visualRegistry.getScene();
     if (scene) {
+      this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "LOADING PHYSICS ENGINE..." });
       try {
+        const HAVOK_TIMEOUT_MS = 15000;
         let havokInstance;
         try {
-          havokInstance = await HavokPhysics({
-            locateFile: () => "./HavokPhysics.wasm"
-          });
+          havokInstance = await withTimeout(
+            HavokPhysics({ locateFile: () => "./HavokPhysics.wasm" }),
+            HAVOK_TIMEOUT_MS,
+            "Local HavokPhysics.wasm timed out"
+          );
         } catch {
-          havokInstance = await HavokPhysics({
-            locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+          this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+            status: "PHYSICS LOCAL LOAD FAILED, TRYING CDN..."
           });
+          try {
+            havokInstance = await withTimeout(
+              HavokPhysics({ locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm" }),
+              HAVOK_TIMEOUT_MS,
+              "CDN HavokPhysics.wasm timed out"
+            );
+          } catch {
+            throw new Error("HavokPhysics failed to load from both local and CDN sources");
+          }
         }
 
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
@@ -6636,8 +6771,6 @@ export class HavokPhysicsSystem implements ISystem {
           new BABYLON.Vector3(0, CANONICAL_UNITS.GRAVITY.PHYSICAL_EARTH, 0),
           this.havokPlugin
         );
-        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
-
         const playHalfWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
         const wallThickness = 1.0;
         const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
@@ -6750,11 +6883,13 @@ export class HavokPhysicsSystem implements ISystem {
         );
         backBody.shape = frontBackShape;
         backBody.setMassProperties({ mass: 0 });
+        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
       } catch (err) {
-        console.warn(
-          "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",
-          err
-        );
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[HavokPhysicsSystem] Failed to load Havok:", msg);
+        this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+          status: `PHYSICS UNAVAILABLE: ${msg}`
+        });
       }
     }
   }
@@ -6803,48 +6938,100 @@ export class HavokPhysicsSystem implements ISystem {
 
 
 
+● ./src/ui/hud/ErrorBoundary.tsx
+────────────────────────────────────────────────────
+import React from "react";
+
+interface Props {
+  children: React.ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends React.Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    console.error("[ErrorBoundary] HUD crashed:", error, info.componentStack);
+  }
+
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(10,12,18,0.95)",
+            color: "#ef4444",
+            fontFamily: "monospace",
+            fontSize: "12px",
+            padding: "20px",
+            textAlign: "center",
+            zIndex: 100
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
+              HUD RENDER ERROR
+            </div>
+            <div style={{ color: "#a1a1aa", fontSize: "10px" }}>
+              {this.state.error?.message ?? "Unknown error"}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
+
 ● ./src/ui/hud/HudOverlay.tsx
 ────────────────────────────────────────────────────
 import React from "react";
-import { useHudStore } from "./hudStore";
+import { usePlayerStore, useWeaverStore, useTetherStore, useOverlayStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
 
 export const HudOverlay: React.FC = () => {
-  const {
-    playerHp,
-    playerMaxHp,
-    traversalHint,
-    traversalHintColor,
-    traversalHintOpacity,
-    overlayVisible,
-    overlayTitle,
-    overlayColor,
-    overlaySubtitle,
-    isPaused,
-    bootStatus,
-    tetherTension,
-    weaverHp,
-    weaverMaxHp,
-    weaverState,
-    weaverHue
-  } = useHudStore(
-    useShallow((state) => ({
-      playerHp: state.playerHp,
-      playerMaxHp: state.playerMaxHp,
-      traversalHint: state.traversalHint,
-      traversalHintColor: state.traversalHintColor,
-      traversalHintOpacity: state.traversalHintOpacity,
-      overlayVisible: state.overlayVisible,
-      overlayTitle: state.overlayTitle,
-      overlayColor: state.overlayColor,
-      overlaySubtitle: state.overlaySubtitle,
-      isPaused: state.isPaused,
-      bootStatus: state.bootStatus,
-      tetherTension: state.tetherTension,
-      weaverHp: state.weaverHp,
-      weaverMaxHp: state.weaverMaxHp,
-      weaverState: state.weaverState,
-      weaverHue: state.weaverHue
+  const playerState = usePlayerStore(
+    useShallow((s) => ({ playerHp: s.playerHp, playerMaxHp: s.playerMaxHp }))
+  );
+  const weaverState = useWeaverStore(
+    useShallow((s) => ({
+      weaverHp: s.weaverHp,
+      weaverMaxHp: s.weaverMaxHp,
+      weaverState: s.weaverState,
+      weaverHue: s.weaverHue
+    }))
+  );
+  const tetherTension = useTetherStore((s) => s.tetherTension);
+  const overlayState = useOverlayStore(
+    useShallow((s) => ({
+      traversalHint: s.traversalHint,
+      traversalHintColor: s.traversalHintColor,
+      traversalHintOpacity: s.traversalHintOpacity,
+      overlayVisible: s.overlayVisible,
+      overlayTitle: s.overlayTitle,
+      overlayColor: s.overlayColor,
+      overlaySubtitle: s.overlaySubtitle,
+      isPaused: s.isPaused,
+      bootStatus: s.bootStatus,
+      awaitingGesture: s.awaitingGesture
     }))
   );
 
@@ -6856,7 +7043,7 @@ export const HudOverlay: React.FC = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP" }));
   };
 
-  const isBooting = bootStatus !== "READY";
+  const isBooting = overlayState.bootStatus !== "READY" && !overlayState.awaitingGesture;
 
   const snapLimit = 1.3;
   const clampedTension = Math.max(0, Math.min(snapLimit, tetherTension));
@@ -6873,8 +7060,11 @@ export const HudOverlay: React.FC = () => {
     tensionTextColor = "rgb(245, 158, 11)";
   }
 
-  const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
-  const weaverHpBarColor = weaverHp <= weaverMaxHp * 0.3 ? "rgb(245, 158, 11)" : "rgb(239, 68, 68)";
+  const weaverHpRatio = Math.max(0, weaverState.weaverHp / weaverState.weaverMaxHp);
+  const weaverHpBarColor =
+    weaverState.weaverHp <= weaverState.weaverMaxHp * 0.3
+      ? "rgb(245, 158, 11)"
+      : "rgb(239, 68, 68)";
 
   return (
     <>
@@ -6891,8 +7081,20 @@ export const HudOverlay: React.FC = () => {
               />
             </div>
             <pre className="text-zinc-400 text-[10px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
-              {"[SYSTEM BOOT]: ONLINE\n[STATUS]: " + bootStatus}
+              {"[SYSTEM BOOT]: ONLINE\n[STATUS]: " + overlayState.bootStatus}
             </pre>
+          </div>
+        </div>
+      ) : overlayState.awaitingGesture ? (
+        <div className="overlay-root font-mono">
+          <div className="overlay-modal max-w-md w-full border border-emerald-700 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
+            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-lg mb-4">
+              PROTOTYPE SILK
+            </h2>
+            <div className="text-zinc-300 text-sm mb-2">SYSTEMS NOMINAL</div>
+            <div className="text-emerald-500 text-xs uppercase tracking-widest animate-pulse mt-4">
+              CLICK OR PRESS ANY KEY TO START
+            </div>
           </div>
         </div>
       ) : (
@@ -6902,11 +7104,11 @@ export const HudOverlay: React.FC = () => {
               <div className="hud-label">PILOT INTEGRITY</div>
               <div className="hud-hp-row">
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className={`hp-block ${i < playerHp ? "hp-active" : ""}`} />
+                  <div key={i} className={`hp-block ${i < playerState.playerHp ? "hp-active" : ""}`} />
                 ))}
               </div>
               <div className="hud-subtext">
-                {playerHp} / {playerMaxHp}
+                {playerState.playerHp} / {playerState.playerMaxHp}
               </div>
             </div>
 
@@ -6914,7 +7116,7 @@ export const HudOverlay: React.FC = () => {
               <div className="hud-label-row">
                 <span className="hud-label">WEAVER CORE</span>
                 <span className="hud-value text-zinc-400 font-bold">
-                  {weaverHp}/{weaverMaxHp}
+                  {weaverState.weaverHp}/{weaverState.weaverMaxHp}
                 </span>
               </div>
               <div className="hud-bar-track">
@@ -6929,9 +7131,9 @@ export const HudOverlay: React.FC = () => {
               </div>
               <span
                 className="hud-state-text font-bold text-xs tracking-wider transition-colors duration-150"
-                style={{ color: weaverHue }}
+                style={{ color: weaverState.weaverHue }}
               >
-                {weaverState.toUpperCase()}
+                {weaverState.weaverState.toUpperCase()}
               </span>
             </div>
           </div>
@@ -6940,11 +7142,11 @@ export const HudOverlay: React.FC = () => {
             <div
               className="hud-hint"
               style={{
-                opacity: traversalHintOpacity,
-                color: traversalHintColor
+                opacity: overlayState.traversalHintOpacity,
+                color: overlayState.traversalHintColor
               }}
             >
-              {traversalHint}
+              {overlayState.traversalHint}
             </div>
             <div className="hud-panel hud-center">
               <div className="hud-label-row">
@@ -6968,14 +7170,14 @@ export const HudOverlay: React.FC = () => {
         </div>
       )}
 
-      {overlayVisible && (
+      {overlayState.overlayVisible && (
         <div className="overlay-root">
           <div className="overlay-modal">
-            <h1 className="overlay-title" style={{ color: overlayColor }}>
-              {overlayTitle}
+            <h1 className="overlay-title" style={{ color: overlayState.overlayColor }}>
+              {overlayState.overlayTitle}
             </h1>
             <div className="overlay-divider" />
-            <p className="overlay-subtitle">{overlaySubtitle}</p>
+            <p className="overlay-subtitle">{overlayState.overlaySubtitle}</p>
             <button onClick={handleRetryClick} className="overlay-btn pointer-events-auto">
               PLAY AGAIN
             </button>
@@ -6983,7 +7185,7 @@ export const HudOverlay: React.FC = () => {
         </div>
       )}
 
-      {isPaused && !isBooting && (
+      {overlayState.isPaused && !isBooting && !overlayState.awaitingGesture && (
         <div className="overlay-root">
           <div className="overlay-modal" style={{ borderColor: "var(--accent-tension)" }}>
             <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
@@ -7009,7 +7211,13 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { useHudStore } from "./hudStore";
+import {
+  usePlayerStore,
+  useWeaverStore,
+  useTetherStore,
+  useOverlayStore,
+  resetAllStores
+} from "./hudStore";
 
 export class HudSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
@@ -7017,25 +7225,34 @@ export class HudSyncSystem implements ISystem {
   private lastHintLevel: "none" | "charging" | "ready" | "maxout" = "none";
   private currentState: string = "AIRBORNE";
 
-  constructor(private broker: EventBroker) {}
-
-  public init(): void {
+  constructor(private broker: EventBroker) {
     this.registerSubscriptions();
   }
 
+  public init(): void {}
+
   private registerSubscriptions(): void {
-    const store = useHudStore.getState();
+    const playerStore = usePlayerStore.getState();
+    const weaverStore = useWeaverStore.getState();
+    const tetherStore = useTetherStore.getState();
+    const overlayStore = useOverlayStore.getState();
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {
+        overlayStore.setBootStatus(status);
+      })
+    );
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
-        store.setTetherTension(tension);
+        tetherStore.setTetherTension(tension);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
         this.currentState = state;
-        store.setCurrentState(state);
+        playerStore.setCurrentState(state);
         if (state !== "WALL_SLIDING") {
           this.setHint("none");
         }
@@ -7043,37 +7260,43 @@ export class HudSyncSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-        store.setPlayerHp(hp, maxHp);
+        playerStore.setPlayerHp(hp, maxHp);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-        store.setWeaverHealth(hp, maxHp);
+        weaverStore.setWeaverHealth(hp, maxHp);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
-        store.setWeaverState(state, hue);
+        weaverStore.setWeaverState(state, hue);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
-        store.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
+        overlayStore.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        store.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
+        overlayStore.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        store.reset();
+        resetAllStores();
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
-        store.setPaused(isPaused);
+        overlayStore.setPaused(isPaused);
+      })
+    );
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        overlayStore.setAwaitingGesture(false);
+        overlayStore.setBootStatus("READY");
       })
     );
   }
@@ -7094,7 +7317,7 @@ export class HudSyncSystem implements ISystem {
   private setHint(level: "none" | "charging" | "ready" | "maxout"): void {
     if (level === this.lastHintLevel) return;
     this.lastHintLevel = level;
-    const store = useHudStore.getState();
+    const store = useOverlayStore.getState();
     switch (level) {
       case "none":
         store.setTraversalHint("", "rgb(161, 161, 170)", 0);
@@ -7123,10 +7346,33 @@ export class HudSyncSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { create } from "zustand";
 
-export interface HudState {
+export interface PlayerState {
   playerHp: number;
   playerMaxHp: number;
   currentState: string;
+  setPlayerHp: (hp: number, maxHp: number) => void;
+  setCurrentState: (state: string) => void;
+  reset: () => void;
+}
+
+export interface WeaverState {
+  weaverHp: number;
+  weaverMaxHp: number;
+  weaverState: string;
+  weaverHue: string;
+  setWeaverHealth: (hp: number, maxHp: number) => void;
+  setWeaverState: (state: string, hue: string) => void;
+  reset: () => void;
+}
+
+export interface TetherState {
+  tetherTension: number;
+  setTetherTension: (tension: number) => void;
+  reset: () => void;
+}
+
+export interface OverlayState {
+  bootStatus: string;
   traversalHint: string;
   traversalHintColor: string;
   traversalHintOpacity: number;
@@ -7135,31 +7381,21 @@ export interface HudState {
   overlayColor: string;
   overlaySubtitle: string;
   isPaused: boolean;
-  bootStatus: string;
-
-  tetherTension: number;
-  weaverHp: number;
-  weaverMaxHp: number;
-  weaverState: string;
-  weaverHue: string;
-
-  setPlayerHp: (hp: number, maxHp: number) => void;
-  setCurrentState: (state: string) => void;
+  awaitingGesture: boolean;
+  setBootStatus: (status: string) => void;
   setTraversalHint: (text: string, color: string, opacity: number) => void;
   showOverlay: (title: string, color: string, subtitle: string) => void;
   hideOverlay: () => void;
   setPaused: (isPaused: boolean) => void;
-  setBootStatus: (status: string) => void;
-  setTetherTension: (tension: number) => void;
-  setWeaverHealth: (hp: number, maxHp: number) => void;
-  setWeaverState: (state: string, hue: string) => void;
+  setAwaitingGesture: (awaiting: boolean) => void;
   reset: () => void;
 }
 
-export const useHudStore = create<HudState>((set) => ({
-  playerHp: 5,
-  playerMaxHp: 5,
-  currentState: "AIRBORNE",
+const PLAYER_RESET = { playerHp: 5, playerMaxHp: 5, currentState: "AIRBORNE" };
+const WEAVER_RESET = { weaverHp: 100, weaverMaxHp: 100, weaverState: "SWEEPING", weaverHue: "rgb(239, 68, 68)" };
+const TETHER_RESET = { tetherTension: 0.0 };
+const OVERLAY_RESET = {
+  bootStatus: "READY",
   traversalHint: "",
   traversalHintColor: "rgb(161, 161, 170)",
   traversalHintOpacity: 0,
@@ -7168,48 +7404,48 @@ export const useHudStore = create<HudState>((set) => ({
   overlayColor: "rgb(16, 185, 129)",
   overlaySubtitle: "The shaft is clear.",
   isPaused: false,
-  bootStatus: "OFFLINE",
+  awaitingGesture: false
+};
 
-  tetherTension: 0.0,
-  weaverHp: 100,
-  weaverMaxHp: 100,
-  weaverState: "SWEEPING",
-  weaverHue: "rgb(239, 68, 68)",
-
+export const usePlayerStore = create<PlayerState>((set) => ({
+  ...PLAYER_RESET,
   setPlayerHp: (hp, maxHp) => set({ playerHp: hp, playerMaxHp: maxHp }),
   setCurrentState: (state) => set({ currentState: state }),
+  reset: () => set(PLAYER_RESET)
+}));
+
+export const useWeaverStore = create<WeaverState>((set) => ({
+  ...WEAVER_RESET,
+  setWeaverHealth: (hp, maxHp) => set({ weaverHp: hp, weaverMaxHp: maxHp }),
+  setWeaverState: (state, hue) => set({ weaverState: state, weaverHue: hue }),
+  reset: () => set(WEAVER_RESET)
+}));
+
+export const useTetherStore = create<TetherState>((set) => ({
+  ...TETHER_RESET,
+  setTetherTension: (tension) => set({ tetherTension: tension }),
+  reset: () => set(TETHER_RESET)
+}));
+
+export const useOverlayStore = create<OverlayState>((set) => ({
+  ...OVERLAY_RESET,
+  setBootStatus: (status) => set({ bootStatus: status }),
   setTraversalHint: (text, color, opacity) =>
     set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
   showOverlay: (title, color, subtitle) =>
-    set({
-      overlayVisible: true,
-      overlayTitle: title,
-      overlayColor: color,
-      overlaySubtitle: subtitle
-    }),
+    set({ overlayVisible: true, overlayTitle: title, overlayColor: color, overlaySubtitle: subtitle }),
   hideOverlay: () => set({ overlayVisible: false }),
   setPaused: (isPaused) => set({ isPaused }),
-  setBootStatus: (status) => set({ bootStatus: status }),
-  setTetherTension: (tension) => set({ tetherTension: tension }),
-  setWeaverHealth: (hp, maxHp) => set({ weaverHp: hp, weaverMaxHp: maxHp }),
-  setWeaverState: (state, hue) => set({ weaverState: state, weaverHue: hue }),
-  reset: () =>
-    set({
-      playerHp: 5,
-      playerMaxHp: 5,
-      currentState: "AIRBORNE",
-      traversalHint: "",
-      traversalHintOpacity: 0,
-      overlayVisible: false,
-      isPaused: false,
-      bootStatus: "READY",
-      tetherTension: 0.0,
-      weaverHp: 100,
-      weaverMaxHp: 100,
-      weaverState: "SWEEPING",
-      weaverHue: "rgb(239, 68, 68)"
-    })
+  setAwaitingGesture: (awaiting) => set({ awaitingGesture: awaiting }),
+  reset: () => set(OVERLAY_RESET)
 }));
+
+export function resetAllStores(): void {
+  usePlayerStore.getState().reset();
+  useWeaverStore.getState().reset();
+  useTetherStore.getState().reset();
+  useOverlayStore.getState().reset();
+}
 
 
 

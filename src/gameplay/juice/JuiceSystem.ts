@@ -1,8 +1,13 @@
-import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
+import {
+  TransformComponent,
+  TetherComponent,
+  TraversalStateComponent
+} from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledParticle {
@@ -294,6 +299,62 @@ export class JuiceSystem implements ISystem {
     this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
   }
 
+  private emitWallSlideSparks(
+    pTrans: TransformComponent,
+    pTether: TetherComponent,
+    pTrav: TraversalStateComponent,
+    dt: number
+  ): void {
+    const wallX = pTrav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const contactPos = new BABYLON.Vector3(wallX, pTrans.y, 0);
+
+    const tension = Math.max(0, pTether.tension);
+    const baseChance = 0.15;
+    const tensionBonus = tension * 0.85;
+    const totalChance = Math.min(1.0, baseChance + tensionBonus);
+
+    const ticks = Math.max(1, Math.round(dt * 60.0));
+    for (let t = 0; t < ticks; t++) {
+      if (Math.random() < totalChance) {
+        this.spawnSingleSlideSpark(contactPos, pTrav.wallNormalX, tension);
+      }
+    }
+  }
+
+  private spawnSingleSlideSpark(
+    position: BABYLON.Vector3,
+    wallNormalX: number,
+    tension: number
+  ): void {
+    const particle = this.particlePool[this.nextPoolIndex];
+    particle.mesh.position.copyFrom(position);
+
+    const speedMult = 1.0 + tension * 1.5;
+    const vx = wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
+    const vy = (Math.random() - 0.2) * 4.0 * speedMult;
+    const vz = (Math.random() - 0.5) * 1.5;
+
+    particle.velocity.set(vx, vy, vz);
+    particle.lifeRemaining = 0.15 + Math.random() * 0.25;
+    particle.maxLife = particle.lifeRemaining;
+    particle.active = true;
+    particle.mesh.setEnabled(true);
+
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+    const mat = particle.mesh.material as BABYLON.StandardMaterial;
+    if (mat) {
+      if (tension > 0.8) {
+        mat.emissiveColor.set(1.0, 0.95, 0.8);
+      } else if (tension > 0.4) {
+        mat.emissiveColor.set(1.0, 0.65, 0.15);
+      } else {
+        mat.emissiveColor.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
+      }
+    }
+
+    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+  }
+
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
@@ -327,6 +388,18 @@ export class JuiceSystem implements ISystem {
       if (playerNode) {
         this.spawnLaunchTrail(playerNode.position);
       }
+    }
+
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const tethers = this.context.stores.get<TetherComponent>("tether");
+    const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
+
+    const pTrans = transforms.get(this.context.refs.player);
+    const pTether = tethers.get(this.context.refs.player);
+    const pTrav = traversal.get(this.context.refs.player);
+
+    if (pTrans && pTether && pTrav && pTrav.state === "WALL_SLIDING") {
+      this.emitWallSlideSparks(pTrans, pTether, pTrav, dt);
     }
   }
 

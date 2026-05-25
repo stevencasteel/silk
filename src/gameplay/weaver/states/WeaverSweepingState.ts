@@ -50,9 +50,7 @@ export class WeaverSweepingState implements IWeaverState {
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState += dt;
-    }
+    // State timer is incremented globally in WeaverBrainSystem
 
     this.shootTimer += dt;
     const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;

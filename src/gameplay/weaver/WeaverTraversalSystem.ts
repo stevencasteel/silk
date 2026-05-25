@@ -140,7 +140,13 @@ export class WeaverTraversalSystem implements ISystem {
             targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
             targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
             targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
-          } else {
+
+          // Hornet windup shiver wobble along Z (roll)
+          const wobbleFreq = 65.0;
+          const wobbleAmp = 0.15 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+          const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
+        } else {
             const stretch = Math.min(
               WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
               (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *

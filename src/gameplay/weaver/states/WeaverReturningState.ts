@@ -25,10 +25,9 @@ export class WeaverReturningState implements IWeaverState {
   public exit(): void {}
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState += dt;
-    }
+    // State timer is incremented globally in WeaverBrainSystem
+    void dt;
+    void dt;
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const wTrans = transforms.get(ctx.refs.weaver);

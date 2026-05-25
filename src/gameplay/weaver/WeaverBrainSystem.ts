@@ -114,6 +114,9 @@ export class WeaverBrainSystem implements ISystem {
       .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
+    // Globally increment elapsed state time for dynamic visual animations
+    aiComp.timeInState += dt;
+
     if (this.pendingTransition !== null) {
       this.transitionTo(this.pendingTransition);
       this.pendingTransition = null;
