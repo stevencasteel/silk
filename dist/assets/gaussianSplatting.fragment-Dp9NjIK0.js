@@ -1,0 +1,1 @@
+import{lt as e}from"./compositionRoot-cl05Ozvc.js";export{e as gaussianSplattingPixelShaderWGSL};

@@ -1,0 +1,1 @@
+import{fn as e}from"./compositionRoot-cl05Ozvc.js";export{e as pbrPixelShader};

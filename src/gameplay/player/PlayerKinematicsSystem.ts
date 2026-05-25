@@ -150,11 +150,13 @@ export class PlayerKinematicsSystem implements ISystem {
       tether.dynamicVelY = -currentScrollSpeed;
       target.y = target.y + tether.dynamicVelY * dt;
 
-      if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-        tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
-      } else {
-        const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-        tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+      if (currentScrollSpeed > 0) {
+        if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
+        } else {
+          const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+        }
       }
 
       const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
@@ -193,11 +195,13 @@ export class PlayerKinematicsSystem implements ISystem {
         tether.dynamicVelY = -currentScrollSpeed;
         target.y = target.y + tether.dynamicVelY * dt;
 
-        if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
-        } else {
-          const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+        if (currentScrollSpeed > 0) {
+          if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+            tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
+          } else {
+            const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+            tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+          }
         }
 
         const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;

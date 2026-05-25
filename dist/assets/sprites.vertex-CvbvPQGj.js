@@ -1,0 +1,1 @@
+import{a as e}from"./compositionRoot-cl05Ozvc.js";export{e as spritesVertexShaderWGSL};
