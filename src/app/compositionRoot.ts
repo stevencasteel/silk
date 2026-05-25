@@ -39,6 +39,7 @@ import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { RenderInterpolationSystem } from "../visual/systems/RenderInterpolationSystem";
 import { VisualStateDressingSystem } from "../visual/systems/VisualStateDressingSystem";
 import { CombatSystem } from "../gameplay/combat/CombatSystem";
+import { HealthSystem } from "../gameplay/combat/HealthSystem";
 import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
 import { ProjectileSystem } from "../gameplay/combat/ProjectileSystem";
 import { JuiceSystem } from "../gameplay/juice/JuiceSystem";
@@ -204,18 +205,8 @@ export class CompositionRoot {
       healths
     );
 
-    const combatSystem = new CombatSystem(
-      refs,
-      transforms,
-      healths,
-      weaverAIs,
-      tethers,
-      iframes,
-      traversal,
-      broker,
-      commands,
-      targets
-    );
+    const combatSystem = new CombatSystem(context);
+    const healthSystem = new HealthSystem(context);
 
     const gameDirector = new GameDirectorSystem(
       broker,
@@ -260,6 +251,7 @@ export class CompositionRoot {
     systemManager.register(tetherVisualizer);
     systemManager.register(cameraSystem);
     systemManager.register(combatSystem);
+    systemManager.register(healthSystem);
     systemManager.register(projectileSystem);
     systemManager.register(juiceSystem);
     systemManager.register(gameDirector);
