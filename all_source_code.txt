@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 6:12:42 PM
+ [SYSTEM] Generated: 5/25/2026, 6:13:49 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -798,13 +798,13 @@ import { useHudStore } from "../ui/hud/hudStore";
 
 export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<Engine> {
   const store = useHudStore.getState();
-  
+
   store.setBootStatus("STREAMING SYSTEM ASSETS...");
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   store.setBootStatus("COMPILING PHYSICAL WEB QUANTUMS...");
   const { CompositionRoot } = await import("./compositionRoot");
-  
+
   store.setBootStatus("MOUNTING ENGINES...");
   const root = new CompositionRoot();
   const engine = root.buildEngine(canvas);
@@ -920,7 +920,7 @@ export class CompositionRoot {
     storeContainer.register("weaverTag", weaverTags);
 
     const visualRegistry = new VisualRegistry();
-    
+
     const context = new SystemContext(
       world,
       broker,
@@ -939,7 +939,7 @@ export class CompositionRoot {
     const audioSystem = new AudioDirectorSystem(broker);
 
     const physicsSystem = new HavokPhysicsSystem(context);
-    
+
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
@@ -960,7 +960,7 @@ export class CompositionRoot {
     const gameDirector = new GameDirectorSystem(context, spawner);
 
     const hudSystem = new HudSyncSystem(broker);
-    
+
     const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 
     systemManager.register(spawner);
@@ -1013,7 +1013,7 @@ export class AudioDirectorSystem implements ISystem {
   private impactSynth: Tone.MembraneSynth | null = null;
   private noiseSynth: Tone.NoiseSynth | null = null;
   private initialized: boolean = false;
-  
+
   private subscriptions: (() => void)[] = [];
   private gestureTriggerRef: (() => void) | null = null;
 
@@ -1120,8 +1120,15 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.WEAVER;
           if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_1,
+              presets.DEATH_NOTE_1_DURATION
+            );
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_2,
+              presets.DEATH_NOTE_2_DURATION,
+              presets.DEATH_NOTE_2_DELAY
+            );
           }
           if (this.noiseSynth) {
             this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
@@ -1139,8 +1146,15 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.PLAYER;
           if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_1,
+              presets.DEATH_NOTE_1_DURATION
+            );
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_2,
+              presets.DEATH_NOTE_2_DURATION,
+              presets.DEATH_NOTE_2_DELAY
+            );
           }
           if (this.noiseSynth) {
             this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
@@ -1193,7 +1207,12 @@ export class AudioDirectorSystem implements ISystem {
 
       this.noiseSynth = new Tone.NoiseSynth({
         noise: { type: "pink" },
-        envelope: { attack: 0.001, decay: presets.NOISE_DECAY, sustain: 0, release: presets.NOISE_DECAY }
+        envelope: {
+          attack: 0.001,
+          decay: presets.NOISE_DECAY,
+          sustain: 0,
+          release: presets.NOISE_DECAY
+        }
       }).toDestination();
       this.noiseSynth.volume.value = presets.NOISE_VOLUME;
 
@@ -1227,7 +1246,7 @@ export const AUDIO_PRESETS = {
     DEATH_NOTE_2_DURATION: "4n",
     DEATH_NOTE_2_DELAY: "+0.06",
     DEATH_NOISE_DECAY: 0.08,
-    DEATH_NOISE_RESTORE_DELAY: 200,
+    DEATH_NOISE_RESTORE_DELAY: 200
   },
   WEAVER: {
     DAMAGED_NOTE: "E3",
@@ -1248,7 +1267,7 @@ export const AUDIO_PRESETS = {
     DEATH_NOTE_2_DURATION: "2n",
     DEATH_NOTE_2_DELAY: "+0.12",
     DEATH_NOISE_DECAY: 1.5,
-    DEATH_NOISE_RESTORE_DELAY: 1600,
+    DEATH_NOISE_RESTORE_DELAY: 1600
   },
   TENSION_SYNTH: {
     DRONE_GAIN_THRESHOLD: 0.02,
@@ -1257,7 +1276,7 @@ export const AUDIO_PRESETS = {
     DRONE_GAIN_RAMP_TIME: 0.08,
     DRONE_PITCH_RAMP_TIME: 0.1,
     DRONE_MOD_INDEX_BASE: 5.0,
-    DRONE_MOD_INDEX_SCALE: 25.0,
+    DRONE_MOD_INDEX_SCALE: 25.0
   }
 } as const;
 
@@ -1324,13 +1343,19 @@ export class TensionSynthesizer {
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
     const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
-    const targetModulationIndex = synthConfig.DRONE_MOD_INDEX_BASE + clampedTension * synthConfig.DRONE_MOD_INDEX_SCALE;
-    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
-      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
-      : 0.0;
+    const targetModulationIndex =
+      synthConfig.DRONE_MOD_INDEX_BASE + clampedTension * synthConfig.DRONE_MOD_INDEX_SCALE;
+    const targetGain =
+      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
+        : 0.0;
 
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
-    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, synthConfig.DRONE_PITCH_RAMP_TIME);
+    this.fmOsc.modulationIndex.setTargetAtTime(
+      targetModulationIndex,
+      now,
+      synthConfig.DRONE_PITCH_RAMP_TIME
+    );
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
@@ -1339,9 +1364,10 @@ export class TensionSynthesizer {
     const now = Tone.now();
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
-    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
-      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
-      : 0.0;
+    const targetGain =
+      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
+        : 0.0;
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
@@ -1610,10 +1636,7 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `Entities   : ${this.context.world.count()}\n\n`;
 
     if (playerTrans && playerTether && playerVel) {
-      const spd = Math.sqrt(
-        playerVel.x * playerVel.x +
-          playerVel.y * playerVel.y
-      );
+      const spd = Math.sqrt(playerVel.x * playerVel.x + playerVel.y * playerVel.y);
       info += `=== PLAYER STATE ===\n`;
       info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
       info += `Vel X/Y    : ${playerVel.x.toFixed(2)}, ${playerVel.y.toFixed(2)}\n`;
@@ -1993,25 +2016,25 @@ export class StoreContainer {
 ────────────────────────────────────────────────────
 export const CANONICAL_UNITS = {
   SPATIAL: {
-    METERS_PER_UNIT: 1.0,
+    METERS_PER_UNIT: 1.0
   },
   TEMPORAL: {
-    LEGACY_FPS_BASIS: 60.0,
+    LEGACY_FPS_BASIS: 60.0
   },
   GRAVITY: {
     PHYSICAL_EARTH: -9.81,
     PLAYER_KINEMATIC: -24.0,
-    JUICE_PARTICLE: -18.0,
+    JUICE_PARTICLE: -18.0
   },
   TETHER_STRAIN: {
     OVERLOAD_LIMIT: 1.0,
     SNAP_LIMIT: 1.3,
-    SNAP_DELAY_SECONDS: 2.6,
+    SNAP_DELAY_SECONDS: 2.6
   },
   SCROLL_MAPPING: {
     TOTAL_RANGE: 140.0,
     BOTTOM_BOUNDARY: -56.0,
-    TOP_BOUNDARY: 84.0,
+    TOP_BOUNDARY: 84.0
   }
 } as const;
 
@@ -2024,7 +2047,7 @@ export const ARENA_CONFIG = {
     WEAVER_PATROL_MAX_X: 13.0,
     WALL_GEOMETRY_X: 16.0,
     TICK_GEOMETRY_X: 14.9,
-    PLAY_AREA_HALF_WIDTH: 15.0,
+    PLAY_AREA_HALF_WIDTH: 15.0
   },
   VERTICAL: {
     FLOOR_Y: -8.0,
@@ -2034,27 +2057,27 @@ export const ARENA_CONFIG = {
     WALL_GEOMETRY_HEIGHT: 140.0,
     TOTAL_SCROLL_RANGE: 140.0,
     PLAYER_SPAWN_Y: 10.0,
-    WEAVER_SPAWN_Y: 34.0,
+    WEAVER_SPAWN_Y: 34.0
   },
   ENTITY: {
     PLAYER_HEIGHT: 1.8,
     PLAYER_RADIUS: 0.4,
     PLAYER_HALF_HEIGHT: 0.9,
-    WEAVER_RADIUS: 2.2,
+    WEAVER_RADIUS: 2.2
   },
   PROJECTILE: {
     OFFSCREEN_MIN_Y: -15.0,
-    OFFSCREEN_MAX_Y: 42.0,
+    OFFSCREEN_MAX_Y: 42.0
   },
   TETHER: {
     BASE_LENGTH: 10.0,
     MAX_LENGTH: 24.0,
-    INITIAL_LENGTH: 12.0,
+    INITIAL_LENGTH: 12.0
   },
   SCROLL_SPEED: {
     BASE: 9.0,
     BERSERK: 15.0,
-    DASH_MULTIPLIER: 0.45,
+    DASH_MULTIPLIER: 0.45
   }
 } as const;
 
@@ -2085,7 +2108,7 @@ export const GAMEPLAY_TUNING = {
       SQUASH_LAND_Z: 1.22,
       SQUASH_WALL_X: 0.72,
       SQUASH_WALL_Y: 1.22,
-      LAND_VEL_THRESHOLD: -1.0,
+      LAND_VEL_THRESHOLD: -1.0
     }
   },
   COMBAT: {
@@ -2100,7 +2123,7 @@ export const GAMEPLAY_TUNING = {
     BOUNCE_ELASTICITY_MULT: 1.3,
     BROADPHASE_MARGIN: 0.4,
     HITSTOP_PLAYER: 0.08,
-    HITSTOP_WEAVER: 0.15,
+    HITSTOP_WEAVER: 0.15
   }
 } as const;
 
@@ -2108,7 +2131,7 @@ export const WEAVER_AI_TUNING = {
   BERSERK_HP_THRESHOLD: 0.5,
   PATROL: {
     SPEED_NORMAL: 4.5,
-    SPEED_BERSERK: 9.0,
+    SPEED_BERSERK: 9.0
   },
   SHOOT: {
     TELEGRAPH_TIME: 1.8,
@@ -2118,7 +2141,7 @@ export const WEAVER_AI_TUNING = {
     MAX_LIFE: 8.0,
     PROJECTILE_DIAMETER: 0.65,
     CAMERA_SHAKE_AMP: 0.6,
-    CAMERA_SHAKE_DUR: 0.35,
+    CAMERA_SHAKE_DUR: 0.35
   },
   DASH: {
     PREP_TIME: 0.6,
@@ -2134,22 +2157,22 @@ export const WEAVER_AI_TUNING = {
       PREP_Y: 0.82,
       PREP_Z: 1.15,
       STRETCH_MAX: 0.25,
-      STRETCH_SPEED_BASIS: 36.0,
+      STRETCH_SPEED_BASIS: 36.0
     },
     CAMERA_SHAKE_PREP_AMP: 0.08,
     CAMERA_SHAKE_PREP_DUR: 0.05,
-    CAMERA_SHAKE_PREP_FREQ: 0.4,
+    CAMERA_SHAKE_PREP_FREQ: 0.4
   },
   RETURN: {
     SPEED: 12.0,
     THRESHOLD: 0.3,
     SQUASH_STRETCH: {
       Y: 1.08,
-      X: 0.96,
+      X: 0.96
     }
   },
   DEFEATED: {
-    SCALE: 0.2,
+    SCALE: 0.2
   },
   ANIMATION: {
     LERP_RATE: 12.0,
@@ -2157,7 +2180,7 @@ export const WEAVER_AI_TUNING = {
     PULSE_FREQ: 3.5,
     YAW_PITCH_ROLL_FREQ: 2.0,
     YAW_PITCH_ROLL_AMP: 0.1,
-    ROLL_ANGLE_SCALE: -0.02,
+    ROLL_ANGLE_SCALE: -0.02
   }
 } as const;
 
@@ -2168,26 +2191,26 @@ export const VISUAL_JUICE_CONFIG = {
     DASH_THRUST: "ef4444",
     DASH_RECOVER: "a5f3fc",
     RETURNING: "4b5563",
-    DEFEATED: "111317",
+    DEFEATED: "111317"
   },
   MATERIALS: {
     WEAVER: {
       METALLIC: 0.3,
       ROUGHNESS: 0.5,
       CLEAR_COAT_INTENSITY: 0.4,
-      CLEAR_COAT_ROUGHNESS: 0.2,
+      CLEAR_COAT_ROUGHNESS: 0.2
     },
     PLAYER: {
       METALLIC: 0.0,
       ROUGHNESS: 0.85,
       SHEEN_INTENSITY: 0.5,
-      SHEEN_ROUGHNESS: 0.4,
+      SHEEN_ROUGHNESS: 0.4
     },
     PROJECTILE: {
       METALLIC: 0.0,
       ROUGHNESS: 0.8,
       SHEEN_INTENSITY: 0.6,
-      SHEEN_ROUGHNESS: 0.4,
+      SHEEN_ROUGHNESS: 0.4
     }
   },
   TETHER_ROPE: {
@@ -2202,7 +2225,7 @@ export const VISUAL_JUICE_CONFIG = {
     WAVINESS_AMP: 0.12,
     WAVINESS_STRETCH: 2.5,
     BEZIER_DEPTH: 0.35,
-    MAX_SNAP_DURATION_SECONDS: 1.5,
+    MAX_SNAP_DURATION_SECONDS: 1.5
   },
   PARTICLES: {
     DRAG: 0.92,
@@ -2222,7 +2245,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_SPEED_MIN: 3.0,
         VELOCITY_SPEED_MAX: 8.0,
         LIFE_MIN: 0.3,
-        LIFE_MAX: 0.7,
+        LIFE_MAX: 0.7
       },
       WEAVER: {
         COUNT: 20,
@@ -2232,7 +2255,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_SPEED_MIN: 3.0,
         VELOCITY_SPEED_MAX: 8.0,
         LIFE_MIN: 0.3,
-        LIFE_MAX: 0.7,
+        LIFE_MAX: 0.7
       },
       LANDING: {
         COUNT: 12,
@@ -2240,7 +2263,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_Y_MAX: 1.5,
         VELOCITY_Z_MAX: 1.5,
         LIFE_MIN: 0.4,
-        LIFE_MAX: 0.7,
+        LIFE_MAX: 0.7
       },
       WALL: {
         COUNT: 8,
@@ -2249,7 +2272,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_Y_MAX: 5.0,
         VELOCITY_Z_MAX: 2.0,
         LIFE_MIN: 0.25,
-        LIFE_MAX: 0.5,
+        LIFE_MAX: 0.5
       },
       PROJECTILE: {
         COUNT: 10,
@@ -2257,7 +2280,7 @@ export const VISUAL_JUICE_CONFIG = {
         SPEED_MAX: 6.0,
         VELOCITY_Z_MAX: 2.0,
         LIFE_MIN: 0.3,
-        LIFE_MAX: 0.6,
+        LIFE_MAX: 0.6
       },
       TRAIL: {
         LIFE_MIN: 0.22,
@@ -2266,8 +2289,8 @@ export const VISUAL_JUICE_CONFIG = {
         OFFSET_Y: 0.8,
         VELOCITY_X_MAX: 1.2,
         VELOCITY_Y_MAX: 1.2,
-        VELOCITY_Z_MAX: 1.0,
-      },
+        VELOCITY_Z_MAX: 1.0
+      }
     },
     DEBRIS: {
       COUNT: 12,
@@ -2283,7 +2306,7 @@ export const VISUAL_JUICE_CONFIG = {
       VELOCITY_Z_MAX: 8.0,
       ANGULAR_MAX: 12.0,
       Z_FORCE_CLAMP: 0.01,
-      SCALE_DECAY_TIME: 1.5,
+      SCALE_DECAY_TIME: 1.5
     }
   },
   EMISSIVE: {
@@ -2299,17 +2322,17 @@ export const VISUAL_JUICE_CONFIG = {
       RANGE_R: 0.9,
       BASE_G: 0.1,
       RANGE_G: 0.1,
-      MULT_B: 0.1,
+      MULT_B: 0.1
     },
     PLAYER_EMISSIVE_LAUNCH: {
       R: 0.9,
       G: 0.9,
-      B: 0.9,
+      B: 0.9
     },
     PLAYER_EMISSIVE_DEFAULT: {
       R: 0.05,
       G: 0.05,
-      B: 0.05,
+      B: 0.05
     }
   }
 } as const;
@@ -2327,11 +2350,11 @@ export const POST_PROCESSING_PRESETS = {
     DIR_LIGHT_INTENSITY: 3.2,
     SHADOW_MAP_SIZE: 1024,
     SHADOW_BLUR_KERNEL: 16,
-    SHADOW_DARKNESS: 0.6,
+    SHADOW_DARKNESS: 0.6
   },
   CAMERA: {
     DEFAULT_POS: { x: 0.0, y: 14.0, z: -38.0 },
-    DEFAULT_TARGET: { x: 0.0, y: 14.0, z: 0.0 },
+    DEFAULT_TARGET: { x: 0.0, y: 14.0, z: 0.0 }
   }
 } as const;
 
@@ -2846,9 +2869,19 @@ export class EntitySpawnerSystem implements ISystem {
   public init(): void {
     const scene = this.context.visualRegistry.getScene();
     if (scene && scene.isPhysicsEnabled()) {
-      this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), ARENA_CONFIG.ENTITY.WEAVER_RADIUS, scene);
-      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
-      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(new BABYLON.Vector3(0, -cylHalfHeight, 0), new BABYLON.Vector3(0, cylHalfHeight, 0), ARENA_CONFIG.ENTITY.PLAYER_RADIUS, scene);
+      this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(
+        BABYLON.Vector3.Zero(),
+        ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
+        scene
+      );
+      const cylHalfHeight =
+        (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(
+        new BABYLON.Vector3(0, -cylHalfHeight, 0),
+        new BABYLON.Vector3(0, cylHalfHeight, 0),
+        ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+        scene
+      );
     }
     this.spawnWeaver();
     this.spawnPlayer();
@@ -2886,10 +2919,14 @@ export class EntitySpawnerSystem implements ISystem {
       prevQz: 0,
       prevQw: 1
     });
-    
-    this.context.stores.get<KinematicVelocityComponent>("velocity").add(weaverId, { x: 4.5, y: 0, z: 0 });
-    this.context.stores.get<KinematicTargetComponent>("target").add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    
+
+    this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .add(weaverId, { x: 4.5, y: 0, z: 0 });
+    this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
+
     this.context.stores.get<WeaverAIComponent>("weaverAI").add(weaverId, {
       state: "SWEEPING",
       timeInState: 0,
@@ -2898,16 +2935,16 @@ export class EntitySpawnerSystem implements ISystem {
       damageShearIntensity: 0.0,
       damageShearTime: 0.0
     });
-    
+
     this.context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
     this.context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
-    
+
     this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
       isGrounded: false,
       isWallClinging: false,
       wallNormalX: 0
     });
-    
+
     this.context.refs.weaver = weaverId;
 
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
@@ -2928,7 +2965,12 @@ export class EntitySpawnerSystem implements ISystem {
     this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {
-      const wBody = new BABYLON.PhysicsBody(wMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      const wBody = new BABYLON.PhysicsBody(
+        wMesh,
+        BABYLON.PhysicsMotionType.ANIMATED,
+        false,
+        scene
+      );
       wBody.shape = this.sharedWeaverShape;
       wBody.setMassProperties({ mass: 100.0 });
     }
@@ -2968,10 +3010,14 @@ export class EntitySpawnerSystem implements ISystem {
       prevQz: 0,
       prevQw: 1
     });
-    
-    this.context.stores.get<KinematicVelocityComponent>("velocity").add(playerId, { x: 0, y: 0, z: 0 });
-    this.context.stores.get<KinematicTargetComponent>("target").add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
-    
+
+    this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .add(playerId, { x: 0, y: 0, z: 0 });
+    this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
+
     this.context.stores.get<TetherComponent>("tether").add(playerId, {
       anchorX: 0,
       anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
@@ -2981,11 +3027,18 @@ export class EntitySpawnerSystem implements ISystem {
       isAttached: true,
       tension: 0.0
     });
-    
-    this.context.stores.get<HealthComponent>("health").add(playerId, { current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY, max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY });
-    this.context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0, jump: false });
+
+    this.context.stores
+      .get<HealthComponent>("health")
+      .add(playerId, {
+        current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+        max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
+      });
+    this.context.stores
+      .get<InputIntentComponent>("input")
+      .add(playerId, { x: 0, y: 0, jump: false });
     this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
-    
+
     this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",
       wallNormalX: 0,
@@ -2994,13 +3047,17 @@ export class EntitySpawnerSystem implements ISystem {
       launchTimer: 0.0,
       launchPower: 0.0
     });
-    
+
     this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
     this.context.refs.player = playerId;
 
     const pMesh = BABYLON.MeshBuilder.CreateCapsule(
       "playerVisual",
-      { height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT, radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS, subdivisions: 3 },
+      {
+        height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
+        radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+        subdivisions: 3
+      },
       scene
     );
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);
@@ -3015,14 +3072,19 @@ export class EntitySpawnerSystem implements ISystem {
     this.context.visualRegistry.registerTransformNode(playerId, pMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedPlayerShape) {
-      const pBody = new BABYLON.PhysicsBody(pMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      const pBody = new BABYLON.PhysicsBody(
+        pMesh,
+        BABYLON.PhysicsMotionType.ANIMATED,
+        false,
+        scene
+      );
       pBody.shape = this.sharedPlayerShape;
       pBody.setMassProperties({ mass: 10.0 });
     }
 
     return playerId;
   }
-  
+
   public dispose(): void {
     if (this.sharedWeaverShape) this.sharedWeaverShape.dispose();
     if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
@@ -3066,10 +3128,15 @@ import { GameEvent } from "../../core/events/GameEvents";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
-  private readonly COMBINED_RADIUS_THRESHOLD = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-  private readonly BROADPHASE_ENVELOPE = 
-    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN) * 
-    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN);
+  private readonly COMBINED_RADIUS_THRESHOLD =
+    ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+  private readonly BROADPHASE_ENVELOPE =
+    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS +
+      ARENA_CONFIG.ENTITY.WEAVER_RADIUS +
+      GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN) *
+    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS +
+      ARENA_CONFIG.ENTITY.WEAVER_RADIUS +
+      GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN);
 
   constructor(private context: SystemContext) {}
 
@@ -3089,11 +3156,19 @@ export class CombatSystem implements ISystem {
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
     if (!isColliding) return;
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const pIframe = this.context.stores.get<InvulnerabilityComponent>("iframe").get(this.context.refs.player);
-    const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const pTrav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const pIframe = this.context.stores
+      .get<InvulnerabilityComponent>("iframe")
+      .get(this.context.refs.player);
+    const pVel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
 
     if (!wAI || !tether || !pTrav || !pIframe || !pVel) return;
 
@@ -3107,7 +3182,10 @@ export class CombatSystem implements ISystem {
         source: "PLAYER_FLING"
       });
 
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
+      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: 1.4,
+        duration: 0.55
+      });
 
       pVel.x = (dx / dist) * tuning.REBOUND_FORCE;
       pVel.y = (dy / dist) * tuning.REBOUND_FORCE;
@@ -3131,7 +3209,10 @@ export class CombatSystem implements ISystem {
         knockbackY: kbY
       });
 
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
+      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: 0.5,
+        duration: 0.3
+      });
       return;
     }
 
@@ -3147,7 +3228,9 @@ export class CombatSystem implements ISystem {
       pTrans.prevX += shiftX;
       pTrans.prevY += shiftY;
 
-      const pTarget = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+      const pTarget = this.context.stores
+        .get<KinematicTargetComponent>("target")
+        .get(this.context.refs.player);
       if (pTarget) {
         pTarget.x += shiftX;
         pTarget.y += shiftY;
@@ -3170,10 +3253,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  HealthComponent,
-  TetherComponent
-} from "../../core/ecs/Components";
+import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
@@ -3201,8 +3281,8 @@ export class GameDirectorSystem implements ISystem {
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
           this.activeCinematic = "PLAYER_DEATH";
           this.cinematicTimer = 0.0;
-          this.maxCinematicSimTime = 0.60;
-          GameDirectorSystem.timeScale = 0.20;
+          this.maxCinematicSimTime = 0.6;
+          GameDirectorSystem.timeScale = 0.2;
 
           const tethers = this.context.stores.get<TetherComponent>("tether");
           const pTether = tethers.get(this.context.refs.player);
@@ -3211,7 +3291,10 @@ export class GameDirectorSystem implements ISystem {
             pTether.tension = 0.0;
           }
 
-          this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 1.2 });
+          this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+            amplitude: 1.5,
+            duration: 1.2
+          });
         }
       })
     );
@@ -3224,7 +3307,10 @@ export class GameDirectorSystem implements ISystem {
           this.maxCinematicSimTime = 0.875;
           GameDirectorSystem.timeScale = 0.25;
 
-          this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
+          this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+            amplitude: 0.8,
+            duration: 0.4
+          });
         }
       })
     );
@@ -3237,7 +3323,11 @@ export class GameDirectorSystem implements ISystem {
       this.resetRequested = true;
     }
 
-    if (e.key.toLowerCase() === "k" && this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+    if (
+      e.key.toLowerCase() === "k" &&
+      this.gameState === "PLAYING" &&
+      this.activeCinematic === "NONE"
+    ) {
       const healths = this.context.stores.get<HealthComponent>("health");
       const wHealth = healths.get(this.context.refs.weaver);
       if (wHealth && wHealth.current > 0) {
@@ -3368,8 +3458,14 @@ export class HealthSystem implements ISystem {
         });
       }
 
-      this.context.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: cmd.amount, source: cmd.source });
-      this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: health.current, maxHp: health.max });
+      this.context.broker.publish(GameEvent.PLAYER_DAMAGED, {
+        amount: cmd.amount,
+        source: cmd.source
+      });
+      this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
+        hp: health.current,
+        maxHp: health.max
+      });
 
       if (health.current <= 0) {
         this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
@@ -3377,8 +3473,14 @@ export class HealthSystem implements ISystem {
     } else {
       health.current = Math.max(0, health.current - cmd.amount);
 
-      this.context.broker.publish(GameEvent.WEAVER_DAMAGED, { amount: cmd.amount, source: cmd.source });
-      this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: health.current, maxHp: health.max });
+      this.context.broker.publish(GameEvent.WEAVER_DAMAGED, {
+        amount: cmd.amount,
+        source: cmd.source
+      });
+      this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
+        hp: health.current,
+        maxHp: health.max
+      });
 
       if (health.current <= 0) {
         this.context.broker.publish(GameEvent.WEAVER_DIED, undefined);
@@ -3450,10 +3552,15 @@ export class ProjectileSystem implements ISystem {
     this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
 
     const noisePlugin = new ProjectileNoisePlugin(this.projMat);
-    (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePlugin;
+    (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
+      noisePlugin;
 
     if (scene.isPhysicsEnabled()) {
-      this.sharedShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2, scene);
+      this.sharedShape = new BABYLON.PhysicsShapeSphere(
+        BABYLON.Vector3.Zero(),
+        WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2,
+        scene
+      );
       this.sharedShape.material = { friction: 0.1, restitution: 0.6 };
     }
 
@@ -3472,7 +3579,7 @@ export class ProjectileSystem implements ISystem {
         body = new BABYLON.PhysicsBody(sphere, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
         body.shape = this.sharedShape;
         body.setMassProperties({ mass: 1.0 });
-        body.disablePreStep = false; 
+        body.disablePreStep = false;
       }
 
       this.projectilePool.push({
@@ -3539,15 +3646,21 @@ export class ProjectileSystem implements ISystem {
 
     this.noiseTime += dt;
     if (this.projMat) {
-      const noisePlugin = (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePlugin = (
+        this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+      )._noisePlugin;
       if (noisePlugin) {
         noisePlugin.time = this.noiseTime;
       }
     }
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
-    const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.AbstractMesh;
+    const pMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.player
+    ) as BABYLON.AbstractMesh;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
@@ -3564,7 +3677,11 @@ export class ProjectileSystem implements ISystem {
           p.isStuckOnWall = true;
           p.mesh.scaling.set(0.28, 1.45, 1.45);
           p.mesh.position.x = Math.sign(p.mesh.position.x) * wallLimit;
-          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: true });
+          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+            x: p.mesh.position.x,
+            y: p.mesh.position.y,
+            isWall: true
+          });
         }
 
         if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
@@ -3576,8 +3693,15 @@ export class ProjectileSystem implements ISystem {
               source: "PROJECTILE"
             });
 
-            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
-            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP, duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR });
+            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: p.mesh.position.x,
+              y: p.mesh.position.y,
+              isWall: false
+            });
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+            });
             this.recycleProjectile(p);
             continue;
           }
@@ -3603,7 +3727,7 @@ export class ProjectileSystem implements ISystem {
     p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
     p.mesh.scaling.set(1.0, 1.0, 1.0);
-    p.fallbackVelocity.set(0,0,0);
+    p.fallbackVelocity.set(0, 0, 0);
     p.isStuck = false;
     p.isStuckOnWall = false;
     p.lifeTime = 0.0;
@@ -3621,7 +3745,7 @@ export class ProjectileSystem implements ISystem {
     if (this.unsubReset) this.unsubReset();
     this.clearAll();
     if (this.sharedShape) this.sharedShape.dispose();
-    this.projectilePool.forEach(p => {
+    this.projectilePool.forEach((p) => {
       if (p) {
         if (p.body) p.body.dispose();
         p.mesh.dispose();
@@ -3693,7 +3817,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
-          const colorRef = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+          const colorRef = new BABYLON.Color3(
+            colors.PLAYER_SPARK.r,
+            colors.PLAYER_SPARK.g,
+            colors.PLAYER_SPARK.b
+          );
           this.spawnBurst(
             playerNode.position,
             colorRef,
@@ -3708,7 +3836,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const colorRef = new BABYLON.Color3(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+          const colorRef = new BABYLON.Color3(
+            colors.WEAVER_SPARK.r,
+            colors.WEAVER_SPARK.g,
+            colors.WEAVER_SPARK.b
+          );
           this.spawnBurst(
             weaverNode.position,
             colorRef,
@@ -3720,24 +3852,33 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.context.broker.subscribe(GameEvent.PLAYER_LANDED, (payload: { x: number; y: number }) => {
-        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-        this.spawnLandingDust(pos);
-      })
+      this.context.broker.subscribe(
+        GameEvent.PLAYER_LANDED,
+        (payload: { x: number; y: number }) => {
+          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+          this.spawnLandingDust(pos);
+        }
+      )
     );
 
     this.unsubscribes.push(
-      this.context.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload: { x: number; y: number; wallNormalX: number }) => {
-        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-        this.spawnWallSparks(pos, payload.wallNormalX);
-      })
+      this.context.broker.subscribe(
+        GameEvent.PLAYER_WALL_HIT,
+        (payload: { x: number; y: number; wallNormalX: number }) => {
+          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+          this.spawnWallSparks(pos, payload.wallNormalX);
+        }
+      )
     );
 
     this.unsubscribes.push(
-      this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload: { x: number; y: number; isWall: boolean }) => {
-        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-        this.spawnWebSplat(pos);
-      })
+      this.context.broker.subscribe(
+        GameEvent.PROJECTILE_IMPACT,
+        (payload: { x: number; y: number; isWall: boolean }) => {
+          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+          this.spawnWebSplat(pos);
+        }
+      )
     );
 
     this.unsubscribes.push(
@@ -3774,13 +3915,14 @@ export class JuiceSystem implements ISystem {
       const theta = Math.random() * 2.0 * Math.PI;
       const speedSpan = settings.VELOCITY_SPEED_MAX - settings.VELOCITY_SPEED_MIN;
       const r = settings.VELOCITY_SPEED_MIN + Math.random() * speedSpan;
-      
+
       const ySpan = settings.VELOCITY_Y_MAX - settings.VELOCITY_Y_MIN;
       const vy = settings.VELOCITY_Y_MIN + Math.random() * ySpan;
       const vz = (Math.random() - 0.5) * settings.VELOCITY_Z_MAX;
 
       particle.velocity.set(Math.cos(theta) * r, vy, vz);
-      particle.lifeRemaining = settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
+      particle.lifeRemaining =
+        settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -3798,7 +3940,11 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
+    const color = new BABYLON.Color3(
+      colors.LANDING_DUST.r,
+      colors.LANDING_DUST.g,
+      colors.LANDING_DUST.b
+    );
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -3808,7 +3954,8 @@ export class JuiceSystem implements ISystem {
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
+      particle.lifeRemaining =
+        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -3835,7 +3982,8 @@ export class JuiceSystem implements ISystem {
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
+      particle.lifeRemaining =
+        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -3851,7 +3999,11 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    const color = new BABYLON.Color3(
+      colors.PROJECTILE_SPLAT.r,
+      colors.PROJECTILE_SPLAT.g,
+      colors.PROJECTILE_SPLAT.b
+    );
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -3863,7 +4015,8 @@ export class JuiceSystem implements ISystem {
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
+      particle.lifeRemaining =
+        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -3929,7 +4082,9 @@ export class JuiceSystem implements ISystem {
     }
 
     if (this.playerState === "LAUNCHING") {
-      const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.Mesh | null;
+      const playerNode = this.context.visualRegistry.getTransformNode(
+        this.context.refs.player
+      ) as BABYLON.Mesh | null;
       if (playerNode) {
         this.spawnLaunchTrail(playerNode.position);
       }
@@ -3973,7 +4128,7 @@ export class TetherVisualizerSystem implements ISystem {
   private tetherMeshAnchor: BABYLON.Mesh | null = null;
   private tetherMeshPlayer: BABYLON.Mesh | null = null;
   private tetherMat: BABYLON.PBRMaterial | null = null;
-  
+
   private points: BABYLON.Vector3[] = [];
   private pointsAnchor: BABYLON.Vector3[] = [];
   private pointsPlayer: BABYLON.Vector3[] = [];
@@ -4054,7 +4209,8 @@ export class TetherVisualizerSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer) return;
+    if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer)
+      return;
 
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const tethers = this.context.stores.get<TetherComponent>("tether");
@@ -4081,7 +4237,9 @@ export class TetherVisualizerSystem implements ISystem {
       const timeMs = performance.now();
       const frequency = VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
+      const vibAmp =
+        Math.max(0, tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
+        VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       const vibOffset = Math.sin(vibPhase) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
@@ -4106,7 +4264,11 @@ export class TetherVisualizerSystem implements ISystem {
           2 * t1 * t * this.scratchCtrl.z +
           t * t * this.scratchPlayer.z;
 
-        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
+        pt.z +=
+          Math.sin(
+            (i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH +
+              timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ
+          ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
       }
 
       const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
@@ -4171,11 +4333,20 @@ export class TetherVisualizerSystem implements ISystem {
         const subT = (i / 12) * maxAnchorT;
         const t1 = 1 - subT;
         const pt = this.pointsAnchor[i];
-        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
-        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
-        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+        pt.x =
+          t1 * t1 * this.scratchAnchor.x +
+          2 * t1 * subT * this.scratchCtrl.x +
+          subT * subT * this.scratchPlayer.x;
+        pt.y =
+          t1 * t1 * this.scratchAnchor.y +
+          2 * t1 * subT * this.scratchCtrl.y +
+          subT * subT * this.scratchPlayer.y;
+        pt.z =
+          t1 * t1 * this.scratchAnchor.z +
+          2 * t1 * subT * this.scratchCtrl.z +
+          subT * subT * this.scratchPlayer.z;
 
-        const endWeight = (i / 12);
+        const endWeight = i / 12;
         pt.x += whipOffset * endWeight;
         pt.y += Math.abs(whipOffset) * 0.4 * endWeight;
       }
@@ -4188,11 +4359,20 @@ export class TetherVisualizerSystem implements ISystem {
         const subT = minPlayerT + (i / 12) * (1.0 - minPlayerT);
         const t1 = 1 - subT;
         const pt = this.pointsPlayer[i];
-        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
-        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
-        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+        pt.x =
+          t1 * t1 * this.scratchAnchor.x +
+          2 * t1 * subT * this.scratchCtrl.x +
+          subT * subT * this.scratchPlayer.x;
+        pt.y =
+          t1 * t1 * this.scratchAnchor.y +
+          2 * t1 * subT * this.scratchCtrl.y +
+          subT * subT * this.scratchPlayer.y;
+        pt.z =
+          t1 * t1 * this.scratchAnchor.z +
+          2 * t1 * subT * this.scratchCtrl.z +
+          subT * subT * this.scratchPlayer.z;
 
-        const endWeight = 1.0 - (i / 12);
+        const endWeight = 1.0 - i / 12;
         pt.x += playerWhip * endWeight;
         pt.y += (playerWhip * 0.4 + gravityDrop) * endWeight;
       }
@@ -4292,32 +4472,61 @@ export class WeaverShatterSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
+    const weaverMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.weaver
+    ) as BABYLON.Mesh | null;
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
-    const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere("shellProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 }, scene);
+    const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere(
+      "shellProxy",
+      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 },
+      scene
+    );
     const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     const shellInd = proxyShell.getIndices();
 
     if (shellPos && shellInd) {
       for (let i = 0; i < shellInd.length; i += 3) {
-        const i1 = shellInd[i], i2 = shellInd[i+1], i3 = shellInd[i+2];
-        const p1 = new BABYLON.Vector3(shellPos[i1*3], shellPos[i1*3+1], shellPos[i1*3+2]);
-        const p2 = new BABYLON.Vector3(shellPos[i2*3], shellPos[i2*3+1], shellPos[i2*3+2]);
-        const p3 = new BABYLON.Vector3(shellPos[i3*3], shellPos[i3*3+1], shellPos[i3*3+2]);
-        const centroid = p1.add(p2).add(p3).scale(1/3);
+        const i1 = shellInd[i],
+          i2 = shellInd[i + 1],
+          i3 = shellInd[i + 2];
+        const p1 = new BABYLON.Vector3(
+          shellPos[i1 * 3],
+          shellPos[i1 * 3 + 1],
+          shellPos[i1 * 3 + 2]
+        );
+        const p2 = new BABYLON.Vector3(
+          shellPos[i2 * 3],
+          shellPos[i2 * 3 + 1],
+          shellPos[i2 * 3 + 2]
+        );
+        const p3 = new BABYLON.Vector3(
+          shellPos[i3 * 3],
+          shellPos[i3 * 3 + 1],
+          shellPos[i3 * 3 + 2]
+        );
+        const centroid = p1
+          .add(p2)
+          .add(p3)
+          .scale(1 / 3);
         const outward = centroid.clone().normalize();
-        
+
         const customMesh = new BABYLON.Mesh("shard_" + i, scene);
         const vertexData = new BABYLON.VertexData();
         vertexData.positions = [
-          p1.x - centroid.x, p1.y - centroid.y, p1.z - centroid.z,
-          p2.x - centroid.x, p2.y - centroid.y, p2.z - centroid.z,
-          p3.x - centroid.x, p3.y - centroid.y, p3.z - centroid.z
+          p1.x - centroid.x,
+          p1.y - centroid.y,
+          p1.z - centroid.z,
+          p2.x - centroid.x,
+          p2.y - centroid.y,
+          p2.z - centroid.z,
+          p3.x - centroid.x,
+          p3.y - centroid.y,
+          p3.z - centroid.z
         ];
         vertexData.indices = [0, 1, 2];
-        
+
         vertexData.applyToMesh(customMesh);
         customMesh.convertToFlatShadedMesh();
 
@@ -4331,7 +4540,9 @@ export class WeaverShatterSystem implements ISystem {
         customMesh.position = pos.add(centroid).add(outward.scale(0.35));
         customMesh.material = activeMat;
 
-        const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
+        const speed =
+          config.VELOCITY_Y_MIN +
+          Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
         const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
         const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
         const vz = (Math.random() - 0.5) * 1.5;
@@ -4353,8 +4564,14 @@ export class WeaverShatterSystem implements ISystem {
 
     const coreRadius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 0.75;
     const directions = [
-      [-1, -1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1],
-      [-1, -1, 1],  [1, -1, 1],  [-1, 1, 1],  [1, 1, 1]
+      [-1, -1, -1],
+      [1, -1, -1],
+      [-1, 1, -1],
+      [1, 1, -1],
+      [-1, -1, 1],
+      [1, -1, 1],
+      [-1, 1, 1],
+      [1, 1, 1]
     ];
 
     for (let b = 0; b < directions.length; b++) {
@@ -4367,7 +4584,11 @@ export class WeaverShatterSystem implements ISystem {
       const v2 = new BABYLON.Vector3(0, dirY * coreRadius, 0);
       const v3 = new BABYLON.Vector3(0, 0, dirZ * coreRadius);
 
-      const centroid = v0.add(v1).add(v2).add(v3).scale(1 / 4);
+      const centroid = v0
+        .add(v1)
+        .add(v2)
+        .add(v3)
+        .scale(1 / 4);
       const outward = centroid.clone().normalize();
 
       const localV0 = v0.subtract(centroid);
@@ -4376,10 +4597,18 @@ export class WeaverShatterSystem implements ISystem {
       const localV3 = v3.subtract(centroid);
 
       const localPositions = [
-        localV0.x, localV0.y, localV0.z,
-        localV1.x, localV1.y, localV1.z,
-        localV2.x, localV2.y, localV2.z,
-        localV3.x, localV3.y, localV3.z
+        localV0.x,
+        localV0.y,
+        localV0.z,
+        localV1.x,
+        localV1.y,
+        localV1.z,
+        localV2.x,
+        localV2.y,
+        localV2.z,
+        localV3.x,
+        localV3.y,
+        localV3.z
       ];
 
       const vertices = [localV0, localV1, localV2, localV3];
@@ -4391,7 +4620,11 @@ export class WeaverShatterSystem implements ISystem {
       ];
 
       const localIndices: number[] = [];
-      const localCentroid = localV0.add(localV1).add(localV2).add(localV3).scale(1 / 4);
+      const localCentroid = localV0
+        .add(localV1)
+        .add(localV2)
+        .add(localV3)
+        .scale(1 / 4);
 
       for (let f = 0; f < faces.length; f++) {
         const idxA = faces[f][0];
@@ -4400,14 +4633,17 @@ export class WeaverShatterSystem implements ISystem {
         const a = vertices[idxA];
         const b = vertices[idxB];
         const c = vertices[idxC];
-        
+
         const ab = b.subtract(a);
         const ac = c.subtract(a);
         const faceNormal = BABYLON.Vector3.Cross(ab, ac).normalize();
-        
-        const faceCenter = a.add(b).add(c).scale(1 / 3);
+
+        const faceCenter = a
+          .add(b)
+          .add(c)
+          .scale(1 / 3);
         const toFace = faceCenter.subtract(localCentroid);
-        
+
         if (BABYLON.Vector3.Dot(faceNormal, toFace) < 0) {
           localIndices.push(idxA, idxC, idxB);
         } else {
@@ -4442,7 +4678,9 @@ export class WeaverShatterSystem implements ISystem {
         customMesh.receiveShadows = true;
       }
 
-      const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.8;
+      const speed =
+        config.VELOCITY_Y_MIN +
+        Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.8;
       const vx = outward.x * speed + (Math.random() - 0.5) * 5.0;
       const vy = outward.y * speed + (Math.random() - 0.5) * 5.0;
       const vz = (Math.random() - 0.5) * 1.5;
@@ -4472,8 +4710,8 @@ export class WeaverShatterSystem implements ISystem {
 
       if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
         if (d.body) {
-           if (d.body.shape) d.body.shape.dispose();
-           d.body.dispose();
+          if (d.body.shape) d.body.shape.dispose();
+          d.body.dispose();
         }
         d.mesh.dispose();
         this.activeDebrisList.splice(i, 1);
@@ -4551,8 +4789,8 @@ export class WeaverShatterSystem implements ISystem {
 
             const isPyramid1 = d.mesh.name.includes("core_shard");
             const isPyramid2 = d2.mesh.name.includes("core_shard");
-            const r1 = isPyramid1 ? 0.60 : 0.16;
-            const r2 = isPyramid2 ? 0.60 : 0.16;
+            const r1 = isPyramid1 ? 0.6 : 0.16;
+            const r2 = isPyramid2 ? 0.6 : 0.16;
             const minDist = r1 + r2;
 
             if (distSq < minDist * minDist) {
@@ -4587,7 +4825,10 @@ export class WeaverShatterSystem implements ISystem {
 
   private clearDebris(): void {
     for (const d of this.activeDebrisList) {
-      if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
+      if (d.body) {
+        if (d.body.shape) d.body.shape.dispose();
+        d.body.dispose();
+      }
       d.mesh.dispose();
     }
     this.activeDebrisList = [];
@@ -4623,15 +4864,30 @@ export class PlayerAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const pTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.player);
+    const pTrans = this.context.stores
+      .get<TransformComponent>("transform")
+      .get(this.context.refs.player);
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
 
     if (!pTrans || !tether || !trav || !target || !vel) return;
 
-    if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
+    if (
+      pTrans.scaleX === undefined ||
+      pTrans.scaleY === undefined ||
+      pTrans.scaleZ === undefined ||
+      pTrans.prevScaleX === undefined ||
+      pTrans.prevScaleY === undefined ||
+      pTrans.prevScaleZ === undefined
+    ) {
       pTrans.scaleX = 1.0;
       pTrans.scaleY = 1.0;
       pTrans.scaleZ = 1.0;
@@ -4662,7 +4918,8 @@ export class PlayerAnimationSystem implements ISystem {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       const stretchFactor = Math.min(
         tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
-        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
+        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) *
+          tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
       );
       targetScaleY = 1.0 + stretchFactor;
       targetScaleX = 1.0 - stretchFactor * 0.5;
@@ -4802,29 +5059,48 @@ export class PlayerKinematicsSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    this.context.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd: ApplyImpulseCommand) => {
-      if (cmd.entityId === this.context.refs.player) {
-        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
-        if (vel) {
-          vel.x += cmd.x;
-          vel.y += cmd.y;
+    this.context.commands.register<ApplyImpulseCommand>(
+      "APPLY_IMPULSE",
+      (cmd: ApplyImpulseCommand) => {
+        if (cmd.entityId === this.context.refs.player) {
+          const vel = this.context.stores
+            .get<KinematicVelocityComponent>("velocity")
+            .get(this.context.refs.player);
+          if (vel) {
+            vel.x += cmd.x;
+            vel.y += cmd.y;
+          }
         }
       }
-    });
+    );
   }
 
   public update(dt: number): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const wTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.weaver);
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const wTrans = this.context.stores
+      .get<TransformComponent>("transform")
+      .get(this.context.refs.weaver);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
 
     if (!tether || !target || !trav || !wTrans || !input || !vel) return;
 
-    const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
-    const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+    const pHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.player);
+    const wHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.weaver);
 
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       vel.x = 0;
@@ -4920,22 +5196,33 @@ export class PlayerKinematicsSystem implements ISystem {
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
-      
+
       vel.x = 0;
       vel.y = -currentScrollSpeed;
       target.y = target.y + vel.y * dt;
 
       if (currentScrollSpeed > 0) {
         if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
+          tether.tension = Math.min(
+            CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT,
+            tether.tension + tuning.TENSION_CHARGE_RATE * dt
+          );
         } else {
-          const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+          const strainOverloadRate =
+            (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT -
+              CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) /
+            CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+          tether.tension = Math.min(
+            CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT,
+            tether.tension + strainOverloadRate * dt
+          );
         }
       }
 
       const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
-      tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
+      tether.maxLength =
+        this.BASE_TETHER_LENGTH +
+        Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
 
       if (input.jump) {
         this.triggerFling(vel, tether, target, trav);
@@ -4965,22 +5252,33 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.wallNormalY = 0;
 
         target.x = wallDir * this.WALL_LIMIT_X;
-        
+
         vel.x = 0;
         vel.y = -currentScrollSpeed;
         target.y = target.y + vel.y * dt;
 
         if (currentScrollSpeed > 0) {
           if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-            tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
+            tether.tension = Math.min(
+              CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT,
+              tether.tension + tuning.TENSION_CHARGE_RATE * dt
+            );
           } else {
-            const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-            tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+            const strainOverloadRate =
+              (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT -
+                CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) /
+              CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+            tether.tension = Math.min(
+              CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT,
+              tether.tension + strainOverloadRate * dt
+            );
           }
         }
 
         const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
-        tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
+        tether.maxLength =
+          this.BASE_TETHER_LENGTH +
+          Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
@@ -4989,7 +5287,10 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
-        tether.tension = Math.max(0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+        tether.tension = Math.max(
+          0,
+          tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt
+        );
       }
       return;
     }
@@ -5094,7 +5395,7 @@ export class VerticalBoundarySystem implements ISystem {
   private readonly FLOOR_Y = ARENA_CONFIG.VERTICAL.FLOOR_Y;
   private readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
   private readonly PLAYER_HALF_HEIGHT = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
-  
+
   private readonly OVERLOAD_THRESHOLD = CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT;
   private readonly SNAP_LIMIT = CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT;
 
@@ -5102,16 +5403,25 @@ export class VerticalBoundarySystem implements ISystem {
 
   public update(): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
     if (!tether || !target || !health || !trav || !vel) return;
     this.clampToArenaBounds(target, vel);
     this.updateStrainMeter(tether, health, trav);
   }
 
-  private clampToArenaBounds(target: KinematicTargetComponent, vel: KinematicVelocityComponent): void {
+  private clampToArenaBounds(
+    target: KinematicTargetComponent,
+    vel: KinematicVelocityComponent
+  ): void {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
@@ -5166,7 +5476,10 @@ export class VerticalBoundarySystem implements ISystem {
     this.context.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
     this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
     this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
-    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
+    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+      amplitude: 1.5,
+      duration: 0.7
+    });
   }
 }
 
@@ -5226,9 +5539,13 @@ export class WeaverBrainSystem implements ISystem {
     });
 
     this.unsubDamage = this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
-      const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
-      
+      const aiComp = this.context.stores
+        .get<WeaverAIComponent>("weaverAI")
+        .get(this.context.refs.weaver);
+      const health = this.context.stores
+        .get<HealthComponent>("health")
+        .get(this.context.refs.weaver);
+
       if (aiComp && health) {
         aiComp.damageShearIntensity = 1.0;
         aiComp.damageShearTime = 0.0;
@@ -5242,7 +5559,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   private resetBrain(): void {
-    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const aiComp = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (aiComp) {
       const startState = "SWEEPING" as WeaverStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
@@ -5260,9 +5579,11 @@ export class WeaverBrainSystem implements ISystem {
 
   private publishStateChangeEvent(name: string, hue: string): void {
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    const isBerserk = health
+      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+      : false;
     let finalName = name;
-    
+
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
     }
@@ -5273,7 +5594,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   private transitionTo(nextStateKey: WeaverStateType): void {
-    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const aiComp = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
     const nextStateObj = this.states.get(nextStateKey);
@@ -5292,7 +5615,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const aiComp = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
     if (this.pendingTransition !== null) {
@@ -5300,7 +5625,9 @@ export class WeaverBrainSystem implements ISystem {
       this.pendingTransition = null;
     }
 
-    const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
+    const pHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.player);
     if (pHealth && pHealth.current <= 0) {
       this.context.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
@@ -5351,10 +5678,18 @@ export class WeaverTraversalSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.weaver);
-    const trav = this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").get(this.context.refs.weaver);
-    const trans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.weaver);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.weaver);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.weaver);
+    const trav = this.context.stores
+      .get<WeaverTraversalComponent>("weaverTraversal")
+      .get(this.context.refs.weaver);
+    const trans = this.context.stores
+      .get<TransformComponent>("transform")
+      .get(this.context.refs.weaver);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.weaver);
     const ai = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
 
@@ -5363,8 +5698,12 @@ export class WeaverTraversalSystem implements ISystem {
     const isSweeping = !ai || ai.state === "SWEEPING";
     if (isSweeping) {
       let nextX = trans.x + vel.x * dt;
-      const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-      const sweepSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+      const isBerserk = health
+        ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+        : false;
+      const sweepSpeed = isBerserk
+        ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
+        : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
       if (nextX >= this.maxX) {
         nextX = this.maxX;
         vel.x = -sweepSpeed;
@@ -5415,7 +5754,14 @@ export class WeaverTraversalSystem implements ISystem {
     }
 
     if (trans) {
-      if (trans.scaleX === undefined || trans.scaleY === undefined || trans.scaleZ === undefined || trans.prevScaleX === undefined || trans.prevScaleY === undefined || trans.prevScaleZ === undefined) {
+      if (
+        trans.scaleX === undefined ||
+        trans.scaleY === undefined ||
+        trans.scaleZ === undefined ||
+        trans.prevScaleX === undefined ||
+        trans.prevScaleY === undefined ||
+        trans.prevScaleZ === undefined
+      ) {
         trans.scaleX = 1.0;
         trans.scaleY = 1.0;
         trans.scaleZ = 1.0;
@@ -5435,12 +5781,16 @@ export class WeaverTraversalSystem implements ISystem {
 
       if (ai) {
         if (ai.state === "SWEEPING") {
-          const pulse = Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) * WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
+          const pulse =
+            Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
           targetScaleX = 1.0 + pulse;
           targetScaleY = 1.0 - pulse;
 
           const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-          const yawAngle = Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
+          const yawAngle =
+            Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
           BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
         } else if (ai.state === "DASHING") {
           const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
@@ -5451,7 +5801,8 @@ export class WeaverTraversalSystem implements ISystem {
           } else {
             const stretch = Math.min(
               WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) * WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
+                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
             );
             targetScaleY = 1.0 + stretch;
             targetScaleX = 1.0 - stretch * 0.5;
@@ -5481,7 +5832,12 @@ export class WeaverTraversalSystem implements ISystem {
       trans.scaleZ = sz + (targetScaleZ - sz) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
 
       const currentQuat = new BABYLON.Quaternion(trans.qx, trans.qy, trans.qz, trans.qw);
-      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt, currentQuat);
+      BABYLON.Quaternion.SlerpToRef(
+        currentQuat,
+        targetQuat,
+        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
+        currentQuat
+      );
       trans.qx = currentQuat.x;
       trans.qy = currentQuat.y;
       trans.qz = currentQuat.z;
@@ -5521,7 +5877,9 @@ export class WeaverDashingState implements IWeaverState {
   public enter(ctx: SystemContext): void {
     const healthStore = ctx.stores.get<HealthComponent>("health");
     const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    const isBerserk = health
+      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+      : false;
     this.dashCount = 0;
     this.maxDashes = isBerserk ? 3 : 2;
     this.startPrep(ctx);
@@ -5532,7 +5890,7 @@ export class WeaverDashingState implements IWeaverState {
   private startPrep(ctx: SystemContext): void {
     this.currentPhase = "PREP";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
-    
+
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
       aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
@@ -5574,8 +5932,11 @@ export class WeaverDashingState implements IWeaverState {
       const dx = this.targetPos.x - weaverTrans.x;
       const dy = this.targetPos.y - weaverTrans.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-      const speed = this.maxDashes === 3 ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
-      
+      const speed =
+        this.maxDashes === 3
+          ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK
+          : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
+
       this.thrustVelocity.x = (dx / dist) * speed;
       this.thrustVelocity.y = (dy / dist) * speed;
 
@@ -5617,7 +5978,10 @@ export class WeaverDashingState implements IWeaverState {
       const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
       const step = Math.floor(this.phaseTimer * strobeHz);
       if (aiComp) {
-        aiComp.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+        aiComp.hue =
+          step % 2 === 0
+            ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
+            : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       }
 
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
@@ -5633,8 +5997,10 @@ export class WeaverDashingState implements IWeaverState {
     } else if (this.currentPhase === "THRUST") {
       const traversalStore = ctx.stores.get<WeaverTraversalComponent>("weaverTraversal");
       const trav = traversalStore.get(ctx.refs.weaver);
-      const isGraceOver = this.phaseTimer < (WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME);
-      const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
+      const isGraceOver =
+        this.phaseTimer <
+        WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME;
+      const hitWallOrGround = isGraceOver && trav ? trav.isWallClinging || trav.isGrounded : false;
 
       if (this.phaseTimer <= 0 || hitWallOrGround) {
         this.startRecover(ctx);
@@ -5702,12 +6068,13 @@ export class WeaverDefeatedState implements IWeaverState {
 ● ./src/gameplay/weaver/states/WeaverReturningState.ts
 ────────────────────────────────────────────────────
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
-import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
-import { SystemContext } from "../../../core/engine/SystemContext";
 import {
-  TransformComponent,
-  WeaverAIComponent
-} from "../../../core/ecs/Components";
+  ARENA_CONFIG,
+  WEAVER_AI_TUNING,
+  VISUAL_JUICE_CONFIG
+} from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import { TransformComponent, WeaverAIComponent } from "../../../core/ecs/Components";
 
 const HASH = String.fromCharCode(35);
 
@@ -5781,7 +6148,7 @@ export class WeaverSweepingState implements IWeaverState {
   public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
     this.hasTelegraphed = false;
-    
+
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
       aiComp.timeInState = 0;
@@ -5790,8 +6157,12 @@ export class WeaverSweepingState implements IWeaverState {
 
     const healthStore = ctx.stores.get<HealthComponent>("health");
     const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-    const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+    const isBerserk = health
+      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+      : false;
+    const patrolSpeed = isBerserk
+      ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
+      : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
 
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
@@ -6157,7 +6528,10 @@ export class HavokPhysicsSystem implements ISystem {
         }
 
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
-        scene.enablePhysics(new BABYLON.Vector3(0, CANONICAL_UNITS.GRAVITY.PHYSICAL_EARTH, 0), this.havokPlugin);
+        scene.enablePhysics(
+          new BABYLON.Vector3(0, CANONICAL_UNITS.GRAVITY.PHYSICAL_EARTH, 0),
+          this.havokPlugin
+        );
         console.log("[HavokPhysicsSystem] Havok initialized successfully.");
 
         const playHalfWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
@@ -6166,68 +6540,112 @@ export class HavokPhysicsSystem implements ISystem {
         const wallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
 
         const floorWidth = playHalfWidth * 2 + 4;
-        const physFloor = BABYLON.MeshBuilder.CreateBox("physFloor", { width: floorWidth, height: 1.0, depth: 16 }, scene);
+        const physFloor = BABYLON.MeshBuilder.CreateBox(
+          "physFloor",
+          { width: floorWidth, height: 1.0, depth: 16 },
+          scene
+        );
         physFloor.position.set(0, ARENA_CONFIG.VERTICAL.FLOOR_Y - 0.5, 0);
         physFloor.isVisible = false;
-        
+
         const floorShape = new BABYLON.PhysicsShapeBox(
-          BABYLON.Vector3.Zero(), 
-          BABYLON.Quaternion.Identity(), 
-          new BABYLON.Vector3(floorWidth, 1.0, 16), 
+          BABYLON.Vector3.Zero(),
+          BABYLON.Quaternion.Identity(),
+          new BABYLON.Vector3(floorWidth, 1.0, 16),
           scene
         );
         floorShape.material = { friction: 0.5, restitution: 0.25 };
-        const floorBody = new BABYLON.PhysicsBody(physFloor, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        const floorBody = new BABYLON.PhysicsBody(
+          physFloor,
+          BABYLON.PhysicsMotionType.STATIC,
+          false,
+          scene
+        );
         floorBody.shape = floorShape;
         floorBody.setMassProperties({ mass: 0 });
 
-        const physLeft = BABYLON.MeshBuilder.CreateBox("physLeft", { width: wallThickness, height: wallHeight, depth: 16 }, scene);
+        const physLeft = BABYLON.MeshBuilder.CreateBox(
+          "physLeft",
+          { width: wallThickness, height: wallHeight, depth: 16 },
+          scene
+        );
         physLeft.position.set(-(playHalfWidth + wallThickness / 2), wallY, 0);
         physLeft.isVisible = false;
-        
+
         const wallShape = new BABYLON.PhysicsShapeBox(
-          BABYLON.Vector3.Zero(), 
-          BABYLON.Quaternion.Identity(), 
-          new BABYLON.Vector3(wallThickness, wallHeight, 16), 
+          BABYLON.Vector3.Zero(),
+          BABYLON.Quaternion.Identity(),
+          new BABYLON.Vector3(wallThickness, wallHeight, 16),
           scene
         );
         wallShape.material = { friction: 0.3, restitution: 0.4 };
-        const leftBody = new BABYLON.PhysicsBody(physLeft, BABYLON.PhysicsMotionType.STATIC, false, scene);
+        const leftBody = new BABYLON.PhysicsBody(
+          physLeft,
+          BABYLON.PhysicsMotionType.STATIC,
+          false,
+          scene
+        );
         leftBody.shape = wallShape;
         leftBody.setMassProperties({ mass: 0 });
 
-        const physRight = BABYLON.MeshBuilder.CreateBox("physRight", { width: wallThickness, height: wallHeight, depth: 16 }, scene);
-        physRight.position.set((playHalfWidth + wallThickness / 2), wallY, 0);
+        const physRight = BABYLON.MeshBuilder.CreateBox(
+          "physRight",
+          { width: wallThickness, height: wallHeight, depth: 16 },
+          scene
+        );
+        physRight.position.set(playHalfWidth + wallThickness / 2, wallY, 0);
         physRight.isVisible = false;
-        
-        const rightBody = new BABYLON.PhysicsBody(physRight, BABYLON.PhysicsMotionType.STATIC, false, scene);
-        rightBody.shape = wallShape; 
+
+        const rightBody = new BABYLON.PhysicsBody(
+          physRight,
+          BABYLON.PhysicsMotionType.STATIC,
+          false,
+          scene
+        );
+        rightBody.shape = wallShape;
         rightBody.setMassProperties({ mass: 0 });
 
-        const physFront = BABYLON.MeshBuilder.CreateBox("physFront", { width: floorWidth, height: wallHeight, depth: 1.0 }, scene);
+        const physFront = BABYLON.MeshBuilder.CreateBox(
+          "physFront",
+          { width: floorWidth, height: wallHeight, depth: 1.0 },
+          scene
+        );
         physFront.position.set(0, wallY, -3.5);
         physFront.isVisible = false;
-        
+
         const frontBackShape = new BABYLON.PhysicsShapeBox(
-          BABYLON.Vector3.Zero(), 
-          BABYLON.Quaternion.Identity(), 
-          new BABYLON.Vector3(floorWidth, wallHeight, 1.0), 
+          BABYLON.Vector3.Zero(),
+          BABYLON.Quaternion.Identity(),
+          new BABYLON.Vector3(floorWidth, wallHeight, 1.0),
           scene
         );
         frontBackShape.material = { friction: 0.1, restitution: 0.5 };
-        
-        const frontBody = new BABYLON.PhysicsBody(physFront, BABYLON.PhysicsMotionType.STATIC, false, scene);
+
+        const frontBody = new BABYLON.PhysicsBody(
+          physFront,
+          BABYLON.PhysicsMotionType.STATIC,
+          false,
+          scene
+        );
         frontBody.shape = frontBackShape;
         frontBody.setMassProperties({ mass: 0 });
 
-        const physBack = BABYLON.MeshBuilder.CreateBox("physBack", { width: floorWidth, height: wallHeight, depth: 1.0 }, scene);
+        const physBack = BABYLON.MeshBuilder.CreateBox(
+          "physBack",
+          { width: floorWidth, height: wallHeight, depth: 1.0 },
+          scene
+        );
         physBack.position.set(0, wallY, 3.5);
         physBack.isVisible = false;
-        
-        const backBody = new BABYLON.PhysicsBody(physBack, BABYLON.PhysicsMotionType.STATIC, false, scene);
-        backBody.shape = frontBackShape; 
-        backBody.setMassProperties({ mass: 0 });
 
+        const backBody = new BABYLON.PhysicsBody(
+          physBack,
+          BABYLON.PhysicsMotionType.STATIC,
+          false,
+          scene
+        );
+        backBody.shape = frontBackShape;
+        backBody.setMassProperties({ mass: 0 });
       } catch (err) {
         console.warn(
           "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",
@@ -6304,7 +6722,7 @@ export const HudOverlay: React.FC = () => {
     weaverHp,
     weaverMaxHp,
     weaverState,
-    weaverHue,
+    weaverHue
   } = useHudStore(
     useShallow((state) => ({
       playerHp: state.playerHp,
@@ -6322,7 +6740,7 @@ export const HudOverlay: React.FC = () => {
       weaverHp: state.weaverHp,
       weaverMaxHp: state.weaverMaxHp,
       weaverState: state.weaverState,
-      weaverHue: state.weaverHue,
+      weaverHue: state.weaverHue
     }))
   );
 
@@ -6363,7 +6781,10 @@ export const HudOverlay: React.FC = () => {
               PROTOTYPE SILK INITIALIZATION
             </h2>
             <div className="w-full bg-black border border-zinc-800 h-2 mb-6 overflow-hidden rounded">
-              <div className="h-full bg-emerald-500 animate-[pulse_1.5s_infinite]" style={{ width: "100%" }} />
+              <div
+                className="h-full bg-emerald-500 animate-[pulse_1.5s_infinite]"
+                style={{ width: "100%" }}
+              />
             </div>
             <pre className="text-zinc-400 text-[10px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
               {"[SYSTEM BOOT]: ONLINE\n[STATUS]: " + bootStatus}
@@ -6377,10 +6798,7 @@ export const HudOverlay: React.FC = () => {
               <div className="hud-label">PILOT INTEGRITY</div>
               <div className="hud-hp-row">
                 {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`hp-block ${i < playerHp ? "hp-active" : ""}`}
-                  />
+                  <div key={i} className={`hp-block ${i < playerHp ? "hp-active" : ""}`} />
                 ))}
               </div>
               <div className="hud-subtext">
@@ -6401,7 +6819,7 @@ export const HudOverlay: React.FC = () => {
                   style={{
                     transform: `scaleX(${weaverHpRatio.toFixed(3)})`,
                     transformOrigin: "left",
-                    backgroundColor: weaverHpBarColor,
+                    backgroundColor: weaverHpBarColor
                   }}
                 />
               </div>
@@ -6419,7 +6837,7 @@ export const HudOverlay: React.FC = () => {
               className="hud-hint"
               style={{
                 opacity: traversalHintOpacity,
-                color: traversalHintColor,
+                color: traversalHintColor
               }}
             >
               {traversalHint}
@@ -6437,7 +6855,7 @@ export const HudOverlay: React.FC = () => {
                   style={{
                     transform: `scaleX(${tensionScaleX.toFixed(3)})`,
                     transformOrigin: "left",
-                    backgroundColor: tensionBarColor,
+                    backgroundColor: tensionBarColor
                   }}
                 />
               </div>
@@ -6453,9 +6871,7 @@ export const HudOverlay: React.FC = () => {
               {overlayTitle}
             </h1>
             <div className="overlay-divider" />
-            <p className="overlay-subtitle">
-              {overlaySubtitle}
-            </p>
+            <p className="overlay-subtitle">{overlaySubtitle}</p>
             <button onClick={handleRetryClick} className="overlay-btn pointer-events-auto">
               PLAY AGAIN
             </button>
@@ -6470,9 +6886,7 @@ export const HudOverlay: React.FC = () => {
               PAUSED
             </h1>
             <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
-            <p className="overlay-subtitle">
-              SIMULATION SUSPENDED
-            </p>
+            <p className="overlay-subtitle">SIMULATION SUSPENDED</p>
             <button onClick={handleResumeClick} className="overlay-btn pointer-events-auto">
               RESUME
             </button>
@@ -6663,7 +7077,12 @@ export const useHudStore = create<HudState>((set) => ({
   setTraversalHint: (text, color, opacity) =>
     set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
   showOverlay: (title, color, subtitle) =>
-    set({ overlayVisible: true, overlayTitle: title, overlayColor: color, overlaySubtitle: subtitle }),
+    set({
+      overlayVisible: true,
+      overlayTitle: title,
+      overlayColor: color,
+      overlaySubtitle: subtitle
+    }),
   hideOverlay: () => set({ overlayVisible: false }),
   setPaused: (isPaused) => set({ isPaused }),
   setBootStatus: (status) => set({ bootStatus: status }),
@@ -6684,8 +7103,8 @@ export const useHudStore = create<HudState>((set) => ({
       weaverHp: 100,
       weaverMaxHp: 100,
       weaverState: "SWEEPING",
-      weaverHue: "rgb(239, 68, 68)",
-    }),
+      weaverHue: "rgb(239, 68, 68)"
+    })
 }));
 
 
@@ -6719,9 +7138,19 @@ export class CameraSystem implements ISystem {
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
 
-          const preset = POST_PROCESSING_PRESETS.CAMERA;
-          this.cameraNode.position.set(preset.DEFAULT_POS.x, preset.DEFAULT_POS.y, preset.DEFAULT_POS.z);
-          this.cameraNode.setTarget(new BABYLON.Vector3(preset.DEFAULT_TARGET.x, preset.DEFAULT_TARGET.y, preset.DEFAULT_TARGET.z));
+      const preset = POST_PROCESSING_PRESETS.CAMERA;
+      this.cameraNode.position.set(
+        preset.DEFAULT_POS.x,
+        preset.DEFAULT_POS.y,
+        preset.DEFAULT_POS.z
+      );
+      this.cameraNode.setTarget(
+        new BABYLON.Vector3(
+          preset.DEFAULT_TARGET.x,
+          preset.DEFAULT_TARGET.y,
+          preset.DEFAULT_TARGET.z
+        )
+      );
     }
 
     this.unsub = this.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
@@ -6756,13 +7185,13 @@ export class CameraSystem implements ISystem {
 
     if (this.cameraNode) {
       this.cameraNode.position.set(
-        preset.DEFAULT_POS.x + shakeOffsetX, 
-        preset.DEFAULT_POS.y + shakeOffsetY, 
+        preset.DEFAULT_POS.x + shakeOffsetX,
+        preset.DEFAULT_POS.y + shakeOffsetY,
         preset.DEFAULT_POS.z + shakeOffsetZ
       );
       this.cameraTarget.set(
-        preset.DEFAULT_TARGET.x + shakeOffsetX * 0.25, 
-        preset.DEFAULT_TARGET.y + shakeOffsetY * 0.25, 
+        preset.DEFAULT_TARGET.x + shakeOffsetX * 0.25,
+        preset.DEFAULT_TARGET.y + shakeOffsetY * 0.25,
         preset.DEFAULT_TARGET.z
       );
       this.cameraNode.setTarget(this.cameraTarget);
@@ -6901,9 +7330,7 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
 
   public getUniforms() {
     return {
-      "ubo": [
-        { name: "u_noiseTime", size: 1, type: "float" }
-      ]
+      ubo: [{ name: "u_noiseTime", size: 1, type: "float" }]
     };
   }
 
@@ -6911,11 +7338,14 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
     return shaderLanguage === ShaderLanguage.GLSL;
   }
 
-  public getCustomCode(shaderType: string, shaderLanguage?: ShaderLanguage): Record<string, string> | null {
+  public getCustomCode(
+    shaderType: string,
+    shaderLanguage?: ShaderLanguage
+  ): Record<string, string> | null {
     if (shaderLanguage === ShaderLanguage.GLSL) {
       if (shaderType === "vertex") {
         return {
-          "CUSTOM_VERTEX_DEFINITIONS": `
+          CUSTOM_VERTEX_DEFINITIONS: `
             #ifdef NOISE
             uniform float u_noiseTime;
 
@@ -6928,7 +7358,7 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
             }
             #endif
           `,
-          "CUSTOM_VERTEX_UPDATE_POSITION": `
+          CUSTOM_VERTEX_UPDATE_POSITION: `
             #ifdef NOISE
             float noiseVal = getNoiseVal(positionUpdated, u_noiseTime);
 
@@ -6956,12 +7386,12 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
         };
       } else if (shaderType === "fragment") {
         return {
-          "CUSTOM_FRAGMENT_DEFINITIONS": `
+          CUSTOM_FRAGMENT_DEFINITIONS: `
             #ifdef NOISE
             uniform float u_noiseTime;
             #endif
           `,
-          "CUSTOM_FRAGMENT_BEFORE_LIGHTS": `
+          CUSTOM_FRAGMENT_BEFORE_LIGHTS: `
             #ifdef NOISE
             #ifdef NORMAL
             vec3 pos = vPositionW;
@@ -7013,7 +7443,7 @@ export class RasterShearPlugin extends MaterialPluginBase {
 
   public getUniforms() {
     return {
-      "ubo": [
+      ubo: [
         { name: "u_shearIntensity", size: 1, type: "float" },
         { name: "u_shearTime", size: 1, type: "float" }
       ]
@@ -7024,11 +7454,14 @@ export class RasterShearPlugin extends MaterialPluginBase {
     return shaderLanguage === ShaderLanguage.GLSL;
   }
 
-  public getCustomCode(shaderType: string, shaderLanguage?: ShaderLanguage): Record<string, string> | null {
+  public getCustomCode(
+    shaderType: string,
+    shaderLanguage?: ShaderLanguage
+  ): Record<string, string> | null {
     if (shaderLanguage === ShaderLanguage.GLSL) {
       if (shaderType === "vertex") {
         return {
-          "CUSTOM_VERTEX_DEFINITIONS": `
+          CUSTOM_VERTEX_DEFINITIONS: `
             #ifdef SHEAR
             uniform float u_shearIntensity;
             uniform float u_shearTime;
@@ -7050,7 +7483,7 @@ export class RasterShearPlugin extends MaterialPluginBase {
             }
             #endif
           `,
-          "CUSTOM_VERTEX_UPDATE_POSITION": `
+          CUSTOM_VERTEX_UPDATE_POSITION: `
             #ifdef SHEAR
             float displacement = getShearDisplacement(positionUpdated, u_shearIntensity, u_shearTime);
 
@@ -7176,7 +7609,10 @@ export class RenderSystem implements ISystem {
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
 
-  constructor(canvas: HTMLCanvasElement, private visualRegistry: VisualRegistry) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    private visualRegistry: VisualRegistry
+  ) {
     this.canvas = canvas;
   }
 
@@ -7192,10 +7628,20 @@ export class RenderSystem implements ISystem {
 
     const camera = new BABYLON.FreeCamera(
       "renderCamera",
-      new BABYLON.Vector3(preset.CAMERA.DEFAULT_POS.x, preset.CAMERA.DEFAULT_POS.y, preset.CAMERA.DEFAULT_POS.z),
+      new BABYLON.Vector3(
+        preset.CAMERA.DEFAULT_POS.x,
+        preset.CAMERA.DEFAULT_POS.y,
+        preset.CAMERA.DEFAULT_POS.z
+      ),
       this.scene
     );
-    camera.setTarget(new BABYLON.Vector3(preset.CAMERA.DEFAULT_TARGET.x, preset.CAMERA.DEFAULT_TARGET.y, preset.CAMERA.DEFAULT_TARGET.z));
+    camera.setTarget(
+      new BABYLON.Vector3(
+        preset.CAMERA.DEFAULT_TARGET.x,
+        preset.CAMERA.DEFAULT_TARGET.y,
+        preset.CAMERA.DEFAULT_TARGET.z
+      )
+    );
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
 
     const ambientLight = new BABYLON.HemisphericLight(
@@ -7344,9 +7790,18 @@ export class EntityInterpolationSystem implements ISystem {
       node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
       node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
 
-      const sx = curr.prevScaleX !== undefined && curr.scaleX !== undefined ? curr.prevScaleX + (curr.scaleX - curr.prevScaleX) * alpha : 1.0;
-      const sy = curr.prevScaleY !== undefined && curr.scaleY !== undefined ? curr.prevScaleY + (curr.scaleY - curr.prevScaleY) * alpha : 1.0;
-      const sz = curr.prevScaleZ !== undefined && curr.scaleZ !== undefined ? curr.prevScaleZ + (curr.scaleZ - curr.prevScaleZ) * alpha : 1.0;
+      const sx =
+        curr.prevScaleX !== undefined && curr.scaleX !== undefined
+          ? curr.prevScaleX + (curr.scaleX - curr.prevScaleX) * alpha
+          : 1.0;
+      const sy =
+        curr.prevScaleY !== undefined && curr.scaleY !== undefined
+          ? curr.prevScaleY + (curr.scaleY - curr.prevScaleY) * alpha
+          : 1.0;
+      const sz =
+        curr.prevScaleZ !== undefined && curr.scaleZ !== undefined
+          ? curr.prevScaleZ + (curr.scaleZ - curr.prevScaleZ) * alpha
+          : 1.0;
       node.scaling.set(sx, sy, sz);
 
       this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
@@ -7383,7 +7838,7 @@ import * as BABYLON from "@babylonjs/core";
 
 export class ParallaxScrollSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-  
+
   public static currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
 
   private currentScrollOffset = 0.0;
@@ -7423,17 +7878,22 @@ export class ParallaxScrollSystem implements ISystem {
       this.hitStopTimer -= dt;
     }
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
-    const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
-    const wVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
+    const wHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.weaver);
+    const wVel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.weaver);
 
-    const targetScrollSpeed = this.hitStopTimer > 0
-      ? 0.0
-      : ParallaxScrollSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+    const targetScrollSpeed =
+      this.hitStopTimer > 0 ? 0.0 : ParallaxScrollSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
     ParallaxScrollSystem.currentScrollSpeed = this.scrollSpeed;
-    
+
     if (wAI) {
       wAI.scrollSpeed = this.scrollSpeed;
     }
@@ -7481,8 +7941,9 @@ export class ParallaxScrollSystem implements ISystem {
 
     const mapping = CANONICAL_UNITS.SCROLL_MAPPING;
     const totalRange = mapping.TOTAL_RANGE;
-    const interpolatedOffset = this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
-    
+    const interpolatedOffset =
+      this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
+
     let wrappedOffset = interpolatedOffset % totalRange;
     if (wrappedOffset < 0) {
       wrappedOffset += totalRange;
@@ -7530,7 +7991,9 @@ export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
   public update(dt: number): void {
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (wAI) {
       wAI.damageShearTime += dt;
       if (wAI.damageShearIntensity > 0.0) {
@@ -7552,8 +8015,12 @@ export class VisualStateDressingSystem implements ISystem {
 
   private updateAestheticDressing(): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
@@ -7579,14 +8046,18 @@ export class VisualStateDressingSystem implements ISystem {
           cachedColor = new BABYLON.Color3(r, g, b);
           this.colorCache.set(wAI.hue, cachedColor);
         }
-        const pulse = emissive.WEAVER_EMISSIVE_PULSE_BASE + Math.sin(Date.now() * emissive.WEAVER_EMISSIVE_PULSE_FREQ) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
+        const pulse =
+          emissive.WEAVER_EMISSIVE_PULSE_BASE +
+          Math.sin(Date.now() * emissive.WEAVER_EMISSIVE_PULSE_FREQ) *
+            emissive.WEAVER_EMISSIVE_PULSE_AMP;
         mat.emissiveColor.set(
           cachedColor.r * emissive.WEAVER_EMISSIVE_SCALE + pulse,
           cachedColor.g * emissive.WEAVER_EMISSIVE_SCALE,
           cachedColor.b * emissive.WEAVER_EMISSIVE_SCALE
         );
 
-        const shearPlugin = (mat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin;
+        const shearPlugin = (mat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+          ._shearPlugin;
         if (shearPlugin) {
           shearPlugin.shearIntensity = wAI.damageShearIntensity;
           shearPlugin.shearTime = wAI.damageShearTime;
@@ -7595,11 +8066,7 @@ export class VisualStateDressingSystem implements ISystem {
     }
   }
 
-  private updatePlayerEmissive(
-    mat: BABYLON.PBRMaterial,
-    tension: number,
-    state: string
-  ): void {
+  private updatePlayerEmissive(mat: BABYLON.PBRMaterial, tension: number, state: string): void {
     let targetR: number;
     let targetG: number;
     let targetB: number;
@@ -7607,8 +8074,12 @@ export class VisualStateDressingSystem implements ISystem {
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     if (state === "WALL_SLIDING") {
-      targetR = emissive.PLAYER_EMISSIVE_SLIDE.BASE_R + Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
-      targetG = emissive.PLAYER_EMISSIVE_SLIDE.BASE_G + (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
+      targetR =
+        emissive.PLAYER_EMISSIVE_SLIDE.BASE_R +
+        Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
+      targetG =
+        emissive.PLAYER_EMISSIVE_SLIDE.BASE_G +
+        (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
       targetB = (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.MULT_B;
     } else if (state === "LAUNCHING") {
       targetR = emissive.PLAYER_EMISSIVE_LAUNCH.R;
@@ -7624,7 +8095,7 @@ export class VisualStateDressingSystem implements ISystem {
     this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
     this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
     this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
-    
+
     mat.emissiveColor.set(
       this.currentEmissiveR * emissive.PLAYER_EMISSIVE_SCALE,
       this.currentEmissiveG * emissive.PLAYER_EMISSIVE_SCALE,
