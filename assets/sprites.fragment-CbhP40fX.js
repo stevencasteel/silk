@@ -1,0 +1,1 @@
+import{Zt as e}from"./compositionRoot-NWDRZGj3.js";export{e as spritesPixelShader};
