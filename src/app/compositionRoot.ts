@@ -207,6 +207,7 @@ export class CompositionRoot {
 
     const combatSystem = new CombatSystem(context);
     const healthSystem = new HealthSystem(context);
+    const projectileSystem = new ProjectileSystem(context);
 
     const gameDirector = new GameDirectorSystem(
       broker,
@@ -214,15 +215,6 @@ export class CompositionRoot {
       healths,
       tethers,
       spawner
-    );
-
-    const projectileSystem = new ProjectileSystem(
-      broker,
-      refs,
-      healths,
-      iframes,
-      visualRegistry,
-      weaverAIs
     );
 
     const hudSystem = new DomHudSystem(broker);

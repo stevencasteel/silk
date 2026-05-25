@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 11:45:09 AM
+ [SYSTEM] Generated: 5/25/2026, 11:47:40 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1026,6 +1026,7 @@ export class CompositionRoot {
 
     const combatSystem = new CombatSystem(context);
     const healthSystem = new HealthSystem(context);
+    const projectileSystem = new ProjectileSystem(context);
 
     const gameDirector = new GameDirectorSystem(
       broker,
@@ -1033,15 +1034,6 @@ export class CompositionRoot {
       healths,
       tethers,
       spawner
-    );
-
-    const projectileSystem = new ProjectileSystem(
-      broker,
-      refs,
-      healths,
-      iframes,
-      visualRegistry,
-      weaverAIs
     );
 
     const hudSystem = new DomHudSystem(broker);
@@ -3477,17 +3469,14 @@ export class HealthSystem implements ISystem {
 import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { SystemContext } from "../../core/engine/SystemContext";
 import {
   HealthComponent,
   InvulnerabilityComponent,
   WeaverAIComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { ARENA_CONFIG, GAMEPLAY_TUNING, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveProjectile {
@@ -3512,17 +3501,10 @@ export class ProjectileSystem implements ISystem {
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
 
-  constructor(
-    private broker: EventBroker,
-    private refs: EntityRefs,
-    private healths: ComponentStore<HealthComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>,
-    private visualRegistry: IVisualRegistry,
-    private weaverAIs: ComponentStore<WeaverAIComponent>
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
     this.projMat = new BABYLON.PBRMaterial("projectileMat", scene);
@@ -3557,7 +3539,6 @@ export class ProjectileSystem implements ISystem {
         body = new BABYLON.PhysicsBody(sphere, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
         body.shape = this.sharedShape;
         body.setMassProperties({ mass: 1.0 });
-        // Crucial: Forces the physics hitbox to follow our manual math position updates
         body.disablePreStep = false; 
       }
 
@@ -3571,11 +3552,11 @@ export class ProjectileSystem implements ISystem {
       });
     }
 
-    this.unsubShoot = this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+    this.unsubShoot = this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
       this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
     });
 
-    this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
+    this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
       this.clearAll();
       this.noiseTime = 0.0;
     });
@@ -3613,9 +3594,12 @@ export class ProjectileSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const pHealth = this.healths.get(this.refs.player);
-    const wHealth = this.healths.get(this.refs.weaver);
-    const pIframe = this.iframes.get(this.refs.player);
+    const healthStore = this.context.stores.get<HealthComponent>("health");
+    const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
+
+    const pHealth = healthStore.get(this.context.refs.player);
+    const wHealth = healthStore.get(this.context.refs.weaver);
+    const pIframe = iframeStore.get(this.context.refs.player);
 
     if (!pHealth || !wHealth || !pIframe) return;
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
@@ -3628,9 +3612,9 @@ export class ProjectileSystem implements ISystem {
       }
     }
 
-    const wAI = this.weaverAIs.get(this.refs.weaver);
+    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
-    const pMesh = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.AbstractMesh;
+    const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.AbstractMesh;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
@@ -3639,31 +3623,28 @@ export class ProjectileSystem implements ISystem {
 
       p.lifeTime += dt;
 
-      // Pure math movement
       if (!p.isStuck) {
         p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
 
-        // Wall Impact
         if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
           p.mesh.scaling.set(0.28, 1.45, 1.45);
           p.mesh.position.x = Math.sign(p.mesh.position.x) * wallLimit;
-          this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: true });
+          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: true });
         }
 
-        // Player Impact
         if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
           if (p.mesh.intersectsMesh(pMesh, false)) {
-            pHealth.current = Math.max(0, pHealth.current - 1);
-            pIframe.timeRemaining = GAMEPLAY_TUNING.COMBAT.PLAYER_IFRAME_DURATION;
-            this.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
-            this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 1, source: "PROJECTILE" });
-            this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: pHealth.current, maxHp: pHealth.max });
-            this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP, duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR });
-            if (pHealth.current <= 0) {
-              this.broker.publish(GameEvent.PLAYER_DIED, undefined);
-            }
+            this.context.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: this.context.refs.player,
+              amount: 1,
+              source: "PROJECTILE"
+            });
+
+            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP, duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR });
             this.recycleProjectile(p);
             continue;
           }
