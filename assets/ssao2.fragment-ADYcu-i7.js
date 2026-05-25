@@ -1,0 +1,1 @@
+import{i as e}from"./compositionRoot-tQ3vd_Qz.js";export{e as ssao2PixelShaderWGSL};

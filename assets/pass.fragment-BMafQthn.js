@@ -1,0 +1,1 @@
+import{mn as e}from"./compositionRoot-tQ3vd_Qz.js";export{e as passPixelShader};
