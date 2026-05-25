@@ -1,6 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { GameEvent } from "../../core/events/GameEvents";
 import {
   TetherComponent,
   KinematicTargetComponent,
@@ -8,9 +9,6 @@ import {
   TraversalStateComponent,
   TransformComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { EventBroker } from "../../core/events/EventBroker";
-import { GameEvent } from "../../core/events/GameEvents";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class EnvironmentCollisionSystem implements ISystem {
@@ -22,21 +20,13 @@ export class EnvironmentCollisionSystem implements ISystem {
   private readonly OVERLOAD_THRESHOLD = CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT;
   private readonly SNAP_LIMIT = CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT;
 
-  constructor(
-    private refs: EntityRefs,
-    private tethers: ComponentStore<TetherComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private broker: EventBroker,
-    private transforms: ComponentStore<TransformComponent>
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public update(): void {
-    const tether = this.tethers.get(this.refs.player);
-    const target = this.targets.get(this.refs.player);
-    const health = this.healths.get(this.refs.player);
-    const trav = this.traversal.get(this.refs.player);
+    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
+    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+    const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
+    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
     if (!tether || !target || !health || !trav) return;
     this.clampToArenaBounds(target, tether);
     this.updateStrainMeter(tether, health, trav);
@@ -49,8 +39,9 @@ export class EnvironmentCollisionSystem implements ISystem {
 
     if (target.y < minY) {
       if (tether.dynamicVelY < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
-        this.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
-        const pTrans = this.transforms.get(this.refs.player);
+        this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
+        const transforms = this.context.stores.get<TransformComponent>("transform");
+        const pTrans = transforms.get(this.context.refs.player);
         if (pTrans) {
           pTrans.scaleY = tuning.SQUASH_STRETCH.SQUASH_LAND_Y;
           pTrans.scaleX = tuning.SQUASH_STRETCH.SQUASH_LAND_X;
@@ -77,7 +68,7 @@ export class EnvironmentCollisionSystem implements ISystem {
       const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
 
       if (Math.random() < strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE) {
-        this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: 0.1 + strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE,
           duration: 0.08
         });
@@ -93,9 +84,9 @@ export class EnvironmentCollisionSystem implements ISystem {
     tether.isAttached = false;
     tether.tension = 0.0;
     health.current = 0;
-    this.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
-    this.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
-    this.broker.publish(GameEvent.PLAYER_DIED, undefined);
-    this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
+    this.context.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
+    this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
+    this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
+    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
   }
 }

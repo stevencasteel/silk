@@ -1,6 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { GameEvent } from "../../core/events/GameEvents";
 import {
   TetherComponent,
   KinematicTargetComponent,
@@ -9,11 +10,7 @@ import {
   InputIntentComponent,
   HealthComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { EventBroker } from "../../core/events/EventBroker";
-import { GameEvent } from "../../core/events/GameEvents";
 import { RenderInterpolationSystem } from "../../visual/systems/RenderInterpolationSystem";
-import { CommandBus } from "../../core/commands/CommandBus";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -29,22 +26,12 @@ export class PlayerKinematicsSystem implements ISystem {
   private tensionPayload = { tension: 0.0 };
   private lengthPayload = { length: 0.0, maxLength: 0.0 };
 
-  constructor(
-    private refs: EntityRefs,
-    private tethers: ComponentStore<TetherComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private transforms: ComponentStore<TransformComponent>,
-    private inputs: ComponentStore<InputIntentComponent>,
-    private broker: EventBroker,
-    private healths: ComponentStore<HealthComponent>,
-    private commands: CommandBus
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
-    this.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd: ApplyImpulseCommand) => {
-      if (cmd.entityId === this.refs.player) {
-        const tether = this.tethers.get(this.refs.player);
+    this.context.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd: ApplyImpulseCommand) => {
+      if (cmd.entityId === this.context.refs.player) {
+        const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
         if (tether) {
           tether.dynamicVelX += cmd.x;
           tether.dynamicVelY += cmd.y;
@@ -54,16 +41,16 @@ export class PlayerKinematicsSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const tether = this.tethers.get(this.refs.player);
-    const target = this.targets.get(this.refs.player);
-    const trav = this.traversal.get(this.refs.player);
-    const wTrans = this.transforms.get(this.refs.weaver);
-    const input = this.inputs.get(this.refs.player);
+    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
+    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const wTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.weaver);
+    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
 
     if (!tether || !target || !trav || !wTrans || !input) return;
 
-    const pHealth = this.healths.get(this.refs.player);
-    const wHealth = this.healths.get(this.refs.weaver);
+    const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
+    const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
 
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       tether.dynamicVelX = 0;
@@ -122,15 +109,15 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
     this.tensionPayload.tension = tether.tension;
-    this.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
+    this.context.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
 
     this.lengthPayload.length = tether.currentLength;
     this.lengthPayload.maxLength = tether.maxLength;
-    this.broker.publish(GameEvent.TETHER_LENGTH_CHANGE, this.lengthPayload);
+    this.context.broker.publish(GameEvent.TETHER_LENGTH_CHANGE, this.lengthPayload);
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
-      this.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
+      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
     }
   }
 
@@ -184,8 +171,9 @@ export class PlayerKinematicsSystem implements ISystem {
       const pressingIn = input.x === wallDir;
 
       if (pressingIn) {
-        const pTrans = this.transforms.get(this.refs.player);
-        this.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+        const transforms = this.context.stores.get<TransformComponent>("transform");
+        const pTrans = transforms.get(this.context.refs.player);
+        this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
           x: target.x,
           y: target.y,
           wallNormalX: -wallDir
@@ -266,7 +254,7 @@ export class PlayerKinematicsSystem implements ISystem {
     trav.launchPower = powerScale;
     trav.wallDir = 0;
 
-    this.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
       amplitude: 0.25 + powerScale * 0.35,
       duration: 0.2
     });

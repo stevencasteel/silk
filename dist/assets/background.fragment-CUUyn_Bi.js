@@ -1,0 +1,1 @@
+import{Nr as e}from"./compositionRoot-YW7xoxWA.js";export{e as backgroundPixelShader};

@@ -125,17 +125,7 @@ export class CompositionRoot {
       visualRegistry
     );
     
-    const playerKinematics = new PlayerKinematicsSystem(
-      refs,
-      tethers,
-      targets,
-      traversal,
-      transforms,
-      inputs,
-      broker,
-      healths,
-      commands
-    );
+    const playerKinematics = new PlayerKinematicsSystem(context);
 
     const playerAnimation = new PlayerAnimationSystem(
       refs,
@@ -145,15 +135,7 @@ export class CompositionRoot {
       targets
     );
 
-    const environmentCollision = new EnvironmentCollisionSystem(
-      refs,
-      tethers,
-      targets,
-      healths,
-      traversal,
-      broker,
-      transforms
-    );
+    const environmentCollision = new EnvironmentCollisionSystem(context);
 
     const interpolationSystem = new RenderInterpolationSystem(
       refs,
@@ -175,23 +157,7 @@ export class CompositionRoot {
 
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
     
-    const spawner = new EntitySpawnerSystem(
-      refs,
-      world,
-      transforms,
-      velocities,
-      targets,
-      tethers,
-      healths,
-      inputs,
-      weaverAIs,
-      playerTags,
-      weaverTags,
-      visualRegistry,
-      traversal,
-      iframes,
-      weaverTraversal
-    );
+    const spawner = new EntitySpawnerSystem(context);
 
     const weaverBrain = new WeaverBrainSystem(context);
 

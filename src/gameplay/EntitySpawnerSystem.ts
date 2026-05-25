@@ -1,9 +1,8 @@
 import { WarpMaterialPlugin } from "../visual/lighting/WarpMaterialPlugin";
 import { ISystem } from "../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
-import { EcsWorld } from "../core/ecs/EcsWorld";
-import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityId } from "../core/ecs/Entity";
+import { SystemContext } from "../core/engine/SystemContext";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -18,8 +17,6 @@ import {
   InvulnerabilityComponent,
   WeaverTraversalComponent
 } from "../core/ecs/Components";
-import { EntityRefs } from "../core/ecs/EntityRefs";
-import { IVisualRegistry } from "../contracts/IVisualRegistry";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
@@ -29,29 +26,13 @@ export class EntitySpawnerSystem implements ISystem {
   private sharedWeaverShape: BABYLON.PhysicsShapeSphere | null = null;
   private sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null = null;
 
-  constructor(
-    private refs: EntityRefs,
-    private entities: EcsWorld,
-    private transforms: ComponentStore<TransformComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private inputs: ComponentStore<InputIntentComponent>,
-    private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private playerTags: ComponentStore<PlayerTag>,
-    private weaverTags: ComponentStore<WeaverTag>,
-    private visualRegistry: IVisualRegistry,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private iframes: ComponentStore<InvulnerabilityComponent>,
-    private weaverTraversal: ComponentStore<WeaverTraversalComponent>
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (scene && scene.isPhysicsEnabled()) {
       this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), ARENA_CONFIG.ENTITY.WEAVER_RADIUS, scene);
-      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_RADIUS - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
       this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(new BABYLON.Vector3(0, -cylHalfHeight, 0), new BABYLON.Vector3(0, cylHalfHeight, 0), ARENA_CONFIG.ENTITY.PLAYER_RADIUS, scene);
     }
     this.spawnWeaver();
@@ -59,15 +40,15 @@ export class EntitySpawnerSystem implements ISystem {
   }
 
   public spawnWeaver(existingId?: EntityId): EntityId {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
-    const weaverId = existingId ?? this.entities.create();
-    this.entities.clearEntityComponents(weaverId);
+    const weaverId = existingId ?? this.context.world.create();
+    this.context.world.clearEntityComponents(weaverId);
 
-    this.visualRegistry.unregisterTransformNode(weaverId);
+    this.context.visualRegistry.unregisterTransformNode(weaverId);
 
-    this.transforms.add(weaverId, {
+    this.context.stores.get<TransformComponent>("transform").add(weaverId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       z: 0,
@@ -83,9 +64,11 @@ export class EntitySpawnerSystem implements ISystem {
       prevQz: 0,
       prevQw: 1
     });
-    this.velocities.add(weaverId, { x: 4.5, y: 0, z: 0 });
-    this.targets.add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    this.weaverAIs.add(weaverId, {
+    
+    this.context.stores.get<KinematicVelocityComponent>("velocity").add(weaverId, { x: 4.5, y: 0, z: 0 });
+    this.context.stores.get<KinematicTargetComponent>("target").add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
+    
+    this.context.stores.get<WeaverAIComponent>("weaverAI").add(weaverId, {
       state: "SWEEPING",
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
@@ -93,16 +76,19 @@ export class EntitySpawnerSystem implements ISystem {
       damageWarpIntensity: 0.0,
       damageWarpTime: 0.0
     });
-    this.healths.add(weaverId, { current: 100, max: 100 });
-    this.weaverTags.add(weaverId, {});
-    this.weaverTraversal.add(weaverId, {
+    
+    this.context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
+    this.context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
+    
+    this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
       velX: 4.5,
       velY: 0,
       isGrounded: false,
       isWallClinging: false,
       wallNormalX: 0
     });
-    this.refs.weaver = weaverId;
+    
+    this.context.refs.weaver = weaverId;
 
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
@@ -119,7 +105,7 @@ export class EntitySpawnerSystem implements ISystem {
     wMesh.material = wMat;
     const warpPlugin = new WarpMaterialPlugin(wMat);
     (wMat as BABYLON.PBRMaterial & { _warpPlugin?: WarpMaterialPlugin })._warpPlugin = warpPlugin;
-    this.visualRegistry.registerTransformNode(weaverId, wMesh);
+    this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {
       const wBody = new BABYLON.PhysicsBody(wMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
@@ -131,15 +117,15 @@ export class EntitySpawnerSystem implements ISystem {
   }
 
   public spawnPlayer(existingId?: EntityId): EntityId {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
-    const playerId = existingId ?? this.entities.create();
-    this.entities.clearEntityComponents(playerId);
+    const playerId = existingId ?? this.context.world.create();
+    this.context.world.clearEntityComponents(playerId);
 
-    this.visualRegistry.unregisterTransformNode(playerId);
+    this.context.visualRegistry.unregisterTransformNode(playerId);
 
-    this.transforms.add(playerId, {
+    this.context.stores.get<TransformComponent>("transform").add(playerId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
       z: 0,
@@ -155,9 +141,11 @@ export class EntitySpawnerSystem implements ISystem {
       prevQz: 0,
       prevQw: 1
     });
-    this.velocities.add(playerId, { x: 0, y: 0, z: 0 });
-    this.targets.add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
-    this.tethers.add(playerId, {
+    
+    this.context.stores.get<KinematicVelocityComponent>("velocity").add(playerId, { x: 0, y: 0, z: 0 });
+    this.context.stores.get<KinematicTargetComponent>("target").add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
+    
+    this.context.stores.get<TetherComponent>("tether").add(playerId, {
       anchorX: 0,
       anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       anchorZ: 0,
@@ -168,10 +156,12 @@ export class EntitySpawnerSystem implements ISystem {
       dynamicVelX: 0.0,
       dynamicVelY: 0.0
     });
-    this.healths.add(playerId, { current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY, max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY });
-    this.inputs.add(playerId, { x: 0, y: 0, jump: false });
-    this.playerTags.add(playerId, {});
-    this.traversal.add(playerId, {
+    
+    this.context.stores.get<HealthComponent>("health").add(playerId, { current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY, max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY });
+    this.context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0, jump: false });
+    this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+    
+    this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",
       wallNormalX: 0,
       wallNormalY: 0,
@@ -179,8 +169,9 @@ export class EntitySpawnerSystem implements ISystem {
       launchTimer: 0.0,
       launchPower: 0.0
     });
-    this.iframes.add(playerId, { timeRemaining: 0 });
-    this.refs.player = playerId;
+    
+    this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
+    this.context.refs.player = playerId;
 
     const pMesh = BABYLON.MeshBuilder.CreateCapsule(
       "playerVisual",
@@ -196,7 +187,7 @@ export class EntitySpawnerSystem implements ISystem {
     pMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_ROUGHNESS;
     pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
     pMesh.material = pMat;
-    this.visualRegistry.registerTransformNode(playerId, pMesh);
+    this.context.visualRegistry.registerTransformNode(playerId, pMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedPlayerShape) {
       const pBody = new BABYLON.PhysicsBody(pMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
@@ -206,6 +197,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     return playerId;
   }
+  
   public dispose(): void {
     if (this.sharedWeaverShape) this.sharedWeaverShape.dispose();
     if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
