@@ -1,1 +1,0 @@
-import{vr as e}from"./compositionRoot-YvaOoY75.js";export{e as defaultPixelShader};

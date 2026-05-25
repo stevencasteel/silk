@@ -150,7 +150,7 @@ export class WeaverTraversalSystem implements ISystem {
             targetScaleX = 1.0 - stretch * 0.5;
             targetScaleZ = 1.0 - stretch * 0.5;
 
-            const angle = Math.atan2(vel.y, vel.x) - Math.PI / 2;
+            const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
             BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
           }
         } else if (ai.state === "RETURNING") {

@@ -1,3 +1,4 @@
+import * as BABYLON from "@babylonjs/core";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -79,9 +80,15 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    tether.anchorX = wTrans.x;
-    tether.anchorY = wTrans.y;
-    tether.anchorZ = wTrans.z;
+    const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+    const stingerTipLocal = new BABYLON.Vector3(0, -radius * 2.0, 0);
+    const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+    const stingerTipWorld = new BABYLON.Vector3();
+    stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);
+
+    tether.anchorX = wTrans.x + stingerTipWorld.x;
+    tether.anchorY = wTrans.y + stingerTipWorld.y;
+    tether.anchorZ = wTrans.z + stingerTipWorld.z;
 
     let nextX = target.x;
     let nextY = target.y;

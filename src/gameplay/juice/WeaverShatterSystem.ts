@@ -64,11 +64,35 @@ export class WeaverShatterSystem implements ISystem {
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
+    const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere(
       "shellProxy",
-      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 },
+      { radius: radius * 1.05, subdivisions: 0 },
       scene
     );
+
+    const positions = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    if (positions) {
+      const rLimit = radius * 1.05;
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i];
+        const y = positions[i + 1];
+        const z = positions[i + 2];
+        if (y < 0) {
+          const r_sphere = Math.sqrt(rLimit * rLimit - y * y);
+          if (r_sphere > 0.001) {
+            const r_cone = rLimit * (1.0 + y / rLimit);
+            const scaleFactor = r_cone / r_sphere;
+            positions[i] = x * scaleFactor;
+            positions[i + 2] = z * scaleFactor;
+          } else {
+            positions[i] = 0;
+            positions[i + 2] = 0;
+          }
+        }
+      }
+      proxyShell.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+    }
     const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     const shellInd = proxyShell.getIndices();
 

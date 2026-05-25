@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class TetherVisualizerSystem implements ISystem {
@@ -119,7 +119,14 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const localTip = new BABYLON.Vector3(0, -radius, 0);
+        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
+      } else {
+        this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      }
 
       const tension = Math.max(0, Math.min(1, tether.tension));
 
@@ -208,7 +215,14 @@ export class TetherVisualizerSystem implements ISystem {
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const localTip = new BABYLON.Vector3(0, -radius, 0);
+        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
+      } else {
+        this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      }
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
