@@ -1,1 +1,0 @@
-import{b as e}from"./compositionRoot-Dl4UXCh-.js";export{e as pickingPixelShaderWGSL};

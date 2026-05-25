@@ -5,12 +5,10 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  WeaverSweepingState,
-  WeaverDashingState,
-  WeaverReturningState,
-  WeaverDefeatedState
-} from "./WeaverStates";
+import { WeaverSweepingState } from "./states/WeaverSweepingState";
+import { WeaverDashingState } from "./states/WeaverDashingState";
+import { WeaverReturningState } from "./states/WeaverReturningState";
+import { WeaverDefeatedState } from "./states/WeaverDefeatedState";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;

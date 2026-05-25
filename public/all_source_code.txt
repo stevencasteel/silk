@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 12:17:05 PM
+ [SYSTEM] Generated: 5/25/2026, 12:30:27 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -75,16 +75,21 @@
 │   │   │   └── ProjectileSystem.ts
 │   │   ├── juice/
 │   │   │   ├── JuiceSystem.ts
-│   │   │   └── TetherVisualizerSystem.ts
+│   │   │   ├── TetherVisualizerSystem.ts
+│   │   │   └── WeaverShatterSystem.ts
 │   │   ├── player/
 │   │   │   ├── EnvironmentCollisionSystem.ts
 │   │   │   ├── PlayerAnimationSystem.ts
 │   │   │   ├── PlayerInputSystem.ts
 │   │   │   └── PlayerKinematicsSystem.ts
 │   │   ├── weaver/
+│   │   │   ├── states/
+│   │   │   │   ├── WeaverDashingState.ts
+│   │   │   │   ├── WeaverDefeatedState.ts
+│   │   │   │   ├── WeaverReturningState.ts
+│   │   │   │   └── WeaverSweepingState.ts
 │   │   │   ├── IWeaverState.ts
 │   │   │   ├── WeaverBrainSystem.ts
-│   │   │   ├── WeaverStates.ts
 │   │   │   └── WeaverTraversalSystem.ts
 │   │   └── EntitySpawnerSystem.ts
 │   ├── physics/
@@ -110,7 +115,8 @@
 │   │   │   ├── RenderSystem.ts
 │   │   │   └── VisualRegistry.ts
 │   │   └── systems/
-│   │       ├── RenderInterpolationSystem.ts
+│   │       ├── EntityInterpolationSystem.ts
+│   │       ├── ParallaxScrollSystem.ts
 │   │       └── VisualStateDressingSystem.ts
 │   ├── App.css
 │   ├── App.tsx
@@ -855,13 +861,15 @@ import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSyste
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { EnvironmentCollisionSystem } from "../gameplay/player/EnvironmentCollisionSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
-import { RenderInterpolationSystem } from "../visual/systems/RenderInterpolationSystem";
+import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
+import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
 import { VisualStateDressingSystem } from "../visual/systems/VisualStateDressingSystem";
 import { CombatSystem } from "../gameplay/combat/CombatSystem";
 import { HealthSystem } from "../gameplay/combat/HealthSystem";
 import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
 import { ProjectileSystem } from "../gameplay/combat/ProjectileSystem";
 import { JuiceSystem } from "../gameplay/juice/JuiceSystem";
+import { WeaverShatterSystem } from "../gameplay/juice/WeaverShatterSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
 import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
 import { PerformanceClock } from "../core/clock/PerformanceClock";
@@ -933,6 +941,7 @@ export class CompositionRoot {
     const lightingSystem = new LightingSystem(broker, visualRegistry);
     const tetherVisualizer = new TetherVisualizerSystem(context);
     const juiceSystem = new JuiceSystem(context);
+    const shatterSystem = new WeaverShatterSystem(context);
     const audioSystem = new AudioDirectorSystem(broker);
 
     const physicsSystem = new HavokPhysicsSystem(context);
@@ -941,7 +950,8 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new EnvironmentCollisionSystem(context);
 
-    const interpolationSystem = new RenderInterpolationSystem(context);
+    const parallaxScroll = new ParallaxScrollSystem(context);
+    const interpolationSystem = new EntityInterpolationSystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
     const inputSystem = new PlayerInputSystem(context);
@@ -968,6 +978,7 @@ export class CompositionRoot {
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
+    systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
     systemManager.register(dressingSystem);
     systemManager.register(tetherVisualizer);
@@ -976,6 +987,7 @@ export class CompositionRoot {
     systemManager.register(healthSystem);
     systemManager.register(projectileSystem);
     systemManager.register(juiceSystem);
+    systemManager.register(shatterSystem);
     systemManager.register(gameDirector);
     systemManager.register(audioSystem);
     systemManager.register(lightingSystem);
@@ -3599,7 +3611,7 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -3614,14 +3626,6 @@ interface PooledParticle {
   active: boolean;
 }
 
-interface ActiveDebris {
-  mesh: BABYLON.Mesh;
-  body: BABYLON.PhysicsBody | null;
-  velocity: BABYLON.Vector3;
-  angularVelocity: BABYLON.Vector3;
-  lifeRemaining: number;
-}
-
 export class JuiceSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
@@ -3630,9 +3634,6 @@ export class JuiceSystem implements ISystem {
   private nextPoolIndex = 0;
   private parentNode: BABYLON.TransformNode | null = null;
   private unsubscribes: (() => void)[] = [];
-
-  private activeDebrisList: ActiveDebris[] = [];
-  private debrisMat: BABYLON.PBRMaterial | null = null;
   private playerState: string = "AIRBORNE";
 
   constructor(private context: SystemContext) {}
@@ -3642,13 +3643,6 @@ export class JuiceSystem implements ISystem {
     if (!scene) return;
 
     this.parentNode = new BABYLON.TransformNode("juiceParticleRoot", scene);
-
-    this.debrisMat = new BABYLON.PBRMaterial("debrisMat", scene);
-    this.debrisMat.albedoColor = new BABYLON.Color3(0.1, 0.1, 0.15);
-    this.debrisMat.emissiveColor = new BABYLON.Color3(0.9, 0.1, 0.1);
-    this.debrisMat.emissiveIntensity = 3.5;
-    this.debrisMat.metallic = 0.8;
-    this.debrisMat.roughness = 0.4;
 
     for (let i = 0; i < this.poolSize; i++) {
       const box = BABYLON.MeshBuilder.CreateBox("juiceParticle_" + i, { size: 0.15 }, scene);
@@ -3720,19 +3714,6 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-        if (weaverNode) {
-          const sceneObj = this.context.visualRegistry.getScene();
-          if (sceneObj) {
-            this.spawnDeathDebris(weaverNode.position, sceneObj);
-          }
-          weaverNode.setEnabled(false);
-        }
-      })
-    );
-
-    this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
         this.playerState = payload.state;
       })
@@ -3740,12 +3721,7 @@ export class JuiceSystem implements ISystem {
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-        this.clearDebris();
         this.playerState = "AIRBORNE";
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-        if (weaverNode) {
-          weaverNode.setEnabled(true);
-        }
       })
     );
   }
@@ -3869,176 +3845,6 @@ export class JuiceSystem implements ISystem {
     }
   }
 
-  private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-    const activeMat = weaverMesh?.material || this.debrisMat;
-    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
-
-    const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere("shellProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 }, scene);
-    const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
-    const shellInd = proxyShell.getIndices();
-
-    if (shellPos && shellInd) {
-      for (let i = 0; i < shellInd.length; i += 3) {
-        const i1 = shellInd[i], i2 = shellInd[i+1], i3 = shellInd[i+2];
-        const p1 = new BABYLON.Vector3(shellPos[i1*3], shellPos[i1*3+1], shellPos[i1*3+2]);
-        const p2 = new BABYLON.Vector3(shellPos[i2*3], shellPos[i2*3+1], shellPos[i2*3+2]);
-        const p3 = new BABYLON.Vector3(shellPos[i3*3], shellPos[i3*3+1], shellPos[i3*3+2]);
-        const centroid = p1.add(p2).add(p3).scale(1/3);
-        const outward = centroid.clone().normalize();
-        
-        const customMesh = new BABYLON.Mesh("shard_" + i, scene);
-        const vertexData = new BABYLON.VertexData();
-        vertexData.positions = [
-          p1.x - centroid.x, p1.y - centroid.y, p1.z - centroid.z,
-          p2.x - centroid.x, p2.y - centroid.y, p2.z - centroid.z,
-          p3.x - centroid.x, p3.y - centroid.y, p3.z - centroid.z
-        ];
-        vertexData.indices = [0, 1, 2];
-        
-        vertexData.applyToMesh(customMesh);
-        customMesh.convertToFlatShadedMesh();
-
-        customMesh.rotationQuaternion = null;
-        customMesh.rotation.set(
-          Math.random() * Math.PI * 2,
-          Math.random() * Math.PI * 2,
-          Math.random() * Math.PI * 2
-        );
-
-        customMesh.position = pos.add(centroid).add(outward.scale(0.35));
-        customMesh.material = activeMat;
-
-        const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
-        const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
-        const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
-        const vz = (Math.random() - 0.5) * 1.5;
-
-        const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
-        const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
-        const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
-
-        this.activeDebrisList.push({
-          mesh: customMesh,
-          body: null,
-          velocity: new BABYLON.Vector3(vx, vy, vz),
-          angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
-          lifeRemaining: config.LIFE * (0.8 + Math.random() * 0.4)
-        });
-      }
-    }
-    proxyShell.dispose();
-
-    const coreRadius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 0.75;
-    const directions = [
-      [-1, -1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1],
-      [-1, -1, 1],  [1, -1, 1],  [-1, 1, 1],  [1, 1, 1]
-    ];
-
-    for (let b = 0; b < directions.length; b++) {
-      const dirX = directions[b][0];
-      const dirY = directions[b][1];
-      const dirZ = directions[b][2];
-
-      const v0 = new BABYLON.Vector3(0, 0, 0);
-      const v1 = new BABYLON.Vector3(dirX * coreRadius, 0, 0);
-      const v2 = new BABYLON.Vector3(0, dirY * coreRadius, 0);
-      const v3 = new BABYLON.Vector3(0, 0, dirZ * coreRadius);
-
-      const centroid = v0.add(v1).add(v2).add(v3).scale(1 / 4);
-      const outward = centroid.clone().normalize();
-
-      const localV0 = v0.subtract(centroid);
-      const localV1 = v1.subtract(centroid);
-      const localV2 = v2.subtract(centroid);
-      const localV3 = v3.subtract(centroid);
-
-      const localPositions = [
-        localV0.x, localV0.y, localV0.z,
-        localV1.x, localV1.y, localV1.z,
-        localV2.x, localV2.y, localV2.z,
-        localV3.x, localV3.y, localV3.z
-      ];
-
-      const vertices = [localV0, localV1, localV2, localV3];
-      const faces = [
-        [0, 1, 2],
-        [0, 2, 3],
-        [0, 3, 1],
-        [1, 3, 2]
-      ];
-
-      const localIndices: number[] = [];
-      const localCentroid = localV0.add(localV1).add(localV2).add(localV3).scale(1 / 4);
-
-      for (let f = 0; f < faces.length; f++) {
-        const idxA = faces[f][0];
-        const idxB = faces[f][1];
-        const idxC = faces[f][2];
-        const a = vertices[idxA];
-        const b = Math.random() > -1 ? vertices[idxB] : vertices[idxA];
-        const c = vertices[idxC];
-        
-        const ab = b.subtract(a);
-        const ac = c.subtract(a);
-        const faceNormal = BABYLON.Vector3.Cross(ab, ac).normalize();
-        
-        const faceCenter = a.add(b).add(c).scale(1 / 3);
-        const toFace = faceCenter.subtract(localCentroid);
-        
-        if (BABYLON.Vector3.Dot(faceNormal, toFace) < 0) {
-          localIndices.push(idxA, idxC, idxB);
-        } else {
-          localIndices.push(idxA, idxB, idxC);
-        }
-      }
-
-      const customMesh = new BABYLON.Mesh("core_shard_" + b, scene);
-      const vertexData = new BABYLON.VertexData();
-      vertexData.positions = localPositions;
-      vertexData.indices = localIndices;
-
-      const computedNormals: number[] = [];
-      BABYLON.VertexData.ComputeNormals(localPositions, localIndices, computedNormals);
-      vertexData.normals = computedNormals;
-      vertexData.applyToMesh(customMesh);
-      customMesh.convertToFlatShadedMesh();
-
-      customMesh.rotationQuaternion = null;
-      customMesh.rotation.set(
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2
-      );
-
-      customMesh.position = pos.add(centroid).add(outward.scale(0.35));
-      customMesh.material = activeMat;
-
-      if (this.context.visualRegistry.registerShadowCaster) {
-        this.context.visualRegistry.registerShadowCaster(customMesh);
-      } else {
-        customMesh.receiveShadows = true;
-      }
-
-      const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.8;
-      const vx = outward.x * speed + (Math.random() - 0.5) * 5.0;
-      const vy = outward.y * speed + (Math.random() - 0.5) * 5.0;
-      const vz = (Math.random() - 0.5) * 1.5;
-
-      const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
-      const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
-      const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
-
-      this.activeDebrisList.push({
-        mesh: customMesh,
-        body: null,
-        velocity: new BABYLON.Vector3(vx, vy, vz),
-        angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
-        lifeRemaining: config.LIFE * (0.9 + Math.random() * 0.3)
-      });
-    }
-  }
-
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
     const particle = this.particlePool[this.nextPoolIndex];
     const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
@@ -4097,142 +3903,11 @@ export class JuiceSystem implements ISystem {
         this.spawnLaunchTrail(playerNode.position);
       }
     }
-
-    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
-    const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-
-    for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
-      const d = this.activeDebrisList[i];
-      d.lifeRemaining -= dt;
-
-      if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
-        if (d.body) {
-           if (d.body.shape) d.body.shape.dispose();
-           d.body.dispose();
-        }
-        d.mesh.dispose();
-        this.activeDebrisList.splice(i, 1);
-      } else {
-        if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
-          if (d.body) {
-            const currentVelocity = new BABYLON.Vector3();
-            d.body.getLinearVelocityToRef(currentVelocity);
-            d.velocity.copyFrom(currentVelocity);
-
-            const currentAngular = new BABYLON.Vector3();
-            d.body.getAngularVelocityToRef(currentAngular);
-            d.angularVelocity.copyFrom(currentAngular);
-
-            if (d.body.shape) d.body.shape.dispose();
-            d.body.dispose();
-            d.body = null;
-          }
-          const ratio = d.lifeRemaining / config.SCALE_DECAY_TIME;
-          d.mesh.scaling.set(ratio, ratio, ratio);
-        }
-
-        if (!d.body) {
-          d.velocity.y += -24.0 * dt * 1.6;
-
-          const debrisDrag = Math.pow(0.95, dt * 60.0);
-          d.velocity.x *= debrisDrag;
-          d.velocity.z *= debrisDrag;
-
-          d.mesh.position.x += d.velocity.x * dt;
-          d.mesh.position.y += d.velocity.y * dt;
-          d.mesh.position.z += d.velocity.z * dt;
-
-          d.mesh.rotation.x += d.angularVelocity.x * dt;
-          d.mesh.rotation.y += d.angularVelocity.y * dt;
-          d.mesh.rotation.z += d.angularVelocity.z * dt;
-
-          if (d.mesh.position.x < -wallLimit) {
-            d.mesh.position.x = -wallLimit;
-            d.velocity.x *= -0.65;
-            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
-          } else if (d.mesh.position.x > wallLimit) {
-            d.mesh.position.x = wallLimit;
-            d.velocity.x *= -0.65;
-            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
-          }
-
-          if (playerNode) {
-            const dx = d.mesh.position.x - playerNode.position.x;
-            const dy = d.mesh.position.y - playerNode.position.y;
-            const distSq = dx * dx + dy * dy;
-            const pRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.45;
-            if (distSq < pRadius * pRadius) {
-              const dist = Math.sqrt(distSq) || 0.1;
-              const nx = dx / dist;
-              const ny = dy / dist;
-              d.mesh.position.x = playerNode.position.x + nx * pRadius;
-              d.mesh.position.y = playerNode.position.y + ny * pRadius;
-              const dot = d.velocity.x * nx + d.velocity.y * ny;
-              if (dot < 0) {
-                d.velocity.x -= dot * nx * 1.5;
-                d.velocity.y -= dot * ny * 1.5;
-                d.velocity.x += nx * 4.0;
-                d.velocity.y += ny * 4.0;
-              }
-            }
-          }
-
-          for (let j = i - 1; j >= 0; j--) {
-            const d2 = this.activeDebrisList[j];
-            if (d2.body) continue;
-            const dx = d2.mesh.position.x - d.mesh.position.x;
-            const dy = d2.mesh.position.y - d.mesh.position.y;
-            const distSq = dx * dx + dy * dy;
-
-            const isPyramid1 = d.mesh.name.includes("core_shard");
-            const isPyramid2 = d2.mesh.name.includes("core_shard");
-            const r1 = isPyramid1 ? 0.60 : 0.16;
-            const r2 = isPyramid2 ? 0.60 : 0.16;
-            const minDist = r1 + r2;
-
-            if (distSq < minDist * minDist) {
-              const dist = Math.sqrt(distSq) || 0.1;
-              const nx = dx / dist;
-              const ny = dy / dist;
-
-              const overlap = minDist - dist;
-              d.mesh.position.x -= nx * overlap * 0.5;
-              d.mesh.position.y -= ny * overlap * 0.5;
-              d2.mesh.position.x += nx * overlap * 0.5;
-              d2.mesh.position.y += ny * overlap * 0.5;
-
-              const kx = d.velocity.x - d2.velocity.x;
-              const ky = d.velocity.y - d2.velocity.y;
-              const p = kx * nx + ky * ny;
-              if (p > 0) {
-                d.velocity.x -= nx * p * 0.8;
-                d.velocity.y -= ny * p * 0.8;
-                d2.velocity.x += nx * p * 0.8;
-                d2.velocity.y += ny * p * 0.8;
-
-                d.angularVelocity.z += (Math.random() - 0.5) * 3.0;
-                d2.angularVelocity.z += (Math.random() - 0.5) * 3.0;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  private clearDebris(): void {
-    for (const d of this.activeDebrisList) {
-      if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
-      d.mesh.dispose();
-    }
-    this.activeDebrisList = [];
   }
 
   public dispose(): void {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
-    this.clearDebris();
     if (this.parentNode) {
       this.parentNode.dispose();
     }
@@ -4527,6 +4202,378 @@ export class TetherVisualizerSystem implements ISystem {
 
 
 
+● ./src/gameplay/juice/WeaverShatterSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { GameEvent } from "../../core/events/GameEvents";
+import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import * as BABYLON from "@babylonjs/core";
+
+interface ActiveDebris {
+  mesh: BABYLON.Mesh;
+  body: BABYLON.PhysicsBody | null;
+  velocity: BABYLON.Vector3;
+  angularVelocity: BABYLON.Vector3;
+  lifeRemaining: number;
+}
+
+export class WeaverShatterSystem implements ISystem {
+  readonly phase = SystemPhase.RenderSync;
+
+  private activeDebrisList: ActiveDebris[] = [];
+  private debrisMat: BABYLON.PBRMaterial | null = null;
+  private unsubscribes: (() => void)[] = [];
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    const scene = this.context.visualRegistry.getScene();
+    if (!scene) return;
+
+    this.debrisMat = new BABYLON.PBRMaterial("debrisMat", scene);
+    this.debrisMat.albedoColor = new BABYLON.Color3(0.1, 0.1, 0.15);
+    this.debrisMat.emissiveColor = new BABYLON.Color3(0.9, 0.1, 0.1);
+    this.debrisMat.emissiveIntensity = 3.5;
+    this.debrisMat.metallic = 0.8;
+    this.debrisMat.roughness = 0.4;
+
+    this.unsubscribes.push(
+      this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+        if (weaverNode) {
+          const sceneObj = this.context.visualRegistry.getScene();
+          if (sceneObj) {
+            this.spawnDeathDebris(weaverNode.position, sceneObj);
+          }
+          weaverNode.setEnabled(false);
+        }
+      })
+    );
+
+    this.unsubscribes.push(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.clearDebris();
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+        if (weaverNode) {
+          weaverNode.setEnabled(true);
+        }
+      })
+    );
+  }
+
+  private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
+    const weaverMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
+    const activeMat = weaverMesh?.material || this.debrisMat;
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
+
+    const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere("shellProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 }, scene);
+    const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    const shellInd = proxyShell.getIndices();
+
+    if (shellPos && shellInd) {
+      for (let i = 0; i < shellInd.length; i += 3) {
+        const i1 = shellInd[i], i2 = shellInd[i+1], i3 = shellInd[i+2];
+        const p1 = new BABYLON.Vector3(shellPos[i1*3], shellPos[i1*3+1], shellPos[i1*3+2]);
+        const p2 = new BABYLON.Vector3(shellPos[i2*3], shellPos[i2*3+1], shellPos[i2*3+2]);
+        const p3 = new BABYLON.Vector3(shellPos[i3*3], shellPos[i3*3+1], shellPos[i3*3+2]);
+        const centroid = p1.add(p2).add(p3).scale(1/3);
+        const outward = centroid.clone().normalize();
+        
+        const customMesh = new BABYLON.Mesh("shard_" + i, scene);
+        const vertexData = new BABYLON.VertexData();
+        vertexData.positions = [
+          p1.x - centroid.x, p1.y - centroid.y, p1.z - centroid.z,
+          p2.x - centroid.x, p2.y - centroid.y, p2.z - centroid.z,
+          p3.x - centroid.x, p3.y - centroid.y, p3.z - centroid.z
+        ];
+        vertexData.indices = [0, 1, 2];
+        
+        vertexData.applyToMesh(customMesh);
+        customMesh.convertToFlatShadedMesh();
+
+        customMesh.rotationQuaternion = null;
+        customMesh.rotation.set(
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2
+        );
+
+        customMesh.position = pos.add(centroid).add(outward.scale(0.35));
+        customMesh.material = activeMat;
+
+        const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
+        const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
+        const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
+        const vz = (Math.random() - 0.5) * 1.5;
+
+        const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
+        const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
+        const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
+
+        this.activeDebrisList.push({
+          mesh: customMesh,
+          body: null,
+          velocity: new BABYLON.Vector3(vx, vy, vz),
+          angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
+          lifeRemaining: config.LIFE * (0.8 + Math.random() * 0.4)
+        });
+      }
+    }
+    proxyShell.dispose();
+
+    const coreRadius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 0.75;
+    const directions = [
+      [-1, -1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1],
+      [-1, -1, 1],  [1, -1, 1],  [-1, 1, 1],  [1, 1, 1]
+    ];
+
+    for (let b = 0; b < directions.length; b++) {
+      const dirX = directions[b][0];
+      const dirY = directions[b][1];
+      const dirZ = directions[b][2];
+
+      const v0 = new BABYLON.Vector3(0, 0, 0);
+      const v1 = new BABYLON.Vector3(dirX * coreRadius, 0, 0);
+      const v2 = new BABYLON.Vector3(0, dirY * coreRadius, 0);
+      const v3 = new BABYLON.Vector3(0, 0, dirZ * coreRadius);
+
+      const centroid = v0.add(v1).add(v2).add(v3).scale(1 / 4);
+      const outward = centroid.clone().normalize();
+
+      const localV0 = v0.subtract(centroid);
+      const localV1 = v1.subtract(centroid);
+      const localV2 = v2.subtract(centroid);
+      const localV3 = v3.subtract(centroid);
+
+      const localPositions = [
+        localV0.x, localV0.y, localV0.z,
+        localV1.x, localV1.y, localV1.z,
+        localV2.x, localV2.y, localV2.z,
+        localV3.x, localV3.y, localV3.z
+      ];
+
+      const vertices = [localV0, localV1, localV2, localV3];
+      const faces = [
+        [0, 1, 2],
+        [0, 2, 3],
+        [0, 3, 1],
+        [1, 3, 2]
+      ];
+
+      const localIndices: number[] = [];
+      const localCentroid = localV0.add(localV1).add(localV2).add(localV3).scale(1 / 4);
+
+      for (let f = 0; f < faces.length; f++) {
+        const idxA = faces[f][0];
+        const idxB = faces[f][1];
+        const idxC = faces[f][2];
+        const a = vertices[idxA];
+        const b = Math.random() > -1 ? vertices[idxB] : vertices[idxA];
+        const c = vertices[idxC];
+        
+        const ab = b.subtract(a);
+        const ac = c.subtract(a);
+        const faceNormal = BABYLON.Vector3.Cross(ab, ac).normalize();
+        
+        const faceCenter = a.add(b).add(c).scale(1 / 3);
+        const toFace = faceCenter.subtract(localCentroid);
+        
+        if (BABYLON.Vector3.Dot(faceNormal, toFace) < 0) {
+          localIndices.push(idxA, idxC, idxB);
+        } else {
+          localIndices.push(idxA, idxB, idxC);
+        }
+      }
+
+      const customMesh = new BABYLON.Mesh("core_shard_" + b, scene);
+      const vertexData = new BABYLON.VertexData();
+      vertexData.positions = localPositions;
+      vertexData.indices = localIndices;
+
+      const computedNormals: number[] = [];
+      BABYLON.VertexData.ComputeNormals(localPositions, localIndices, computedNormals);
+      vertexData.normals = computedNormals;
+      vertexData.applyToMesh(customMesh);
+      customMesh.convertToFlatShadedMesh();
+
+      customMesh.rotationQuaternion = null;
+      customMesh.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+      );
+
+      customMesh.position = pos.add(centroid).add(outward.scale(0.35));
+      customMesh.material = activeMat;
+
+      if (this.context.visualRegistry.registerShadowCaster) {
+        this.context.visualRegistry.registerShadowCaster(customMesh);
+      } else {
+        customMesh.receiveShadows = true;
+      }
+
+      const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.8;
+      const vx = outward.x * speed + (Math.random() - 0.5) * 5.0;
+      const vy = outward.y * speed + (Math.random() - 0.5) * 5.0;
+      const vz = (Math.random() - 0.5) * 1.5;
+
+      const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
+      const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
+      const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
+
+      this.activeDebrisList.push({
+        mesh: customMesh,
+        body: null,
+        velocity: new BABYLON.Vector3(vx, vy, vz),
+        angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
+        lifeRemaining: config.LIFE * (0.9 + Math.random() * 0.3)
+      });
+    }
+  }
+
+  public update(dt: number): void {
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
+    const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+
+    for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
+      const d = this.activeDebrisList[i];
+      d.lifeRemaining -= dt;
+
+      if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
+        if (d.body) {
+           if (d.body.shape) d.body.shape.dispose();
+           d.body.dispose();
+        }
+        d.mesh.dispose();
+        this.activeDebrisList.splice(i, 1);
+      } else {
+        if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
+          if (d.body) {
+            const currentVelocity = new BABYLON.Vector3();
+            d.body.getLinearVelocityToRef(currentVelocity);
+            d.velocity.copyFrom(currentVelocity);
+
+            const currentAngular = new BABYLON.Vector3();
+            d.body.getAngularVelocityToRef(currentAngular);
+            d.angularVelocity.copyFrom(currentAngular);
+
+            if (d.body.shape) d.body.shape.dispose();
+            d.body.dispose();
+            d.body = null;
+          }
+          const ratio = d.lifeRemaining / config.SCALE_DECAY_TIME;
+          d.mesh.scaling.set(ratio, ratio, ratio);
+        }
+
+        if (!d.body) {
+          d.velocity.y += -24.0 * dt * 1.6;
+
+          const debrisDrag = Math.pow(0.95, dt * 60.0);
+          d.velocity.x *= debrisDrag;
+          d.velocity.z *= debrisDrag;
+
+          d.mesh.position.x += d.velocity.x * dt;
+          d.mesh.position.y += d.velocity.y * dt;
+          d.mesh.position.z += d.velocity.z * dt;
+
+          d.mesh.rotation.x += d.angularVelocity.x * dt;
+          d.mesh.rotation.y += d.angularVelocity.y * dt;
+          d.mesh.rotation.z += d.angularVelocity.z * dt;
+
+          if (d.mesh.position.x < -wallLimit) {
+            d.mesh.position.x = -wallLimit;
+            d.velocity.x *= -0.65;
+            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
+          } else if (d.mesh.position.x > wallLimit) {
+            d.mesh.position.x = wallLimit;
+            d.velocity.x *= -0.65;
+            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
+          }
+
+          if (playerNode) {
+            const dx = d.mesh.position.x - playerNode.position.x;
+            const dy = d.mesh.position.y - playerNode.position.y;
+            const distSq = dx * dx + dy * dy;
+            const pRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.45;
+            if (distSq < pRadius * pRadius) {
+              const dist = Math.sqrt(distSq) || 0.1;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              d.mesh.position.x = playerNode.position.x + nx * pRadius;
+              d.mesh.position.y = playerNode.position.y + ny * pRadius;
+              const dot = d.velocity.x * nx + d.velocity.y * ny;
+              if (dot < 0) {
+                d.velocity.x -= dot * nx * 1.5;
+                d.velocity.y -= dot * ny * 1.5;
+                d.velocity.x += nx * 4.0;
+                d.velocity.y += ny * 4.0;
+              }
+            }
+          }
+
+          for (let j = i - 1; j >= 0; j--) {
+            const d2 = this.activeDebrisList[j];
+            if (d2.body) continue;
+            const dx = d2.mesh.position.x - d.mesh.position.x;
+            const dy = d2.mesh.position.y - d.mesh.position.y;
+            const distSq = dx * dx + dy * dy;
+
+            const isPyramid1 = d.mesh.name.includes("core_shard");
+            const isPyramid2 = d2.mesh.name.includes("core_shard");
+            const r1 = isPyramid1 ? 0.60 : 0.16;
+            const r2 = isPyramid2 ? 0.60 : 0.16;
+            const minDist = r1 + r2;
+
+            if (distSq < minDist * minDist) {
+              const dist = Math.sqrt(distSq) || 0.1;
+              const nx = dx / dist;
+              const ny = dy / dist;
+
+              const overlap = minDist - dist;
+              d.mesh.position.x -= nx * overlap * 0.5;
+              d.mesh.position.y -= ny * overlap * 0.5;
+              d2.mesh.position.x += nx * overlap * 0.5;
+              d2.mesh.position.y += ny * overlap * 0.5;
+
+              const kx = d.velocity.x - d2.velocity.x;
+              const ky = d.velocity.y - d2.velocity.y;
+              const p = kx * nx + ky * ny;
+              if (p > 0) {
+                d.velocity.x -= nx * p * 0.8;
+                d.velocity.y -= ny * p * 0.8;
+                d2.velocity.x += nx * p * 0.8;
+                d2.velocity.y += ny * p * 0.8;
+
+                d.angularVelocity.z += (Math.random() - 0.5) * 3.0;
+                d2.angularVelocity.z += (Math.random() - 0.5) * 3.0;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private clearDebris(): void {
+    for (const d of this.activeDebrisList) {
+      if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
+      d.mesh.dispose();
+    }
+    this.activeDebrisList = [];
+  }
+
+  public dispose(): void {
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
+    this.clearDebris();
+  }
+}
+
+
+
 ● ./src/gameplay/player/EnvironmentCollisionSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
@@ -4802,7 +4849,7 @@ import {
   InputIntentComponent,
   HealthComponent
 } from "../../core/ecs/Components";
-import { RenderInterpolationSystem } from "../../visual/systems/RenderInterpolationSystem";
+import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -4925,7 +4972,7 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitRight = nextX > this.WALL_LIMIT_X;
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
-    const currentScrollSpeed = RenderInterpolationSystem.currentScrollSpeed;
+    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (trav.state === "WALL_SLIDING") {
@@ -5107,12 +5154,10 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  WeaverSweepingState,
-  WeaverDashingState,
-  WeaverReturningState,
-  WeaverDefeatedState
-} from "./WeaverStates";
+import { WeaverSweepingState } from "./states/WeaverSweepingState";
+import { WeaverDashingState } from "./states/WeaverDashingState";
+import { WeaverReturningState } from "./states/WeaverReturningState";
+import { WeaverDefeatedState } from "./states/WeaverDefeatedState";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -5233,317 +5278,6 @@ export class WeaverBrainSystem implements ISystem {
   public dispose(): void {
     if (this.unsubDamage) this.unsubDamage();
     if (this.unsubReset) this.unsubReset();
-  }
-}
-
-
-
-● ./src/gameplay/weaver/WeaverStates.ts
-────────────────────────────────────────────────────
-import { IWeaverState, WeaverStateType } from "./IWeaverState";
-import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
-import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  TransformComponent,
-  HealthComponent,
-  WeaverTraversalComponent,
-  WeaverAIComponent
-} from "../../core/ecs/Components";
-
-const HASH = String.fromCharCode(35);
-
-export class WeaverSweepingState implements IWeaverState {
-  public readonly type: WeaverStateType = "SWEEPING";
-  public readonly name = "SWEEPING CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
-  private shootTimer = 0.0;
-  private hasTelegraphed = false;
-
-  public enter(ctx: SystemContext): void {
-    this.shootTimer = 0.0;
-    this.hasTelegraphed = false;
-    
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
-
-    const healthStore = ctx.stores.get<HealthComponent>("health");
-    const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-    const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: patrolSpeed,
-      y: 0,
-      z: 0
-    });
-  }
-
-  public exit(): void {}
-
-  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState += dt;
-    }
-
-    this.shootTimer += dt;
-    const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
-
-    if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
-      this.hasTelegraphed = true;
-      if (aiComp) {
-        aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-      }
-      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
-    }
-
-    if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
-      this.shootTimer = 0.0;
-      this.hasTelegraphed = false;
-      if (aiComp) {
-        aiComp.hue = this.hue;
-      }
-
-      const transforms = ctx.stores.get<TransformComponent>("transform");
-      const playerTrans = transforms.get(ctx.refs.player);
-      const wTrans = transforms.get(ctx.refs.weaver);
-
-      if (playerTrans && wTrans) {
-        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-          x: wTrans.x,
-          y: wTrans.y - WEAVER_AI_TUNING.SHOOT.OFFSET_Y,
-          tx: playerTrans.x,
-          ty: playerTrans.y
-        });
-      }
-    }
-    return null;
-  }
-}
-
-export class WeaverDashingState implements IWeaverState {
-  public readonly type: WeaverStateType = "DASHING";
-  public readonly name = "WEAVER DASH";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-  private dashCount = 0;
-  private maxDashes = 2;
-  private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
-  private phaseTimer = 0.0;
-  private targetPos = { x: 0, y: 0 };
-  private thrustVelocity = { x: 0, y: 0 };
-
-  public enter(ctx: SystemContext): void {
-    const healthStore = ctx.stores.get<HealthComponent>("health");
-    const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-    this.dashCount = 0;
-    this.maxDashes = isBerserk ? 3 : 2;
-    this.startPrep(ctx);
-  }
-
-  public exit(): void {}
-
-  private startPrep(ctx: SystemContext): void {
-    this.currentPhase = "PREP";
-    this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
-    
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-    }
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: 0,
-      y: 0,
-      z: 0
-    });
-
-    const transforms = ctx.stores.get<TransformComponent>("transform");
-    const playerTrans = transforms.get(ctx.refs.player);
-
-    if (playerTrans) {
-      this.targetPos.x = playerTrans.x;
-      this.targetPos.y = playerTrans.y;
-    } else {
-      this.targetPos.x = 0;
-      this.targetPos.y = 14;
-    }
-  }
-
-  private startThrust(ctx: SystemContext): void {
-    this.currentPhase = "THRUST";
-    this.phaseTimer = WEAVER_AI_TUNING.DASH.THRUST_TIME;
-
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
-    }
-
-    const transforms = ctx.stores.get<TransformComponent>("transform");
-    const weaverTrans = transforms.get(ctx.refs.weaver);
-
-    if (weaverTrans) {
-      const dx = this.targetPos.x - weaverTrans.x;
-      const dy = this.targetPos.y - weaverTrans.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-      const speed = this.maxDashes === 3 ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
-      
-      this.thrustVelocity.x = (dx / dist) * speed;
-      this.thrustVelocity.y = (dy / dist) * speed;
-
-      ctx.commands.dispatch({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.refs.weaver,
-        x: this.thrustVelocity.x,
-        y: this.thrustVelocity.y,
-        z: 0
-      });
-    }
-  }
-
-  private startRecover(ctx: SystemContext): void {
-    this.currentPhase = "RECOVER";
-    this.phaseTimer = WEAVER_AI_TUNING.DASH.RECOVER_TIME;
-
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
-    }
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: 0,
-      y: 0,
-      z: 0
-    });
-
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
-  }
-
-  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    this.phaseTimer -= dt;
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-
-    if (this.currentPhase === "PREP") {
-      const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
-      const step = Math.floor(this.phaseTimer * strobeHz);
-      if (aiComp) {
-        aiComp.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-      }
-
-      if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP,
-          duration: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR
-        });
-      }
-
-      if (this.phaseTimer <= 0) {
-        this.startThrust(ctx);
-      }
-    } else if (this.currentPhase === "THRUST") {
-      const traversalStore = ctx.stores.get<WeaverTraversalComponent>("weaverTraversal");
-      const trav = traversalStore.get(ctx.refs.weaver);
-      const isGraceOver = this.phaseTimer < (WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME);
-      const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
-
-      if (this.phaseTimer <= 0 || hitWallOrGround) {
-        this.startRecover(ctx);
-      }
-    } else if (this.currentPhase === "RECOVER") {
-      if (this.phaseTimer <= 0) {
-        this.dashCount++;
-        if (this.dashCount >= this.maxDashes) {
-          return "RETURNING";
-        } else {
-          this.startPrep(ctx);
-        }
-      }
-    }
-    return null;
-  }
-}
-
-export class WeaverReturningState implements IWeaverState {
-  public readonly type: WeaverStateType = "RETURNING";
-  public readonly name = "RETURNING TO CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
-
-  public enter(ctx: SystemContext): void {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
-  }
-
-  public exit(): void {}
-
-  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState += dt;
-    }
-
-    const transforms = ctx.stores.get<TransformComponent>("transform");
-    const wTrans = transforms.get(ctx.refs.weaver);
-
-    if (wTrans) {
-      const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
-      const dy = targetY - wTrans.y;
-      if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {
-        return "SWEEPING";
-      }
-
-      const speed = WEAVER_AI_TUNING.RETURN.SPEED;
-      ctx.commands.dispatch({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.refs.weaver,
-        x: 0,
-        y: speed,
-        z: 0
-      });
-    }
-    return null;
-  }
-}
-
-export class WeaverDefeatedState implements IWeaverState {
-  public readonly type: WeaverStateType = "DEFEATED";
-  public readonly name = "WEAVER DEFEATED";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
-
-  public enter(ctx: SystemContext): void {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: 0,
-      y: 0,
-      z: 0
-    });
-
-    ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
-  }
-
-  public exit(): void {}
-
-  public update(): WeaverStateType | null {
-    return null;
   }
 }
 
@@ -5713,6 +5447,361 @@ export class WeaverTraversalSystem implements ISystem {
       trans.qz = currentQuat.z;
       trans.qw = currentQuat.w;
     }
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverDashingState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import { GameEvent } from "../../../core/events/GameEvents";
+import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  HealthComponent,
+  WeaverTraversalComponent,
+  WeaverAIComponent
+} from "../../../core/ecs/Components";
+
+const HASH = String.fromCharCode(35);
+
+export class WeaverDashingState implements IWeaverState {
+  public readonly type: WeaverStateType = "DASHING";
+  public readonly name = "WEAVER DASH";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+  private dashCount = 0;
+  private maxDashes = 2;
+  private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
+  private phaseTimer = 0.0;
+  private targetPos = { x: 0, y: 0 };
+  private thrustVelocity = { x: 0, y: 0 };
+
+  public enter(ctx: SystemContext): void {
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore.get(ctx.refs.weaver);
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    this.dashCount = 0;
+    this.maxDashes = isBerserk ? 3 : 2;
+    this.startPrep(ctx);
+  }
+
+  public exit(): void {}
+
+  private startPrep(ctx: SystemContext): void {
+    this.currentPhase = "PREP";
+    this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
+    
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+    }
+
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.refs.weaver,
+      x: 0,
+      y: 0,
+      z: 0
+    });
+
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const playerTrans = transforms.get(ctx.refs.player);
+
+    if (playerTrans) {
+      this.targetPos.x = playerTrans.x;
+      this.targetPos.y = playerTrans.y;
+    } else {
+      this.targetPos.x = 0;
+      this.targetPos.y = 14;
+    }
+  }
+
+  private startThrust(ctx: SystemContext): void {
+    this.currentPhase = "THRUST";
+    this.phaseTimer = WEAVER_AI_TUNING.DASH.THRUST_TIME;
+
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
+    }
+
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const weaverTrans = transforms.get(ctx.refs.weaver);
+
+    if (weaverTrans) {
+      const dx = this.targetPos.x - weaverTrans.x;
+      const dy = this.targetPos.y - weaverTrans.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+      const speed = this.maxDashes === 3 ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
+      
+      this.thrustVelocity.x = (dx / dist) * speed;
+      this.thrustVelocity.y = (dy / dist) * speed;
+
+      ctx.commands.dispatch({
+        type: "SET_KINEMATIC_VELOCITY",
+        entityId: ctx.refs.weaver,
+        x: this.thrustVelocity.x,
+        y: this.thrustVelocity.y,
+        z: 0
+      });
+    }
+  }
+
+  private startRecover(ctx: SystemContext): void {
+    this.currentPhase = "RECOVER";
+    this.phaseTimer = WEAVER_AI_TUNING.DASH.RECOVER_TIME;
+
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
+    }
+
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.refs.weaver,
+      x: 0,
+      y: 0,
+      z: 0
+    });
+
+    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
+  }
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    this.phaseTimer -= dt;
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+
+    if (this.currentPhase === "PREP") {
+      const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
+      const step = Math.floor(this.phaseTimer * strobeHz);
+      if (aiComp) {
+        aiComp.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+      }
+
+      if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP,
+          duration: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR
+        });
+      }
+
+      if (this.phaseTimer <= 0) {
+        this.startThrust(ctx);
+      }
+    } else if (this.currentPhase === "THRUST") {
+      const traversalStore = ctx.stores.get<WeaverTraversalComponent>("weaverTraversal");
+      const trav = traversalStore.get(ctx.refs.weaver);
+      const isGraceOver = this.phaseTimer < (WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME);
+      const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
+
+      if (this.phaseTimer <= 0 || hitWallOrGround) {
+        this.startRecover(ctx);
+      }
+    } else if (this.currentPhase === "RECOVER") {
+      if (this.phaseTimer <= 0) {
+        this.dashCount++;
+        if (this.dashCount >= this.maxDashes) {
+          return "RETURNING";
+        } else {
+          this.startPrep(ctx);
+        }
+      }
+    }
+    return null;
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverDefeatedState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import { GameEvent } from "../../../core/events/GameEvents";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import { WeaverAIComponent } from "../../../core/ecs/Components";
+
+const HASH = String.fromCharCode(35);
+
+export class WeaverDefeatedState implements IWeaverState {
+  public readonly type: WeaverStateType = "DEFEATED";
+  public readonly name = "WEAVER DEFEATED";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
+
+  public enter(ctx: SystemContext): void {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.refs.weaver,
+      x: 0,
+      y: 0,
+      z: 0
+    });
+
+    ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
+  }
+
+  public exit(): void {}
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    void ctx;
+    void dt;
+    return null;
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverReturningState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  WeaverAIComponent
+} from "../../../core/ecs/Components";
+
+const HASH = String.fromCharCode(35);
+
+export class WeaverReturningState implements IWeaverState {
+  public readonly type: WeaverStateType = "RETURNING";
+  public readonly name = "RETURNING TO CEILING";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
+
+  public enter(ctx: SystemContext): void {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+  }
+
+  public exit(): void {}
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState += dt;
+    }
+
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const wTrans = transforms.get(ctx.refs.weaver);
+
+    if (wTrans) {
+      const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
+      const dy = targetY - wTrans.y;
+      if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {
+        return "SWEEPING";
+      }
+
+      const speed = WEAVER_AI_TUNING.RETURN.SPEED;
+      ctx.commands.dispatch({
+        type: "SET_KINEMATIC_VELOCITY",
+        entityId: ctx.refs.weaver,
+        x: 0,
+        y: speed,
+        z: 0
+      });
+    }
+    return null;
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverSweepingState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import { GameEvent } from "../../../core/events/GameEvents";
+import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  HealthComponent,
+  WeaverAIComponent
+} from "../../../core/ecs/Components";
+
+const HASH = String.fromCharCode(35);
+
+export class WeaverSweepingState implements IWeaverState {
+  public readonly type: WeaverStateType = "SWEEPING";
+  public readonly name = "SWEEPING CEILING";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+  private shootTimer = 0.0;
+  private hasTelegraphed = false;
+
+  public enter(ctx: SystemContext): void {
+    this.shootTimer = 0.0;
+    this.hasTelegraphed = false;
+    
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore.get(ctx.refs.weaver);
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.refs.weaver,
+      x: patrolSpeed,
+      y: 0,
+      z: 0
+    });
+  }
+
+  public exit(): void {}
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState += dt;
+    }
+
+    this.shootTimer += dt;
+    const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
+
+    if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
+      this.hasTelegraphed = true;
+      if (aiComp) {
+        aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+      }
+      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
+    }
+
+    if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
+      this.shootTimer = 0.0;
+      this.hasTelegraphed = false;
+      if (aiComp) {
+        aiComp.hue = this.hue;
+      }
+
+      const transforms = ctx.stores.get<TransformComponent>("transform");
+      const playerTrans = transforms.get(ctx.refs.player);
+      const wTrans = transforms.get(ctx.refs.weaver);
+
+      if (playerTrans && wTrans) {
+        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+          x: wTrans.x,
+          y: wTrans.y - WEAVER_AI_TUNING.SHOOT.OFFSET_Y,
+          tx: playerTrans.x,
+          ty: playerTrans.y
+        });
+      }
+    }
+    return null;
   }
 }
 
@@ -7249,13 +7338,61 @@ export class VisualRegistry implements IVisualRegistry {
 
 
 
-● ./src/visual/systems/RenderInterpolationSystem.ts
+● ./src/visual/systems/EntityInterpolationSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { TransformComponent } from "../../core/ecs/Components";
+import { SystemContext } from "../../core/engine/SystemContext";
+import * as BABYLON from "@babylonjs/core";
+
+export class EntityInterpolationSystem implements ISystem {
+  readonly phase = SystemPhase.RenderSync;
+
+  private scratchPrevQuat = new BABYLON.Quaternion();
+  private scratchCurrQuat = new BABYLON.Quaternion();
+
+  constructor(private context: SystemContext) {}
+
+  public render(alpha: number): void {
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    for (const [id, curr] of transforms.entries()) {
+      const node = this.context.visualRegistry.getTransformNode(id);
+      if (!node) continue;
+
+      node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
+      node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
+      node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
+
+      const sx = curr.prevScaleX !== undefined && curr.scaleX !== undefined ? curr.prevScaleX + (curr.scaleX - curr.prevScaleX) * alpha : 1.0;
+      const sy = curr.prevScaleY !== undefined && curr.scaleY !== undefined ? curr.prevScaleY + (curr.scaleY - curr.prevScaleY) * alpha : 1.0;
+      const sz = curr.prevScaleZ !== undefined && curr.scaleZ !== undefined ? curr.prevScaleZ + (curr.scaleZ - curr.prevScaleZ) * alpha : 1.0;
+      node.scaling.set(sx, sy, sz);
+
+      this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
+      this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
+
+      if (!node.rotationQuaternion) {
+        node.rotationQuaternion = new BABYLON.Quaternion();
+      }
+      BABYLON.Quaternion.SlerpToRef(
+        this.scratchPrevQuat,
+        this.scratchCurrQuat,
+        alpha,
+        node.rotationQuaternion
+      );
+    }
+  }
+}
+
+
+
+● ./src/visual/systems/ParallaxScrollSystem.ts
 ────────────────────────────────────────────────────
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import {
-  TransformComponent,
   WeaverAIComponent,
   HealthComponent,
   KinematicVelocityComponent
@@ -7264,13 +7401,11 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
-export class RenderInterpolationSystem implements ISystem {
+export class ParallaxScrollSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   
   public static currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
 
-  private scratchPrevQuat = new BABYLON.Quaternion();
-  private scratchCurrQuat = new BABYLON.Quaternion();
   private currentScrollOffset = 0.0;
   private prevScrollOffset = 0.0;
   private scrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
@@ -7298,6 +7433,7 @@ export class RenderInterpolationSystem implements ISystem {
         this.currentScrollOffset = 0.0;
         this.prevScrollOffset = 0.0;
         this.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
+        ParallaxScrollSystem.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
       })
     );
   }
@@ -7313,10 +7449,10 @@ export class RenderInterpolationSystem implements ISystem {
 
     const targetScrollSpeed = this.hitStopTimer > 0
       ? 0.0
-      : RenderInterpolationSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+      : ParallaxScrollSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
-    RenderInterpolationSystem.currentScrollSpeed = this.scrollSpeed;
+    ParallaxScrollSystem.currentScrollSpeed = this.scrollSpeed;
     
     if (wAI) {
       wAI.scrollSpeed = this.scrollSpeed;
@@ -7360,11 +7496,6 @@ export class RenderInterpolationSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    this.scrollTicks(alpha);
-    this.syncTransforms(alpha);
-  }
-
-  private scrollTicks(alpha: number): void {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
@@ -7388,36 +7519,6 @@ export class RenderInterpolationSystem implements ISystem {
       while (y < -56.0) y += totalRange;
       while (y > 84.0) y -= totalRange;
       tick.position.y = y;
-    }
-  }
-
-  private syncTransforms(alpha: number): void {
-    const transforms = this.context.stores.get<TransformComponent>("transform");
-    for (const [id, curr] of transforms.entries()) {
-      const node = this.context.visualRegistry.getTransformNode(id);
-      if (!node) continue;
-
-      node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
-      node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
-      node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
-
-      const sx = curr.prevScaleX !== undefined && curr.scaleX !== undefined ? curr.prevScaleX + (curr.scaleX - curr.prevScaleX) * alpha : 1.0;
-      const sy = curr.prevScaleY !== undefined && curr.scaleY !== undefined ? curr.prevScaleY + (curr.scaleY - curr.prevScaleY) * alpha : 1.0;
-      const sz = curr.prevScaleZ !== undefined && curr.scaleZ !== undefined ? curr.prevScaleZ + (curr.scaleZ - curr.prevScaleZ) * alpha : 1.0;
-      node.scaling.set(sx, sy, sz);
-
-      this.scratchPrevQuat.set(curr.prevQx, curr.prevQy, curr.prevQz, curr.prevQw);
-      this.scratchCurrQuat.set(curr.qx, curr.qy, curr.qz, curr.qw);
-
-      if (!node.rotationQuaternion) {
-        node.rotationQuaternion = new BABYLON.Quaternion();
-      }
-      BABYLON.Quaternion.SlerpToRef(
-        this.scratchPrevQuat,
-        this.scratchCurrQuat,
-        alpha,
-        node.rotationQuaternion
-      );
     }
   }
 

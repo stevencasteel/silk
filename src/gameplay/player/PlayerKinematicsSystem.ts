@@ -10,7 +10,7 @@ import {
   InputIntentComponent,
   HealthComponent
 } from "../../core/ecs/Components";
-import { RenderInterpolationSystem } from "../../visual/systems/RenderInterpolationSystem";
+import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -133,7 +133,7 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitRight = nextX > this.WALL_LIMIT_X;
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
-    const currentScrollSpeed = RenderInterpolationSystem.currentScrollSpeed;
+    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (trav.state === "WALL_SLIDING") {

@@ -36,13 +36,15 @@ import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSyste
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { EnvironmentCollisionSystem } from "../gameplay/player/EnvironmentCollisionSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
-import { RenderInterpolationSystem } from "../visual/systems/RenderInterpolationSystem";
+import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
+import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
 import { VisualStateDressingSystem } from "../visual/systems/VisualStateDressingSystem";
 import { CombatSystem } from "../gameplay/combat/CombatSystem";
 import { HealthSystem } from "../gameplay/combat/HealthSystem";
 import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
 import { ProjectileSystem } from "../gameplay/combat/ProjectileSystem";
 import { JuiceSystem } from "../gameplay/juice/JuiceSystem";
+import { WeaverShatterSystem } from "../gameplay/juice/WeaverShatterSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
 import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
 import { PerformanceClock } from "../core/clock/PerformanceClock";
@@ -114,6 +116,7 @@ export class CompositionRoot {
     const lightingSystem = new LightingSystem(broker, visualRegistry);
     const tetherVisualizer = new TetherVisualizerSystem(context);
     const juiceSystem = new JuiceSystem(context);
+    const shatterSystem = new WeaverShatterSystem(context);
     const audioSystem = new AudioDirectorSystem(broker);
 
     const physicsSystem = new HavokPhysicsSystem(context);
@@ -122,7 +125,8 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new EnvironmentCollisionSystem(context);
 
-    const interpolationSystem = new RenderInterpolationSystem(context);
+    const parallaxScroll = new ParallaxScrollSystem(context);
+    const interpolationSystem = new EntityInterpolationSystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
     const inputSystem = new PlayerInputSystem(context);
@@ -149,6 +153,7 @@ export class CompositionRoot {
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
+    systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
     systemManager.register(dressingSystem);
     systemManager.register(tetherVisualizer);
@@ -157,6 +162,7 @@ export class CompositionRoot {
     systemManager.register(healthSystem);
     systemManager.register(projectileSystem);
     systemManager.register(juiceSystem);
+    systemManager.register(shatterSystem);
     systemManager.register(gameDirector);
     systemManager.register(audioSystem);
     systemManager.register(lightingSystem);
