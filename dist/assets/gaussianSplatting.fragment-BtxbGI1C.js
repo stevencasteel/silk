@@ -1,0 +1,1 @@
+import{lt as e}from"./compositionRoot-tQ3vd_Qz.js";export{e as gaussianSplattingPixelShaderWGSL};

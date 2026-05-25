@@ -4,13 +4,17 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { useHudStore } from "./hudStore";
 
-type HintLevel = "none" | "charging" | "ready" | "maxout";
-
 export class DomHudSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private subscriptions: (() => void)[] = [];
-  private lastHintLevel: HintLevel = "none";
+  private lastHintLevel: "none" | "charging" | "ready" | "maxout" = "none";
   private currentState: string = "AIRBORNE";
+
+  private tensionFill: HTMLElement | null = null;
+  private tensionText: HTMLElement | null = null;
+  private weaverFill: HTMLElement | null = null;
+  private weaverText: HTMLElement | null = null;
+  private weaverStateText: HTMLElement | null = null;
 
   constructor(private broker: EventBroker) {}
 
@@ -18,13 +22,25 @@ export class DomHudSystem implements ISystem {
     this.registerSubscriptions();
   }
 
+  private getElements(): boolean {
+    if (this.tensionFill && this.tensionText && this.weaverFill && this.weaverText && this.weaverStateText) {
+      return true;
+    }
+    this.tensionFill = document.getElementById("hud-tension-fill");
+    this.tensionText = document.getElementById("hud-tension-text");
+    this.weaverFill = document.getElementById("hud-weaver-fill");
+    this.weaverText = document.getElementById("hud-weaver-text");
+    this.weaverStateText = document.getElementById("hud-weaver-state-text");
+    return !!(this.tensionFill && this.tensionText && this.weaverFill && this.weaverText && this.weaverStateText);
+  }
+
   private registerSubscriptions(): void {
     const store = useHudStore.getState();
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
-        store.setTension(tension);
         this.updateHint(tension);
+        this.updateTensionDom(tension);
       })
     );
     this.subscriptions.push(
@@ -43,12 +59,12 @@ export class DomHudSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-        store.setWeaverHp(hp, maxHp);
+        this.updateWeaverHealthDom(hp, maxHp);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
-        store.setWeaverState(state, hue);
+        this.updateWeaverStateDom(state, hue);
       })
     );
     this.subscriptions.push(
@@ -66,6 +82,9 @@ export class DomHudSystem implements ISystem {
         store.hideOverlay();
         store.setPaused(false);
         this.setHint("none");
+        this.updateTensionDom(0.0);
+        this.updateWeaverHealthDom(100, 100);
+        this.updateWeaverStateDom("SWEEPING", "rgb(239, 68, 68)");
       })
     );
     this.subscriptions.push(
@@ -73,6 +92,55 @@ export class DomHudSystem implements ISystem {
         store.setPaused(isPaused);
       })
     );
+  }
+
+  private updateTensionDom(tension: number): void {
+    if (!this.getElements()) return;
+    const snapLimit = 1.3;
+    const clampedTension = Math.max(0, Math.min(snapLimit, tension));
+    const displayTensionPercent = Math.round(clampedTension * 100);
+    const tensionScaleX = clampedTension / snapLimit;
+
+    let tensionBarColor = "rgb(16, 185, 129)";
+    let tensionTextColor = "rgb(244, 244, 245)";
+    if (clampedTension >= 1.0) {
+      tensionBarColor = "rgb(239, 68, 68)";
+      tensionTextColor = "rgb(239, 68, 68)";
+    } else if (clampedTension >= 0.75) {
+      tensionBarColor = "rgb(245, 158, 11)";
+      tensionTextColor = "rgb(245, 158, 11)";
+    }
+
+    if (this.tensionFill) {
+      this.tensionFill.style.transform = `scaleX(${tensionScaleX.toFixed(3)})`;
+      this.tensionFill.style.backgroundColor = tensionBarColor;
+    }
+    if (this.tensionText) {
+      this.tensionText.textContent = `${displayTensionPercent}%`;
+      this.tensionText.style.color = tensionTextColor;
+    }
+  }
+
+  private updateWeaverHealthDom(hp: number, maxHp: number): void {
+    if (!this.getElements()) return;
+    const weaverHpRatio = Math.max(0, hp / maxHp);
+    const weaverHpBarColor = hp <= maxHp * 0.3 ? "rgb(245, 158, 11)" : "rgb(239, 68, 68)";
+
+    if (this.weaverFill) {
+      this.weaverFill.style.transform = `scaleX(${weaverHpRatio.toFixed(3)})`;
+      this.weaverFill.style.backgroundColor = weaverHpBarColor;
+    }
+    if (this.weaverText) {
+      this.weaverText.textContent = `${hp}/${maxHp}`;
+    }
+  }
+
+  private updateWeaverStateDom(state: string, hue: string): void {
+    if (!this.getElements()) return;
+    if (this.weaverStateText) {
+      this.weaverStateText.textContent = state.toUpperCase();
+      this.weaverStateText.style.color = hue;
+    }
   }
 
   private updateHint(tension: number): void {
@@ -88,7 +156,7 @@ export class DomHudSystem implements ISystem {
     }
   }
 
-  private setHint(level: HintLevel): void {
+  private setHint(level: "none" | "charging" | "ready" | "maxout"): void {
     if (level === this.lastHintLevel) return;
     this.lastHintLevel = level;
     const store = useHudStore.getState();
@@ -111,5 +179,10 @@ export class DomHudSystem implements ISystem {
   public dispose(): void {
     this.subscriptions.forEach((u) => u());
     this.subscriptions = [];
+    this.tensionFill = null;
+    this.tensionText = null;
+    this.weaverFill = null;
+    this.weaverText = null;
+    this.weaverStateText = null;
   }
 }

@@ -127,6 +127,7 @@ export class Engine {
   }
 
   private render(alpha: number): void {
+    if (this.isPaused) return;
     this.systemManager.renderAll(alpha);
   }
 }
