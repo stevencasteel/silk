@@ -1,0 +1,1 @@
+import{Er as e}from"./compositionRoot-D5TqVHax.js";export{e as boundingBoxRendererVertexShader};
