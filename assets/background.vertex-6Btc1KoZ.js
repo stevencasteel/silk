@@ -1,1 +1,0 @@
-import{Mr as e}from"./compositionRoot-DkBpYvHE.js";export{e as backgroundVertexShader};
