@@ -80,8 +80,8 @@ export class PlayerAnimationSystem implements ISystem {
         rotDy = vy;
       }
     } else if (trav.state === "AIRBORNE") {
-      rotDx = target.x - tether.anchorX;
-      rotDy = target.y - tether.anchorY;
+      rotDx = tether.anchorX - target.x;
+      rotDy = tether.anchorY - target.y;
     }
 
     const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;

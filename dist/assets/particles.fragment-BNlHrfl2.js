@@ -1,0 +1,1 @@
+import{E as e}from"./compositionRoot-CvASZ1HU.js";export{e as particlesPixelShaderWGSL};

@@ -1,0 +1,1 @@
+import{Rr as e}from"./compositionRoot-CvASZ1HU.js";export{e as _KTXTextureLoader};
