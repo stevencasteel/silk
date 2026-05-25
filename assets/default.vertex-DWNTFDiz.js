@@ -1,1 +1,0 @@
-import{_r as e}from"./compositionRoot-CKqHhbDv.js";export{e as defaultVertexShader};
