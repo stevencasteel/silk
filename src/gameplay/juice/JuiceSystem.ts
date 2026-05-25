@@ -1,4 +1,4 @@
-import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -50,14 +50,16 @@ export class JuiceSystem implements ISystem {
     }
 
     const config = VISUAL_JUICE_CONFIG.PARTICLES;
+    const colors = config.COLORS;
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
+          const colorRef = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
           this.spawnBurst(
             playerNode.position,
-            new BABYLON.Color3(0.13, 0.77, 0.36),
+            colorRef,
             config.BURST.PLAYER.COUNT,
             config.BURST.PLAYER
           );
@@ -69,9 +71,10 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
+          const colorRef = new BABYLON.Color3(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
           this.spawnBurst(
             weaverNode.position,
-            new BABYLON.Color3(0.93, 0.22, 0.22),
+            colorRef,
             config.BURST.WEAVER.COUNT,
             config.BURST.WEAVER
           );
@@ -156,8 +159,9 @@ export class JuiceSystem implements ISystem {
 
   private spawnLandingDust(position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(0.65, 0.65, 0.68);
+    const color = new BABYLON.Color3(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -181,8 +185,9 @@ export class JuiceSystem implements ISystem {
 
   private spawnWallSparks(position: BABYLON.Vector3, wallNormalX: number): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.WALL;
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(1.0, 0.85, 0.35);
+    const color = new BABYLON.Color3(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -207,8 +212,9 @@ export class JuiceSystem implements ISystem {
 
   private spawnWebSplat(position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(0.95, 0.95, 0.98);
+    const color = new BABYLON.Color3(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -234,6 +240,7 @@ export class JuiceSystem implements ISystem {
 
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
     const particle = this.particlePool[this.nextPoolIndex];
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
 
     particle.mesh.position.copyFrom(position);
@@ -252,15 +259,15 @@ export class JuiceSystem implements ISystem {
 
     const mat = particle.mesh.material as BABYLON.StandardMaterial;
     if (mat) {
-      mat.emissiveColor.set(0.13, 0.77, 0.36);
+      mat.emissiveColor.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
     }
 
     this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
   }
 
   public update(dt: number): void {
-    const gravity = -18.0;
-    const particleDrag = Math.pow(0.92, dt * 60.0);
+    const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
+    const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
       if (!p.active) continue;

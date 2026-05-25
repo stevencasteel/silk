@@ -212,6 +212,14 @@ export const VISUAL_JUICE_CONFIG = {
     MAX_SNAP_DURATION_SECONDS: 1.5,
   },
   PARTICLES: {
+    DRAG: 0.92,
+    COLORS: {
+      PLAYER_SPARK: { r: 0.13, g: 0.77, b: 0.36 },
+      WEAVER_SPARK: { r: 0.93, g: 0.22, b: 0.22 },
+      LANDING_DUST: { r: 0.65, g: 0.65, b: 0.68 },
+      WALL_SPARK: { r: 1.0, g: 0.85, b: 0.35 },
+      PROJECTILE_SPLAT: { r: 0.95, g: 0.95, b: 0.98 }
+    },
     BURST: {
       PLAYER: {
         COUNT: 15,

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 1:02:16 PM
+ [SYSTEM] Generated: 5/25/2026, 1:06:04 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1238,6 +1238,15 @@ export const AUDIO_PRESETS = {
     DEATH_NOTE_2_DELAY: "+0.12",
     DEATH_NOISE_DECAY: 1.5,
     DEATH_NOISE_RESTORE_DELAY: 1600,
+  },
+  TENSION_SYNTH: {
+    DRONE_GAIN_THRESHOLD: 0.02,
+    DRONE_MIN_GAIN: 0.05,
+    DRONE_MAX_GAIN_ADD: 0.22,
+    DRONE_GAIN_RAMP_TIME: 0.08,
+    DRONE_PITCH_RAMP_TIME: 0.1,
+    DRONE_MOD_INDEX_BASE: 5.0,
+    DRONE_MOD_INDEX_SCALE: 25.0,
   }
 } as const;
 
@@ -1269,8 +1278,9 @@ export class TensionSynthesizer {
       type: "sawtooth",
       modulationType: "sine",
       harmonicity: presets.HARMONICITY_NORMAL,
-      modulationIndex: 5
-    });
+      modulationIndex: AUDIO_PRESETS.TENSION_SYNTH.DRONE_MOD_INDEX_BASE,
+      workspace: undefined
+    } as unknown as ConstructorParameters<typeof Tone.FMOscillator>[0]);
 
     this.gainNode = new Tone.Gain(0.0);
 
@@ -1300,21 +1310,28 @@ export class TensionSynthesizer {
 
     const now = Tone.now();
     const presets = AUDIO_PRESETS.WEAVER;
-    const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
-    const targetModulationIndex = 5 + clampedTension * 25;
-    const targetGain = clampedTension > 0.02 ? 0.05 + clampedTension * 0.22 : 0.0;
+    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
-    this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, 0.1);
-    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, 0.1);
-    this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
+    const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
+    const targetModulationIndex = synthConfig.DRONE_MOD_INDEX_BASE + clampedTension * synthConfig.DRONE_MOD_INDEX_SCALE;
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
+      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
+      : 0.0;
+
+    this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
+    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, synthConfig.DRONE_PITCH_RAMP_TIME);
+    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
   public resumeFromPause(): void {
     if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
     const now = Tone.now();
+    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
-    const targetGain = clampedTension > 0.02 ? 0.05 + clampedTension * 0.22 : 0.0;
-    this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
+      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
+      : 0.0;
+    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
   public handleStateChange(state: string): void {
@@ -2177,6 +2194,14 @@ export const VISUAL_JUICE_CONFIG = {
     MAX_SNAP_DURATION_SECONDS: 1.5,
   },
   PARTICLES: {
+    DRAG: 0.92,
+    COLORS: {
+      PLAYER_SPARK: { r: 0.13, g: 0.77, b: 0.36 },
+      WEAVER_SPARK: { r: 0.93, g: 0.22, b: 0.22 },
+      LANDING_DUST: { r: 0.65, g: 0.65, b: 0.68 },
+      WALL_SPARK: { r: 1.0, g: 0.85, b: 0.35 },
+      PROJECTILE_SPLAT: { r: 0.95, g: 0.95, b: 0.98 }
+    },
     BURST: {
       PLAYER: {
         COUNT: 15,
@@ -2822,7 +2847,14 @@ export class EntitySpawnerSystem implements ISystem {
     const weaverId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(weaverId);
 
-    this.context.visualRegistry.unregisterTransformNode(weaverId);
+    const oldNode = this.context.visualRegistry.getTransformNode(weaverId);
+    if (oldNode) {
+      const oldMesh = oldNode as BABYLON.AbstractMesh;
+      if (oldMesh.physicsBody) {
+        oldMesh.physicsBody.dispose();
+      }
+      this.context.visualRegistry.unregisterTransformNode(weaverId);
+    }
 
     this.context.stores.get<TransformComponent>("transform").add(weaverId, {
       x: 0,
@@ -2897,7 +2929,14 @@ export class EntitySpawnerSystem implements ISystem {
     const playerId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(playerId);
 
-    this.context.visualRegistry.unregisterTransformNode(playerId);
+    const oldNode = this.context.visualRegistry.getTransformNode(playerId);
+    if (oldNode) {
+      const oldMesh = oldNode as BABYLON.AbstractMesh;
+      if (oldMesh.physicsBody) {
+        oldMesh.physicsBody.dispose();
+      }
+      this.context.visualRegistry.unregisterTransformNode(playerId);
+    }
 
     this.context.stores.get<TransformComponent>("transform").add(playerId, {
       x: 0,
@@ -3582,7 +3621,7 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -3634,14 +3673,16 @@ export class JuiceSystem implements ISystem {
     }
 
     const config = VISUAL_JUICE_CONFIG.PARTICLES;
+    const colors = config.COLORS;
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
+          const colorRef = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
           this.spawnBurst(
             playerNode.position,
-            new BABYLON.Color3(0.13, 0.77, 0.36),
+            colorRef,
             config.BURST.PLAYER.COUNT,
             config.BURST.PLAYER
           );
@@ -3653,9 +3694,10 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
+          const colorRef = new BABYLON.Color3(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
           this.spawnBurst(
             weaverNode.position,
-            new BABYLON.Color3(0.93, 0.22, 0.22),
+            colorRef,
             config.BURST.WEAVER.COUNT,
             config.BURST.WEAVER
           );
@@ -3740,8 +3782,9 @@ export class JuiceSystem implements ISystem {
 
   private spawnLandingDust(position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(0.65, 0.65, 0.68);
+    const color = new BABYLON.Color3(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -3765,8 +3808,9 @@ export class JuiceSystem implements ISystem {
 
   private spawnWallSparks(position: BABYLON.Vector3, wallNormalX: number): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.WALL;
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(1.0, 0.85, 0.35);
+    const color = new BABYLON.Color3(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -3791,8 +3835,9 @@ export class JuiceSystem implements ISystem {
 
   private spawnWebSplat(position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(0.95, 0.95, 0.98);
+    const color = new BABYLON.Color3(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -3818,6 +3863,7 @@ export class JuiceSystem implements ISystem {
 
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
     const particle = this.particlePool[this.nextPoolIndex];
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
 
     particle.mesh.position.copyFrom(position);
@@ -3836,15 +3882,15 @@ export class JuiceSystem implements ISystem {
 
     const mat = particle.mesh.material as BABYLON.StandardMaterial;
     if (mat) {
-      mat.emissiveColor.set(0.13, 0.77, 0.36);
+      mat.emissiveColor.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
     }
 
     this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
   }
 
   public update(dt: number): void {
-    const gravity = -18.0;
-    const particleDrag = Math.pow(0.92, dt * 60.0);
+    const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
+    const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
       if (!p.active) continue;

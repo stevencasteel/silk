@@ -22,8 +22,9 @@ export class TensionSynthesizer {
       type: "sawtooth",
       modulationType: "sine",
       harmonicity: presets.HARMONICITY_NORMAL,
-      modulationIndex: 5
-    });
+      modulationIndex: AUDIO_PRESETS.TENSION_SYNTH.DRONE_MOD_INDEX_BASE,
+      workspace: undefined
+    } as unknown as ConstructorParameters<typeof Tone.FMOscillator>[0]);
 
     this.gainNode = new Tone.Gain(0.0);
 
@@ -53,21 +54,28 @@ export class TensionSynthesizer {
 
     const now = Tone.now();
     const presets = AUDIO_PRESETS.WEAVER;
-    const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
-    const targetModulationIndex = 5 + clampedTension * 25;
-    const targetGain = clampedTension > 0.02 ? 0.05 + clampedTension * 0.22 : 0.0;
+    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
-    this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, 0.1);
-    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, 0.1);
-    this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
+    const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
+    const targetModulationIndex = synthConfig.DRONE_MOD_INDEX_BASE + clampedTension * synthConfig.DRONE_MOD_INDEX_SCALE;
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
+      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
+      : 0.0;
+
+    this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
+    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, synthConfig.DRONE_PITCH_RAMP_TIME);
+    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
   public resumeFromPause(): void {
     if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
     const now = Tone.now();
+    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
-    const targetGain = clampedTension > 0.02 ? 0.05 + clampedTension * 0.22 : 0.0;
-    this.gainNode.gain.setTargetAtTime(targetGain, now, 0.08);
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
+      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
+      : 0.0;
+    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
   public handleStateChange(state: string): void {

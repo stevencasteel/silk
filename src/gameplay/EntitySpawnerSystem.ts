@@ -46,7 +46,14 @@ export class EntitySpawnerSystem implements ISystem {
     const weaverId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(weaverId);
 
-    this.context.visualRegistry.unregisterTransformNode(weaverId);
+    const oldNode = this.context.visualRegistry.getTransformNode(weaverId);
+    if (oldNode) {
+      const oldMesh = oldNode as BABYLON.AbstractMesh;
+      if (oldMesh.physicsBody) {
+        oldMesh.physicsBody.dispose();
+      }
+      this.context.visualRegistry.unregisterTransformNode(weaverId);
+    }
 
     this.context.stores.get<TransformComponent>("transform").add(weaverId, {
       x: 0,
@@ -121,7 +128,14 @@ export class EntitySpawnerSystem implements ISystem {
     const playerId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(playerId);
 
-    this.context.visualRegistry.unregisterTransformNode(playerId);
+    const oldNode = this.context.visualRegistry.getTransformNode(playerId);
+    if (oldNode) {
+      const oldMesh = oldNode as BABYLON.AbstractMesh;
+      if (oldMesh.physicsBody) {
+        oldMesh.physicsBody.dispose();
+      }
+      this.context.visualRegistry.unregisterTransformNode(playerId);
+    }
 
     this.context.stores.get<TransformComponent>("transform").add(playerId, {
       x: 0,
