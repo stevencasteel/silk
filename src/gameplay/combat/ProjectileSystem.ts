@@ -165,7 +165,7 @@ export class ProjectileSystem implements ISystem {
     const pMesh = this.context.visualRegistry.getTransformNode(
       this.context.refs.player
     ) as BABYLON.AbstractMesh;
-    const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const p = this.projectilePool[i];
@@ -180,7 +180,7 @@ export class ProjectileSystem implements ISystem {
           p.isStuck = true;
           p.isStuckOnWall = true;
           p.mesh.scaling.set(0.28, 1.45, 1.45);
-          p.mesh.position.x = Math.sign(p.mesh.position.x) * wallLimit;
+          p.mesh.position.x = Math.sign(p.mesh.position.x) * (wallLimit - 0.05);
           p.mesh.material = this.projMatStuck;
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: p.mesh.position.x,
