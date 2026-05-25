@@ -1,0 +1,1 @@
+import{Mr as e}from"./compositionRoot-Dnc9893G.js";export{e as backgroundVertexShader};

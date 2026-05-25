@@ -1,0 +1,1 @@
+import{T as e}from"./compositionRoot-Dnc9893G.js";export{e as particlesVertexShaderWGSL};

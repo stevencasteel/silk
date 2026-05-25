@@ -34,13 +34,13 @@ export default function App() {
   return (
     <div className="app-wrapper">
       <div className="cabinet-outer">
+        <div id="debug-telemetry-root" />
         <div className="viewport-container">
           <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
           <div className="vignette-overlay" />
           <ErrorBoundary>
             <HudOverlay />
           </ErrorBoundary>
-          <div id="debug-telemetry-root" />
         </div>
       </div>
     </div>
