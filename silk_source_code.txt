@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 9:10:15 PM
+ [SYSTEM] Generated: 5/25/2026, 9:36:32 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -496,9 +496,23 @@ export default defineConfig([
 ● ./scripts/create_source_context.command
 ────────────────────────────────────────────────────
 #!/usr/bin/env zsh
+
 cd "$(dirname "$0")/.."
+
+printf '\e[8;42;85t'
+
+CYAN='\x1b[36m'
+YELLOW='\x1b[33m'
+NC='\x1b[0m'
+
 clear
-echo "Assembling project source context..."
+echo ""
+echo -e "${YELLOW}  ┌──────────────────────────────────────────────────┐${NC}"
+echo -e "${YELLOW}  │${NC}                    ${CYAN}PROJECT SILK                  ${NC}${YELLOW}│${NC}"
+echo -e "${YELLOW}  │${NC}             Compiling AI Context...              ${YELLOW}│${NC}"
+echo -e "${YELLOW}  └──────────────────────────────────────────────────┘${NC}"
+echo ""
+
 node scripts/create_source_context.js
 
 
@@ -508,6 +522,9 @@ node scripts/create_source_context.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import readline from 'readline';
+import { Writable } from 'stream';
+import { exec, execSync, spawn } from 'child_process';
 
 const fsp = fs.promises;
 const __filename = fileURLToPath(import.meta.url);
@@ -598,6 +615,14 @@ function generateTree(dir, prefix = '') {
   return output;
 }
 
+function closeTerminalWindow() {
+  try {
+    execSync(`osascript -e 'tell application "Terminal" to close front window'`);
+  } catch (e) {
+    process.exit(0);
+  }
+}
+
 async function main() {
   try {
     if (!fs.existsSync(docsDir)) {
@@ -623,6 +648,8 @@ async function main() {
       const filePath = files[i];
       const relPath = path.relative(rootDir, filePath).split(path.sep).join('/');
       
+      process.stdout.write(`  \x1b[36m⠋\x1b[0m Compiling: ${relPath}\r`);
+
       content += `● ./${relPath}\n`;
       content += `────────────────────────────────────────────────────\n`;
       const fileContent = await fsp.readFile(filePath, 'utf8');
@@ -632,13 +659,66 @@ async function main() {
     await fsp.writeFile(outputFile, content, 'utf8');
     const publicOutputFile = path.join(rootDir, 'public', 'silk_source_code.txt');
     await fsp.writeFile(publicOutputFile, content, 'utf8');
-    
-    console.log('Source context assembled successfully.');
-    process.exit(0);
+    process.stdout.write('\r\x1b[K');
+
+    const stats = await fsp.stat(outputFile);
+    const totalLines = content.split('\n').length;
+    const totalChars = content.length;
+    const fileCount = files.length;
+
+    let sizeStr = '';
+    if (stats.size > 1024 * 1024) {
+      sizeStr = `${(stats.size / (1024 * 1024)).toFixed(2)} MB`;
+    } else {
+      sizeStr = `${(stats.size / 1024).toFixed(1)} KB`;
+    }
+
+    console.clear();
+    console.log('\n\x1b[32m  ┌────────────────────────────────────────────────────────┐\x1b[0m');
+    console.log('\x1b[32m  │                                                        │\x1b[0m');
+    console.log('\x1b[32m  │    \x1b[1;32m✔\x1b[0;37m  SOURCE CONTEXT COMPILED SUCCESSFULLY             \x1b[32m│\x1b[0m');
+    console.log('\x1b[32m  │                                                        │\x1b[0m');
+    console.log(`\x1b[32m  │      Files Bundled: \x1b[1;37m${String(fileCount).padEnd(34)}\x1b[32m │\x1b[0m`);
+    console.log(`\x1b[32m  │      Total Lines:   \x1b[1;37m${String(totalLines.toLocaleString()).padEnd(34)}\x1b[32m │\x1b[0m`);
+    console.log(`\x1b[32m  │      Total Chars:   \x1b[1;37m${String(totalChars.toLocaleString()).padEnd(34)}\x1b[32m │\x1b[0m`);
+    console.log(`\x1b[32m  │      File Size:     \x1b[1;37m${sizeStr.padEnd(34)}\x1b[32m │\x1b[0m`);
+    console.log('\x1b[32m  │                                                        │\x1b[0m');
+    console.log('\x1b[32m  │      Output: \x1b[37mdocs/silk_source_code.txt\x1b[32m                 │\x1b[0m');
+    console.log('\x1b[32m  │                                                        │\x1b[0m');
+    console.log('\x1b[32m  └────────────────────────────────────────────────────────┘\x1b[0m\n');
+
+    const isNpmLifecycle = !!process.env.npm_lifecycle_event;
+    if (isNpmLifecycle) {
+      process.exit(0);
+    }
+
+    const audioProcess = spawn('afplay', ['/System/Library/Sounds/Pop.aiff'], { detached: true, stdio: 'ignore' });
+    audioProcess.unref();
+    exec('open -g docs');
+
+    console.log('  \x1b[90mPress [Enter] or [Escape] to close this window.\x1b[0m\n');
+    const mutedOut = new Writable({ write() {} });
+    const rl = readline.createInterface({ input: process.stdin, output: mutedOut, terminal: true });
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
+
+    const keypressHandler = (str, key) => {
+      if (
+        (key.ctrl && key.name === 'c') || 
+        key.name === 'return' || 
+        key.name === 'enter' || 
+        key.name === 'escape'
+      ) {
+        process.stdin.removeListener('keypress', keypressHandler);
+        if (process.stdin.isTTY) process.stdin.setRawMode(false);
+        rl.close();
+        closeTerminalWindow();
+        process.exit(0);
+      }
+    };
+    process.stdin.on('keypress', keypressHandler);
 
   } catch (err) {
     console.error('Error during context compilation:', err);
-    process.exit(1);
   }
 }
 
