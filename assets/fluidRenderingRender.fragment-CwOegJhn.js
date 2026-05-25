@@ -1,0 +1,1 @@
+import{pt as e}from"./compositionRoot-JY_INRI-.js";export{e as fluidRenderingRenderPixelShaderWGSL};
