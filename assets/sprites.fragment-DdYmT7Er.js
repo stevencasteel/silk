@@ -1,0 +1,1 @@
+import{o as e}from"./compositionRoot-C022keJV.js";export{e as spritesPixelShaderWGSL};

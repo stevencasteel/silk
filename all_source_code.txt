@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 6:13:49 PM
+ [SYSTEM] Generated: 5/25/2026, 6:32:15 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2063,7 +2063,7 @@ export const ARENA_CONFIG = {
     PLAYER_HEIGHT: 1.8,
     PLAYER_RADIUS: 0.4,
     PLAYER_HALF_HEIGHT: 0.9,
-    WEAVER_RADIUS: 2.2
+    WEAVER_RADIUS: 4.4
   },
   PROJECTILE: {
     OFFSCREEN_MIN_Y: -15.0,
@@ -2887,7 +2887,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.spawnPlayer();
   }
 
-  public spawnWeaver(existingId?: EntityId): EntityId {
+    public spawnWeaver(existingId?: EntityId): EntityId {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
@@ -2898,6 +2898,9 @@ export class EntitySpawnerSystem implements ISystem {
     if (oldNode) {
       const oldMesh = oldNode as BABYLON.AbstractMesh;
       if (oldMesh.physicsBody) {
+        if (oldMesh.physicsBody.shape) {
+          oldMesh.physicsBody.shape.dispose();
+        }
         oldMesh.physicsBody.dispose();
       }
       this.context.visualRegistry.unregisterTransformNode(weaverId);
@@ -2947,11 +2950,41 @@ export class EntitySpawnerSystem implements ISystem {
 
     this.context.refs.weaver = weaverId;
 
+    const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
-      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS, subdivisions: 5 },
+      { radius: radius, subdivisions: 5 },
       scene
     );
+
+    const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    if (positions) {
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i];
+        const y = positions[i + 1];
+        const z = positions[i + 2];
+        if (y < 0) {
+          const r_sphere = Math.sqrt(radius * radius - y * y);
+          if (r_sphere > 0.001) {
+            const r_cone = radius * (1.0 + y / radius);
+            const scaleFactor = r_cone / r_sphere;
+            positions[i] = x * scaleFactor;
+            positions[i + 2] = z * scaleFactor;
+          } else {
+            positions[i] = 0;
+            positions[i + 2] = 0;
+          }
+        }
+      }
+      wMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+      const normals: number[] = [];
+      const indices = wMesh.getIndices();
+      if (indices) {
+        BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+        wMesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
+      }
+    }
+
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
     wMat.albedoColor = new BABYLON.Color3(0.15, 0.15, 0.18);
     wMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.METALLIC;
@@ -2964,21 +2997,22 @@ export class EntitySpawnerSystem implements ISystem {
     (wMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin = shearPlugin;
     this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
-    if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {
+    if (scene.isPhysicsEnabled()) {
       const wBody = new BABYLON.PhysicsBody(
         wMesh,
         BABYLON.PhysicsMotionType.ANIMATED,
         false,
         scene
       );
-      wBody.shape = this.sharedWeaverShape;
+      const wShape = new BABYLON.PhysicsShapeConvexHull(wMesh, scene);
+      wBody.shape = wShape;
       wBody.setMassProperties({ mass: 100.0 });
     }
 
     return weaverId;
   }
 
-  public spawnPlayer(existingId?: EntityId): EntityId {
+public spawnPlayer(existingId?: EntityId): EntityId {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
@@ -4113,7 +4147,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class TetherVisualizerSystem implements ISystem {
@@ -4230,7 +4264,14 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const localTip = new BABYLON.Vector3(0, -radius, 0);
+        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
+      } else {
+        this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      }
 
       const tension = Math.max(0, Math.min(1, tether.tension));
 
@@ -4319,7 +4360,14 @@ export class TetherVisualizerSystem implements ISystem {
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const localTip = new BABYLON.Vector3(0, -radius, 0);
+        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
+      } else {
+        this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
+      }
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
@@ -4478,11 +4526,35 @@ export class WeaverShatterSystem implements ISystem {
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
+    const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere(
       "shellProxy",
-      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 },
+      { radius: radius * 1.05, subdivisions: 0 },
       scene
     );
+
+    const positions = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    if (positions) {
+      const rLimit = radius * 1.05;
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i];
+        const y = positions[i + 1];
+        const z = positions[i + 2];
+        if (y < 0) {
+          const r_sphere = Math.sqrt(rLimit * rLimit - y * y);
+          if (r_sphere > 0.001) {
+            const r_cone = rLimit * (1.0 + y / rLimit);
+            const scaleFactor = r_cone / r_sphere;
+            positions[i] = x * scaleFactor;
+            positions[i + 2] = z * scaleFactor;
+          } else {
+            positions[i] = 0;
+            positions[i + 2] = 0;
+          }
+        }
+      }
+      proxyShell.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+    }
     const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     const shellInd = proxyShell.getIndices();
 
@@ -5027,6 +5099,7 @@ export class PlayerInputSystem implements ISystem {
 
 ● ./src/gameplay/player/PlayerKinematicsSystem.ts
 ────────────────────────────────────────────────────
+import * as BABYLON from "@babylonjs/core";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -5108,9 +5181,15 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    tether.anchorX = wTrans.x;
-    tether.anchorY = wTrans.y;
-    tether.anchorZ = wTrans.z;
+    const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+    const stingerTipLocal = new BABYLON.Vector3(0, -radius * 2.0, 0);
+    const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+    const stingerTipWorld = new BABYLON.Vector3();
+    stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);
+
+    tether.anchorX = wTrans.x + stingerTipWorld.x;
+    tether.anchorY = wTrans.y + stingerTipWorld.y;
+    tether.anchorZ = wTrans.z + stingerTipWorld.z;
 
     let nextX = target.x;
     let nextY = target.y;
@@ -5808,7 +5887,7 @@ export class WeaverTraversalSystem implements ISystem {
             targetScaleX = 1.0 - stretch * 0.5;
             targetScaleZ = 1.0 - stretch * 0.5;
 
-            const angle = Math.atan2(vel.y, vel.x) - Math.PI / 2;
+            const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
             BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
           }
         } else if (ai.state === "RETURNING") {

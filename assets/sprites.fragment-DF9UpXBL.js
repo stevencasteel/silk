@@ -1,1 +1,0 @@
-import{o as e}from"./compositionRoot-YvaOoY75.js";export{e as spritesPixelShaderWGSL};
