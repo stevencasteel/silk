@@ -41,7 +41,7 @@ export class Engine {
   }
 
   public stop(): void {
-    this.loop.stop();
+    this.loop.cleanup();
     this.removePauseHandlers();
     this.removeHitStopHandlers();
     this.systemManager.disposeAll();

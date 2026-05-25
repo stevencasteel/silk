@@ -66,10 +66,10 @@ export class RenderSystem implements ISystem {
     pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
     pipeline.chromaticAberrationEnabled = false;
 
-    const shadowGen = new BABYLON.ShadowGenerator(1024, dirLight);
+    const shadowGen = new BABYLON.ShadowGenerator(preset.RENDERER.SHADOW_MAP_SIZE, dirLight);
     shadowGen.useBlurExponentialShadowMap = true;
-    shadowGen.blurKernel = 16;
-    shadowGen.darkness = 0.6;
+    shadowGen.blurKernel = preset.RENDERER.SHADOW_BLUR_KERNEL;
+    shadowGen.darkness = preset.RENDERER.SHADOW_DARKNESS;
 
     this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
 

@@ -93,10 +93,22 @@ export class AudioDirectorSystem implements ISystem {
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
         if (this.initialized && this.tensionSynth) {
+          const rawCtx = Tone.getContext().rawContext as unknown as AudioContext;
           if (payload.isPaused) {
             this.tensionSynth.fadeOutAndMute();
+            if (rawCtx && typeof rawCtx.suspend === "function") {
+              rawCtx.suspend();
+            }
           } else {
-            this.tensionSynth.resumeFromPause();
+            if (rawCtx && typeof rawCtx.resume === "function") {
+              rawCtx.resume().then(() => {
+                if (this.initialized && this.tensionSynth) {
+                  this.tensionSynth.resumeFromPause();
+                }
+              });
+            } else {
+              this.tensionSynth.resumeFromPause();
+            }
           }
         }
       })
