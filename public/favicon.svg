@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+  <defs>
+    <filter id="glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.0" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    
+    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4.0" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <linearGradient id="grad-cyan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a5f3fc" />
+      <stop offset="100%" stop-color="#0891b2" />
+    </linearGradient>
+
+    <linearGradient id="grad-red" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fca5a5" />
+      <stop offset="100%" stop-color="#b91c1c" />
+    </linearGradient>
+  </defs>
+
+  <!-- Thickened Tether -->
+  <line x1="32" y1="20" x2="32" y2="44" 
+        stroke="url(#grad-cyan)" stroke-width="8" stroke-linecap="round"
+        filter="url(#glow-cyan)" />
+
+  <!-- Player Diamond (Shifted lower to make room) -->
+  <polygon points="32,36 44,48 32,60 20,48" 
+           fill="#a5f3fc" filter="url(#glow-cyan)" />
+
+  <!-- Enlarged Weaver Crown (Spanning 4 to 60) -->
+  <path d="M4,4 L60,4 L44,28 L32,16 L20,28 Z" 
+        fill="url(#grad-red)" filter="url(#glow-red)" />
+  
+  <!-- Weaver Core Highlight -->
+  <circle cx="32" cy="14" r="6" fill="#ffffff" filter="url(#glow-red)" />
+</svg>

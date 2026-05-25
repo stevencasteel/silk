@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 2:19:58 PM
+ [SYSTEM] Generated: 5/25/2026, 3:04:53 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -15,6 +15,7 @@
 ├── node_modules/ (contents skipped)
 ├── public/
 │   ├── all_source_code.txt
+│   ├── favicon.svg
 │   ├── HavokPhysics.wasm
 │   └── source_code_manifest.json
 ├── scripts/
@@ -437,7 +438,7 @@ export default defineConfig([
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Project SILK</title>
+    <title>SILK</title>
   </head>
   <body>
     <div id="root"></div>
@@ -8543,7 +8544,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 6502,
+    port: 5114,
     strictPort: true,
   },
   build: {
