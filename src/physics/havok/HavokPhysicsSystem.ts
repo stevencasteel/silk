@@ -7,9 +7,19 @@ import {
 } from "../../core/ecs/Components";
 import { SetKinematicVelocityCommand } from "../commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import * as BABYLON from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    )
+  ]);
+}
 
 export class HavokPhysicsSystem implements ISystem {
   readonly phase = SystemPhase.PhysicsStep;
@@ -22,16 +32,29 @@ export class HavokPhysicsSystem implements ISystem {
     this.registerCommands();
     const scene = this.context.visualRegistry.getScene();
     if (scene) {
+      this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "LOADING PHYSICS ENGINE..." });
       try {
+        const HAVOK_TIMEOUT_MS = 15000;
         let havokInstance;
         try {
-          havokInstance = await HavokPhysics({
-            locateFile: () => "./HavokPhysics.wasm"
-          });
+          havokInstance = await withTimeout(
+            HavokPhysics({ locateFile: () => "./HavokPhysics.wasm" }),
+            HAVOK_TIMEOUT_MS,
+            "Local HavokPhysics.wasm timed out"
+          );
         } catch {
-          havokInstance = await HavokPhysics({
-            locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+          this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+            status: "PHYSICS LOCAL LOAD FAILED, TRYING CDN..."
           });
+          try {
+            havokInstance = await withTimeout(
+              HavokPhysics({ locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm" }),
+              HAVOK_TIMEOUT_MS,
+              "CDN HavokPhysics.wasm timed out"
+            );
+          } catch {
+            throw new Error("HavokPhysics failed to load from both local and CDN sources");
+          }
         }
 
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
@@ -39,8 +62,6 @@ export class HavokPhysicsSystem implements ISystem {
           new BABYLON.Vector3(0, CANONICAL_UNITS.GRAVITY.PHYSICAL_EARTH, 0),
           this.havokPlugin
         );
-        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
-
         const playHalfWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
         const wallThickness = 1.0;
         const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
@@ -153,11 +174,13 @@ export class HavokPhysicsSystem implements ISystem {
         );
         backBody.shape = frontBackShape;
         backBody.setMassProperties({ mass: 0 });
+        console.log("[HavokPhysicsSystem] Havok initialized successfully.");
       } catch (err) {
-        console.warn(
-          "[HavokPhysicsSystem] Failed to load Havok. Standby with visual physics fallback.",
-          err
-        );
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[HavokPhysicsSystem] Failed to load Havok:", msg);
+        this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+          status: `PHYSICS UNAVAILABLE: ${msg}`
+        });
       }
     }
   }

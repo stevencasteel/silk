@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { bootstrapApplication } from "./app/bootstrap";
 import { HudOverlay } from "./ui/hud/HudOverlay";
+import { ErrorBoundary } from "./ui/hud/ErrorBoundary";
 import { Engine } from "./core/engine/Engine";
 import "./App.css";
 
@@ -34,7 +35,10 @@ export default function App() {
     <div className="cabinet-outer">
       <div className="viewport-container">
         <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
-        <HudOverlay />
+        <ErrorBoundary>
+          <HudOverlay />
+        </ErrorBoundary>
+        <div id="debug-telemetry-root" />
       </div>
     </div>
   );

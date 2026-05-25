@@ -1,19 +1,19 @@
 import { Engine } from "../core/engine/Engine";
-import { useHudStore } from "../ui/hud/hudStore";
+import { useOverlayStore } from "../ui/hud/hudStore";
 
 export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<Engine> {
-  const store = useHudStore.getState();
+  const overlay = useOverlayStore.getState();
 
-  store.setBootStatus("STREAMING SYSTEM ASSETS...");
+  overlay.setBootStatus("STREAMING SYSTEM ASSETS...");
+  overlay.setAwaitingGesture(true);
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  store.setBootStatus("COMPILING PHYSICAL WEB QUANTUMS...");
+  overlay.setBootStatus("COMPILING PHYSICAL WEB QUANTUMS...");
   const { CompositionRoot } = await import("./compositionRoot");
 
-  store.setBootStatus("MOUNTING ENGINES...");
+  overlay.setBootStatus("MOUNTING ENGINES...");
   const root = new CompositionRoot();
   const engine = root.buildEngine(canvas);
 
-  store.setBootStatus("READY");
   return engine;
 }

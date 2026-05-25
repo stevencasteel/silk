@@ -12,8 +12,9 @@ export class EntityRefs {
   ) {}
 
   public get player(): EntityId {
-    if (this._player !== -1) return this._player;
+    if (this._player !== -1 && this.playerTags.has(this._player)) return this._player;
     for (const [id] of this.playerTags.entries()) {
+      this._player = id;
       return id;
     }
     return -1;
@@ -24,8 +25,9 @@ export class EntityRefs {
   }
 
   public get weaver(): EntityId {
-    if (this._weaver !== -1) return this._weaver;
+    if (this._weaver !== -1 && this.weaverTags.has(this._weaver)) return this._weaver;
     for (const [id] of this.weaverTags.entries()) {
+      this._weaver = id;
       return id;
     }
     return -1;

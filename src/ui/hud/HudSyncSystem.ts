@@ -2,7 +2,13 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { useHudStore } from "./hudStore";
+import {
+  usePlayerStore,
+  useWeaverStore,
+  useTetherStore,
+  useOverlayStore,
+  resetAllStores
+} from "./hudStore";
 
 export class HudSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
@@ -10,25 +16,34 @@ export class HudSyncSystem implements ISystem {
   private lastHintLevel: "none" | "charging" | "ready" | "maxout" = "none";
   private currentState: string = "AIRBORNE";
 
-  constructor(private broker: EventBroker) {}
-
-  public init(): void {
+  constructor(private broker: EventBroker) {
     this.registerSubscriptions();
   }
 
+  public init(): void {}
+
   private registerSubscriptions(): void {
-    const store = useHudStore.getState();
+    const playerStore = usePlayerStore.getState();
+    const weaverStore = useWeaverStore.getState();
+    const tetherStore = useTetherStore.getState();
+    const overlayStore = useOverlayStore.getState();
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {
+        overlayStore.setBootStatus(status);
+      })
+    );
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
-        store.setTetherTension(tension);
+        tetherStore.setTetherTension(tension);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
         this.currentState = state;
-        store.setCurrentState(state);
+        playerStore.setCurrentState(state);
         if (state !== "WALL_SLIDING") {
           this.setHint("none");
         }
@@ -36,37 +51,43 @@ export class HudSyncSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-        store.setPlayerHp(hp, maxHp);
+        playerStore.setPlayerHp(hp, maxHp);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_HEALTH_CHANGED, ({ hp, maxHp }) => {
-        store.setWeaverHealth(hp, maxHp);
+        weaverStore.setWeaverHealth(hp, maxHp);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state, hue }) => {
-        store.setWeaverState(state, hue);
+        weaverStore.setWeaverState(state, hue);
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
-        store.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
+        overlayStore.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        store.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
+        overlayStore.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        store.reset();
+        resetAllStores();
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
-        store.setPaused(isPaused);
+        overlayStore.setPaused(isPaused);
+      })
+    );
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        overlayStore.setAwaitingGesture(false);
+        overlayStore.setBootStatus("READY");
       })
     );
   }
@@ -87,7 +108,7 @@ export class HudSyncSystem implements ISystem {
   private setHint(level: "none" | "charging" | "ready" | "maxout"): void {
     if (level === this.lastHintLevel) return;
     this.lastHintLevel = level;
-    const store = useHudStore.getState();
+    const store = useOverlayStore.getState();
     switch (level) {
       case "none":
         store.setTraversalHint("", "rgb(161, 161, 170)", 0);

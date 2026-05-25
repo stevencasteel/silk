@@ -16,9 +16,7 @@ export class AudioDirectorSystem implements ISystem {
   private subscriptions: (() => void)[] = [];
   private gestureTriggerRef: (() => void) | null = null;
 
-  constructor(private broker: EventBroker) {}
-
-  public init(): void {
+  constructor(private broker: EventBroker) {
     this.gestureTriggerRef = (): void => {
       this.bootAudioEngine();
       this.removeGestureListeners();
@@ -28,7 +26,9 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("keydown", this.gestureTriggerRef);
     window.addEventListener("touchend", this.gestureTriggerRef);
     window.addEventListener("mousedown", this.gestureTriggerRef);
+  }
 
+  public init(): void {
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {

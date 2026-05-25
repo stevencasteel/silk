@@ -24,7 +24,7 @@ export class ProjectileSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
   private projectilePool: ActiveProjectile[] = [];
-  private readonly POOL_SIZE = 16;
+  private readonly POOL_SIZE = WEAVER_AI_TUNING.SHOOT.POOL_SIZE;
   private nextPoolIndex = 0;
   private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
 

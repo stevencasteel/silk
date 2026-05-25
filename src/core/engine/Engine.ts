@@ -34,7 +34,9 @@ export class Engine {
   }
 
   public async start(): Promise<void> {
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "INITIALIZING SYSTEMS..." });
     await this.systemManager.initAll();
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "AWAITING INPUT" });
     this.initPauseHandlers();
     this.initHitStopHandlers();
     this.loop.start();

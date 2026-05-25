@@ -21,15 +21,18 @@ export class DebugTelemetryOverlay implements ISystem {
   public init(): void {
     if (typeof document === "undefined") return;
     this._profiler.isEnabled = true;
+    const root = document.getElementById("debug-telemetry-root");
+    if (!root) return;
+
     this.overlay = document.createElement("div");
 
     this.overlay.style.cssText =
-      "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:9999;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
+      "position:absolute;top:10px;left:10px;right:auto;background:rgba(10,12,18,0.92);color:#0f0;font-family:monospace;font-size:11px;padding:12px;z-index:10;pointer-events:none;min-width:230px;border:1px solid #14161f;border-radius:6px;line-height:1.4;";
 
     this.sysText = document.createElement("pre");
     this.sysText.style.margin = "0";
     this.overlay.appendChild(this.sysText);
-    document.body.appendChild(this.overlay);
+    root.appendChild(this.overlay);
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {

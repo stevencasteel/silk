@@ -87,7 +87,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     this.context.stores
       .get<KinematicVelocityComponent>("velocity")
-      .add(weaverId, { x: 4.5, y: 0, z: 0 });
+      .add(weaverId, { x: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X, y: 0, z: 0 });
     this.context.stores
       .get<KinematicTargetComponent>("target")
       .add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
@@ -115,40 +115,43 @@ export class EntitySpawnerSystem implements ISystem {
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
       "weaverVisual",
-      { radius: radius, subdivisions: 5 },
+      { radius: radius, subdivisions: ARENA_CONFIG.ENTITY.WEAVER_ICOSPHERE_SUBDIVISIONS },
       scene
     );
 
-    const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
-    if (positions) {
-      for (let i = 0; i < positions.length; i += 3) {
-        const x = positions[i];
-        const y = positions[i + 1];
-        const z = positions[i + 2];
-        if (y < 0) {
-          const r_sphere = Math.sqrt(radius * radius - y * y);
-          if (r_sphere > 0.001) {
-            const r_cone = radius * (1.0 + y / radius);
-            const scaleFactor = r_cone / r_sphere;
-            positions[i] = x * scaleFactor;
-            positions[i + 2] = z * scaleFactor;
-          } else {
-            positions[i] = 0;
-            positions[i + 2] = 0;
+    if (ARENA_CONFIG.ENTITY.WEAVER_MESH_POSITION_MODIFY) {
+      const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+      if (positions) {
+        for (let i = 0; i < positions.length; i += 3) {
+          const x = positions[i];
+          const y = positions[i + 1];
+          const z = positions[i + 2];
+          if (y < 0) {
+            const r_sphere = Math.sqrt(radius * radius - y * y);
+            if (r_sphere > 0.001) {
+              const r_cone = radius * (1.0 + y / radius);
+              const scaleFactor = r_cone / r_sphere;
+              positions[i] = x * scaleFactor;
+              positions[i + 2] = z * scaleFactor;
+            } else {
+              positions[i] = 0;
+              positions[i + 2] = 0;
+            }
           }
         }
-      }
-      wMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
-      const normals: number[] = [];
-      const indices = wMesh.getIndices();
-      if (indices) {
-        BABYLON.VertexData.ComputeNormals(positions, indices, normals);
-        wMesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
+        wMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+        const normals: number[] = [];
+        const indices = wMesh.getIndices();
+        if (indices) {
+          BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+          wMesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
+        }
       }
     }
 
+    const wc = ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO;
     const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
-    wMat.albedoColor = new BABYLON.Color3(0.15, 0.15, 0.18);
+    wMat.albedoColor = new BABYLON.Color3(wc.r, wc.g, wc.b);
     wMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.METALLIC;
     wMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.ROUGHNESS;
     wMat.clearCoat.isEnabled = true;
@@ -168,7 +171,7 @@ export class EntitySpawnerSystem implements ISystem {
       );
       const wShape = new BABYLON.PhysicsShapeConvexHull(wMesh, scene);
       wBody.shape = wShape;
-      wBody.setMassProperties({ mass: 100.0 });
+      wBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_PHYSICS_MASS });
     }
 
     return weaverId;
@@ -252,18 +255,20 @@ public spawnPlayer(existingId?: EntityId): EntityId {
       {
         height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
         radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
-        subdivisions: 3
+        subdivisions: ARENA_CONFIG.ENTITY.PLAYER_CAPSULE_SUBDIVISIONS
       },
       scene
     );
+    const pc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_ALBEDO;
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);
-    pMat.albedoColor = new BABYLON.Color3(0.88, 0.9, 0.92);
+    pMat.albedoColor = new BABYLON.Color3(pc.r, pc.g, pc.b);
     pMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.METALLIC;
     pMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.ROUGHNESS;
     pMat.sheen.isEnabled = true;
     pMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_INTENSITY;
     pMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_ROUGHNESS;
-    pMat.sheen.color = new BABYLON.Color3(0.95, 0.95, 1.0);
+    const psc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_SHEEN;
+    pMat.sheen.color = new BABYLON.Color3(psc.r, psc.g, psc.b);
     pMesh.material = pMat;
     this.context.visualRegistry.registerTransformNode(playerId, pMesh);
 
@@ -275,7 +280,7 @@ public spawnPlayer(existingId?: EntityId): EntityId {
         scene
       );
       pBody.shape = this.sharedPlayerShape;
-      pBody.setMassProperties({ mass: 10.0 });
+      pBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.PLAYER_PHYSICS_MASS });
     }
 
     return playerId;
