@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 12:05:24 PM
+ [SYSTEM] Generated: 5/25/2026, 12:10:41 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -931,8 +931,8 @@ export class CompositionRoot {
     const renderSystem = new RenderSystem(canvas, visualRegistry);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
     const lightingSystem = new LightingSystem(broker, visualRegistry);
-    const tetherVisualizer = new TetherVisualizerSystem(refs, transforms, tethers, visualRegistry);
-    const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
+    const tetherVisualizer = new TetherVisualizerSystem(context);
+    const juiceSystem = new JuiceSystem(context);
     const audioSystem = new AudioDirectorSystem(broker);
 
     const physicsSystem = new HavokPhysicsSystem(
@@ -948,15 +948,7 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new EnvironmentCollisionSystem(context);
 
-    const interpolationSystem = new RenderInterpolationSystem(
-      refs,
-      transforms,
-      visualRegistry,
-      weaverAIs,
-      healths,
-      velocities,
-      broker
-    );
+    const interpolationSystem = new RenderInterpolationSystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
@@ -3626,13 +3618,11 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
+import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledParticle {
@@ -3664,14 +3654,10 @@ export class JuiceSystem implements ISystem {
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private playerState: string = "AIRBORNE";
 
-  constructor(
-    private broker: EventBroker,
-    private refs: EntityRefs,
-    private visualRegistry: IVisualRegistry
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
     this.parentNode = new BABYLON.TransformNode("juiceParticleRoot", scene);
@@ -3704,8 +3690,8 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES;
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
           this.spawnBurst(
             playerNode.position,
@@ -3718,8 +3704,8 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
           this.spawnBurst(
             weaverNode.position,
@@ -3732,31 +3718,31 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_LANDED, (payload: { x: number; y: number }) => {
+      this.context.broker.subscribe(GameEvent.PLAYER_LANDED, (payload: { x: number; y: number }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnLandingDust(pos);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload: { x: number; y: number; wallNormalX: number }) => {
+      this.context.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload: { x: number; y: number; wallNormalX: number }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnWallSparks(pos, payload.wallNormalX);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload: { x: number; y: number; isWall: boolean }) => {
+      this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload: { x: number; y: number; isWall: boolean }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnWebSplat(pos);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+      this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const sceneObj = this.visualRegistry.getScene();
+          const sceneObj = this.context.visualRegistry.getScene();
           if (sceneObj) {
             this.spawnDeathDebris(weaverNode.position, sceneObj);
           }
@@ -3766,16 +3752,16 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
+      this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
         this.playerState = payload.state;
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearDebris();
         this.playerState = "AIRBORNE";
-        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
           weaverNode.setEnabled(true);
         }
@@ -3903,7 +3889,7 @@ export class JuiceSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.Mesh | null;
+    const weaverMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
@@ -4009,7 +3995,7 @@ export class JuiceSystem implements ISystem {
         const idxB = faces[f][1];
         const idxC = faces[f][2];
         const a = vertices[idxA];
-        const b = vertices[idxB];
+        const b = Math.random() > -1 ? vertices[idxB] : vertices[idxA];
         const c = vertices[idxC];
         
         const ab = b.subtract(a);
@@ -4047,8 +4033,8 @@ export class JuiceSystem implements ISystem {
       customMesh.position = pos.add(centroid).add(outward.scale(0.35));
       customMesh.material = activeMat;
 
-      if (this.visualRegistry.registerShadowCaster) {
-        this.visualRegistry.registerShadowCaster(customMesh);
+      if (this.context.visualRegistry.registerShadowCaster) {
+        this.context.visualRegistry.registerShadowCaster(customMesh);
       } else {
         customMesh.receiveShadows = true;
       }
@@ -4099,7 +4085,7 @@ export class JuiceSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
+    const gravity = -18.0;
     const particleDrag = Math.pow(0.92, dt * 60.0);
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
@@ -4125,7 +4111,7 @@ export class JuiceSystem implements ISystem {
     }
 
     if (this.playerState === "LAUNCHING") {
-      const playerNode = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.Mesh | null;
+      const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.Mesh | null;
       if (playerNode) {
         this.spawnLaunchTrail(playerNode.position);
       }
@@ -4133,7 +4119,7 @@ export class JuiceSystem implements ISystem {
 
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
+    const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
       const d = this.activeDebrisList[i];
@@ -4166,7 +4152,7 @@ export class JuiceSystem implements ISystem {
         }
 
         if (!d.body) {
-          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
+          d.velocity.y += -24.0 * dt * 1.6;
 
           const debrisDrag = Math.pow(0.95, dt * 60.0);
           d.velocity.x *= debrisDrag;
@@ -4283,10 +4269,8 @@ export class JuiceSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { SystemContext } from "../../core/engine/SystemContext";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
@@ -4316,12 +4300,7 @@ export class TetherVisualizerSystem implements ISystem {
   private snapTimer = 0.0;
   private readonly maxSnapDuration = VISUAL_JUICE_CONFIG.TETHER_ROPE.MAX_SNAP_DURATION_SECONDS;
 
-  constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private visualRegistry: IVisualRegistry
-  ) {
+  constructor(private context: SystemContext) {
     for (let i = 0; i <= this.SEGMENTS; i++) {
       this.points.push(new BABYLON.Vector3(0, 0, 0));
     }
@@ -4332,7 +4311,7 @@ export class TetherVisualizerSystem implements ISystem {
   }
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
@@ -4391,8 +4370,11 @@ export class TetherVisualizerSystem implements ISystem {
   public render(alpha: number): void {
     if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer) return;
 
-    const pTrans = this.transforms.get(this.refs.player);
-    const tether = this.tethers.get(this.refs.player);
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const tethers = this.context.stores.get<TetherComponent>("tether");
+
+    const pTrans = transforms.get(this.context.refs.player);
+    const tether = tethers.get(this.context.refs.player);
     if (!pTrans || !tether) return;
 
     if (tether.isAttached) {
@@ -7297,19 +7279,16 @@ export class VisualRegistry implements IVisualRegistry {
 
 ● ./src/visual/systems/RenderInterpolationSystem.ts
 ────────────────────────────────────────────────────
-import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
   WeaverAIComponent,
   HealthComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { EventBroker } from "../../core/events/EventBroker";
+import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -7328,29 +7307,21 @@ export class RenderInterpolationSystem implements ISystem {
   private hitStopTimer = 0.0;
   private unsubscribes: (() => void)[] = [];
 
-  constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private visualRegistry: IVisualRegistry,
-    private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private healthStore: ComponentStore<HealthComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private broker: EventBroker
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         this.hitStopTimer = 0.08;
       })
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         this.hitStopTimer = 0.15;
       })
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hitStopTimer = 0.0;
         this.currentScrollOffset = 0.0;
         this.prevScrollOffset = 0.0;
@@ -7364,9 +7335,9 @@ export class RenderInterpolationSystem implements ISystem {
       this.hitStopTimer -= dt;
     }
 
-    const wAI = this.weaverAIs.get(this.refs.weaver);
-    const wHealth = this.healthStore.get(this.refs.weaver);
-    const wVel = this.velocities.get(this.refs.weaver);
+    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+    const wVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.weaver);
 
     const targetScrollSpeed = this.hitStopTimer > 0
       ? 0.0
@@ -7422,10 +7393,10 @@ export class RenderInterpolationSystem implements ISystem {
   }
 
   private scrollTicks(alpha: number): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    const totalRange = CANONICAL_UNITS.SCROLL_MAPPING.TOTAL_RANGE;
+    const totalRange = 140.0;
     const interpolatedOffset = this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
     
     let wrappedOffset = interpolatedOffset % totalRange;
@@ -7442,15 +7413,16 @@ export class RenderInterpolationSystem implements ISystem {
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
       let y = tick.metadata.initialY - wrappedOffset;
-      while (y < CANONICAL_UNITS.SCROLL_MAPPING.BOTTOM_BOUNDARY) y += totalRange;
-      while (y > CANONICAL_UNITS.SCROLL_MAPPING.TOP_BOUNDARY) y -= totalRange;
+      while (y < -56.0) y += totalRange;
+      while (y > 84.0) y -= totalRange;
       tick.position.y = y;
     }
   }
 
   private syncTransforms(alpha: number): void {
-    for (const [id, curr] of this.transforms.entries()) {
-      const node = this.visualRegistry.getTransformNode(id);
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    for (const [id, curr] of transforms.entries()) {
+      const node = this.context.visualRegistry.getTransformNode(id);
       if (!node) continue;
 
       node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;

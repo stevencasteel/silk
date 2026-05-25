@@ -1,0 +1,1 @@
+import{c as e}from"./compositionRoot-DgmNzPXL.js";export{e as shadowMapVertexShaderWGSL};

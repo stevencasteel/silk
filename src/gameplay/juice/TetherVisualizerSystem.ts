@@ -1,9 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
+import { SystemContext } from "../../core/engine/SystemContext";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
@@ -33,12 +31,7 @@ export class TetherVisualizerSystem implements ISystem {
   private snapTimer = 0.0;
   private readonly maxSnapDuration = VISUAL_JUICE_CONFIG.TETHER_ROPE.MAX_SNAP_DURATION_SECONDS;
 
-  constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private visualRegistry: IVisualRegistry
-  ) {
+  constructor(private context: SystemContext) {
     for (let i = 0; i <= this.SEGMENTS; i++) {
       this.points.push(new BABYLON.Vector3(0, 0, 0));
     }
@@ -49,7 +42,7 @@ export class TetherVisualizerSystem implements ISystem {
   }
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
@@ -108,8 +101,11 @@ export class TetherVisualizerSystem implements ISystem {
   public render(alpha: number): void {
     if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer) return;
 
-    const pTrans = this.transforms.get(this.refs.player);
-    const tether = this.tethers.get(this.refs.player);
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const tethers = this.context.stores.get<TetherComponent>("tether");
+
+    const pTrans = transforms.get(this.context.refs.player);
+    const tether = tethers.get(this.context.refs.player);
     if (!pTrans || !tether) return;
 
     if (tether.isAttached) {

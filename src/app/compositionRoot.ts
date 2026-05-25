@@ -112,8 +112,8 @@ export class CompositionRoot {
     const renderSystem = new RenderSystem(canvas, visualRegistry);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
     const lightingSystem = new LightingSystem(broker, visualRegistry);
-    const tetherVisualizer = new TetherVisualizerSystem(refs, transforms, tethers, visualRegistry);
-    const juiceSystem = new JuiceSystem(broker, refs, visualRegistry);
+    const tetherVisualizer = new TetherVisualizerSystem(context);
+    const juiceSystem = new JuiceSystem(context);
     const audioSystem = new AudioDirectorSystem(broker);
 
     const physicsSystem = new HavokPhysicsSystem(
@@ -129,15 +129,7 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new EnvironmentCollisionSystem(context);
 
-    const interpolationSystem = new RenderInterpolationSystem(
-      refs,
-      transforms,
-      visualRegistry,
-      weaverAIs,
-      healths,
-      velocities,
-      broker
-    );
+    const interpolationSystem = new RenderInterpolationSystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);

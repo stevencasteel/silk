@@ -1,16 +1,13 @@
-import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
 import {
   TransformComponent,
   WeaverAIComponent,
   HealthComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { EventBroker } from "../../core/events/EventBroker";
+import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -29,29 +26,21 @@ export class RenderInterpolationSystem implements ISystem {
   private hitStopTimer = 0.0;
   private unsubscribes: (() => void)[] = [];
 
-  constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private visualRegistry: IVisualRegistry,
-    private weaverAIs: ComponentStore<WeaverAIComponent>,
-    private healthStore: ComponentStore<HealthComponent>,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private broker: EventBroker
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         this.hitStopTimer = 0.08;
       })
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         this.hitStopTimer = 0.15;
       })
     );
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hitStopTimer = 0.0;
         this.currentScrollOffset = 0.0;
         this.prevScrollOffset = 0.0;
@@ -65,9 +54,9 @@ export class RenderInterpolationSystem implements ISystem {
       this.hitStopTimer -= dt;
     }
 
-    const wAI = this.weaverAIs.get(this.refs.weaver);
-    const wHealth = this.healthStore.get(this.refs.weaver);
-    const wVel = this.velocities.get(this.refs.weaver);
+    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+    const wVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.weaver);
 
     const targetScrollSpeed = this.hitStopTimer > 0
       ? 0.0
@@ -123,10 +112,10 @@ export class RenderInterpolationSystem implements ISystem {
   }
 
   private scrollTicks(alpha: number): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    const totalRange = CANONICAL_UNITS.SCROLL_MAPPING.TOTAL_RANGE;
+    const totalRange = 140.0;
     const interpolatedOffset = this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
     
     let wrappedOffset = interpolatedOffset % totalRange;
@@ -143,15 +132,16 @@ export class RenderInterpolationSystem implements ISystem {
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
       let y = tick.metadata.initialY - wrappedOffset;
-      while (y < CANONICAL_UNITS.SCROLL_MAPPING.BOTTOM_BOUNDARY) y += totalRange;
-      while (y > CANONICAL_UNITS.SCROLL_MAPPING.TOP_BOUNDARY) y -= totalRange;
+      while (y < -56.0) y += totalRange;
+      while (y > 84.0) y -= totalRange;
       tick.position.y = y;
     }
   }
 
   private syncTransforms(alpha: number): void {
-    for (const [id, curr] of this.transforms.entries()) {
-      const node = this.visualRegistry.getTransformNode(id);
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    for (const [id, curr] of transforms.entries()) {
+      const node = this.context.visualRegistry.getTransformNode(id);
       if (!node) continue;
 
       node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;

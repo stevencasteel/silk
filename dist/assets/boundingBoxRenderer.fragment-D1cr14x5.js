@@ -1,0 +1,1 @@
+import{Dr as e}from"./compositionRoot-DgmNzPXL.js";export{e as boundingBoxRendererPixelShader};

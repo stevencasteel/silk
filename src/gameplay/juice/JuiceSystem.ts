@@ -1,10 +1,8 @@
-import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
+import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledParticle {
@@ -36,14 +34,10 @@ export class JuiceSystem implements ISystem {
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private playerState: string = "AIRBORNE";
 
-  constructor(
-    private broker: EventBroker,
-    private refs: EntityRefs,
-    private visualRegistry: IVisualRegistry
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
     this.parentNode = new BABYLON.TransformNode("juiceParticleRoot", scene);
@@ -76,8 +70,8 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES;
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
           this.spawnBurst(
             playerNode.position,
@@ -90,8 +84,8 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
           this.spawnBurst(
             weaverNode.position,
@@ -104,31 +98,31 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_LANDED, (payload: { x: number; y: number }) => {
+      this.context.broker.subscribe(GameEvent.PLAYER_LANDED, (payload: { x: number; y: number }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnLandingDust(pos);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload: { x: number; y: number; wallNormalX: number }) => {
+      this.context.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload: { x: number; y: number; wallNormalX: number }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnWallSparks(pos, payload.wallNormalX);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload: { x: number; y: number; isWall: boolean }) => {
+      this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload: { x: number; y: number; isWall: boolean }) => {
         const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
         this.spawnWebSplat(pos);
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+      this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const sceneObj = this.visualRegistry.getScene();
+          const sceneObj = this.context.visualRegistry.getScene();
           if (sceneObj) {
             this.spawnDeathDebris(weaverNode.position, sceneObj);
           }
@@ -138,16 +132,16 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
+      this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
         this.playerState = payload.state;
       })
     );
 
     this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearDebris();
         this.playerState = "AIRBORNE";
-        const weaverNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
           weaverNode.setEnabled(true);
         }
@@ -275,7 +269,7 @@ export class JuiceSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverMesh = this.visualRegistry.getTransformNode(this.refs.weaver) as BABYLON.Mesh | null;
+    const weaverMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
@@ -381,7 +375,7 @@ export class JuiceSystem implements ISystem {
         const idxB = faces[f][1];
         const idxC = faces[f][2];
         const a = vertices[idxA];
-        const b = vertices[idxB];
+        const b = Math.random() > -1 ? vertices[idxB] : vertices[idxA];
         const c = vertices[idxC];
         
         const ab = b.subtract(a);
@@ -419,8 +413,8 @@ export class JuiceSystem implements ISystem {
       customMesh.position = pos.add(centroid).add(outward.scale(0.35));
       customMesh.material = activeMat;
 
-      if (this.visualRegistry.registerShadowCaster) {
-        this.visualRegistry.registerShadowCaster(customMesh);
+      if (this.context.visualRegistry.registerShadowCaster) {
+        this.context.visualRegistry.registerShadowCaster(customMesh);
       } else {
         customMesh.receiveShadows = true;
       }
@@ -471,7 +465,7 @@ export class JuiceSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
+    const gravity = -18.0;
     const particleDrag = Math.pow(0.92, dt * 60.0);
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
@@ -497,7 +491,7 @@ export class JuiceSystem implements ISystem {
     }
 
     if (this.playerState === "LAUNCHING") {
-      const playerNode = this.visualRegistry.getTransformNode(this.refs.player) as BABYLON.Mesh | null;
+      const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.Mesh | null;
       if (playerNode) {
         this.spawnLaunchTrail(playerNode.position);
       }
@@ -505,7 +499,7 @@ export class JuiceSystem implements ISystem {
 
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const playerNode = this.visualRegistry.getTransformNode(this.refs.player);
+    const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
       const d = this.activeDebrisList[i];
@@ -538,7 +532,7 @@ export class JuiceSystem implements ISystem {
         }
 
         if (!d.body) {
-          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
+          d.velocity.y += -24.0 * dt * 1.6;
 
           const debrisDrag = Math.pow(0.95, dt * 60.0);
           d.velocity.x *= debrisDrag;

@@ -1,0 +1,1 @@
+import{Xt as e}from"./compositionRoot-DgmNzPXL.js";export{e as spritesVertexShader};
