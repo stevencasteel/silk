@@ -1,0 +1,1 @@
+import{Lr as e}from"./compositionRoot-YvaOoY75.js";export{e as _TGATextureLoader};
