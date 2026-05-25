@@ -1,1 +1,0 @@
-import{Xt as e}from"./compositionRoot-Dl4UXCh-.js";export{e as spritesVertexShader};
