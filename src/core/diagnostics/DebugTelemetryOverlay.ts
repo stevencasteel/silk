@@ -1,12 +1,9 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { Profiler } from "./Profiler";
-import { EventBroker } from "../events/EventBroker";
-import { EcsWorld } from "../ecs/EcsWorld";
-import { EntityRefs } from "../ecs/EntityRefs";
-import { ComponentStore } from "../ecs/ComponentStore";
 import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
+import { SystemContext } from "../engine/SystemContext";
 
 export class DebugTelemetryOverlay implements ISystem {
   readonly phase = SystemPhase.RenderSync;
@@ -18,12 +15,7 @@ export class DebugTelemetryOverlay implements ISystem {
 
   constructor(
     private _profiler: Profiler,
-    private _broker: EventBroker,
-    private _entities: EcsWorld,
-    private _refs: EntityRefs,
-    private _transforms: ComponentStore<TransformComponent>,
-    private _tethers: ComponentStore<TetherComponent>,
-    private _velocities: ComponentStore<KinematicVelocityComponent>
+    private context: SystemContext
   ) {}
 
   public init(): void {
@@ -40,25 +32,25 @@ export class DebugTelemetryOverlay implements ISystem {
     document.body.appendChild(this.overlay);
 
     this.unsubscribes.push(
-      this._broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+      this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
         if (this.overlay) this.overlay.style.display = "block";
       })
     );
 
     this.unsubscribes.push(
-      this._broker.subscribe(GameEvent.GAME_OVER, () => {
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
         this.isGameOver = true;
       })
     );
 
     this.unsubscribes.push(
-      this._broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.isGameOver = false;
       })
     );
 
     this.unsubscribes.push(
-      this._broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
+      this.context.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
         this.isPaused = isPaused;
       })
     );
@@ -72,14 +64,18 @@ export class DebugTelemetryOverlay implements ISystem {
     const fps = this._profiler.getFps();
     const frameTime = this._profiler.getFrameTime().toFixed(1);
 
-    const playerTrans = this._transforms.get(this._refs.player);
-    const playerTether = this._tethers.get(this._refs.player);
-    const weaverTrans = this._transforms.get(this._refs.weaver);
-    const weaverVel = this._velocities.get(this._refs.weaver);
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const tethers = this.context.stores.get<TetherComponent>("tether");
+    const velocities = this.context.stores.get<KinematicVelocityComponent>("velocity");
+
+    const playerTrans = transforms.get(this.context.refs.player);
+    const playerTether = tethers.get(this.context.refs.player);
+    const weaverTrans = transforms.get(this.context.refs.weaver);
+    const weaverVel = velocities.get(this.context.refs.weaver);
 
     let info = `=== PROJECT SILK DIAGNOSTICS ===\n`;
     info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
-    info += `Entities   : ${this._entities.count()}\n\n`;
+    info += `Entities   : ${this.context.world.count()}\n\n`;
 
     if (playerTrans && playerTether) {
       const spd = Math.sqrt(

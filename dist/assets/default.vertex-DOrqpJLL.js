@@ -1,1 +1,0 @@
-import{_r as e}from"./compositionRoot-BcilnJ0g.js";export{e as defaultVertexShader};

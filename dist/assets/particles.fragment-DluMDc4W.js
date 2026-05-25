@@ -1,0 +1,1 @@
+import{E as e}from"./compositionRoot-Dl4UXCh-.js";export{e as particlesPixelShaderWGSL};

@@ -138,15 +138,7 @@ export class CompositionRoot {
 
     const hudSystem = new DomHudSystem(broker);
     
-    const debugTelemetry = new DebugTelemetryOverlay(
-      profiler,
-      broker,
-      world,
-      refs,
-      transforms,
-      tethers,
-      velocities
-    );
+    const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 
     systemManager.register(spawner);
     systemManager.register(renderSystem);

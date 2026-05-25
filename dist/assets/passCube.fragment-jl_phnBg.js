@@ -1,0 +1,1 @@
+import{pn as e}from"./compositionRoot-Dl4UXCh-.js";export{e as passCubePixelShader};
