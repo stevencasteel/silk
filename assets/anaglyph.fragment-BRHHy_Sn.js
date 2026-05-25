@@ -1,0 +1,1 @@
+import{Pr as e}from"./compositionRoot-DgmNzPXL.js";export{e as anaglyphPixelShader};

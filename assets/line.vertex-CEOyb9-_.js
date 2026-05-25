@@ -1,0 +1,1 @@
+import{P as e}from"./compositionRoot-DgmNzPXL.js";export{e as lineVertexShaderWGSL};

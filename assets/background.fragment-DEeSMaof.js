@@ -1,0 +1,1 @@
+import{Nr as e}from"./compositionRoot-DgmNzPXL.js";export{e as backgroundPixelShader};
