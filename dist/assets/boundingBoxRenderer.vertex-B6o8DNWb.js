@@ -1,0 +1,1 @@
+import{Er as e}from"./compositionRoot-JY_INRI-.js";export{e as boundingBoxRendererVertexShader};

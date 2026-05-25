@@ -28,7 +28,8 @@ export class ProjectileSystem implements ISystem {
   private nextPoolIndex = 0;
   private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
 
-  private projMat: BABYLON.PBRMaterial | null = null;
+  private projMatActive: BABYLON.PBRMaterial | null = null;
+  private projMatStuck: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
@@ -39,18 +40,23 @@ export class ProjectileSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    this.projMat = new BABYLON.PBRMaterial("projectileMat", scene);
-    this.projMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
-    this.projMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
-    this.projMat.emissiveIntensity = 0.0;
-    this.projMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
-    this.projMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
-    this.projMat.sheen.isEnabled = true;
-    this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+    this.projMatActive = new BABYLON.PBRMaterial("projectileMatActive", scene);
+    this.projMatActive.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
+    this.projMatActive.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
+    this.projMatActive.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
+    this.projMatActive.sheen.isEnabled = true;
+    this.projMatActive.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
 
-    const noisePlugin = new ProjectileNoisePlugin(this.projMat);
-    (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
+    const noisePlugin = new ProjectileNoisePlugin(this.projMatActive);
+    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
       noisePlugin;
+
+    this.projMatStuck = new BABYLON.PBRMaterial("projectileMatStuck", scene);
+    this.projMatStuck.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
+    this.projMatStuck.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
+    this.projMatStuck.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
+    this.projMatStuck.sheen.isEnabled = true;
+    this.projMatStuck.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
 
     if (scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
@@ -68,7 +74,7 @@ export class ProjectileSystem implements ISystem {
         scene
       );
       sphere.position.set(0, -999, 0);
-      sphere.material = this.projMat;
+      sphere.material = this.projMatActive;
       sphere.isVisible = false;
 
       let body: BABYLON.PhysicsBody | null = null;
@@ -122,6 +128,7 @@ export class ProjectileSystem implements ISystem {
     proj.mesh.isVisible = true;
     proj.mesh.position.set(x, y, 0);
     proj.mesh.scaling.set(1.0, 1.0, 1.0);
+    proj.mesh.material = this.projMatActive;
 
     const dx = tx - x;
     const dy = ty - y;
@@ -142,9 +149,9 @@ export class ProjectileSystem implements ISystem {
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
     this.noiseTime += dt;
-    if (this.projMat) {
+    if (this.projMatActive) {
       const noisePlugin = (
-        this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+        this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
       )._noisePlugin;
       if (noisePlugin) {
         noisePlugin.time = this.noiseTime;
@@ -174,6 +181,7 @@ export class ProjectileSystem implements ISystem {
           p.isStuckOnWall = true;
           p.mesh.scaling.set(0.28, 1.45, 1.45);
           p.mesh.position.x = Math.sign(p.mesh.position.x) * wallLimit;
+          p.mesh.material = this.projMatStuck;
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: p.mesh.position.x,
             y: p.mesh.position.y,
@@ -228,6 +236,7 @@ export class ProjectileSystem implements ISystem {
     p.isStuck = false;
     p.isStuckOnWall = false;
     p.lifeTime = 0.0;
+    p.mesh.material = this.projMatActive;
   }
 
   private clearAll(): void {
@@ -249,5 +258,7 @@ export class ProjectileSystem implements ISystem {
       }
     });
     this.projectilePool = [];
+    if (this.projMatActive) this.projMatActive.dispose();
+    if (this.projMatStuck) this.projMatStuck.dispose();
   }
 }
