@@ -1,1 +1,0 @@
-import{ct as e}from"./compositionRoot-DgmNzPXL.js";export{e as gaussianSplattingVertexShaderWGSL};

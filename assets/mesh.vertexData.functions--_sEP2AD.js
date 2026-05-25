@@ -1,0 +1,1 @@
+import{Ir as e}from"./compositionRoot-BcilnJ0g.js";export{e as OptimizeIndices};

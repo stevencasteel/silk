@@ -1,1 +1,0 @@
-import{Ut as e}from"./compositionRoot-DgmNzPXL.js";export{e as backgroundPixelShaderWGSL};

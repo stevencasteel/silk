@@ -1,0 +1,1 @@
+import{i as e}from"./compositionRoot-BcilnJ0g.js";export{e as ssao2PixelShaderWGSL};

@@ -1,1 +1,0 @@
-import{gn as e}from"./compositionRoot-DgmNzPXL.js";export{e as particlesPixelShader};
