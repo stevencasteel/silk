@@ -14,7 +14,9 @@ export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
   public update(dt: number): void {
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (wAI) {
       wAI.damageShearTime += dt;
       if (wAI.damageShearIntensity > 0.0) {
@@ -36,8 +38,12 @@ export class VisualStateDressingSystem implements ISystem {
 
   private updateAestheticDressing(): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
@@ -63,14 +69,18 @@ export class VisualStateDressingSystem implements ISystem {
           cachedColor = new BABYLON.Color3(r, g, b);
           this.colorCache.set(wAI.hue, cachedColor);
         }
-        const pulse = emissive.WEAVER_EMISSIVE_PULSE_BASE + Math.sin(Date.now() * emissive.WEAVER_EMISSIVE_PULSE_FREQ) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
+        const pulse =
+          emissive.WEAVER_EMISSIVE_PULSE_BASE +
+          Math.sin(Date.now() * emissive.WEAVER_EMISSIVE_PULSE_FREQ) *
+            emissive.WEAVER_EMISSIVE_PULSE_AMP;
         mat.emissiveColor.set(
           cachedColor.r * emissive.WEAVER_EMISSIVE_SCALE + pulse,
           cachedColor.g * emissive.WEAVER_EMISSIVE_SCALE,
           cachedColor.b * emissive.WEAVER_EMISSIVE_SCALE
         );
 
-        const shearPlugin = (mat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin;
+        const shearPlugin = (mat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+          ._shearPlugin;
         if (shearPlugin) {
           shearPlugin.shearIntensity = wAI.damageShearIntensity;
           shearPlugin.shearTime = wAI.damageShearTime;
@@ -79,11 +89,7 @@ export class VisualStateDressingSystem implements ISystem {
     }
   }
 
-  private updatePlayerEmissive(
-    mat: BABYLON.PBRMaterial,
-    tension: number,
-    state: string
-  ): void {
+  private updatePlayerEmissive(mat: BABYLON.PBRMaterial, tension: number, state: string): void {
     let targetR: number;
     let targetG: number;
     let targetB: number;
@@ -91,8 +97,12 @@ export class VisualStateDressingSystem implements ISystem {
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     if (state === "WALL_SLIDING") {
-      targetR = emissive.PLAYER_EMISSIVE_SLIDE.BASE_R + Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
-      targetG = emissive.PLAYER_EMISSIVE_SLIDE.BASE_G + (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
+      targetR =
+        emissive.PLAYER_EMISSIVE_SLIDE.BASE_R +
+        Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
+      targetG =
+        emissive.PLAYER_EMISSIVE_SLIDE.BASE_G +
+        (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
       targetB = (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.MULT_B;
     } else if (state === "LAUNCHING") {
       targetR = emissive.PLAYER_EMISSIVE_LAUNCH.R;
@@ -108,7 +118,7 @@ export class VisualStateDressingSystem implements ISystem {
     this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
     this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
     this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
-    
+
     mat.emissiveColor.set(
       this.currentEmissiveR * emissive.PLAYER_EMISSIVE_SCALE,
       this.currentEmissiveG * emissive.PLAYER_EMISSIVE_SCALE,

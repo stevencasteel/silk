@@ -19,7 +19,7 @@ export const HudOverlay: React.FC = () => {
     weaverHp,
     weaverMaxHp,
     weaverState,
-    weaverHue,
+    weaverHue
   } = useHudStore(
     useShallow((state) => ({
       playerHp: state.playerHp,
@@ -37,7 +37,7 @@ export const HudOverlay: React.FC = () => {
       weaverHp: state.weaverHp,
       weaverMaxHp: state.weaverMaxHp,
       weaverState: state.weaverState,
-      weaverHue: state.weaverHue,
+      weaverHue: state.weaverHue
     }))
   );
 
@@ -78,7 +78,10 @@ export const HudOverlay: React.FC = () => {
               PROTOTYPE SILK INITIALIZATION
             </h2>
             <div className="w-full bg-black border border-zinc-800 h-2 mb-6 overflow-hidden rounded">
-              <div className="h-full bg-emerald-500 animate-[pulse_1.5s_infinite]" style={{ width: "100%" }} />
+              <div
+                className="h-full bg-emerald-500 animate-[pulse_1.5s_infinite]"
+                style={{ width: "100%" }}
+              />
             </div>
             <pre className="text-zinc-400 text-[10px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
               {"[SYSTEM BOOT]: ONLINE\n[STATUS]: " + bootStatus}
@@ -92,10 +95,7 @@ export const HudOverlay: React.FC = () => {
               <div className="hud-label">PILOT INTEGRITY</div>
               <div className="hud-hp-row">
                 {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`hp-block ${i < playerHp ? "hp-active" : ""}`}
-                  />
+                  <div key={i} className={`hp-block ${i < playerHp ? "hp-active" : ""}`} />
                 ))}
               </div>
               <div className="hud-subtext">
@@ -116,7 +116,7 @@ export const HudOverlay: React.FC = () => {
                   style={{
                     transform: `scaleX(${weaverHpRatio.toFixed(3)})`,
                     transformOrigin: "left",
-                    backgroundColor: weaverHpBarColor,
+                    backgroundColor: weaverHpBarColor
                   }}
                 />
               </div>
@@ -134,7 +134,7 @@ export const HudOverlay: React.FC = () => {
               className="hud-hint"
               style={{
                 opacity: traversalHintOpacity,
-                color: traversalHintColor,
+                color: traversalHintColor
               }}
             >
               {traversalHint}
@@ -152,7 +152,7 @@ export const HudOverlay: React.FC = () => {
                   style={{
                     transform: `scaleX(${tensionScaleX.toFixed(3)})`,
                     transformOrigin: "left",
-                    backgroundColor: tensionBarColor,
+                    backgroundColor: tensionBarColor
                   }}
                 />
               </div>
@@ -168,9 +168,7 @@ export const HudOverlay: React.FC = () => {
               {overlayTitle}
             </h1>
             <div className="overlay-divider" />
-            <p className="overlay-subtitle">
-              {overlaySubtitle}
-            </p>
+            <p className="overlay-subtitle">{overlaySubtitle}</p>
             <button onClick={handleRetryClick} className="overlay-btn pointer-events-auto">
               PLAY AGAIN
             </button>
@@ -185,9 +183,7 @@ export const HudOverlay: React.FC = () => {
               PAUSED
             </h1>
             <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
-            <p className="overlay-subtitle">
-              SIMULATION SUSPENDED
-            </p>
+            <p className="overlay-subtitle">SIMULATION SUSPENDED</p>
             <button onClick={handleResumeClick} className="overlay-btn pointer-events-auto">
               RESUME
             </button>

@@ -17,7 +17,7 @@ export class VerticalBoundarySystem implements ISystem {
   private readonly FLOOR_Y = ARENA_CONFIG.VERTICAL.FLOOR_Y;
   private readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
   private readonly PLAYER_HALF_HEIGHT = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
-  
+
   private readonly OVERLOAD_THRESHOLD = CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT;
   private readonly SNAP_LIMIT = CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT;
 
@@ -25,16 +25,25 @@ export class VerticalBoundarySystem implements ISystem {
 
   public update(): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
     if (!tether || !target || !health || !trav || !vel) return;
     this.clampToArenaBounds(target, vel);
     this.updateStrainMeter(tether, health, trav);
   }
 
-  private clampToArenaBounds(target: KinematicTargetComponent, vel: KinematicVelocityComponent): void {
+  private clampToArenaBounds(
+    target: KinematicTargetComponent,
+    vel: KinematicVelocityComponent
+  ): void {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
@@ -89,6 +98,9 @@ export class VerticalBoundarySystem implements ISystem {
     this.context.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: 5, source: "TETHER_SNAP" });
     this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
     this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
-    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.5, duration: 0.7 });
+    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+      amplitude: 1.5,
+      duration: 0.7
+    });
   }
 }

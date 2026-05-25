@@ -31,9 +31,19 @@ export class EntitySpawnerSystem implements ISystem {
   public init(): void {
     const scene = this.context.visualRegistry.getScene();
     if (scene && scene.isPhysicsEnabled()) {
-      this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), ARENA_CONFIG.ENTITY.WEAVER_RADIUS, scene);
-      const cylHalfHeight = (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
-      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(new BABYLON.Vector3(0, -cylHalfHeight, 0), new BABYLON.Vector3(0, cylHalfHeight, 0), ARENA_CONFIG.ENTITY.PLAYER_RADIUS, scene);
+      this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(
+        BABYLON.Vector3.Zero(),
+        ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
+        scene
+      );
+      const cylHalfHeight =
+        (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(
+        new BABYLON.Vector3(0, -cylHalfHeight, 0),
+        new BABYLON.Vector3(0, cylHalfHeight, 0),
+        ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+        scene
+      );
     }
     this.spawnWeaver();
     this.spawnPlayer();
@@ -71,10 +81,14 @@ export class EntitySpawnerSystem implements ISystem {
       prevQz: 0,
       prevQw: 1
     });
-    
-    this.context.stores.get<KinematicVelocityComponent>("velocity").add(weaverId, { x: 4.5, y: 0, z: 0 });
-    this.context.stores.get<KinematicTargetComponent>("target").add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
-    
+
+    this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .add(weaverId, { x: 4.5, y: 0, z: 0 });
+    this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
+
     this.context.stores.get<WeaverAIComponent>("weaverAI").add(weaverId, {
       state: "SWEEPING",
       timeInState: 0,
@@ -83,16 +97,16 @@ export class EntitySpawnerSystem implements ISystem {
       damageShearIntensity: 0.0,
       damageShearTime: 0.0
     });
-    
+
     this.context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
     this.context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
-    
+
     this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
       isGrounded: false,
       isWallClinging: false,
       wallNormalX: 0
     });
-    
+
     this.context.refs.weaver = weaverId;
 
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
@@ -113,7 +127,12 @@ export class EntitySpawnerSystem implements ISystem {
     this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {
-      const wBody = new BABYLON.PhysicsBody(wMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      const wBody = new BABYLON.PhysicsBody(
+        wMesh,
+        BABYLON.PhysicsMotionType.ANIMATED,
+        false,
+        scene
+      );
       wBody.shape = this.sharedWeaverShape;
       wBody.setMassProperties({ mass: 100.0 });
     }
@@ -153,10 +172,14 @@ export class EntitySpawnerSystem implements ISystem {
       prevQz: 0,
       prevQw: 1
     });
-    
-    this.context.stores.get<KinematicVelocityComponent>("velocity").add(playerId, { x: 0, y: 0, z: 0 });
-    this.context.stores.get<KinematicTargetComponent>("target").add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
-    
+
+    this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .add(playerId, { x: 0, y: 0, z: 0 });
+    this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
+
     this.context.stores.get<TetherComponent>("tether").add(playerId, {
       anchorX: 0,
       anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
@@ -166,11 +189,18 @@ export class EntitySpawnerSystem implements ISystem {
       isAttached: true,
       tension: 0.0
     });
-    
-    this.context.stores.get<HealthComponent>("health").add(playerId, { current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY, max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY });
-    this.context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0, jump: false });
+
+    this.context.stores
+      .get<HealthComponent>("health")
+      .add(playerId, {
+        current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+        max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
+      });
+    this.context.stores
+      .get<InputIntentComponent>("input")
+      .add(playerId, { x: 0, y: 0, jump: false });
     this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
-    
+
     this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",
       wallNormalX: 0,
@@ -179,13 +209,17 @@ export class EntitySpawnerSystem implements ISystem {
       launchTimer: 0.0,
       launchPower: 0.0
     });
-    
+
     this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
     this.context.refs.player = playerId;
 
     const pMesh = BABYLON.MeshBuilder.CreateCapsule(
       "playerVisual",
-      { height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT, radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS, subdivisions: 3 },
+      {
+        height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
+        radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+        subdivisions: 3
+      },
       scene
     );
     const pMat = new BABYLON.PBRMaterial("playerMat", scene);
@@ -200,14 +234,19 @@ export class EntitySpawnerSystem implements ISystem {
     this.context.visualRegistry.registerTransformNode(playerId, pMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedPlayerShape) {
-      const pBody = new BABYLON.PhysicsBody(pMesh, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
+      const pBody = new BABYLON.PhysicsBody(
+        pMesh,
+        BABYLON.PhysicsMotionType.ANIMATED,
+        false,
+        scene
+      );
       pBody.shape = this.sharedPlayerShape;
       pBody.setMassProperties({ mass: 10.0 });
     }
 
     return playerId;
   }
-  
+
   public dispose(): void {
     if (this.sharedWeaverShape) this.sharedWeaverShape.dispose();
     if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();

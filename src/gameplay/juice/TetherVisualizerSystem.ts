@@ -17,7 +17,7 @@ export class TetherVisualizerSystem implements ISystem {
   private tetherMeshAnchor: BABYLON.Mesh | null = null;
   private tetherMeshPlayer: BABYLON.Mesh | null = null;
   private tetherMat: BABYLON.PBRMaterial | null = null;
-  
+
   private points: BABYLON.Vector3[] = [];
   private pointsAnchor: BABYLON.Vector3[] = [];
   private pointsPlayer: BABYLON.Vector3[] = [];
@@ -98,7 +98,8 @@ export class TetherVisualizerSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer) return;
+    if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer)
+      return;
 
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const tethers = this.context.stores.get<TetherComponent>("tether");
@@ -125,7 +126,9 @@ export class TetherVisualizerSystem implements ISystem {
       const timeMs = performance.now();
       const frequency = VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      const vibAmp = Math.max(0, tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
+      const vibAmp =
+        Math.max(0, tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
+        VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       const vibOffset = Math.sin(vibPhase) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
@@ -150,7 +153,11 @@ export class TetherVisualizerSystem implements ISystem {
           2 * t1 * t * this.scratchCtrl.z +
           t * t * this.scratchPlayer.z;
 
-        pt.z += Math.sin((i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH + timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
+        pt.z +=
+          Math.sin(
+            (i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH +
+              timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ
+          ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
       }
 
       const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
@@ -215,11 +222,20 @@ export class TetherVisualizerSystem implements ISystem {
         const subT = (i / 12) * maxAnchorT;
         const t1 = 1 - subT;
         const pt = this.pointsAnchor[i];
-        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
-        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
-        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+        pt.x =
+          t1 * t1 * this.scratchAnchor.x +
+          2 * t1 * subT * this.scratchCtrl.x +
+          subT * subT * this.scratchPlayer.x;
+        pt.y =
+          t1 * t1 * this.scratchAnchor.y +
+          2 * t1 * subT * this.scratchCtrl.y +
+          subT * subT * this.scratchPlayer.y;
+        pt.z =
+          t1 * t1 * this.scratchAnchor.z +
+          2 * t1 * subT * this.scratchCtrl.z +
+          subT * subT * this.scratchPlayer.z;
 
-        const endWeight = (i / 12);
+        const endWeight = i / 12;
         pt.x += whipOffset * endWeight;
         pt.y += Math.abs(whipOffset) * 0.4 * endWeight;
       }
@@ -232,11 +248,20 @@ export class TetherVisualizerSystem implements ISystem {
         const subT = minPlayerT + (i / 12) * (1.0 - minPlayerT);
         const t1 = 1 - subT;
         const pt = this.pointsPlayer[i];
-        pt.x = t1 * t1 * this.scratchAnchor.x + 2 * t1 * subT * this.scratchCtrl.x + subT * subT * this.scratchPlayer.x;
-        pt.y = t1 * t1 * this.scratchAnchor.y + 2 * t1 * subT * this.scratchCtrl.y + subT * subT * this.scratchPlayer.y;
-        pt.z = t1 * t1 * this.scratchAnchor.z + 2 * t1 * subT * this.scratchCtrl.z + subT * subT * this.scratchPlayer.z;
+        pt.x =
+          t1 * t1 * this.scratchAnchor.x +
+          2 * t1 * subT * this.scratchCtrl.x +
+          subT * subT * this.scratchPlayer.x;
+        pt.y =
+          t1 * t1 * this.scratchAnchor.y +
+          2 * t1 * subT * this.scratchCtrl.y +
+          subT * subT * this.scratchPlayer.y;
+        pt.z =
+          t1 * t1 * this.scratchAnchor.z +
+          2 * t1 * subT * this.scratchCtrl.z +
+          subT * subT * this.scratchPlayer.z;
 
-        const endWeight = 1.0 - (i / 12);
+        const endWeight = 1.0 - i / 12;
         pt.x += playerWhip * endWeight;
         pt.y += (playerWhip * 0.4 + gravityDrop) * endWeight;
       }

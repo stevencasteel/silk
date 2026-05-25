@@ -25,9 +25,19 @@ export class CameraSystem implements ISystem {
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
 
-          const preset = POST_PROCESSING_PRESETS.CAMERA;
-          this.cameraNode.position.set(preset.DEFAULT_POS.x, preset.DEFAULT_POS.y, preset.DEFAULT_POS.z);
-          this.cameraNode.setTarget(new BABYLON.Vector3(preset.DEFAULT_TARGET.x, preset.DEFAULT_TARGET.y, preset.DEFAULT_TARGET.z));
+      const preset = POST_PROCESSING_PRESETS.CAMERA;
+      this.cameraNode.position.set(
+        preset.DEFAULT_POS.x,
+        preset.DEFAULT_POS.y,
+        preset.DEFAULT_POS.z
+      );
+      this.cameraNode.setTarget(
+        new BABYLON.Vector3(
+          preset.DEFAULT_TARGET.x,
+          preset.DEFAULT_TARGET.y,
+          preset.DEFAULT_TARGET.z
+        )
+      );
     }
 
     this.unsub = this.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
@@ -62,13 +72,13 @@ export class CameraSystem implements ISystem {
 
     if (this.cameraNode) {
       this.cameraNode.position.set(
-        preset.DEFAULT_POS.x + shakeOffsetX, 
-        preset.DEFAULT_POS.y + shakeOffsetY, 
+        preset.DEFAULT_POS.x + shakeOffsetX,
+        preset.DEFAULT_POS.y + shakeOffsetY,
         preset.DEFAULT_POS.z + shakeOffsetZ
       );
       this.cameraTarget.set(
-        preset.DEFAULT_TARGET.x + shakeOffsetX * 0.25, 
-        preset.DEFAULT_TARGET.y + shakeOffsetY * 0.25, 
+        preset.DEFAULT_TARGET.x + shakeOffsetX * 0.25,
+        preset.DEFAULT_TARGET.y + shakeOffsetY * 0.25,
         preset.DEFAULT_TARGET.z
       );
       this.cameraNode.setTarget(this.cameraTarget);

@@ -56,7 +56,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
-          const colorRef = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+          const colorRef = new BABYLON.Color3(
+            colors.PLAYER_SPARK.r,
+            colors.PLAYER_SPARK.g,
+            colors.PLAYER_SPARK.b
+          );
           this.spawnBurst(
             playerNode.position,
             colorRef,
@@ -71,7 +75,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const colorRef = new BABYLON.Color3(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+          const colorRef = new BABYLON.Color3(
+            colors.WEAVER_SPARK.r,
+            colors.WEAVER_SPARK.g,
+            colors.WEAVER_SPARK.b
+          );
           this.spawnBurst(
             weaverNode.position,
             colorRef,
@@ -83,24 +91,33 @@ export class JuiceSystem implements ISystem {
     );
 
     this.unsubscribes.push(
-      this.context.broker.subscribe(GameEvent.PLAYER_LANDED, (payload: { x: number; y: number }) => {
-        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-        this.spawnLandingDust(pos);
-      })
+      this.context.broker.subscribe(
+        GameEvent.PLAYER_LANDED,
+        (payload: { x: number; y: number }) => {
+          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+          this.spawnLandingDust(pos);
+        }
+      )
     );
 
     this.unsubscribes.push(
-      this.context.broker.subscribe(GameEvent.PLAYER_WALL_HIT, (payload: { x: number; y: number; wallNormalX: number }) => {
-        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-        this.spawnWallSparks(pos, payload.wallNormalX);
-      })
+      this.context.broker.subscribe(
+        GameEvent.PLAYER_WALL_HIT,
+        (payload: { x: number; y: number; wallNormalX: number }) => {
+          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+          this.spawnWallSparks(pos, payload.wallNormalX);
+        }
+      )
     );
 
     this.unsubscribes.push(
-      this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload: { x: number; y: number; isWall: boolean }) => {
-        const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-        this.spawnWebSplat(pos);
-      })
+      this.context.broker.subscribe(
+        GameEvent.PROJECTILE_IMPACT,
+        (payload: { x: number; y: number; isWall: boolean }) => {
+          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+          this.spawnWebSplat(pos);
+        }
+      )
     );
 
     this.unsubscribes.push(
@@ -137,13 +154,14 @@ export class JuiceSystem implements ISystem {
       const theta = Math.random() * 2.0 * Math.PI;
       const speedSpan = settings.VELOCITY_SPEED_MAX - settings.VELOCITY_SPEED_MIN;
       const r = settings.VELOCITY_SPEED_MIN + Math.random() * speedSpan;
-      
+
       const ySpan = settings.VELOCITY_Y_MAX - settings.VELOCITY_Y_MIN;
       const vy = settings.VELOCITY_Y_MIN + Math.random() * ySpan;
       const vz = (Math.random() - 0.5) * settings.VELOCITY_Z_MAX;
 
       particle.velocity.set(Math.cos(theta) * r, vy, vz);
-      particle.lifeRemaining = settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
+      particle.lifeRemaining =
+        settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -161,7 +179,11 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
+    const color = new BABYLON.Color3(
+      colors.LANDING_DUST.r,
+      colors.LANDING_DUST.g,
+      colors.LANDING_DUST.b
+    );
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -171,7 +193,8 @@ export class JuiceSystem implements ISystem {
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
+      particle.lifeRemaining =
+        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -198,7 +221,8 @@ export class JuiceSystem implements ISystem {
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
+      particle.lifeRemaining =
+        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -214,7 +238,11 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    const color = new BABYLON.Color3(
+      colors.PROJECTILE_SPLAT.r,
+      colors.PROJECTILE_SPLAT.g,
+      colors.PROJECTILE_SPLAT.b
+    );
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -226,7 +254,8 @@ export class JuiceSystem implements ISystem {
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
       particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
+      particle.lifeRemaining =
+        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
       particle.maxLife = particle.lifeRemaining;
       particle.active = true;
       particle.mesh.setEnabled(true);
@@ -292,7 +321,9 @@ export class JuiceSystem implements ISystem {
     }
 
     if (this.playerState === "LAUNCHING") {
-      const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.Mesh | null;
+      const playerNode = this.context.visualRegistry.getTransformNode(
+        this.context.refs.player
+      ) as BABYLON.Mesh | null;
       if (playerNode) {
         this.spawnLaunchTrail(playerNode.position);
       }

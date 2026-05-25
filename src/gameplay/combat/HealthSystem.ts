@@ -47,8 +47,14 @@ export class HealthSystem implements ISystem {
         });
       }
 
-      this.context.broker.publish(GameEvent.PLAYER_DAMAGED, { amount: cmd.amount, source: cmd.source });
-      this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: health.current, maxHp: health.max });
+      this.context.broker.publish(GameEvent.PLAYER_DAMAGED, {
+        amount: cmd.amount,
+        source: cmd.source
+      });
+      this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
+        hp: health.current,
+        maxHp: health.max
+      });
 
       if (health.current <= 0) {
         this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
@@ -56,8 +62,14 @@ export class HealthSystem implements ISystem {
     } else {
       health.current = Math.max(0, health.current - cmd.amount);
 
-      this.context.broker.publish(GameEvent.WEAVER_DAMAGED, { amount: cmd.amount, source: cmd.source });
-      this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, { hp: health.current, maxHp: health.max });
+      this.context.broker.publish(GameEvent.WEAVER_DAMAGED, {
+        amount: cmd.amount,
+        source: cmd.source
+      });
+      this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
+        hp: health.current,
+        maxHp: health.max
+      });
 
       if (health.current <= 0) {
         this.context.broker.publish(GameEvent.WEAVER_DIED, undefined);

@@ -79,10 +79,7 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `Entities   : ${this.context.world.count()}\n\n`;
 
     if (playerTrans && playerTether && playerVel) {
-      const spd = Math.sqrt(
-        playerVel.x * playerVel.x +
-          playerVel.y * playerVel.y
-      );
+      const spd = Math.sqrt(playerVel.x * playerVel.x + playerVel.y * playerVel.y);
       info += `=== PLAYER STATE ===\n`;
       info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
       info += `Vel X/Y    : ${playerVel.x.toFixed(2)}, ${playerVel.y.toFixed(2)}\n`;

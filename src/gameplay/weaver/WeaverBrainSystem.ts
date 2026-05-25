@@ -33,9 +33,13 @@ export class WeaverBrainSystem implements ISystem {
     });
 
     this.unsubDamage = this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
-      const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
-      
+      const aiComp = this.context.stores
+        .get<WeaverAIComponent>("weaverAI")
+        .get(this.context.refs.weaver);
+      const health = this.context.stores
+        .get<HealthComponent>("health")
+        .get(this.context.refs.weaver);
+
       if (aiComp && health) {
         aiComp.damageShearIntensity = 1.0;
         aiComp.damageShearTime = 0.0;
@@ -49,7 +53,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   private resetBrain(): void {
-    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const aiComp = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (aiComp) {
       const startState = "SWEEPING" as WeaverStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
@@ -67,9 +73,11 @@ export class WeaverBrainSystem implements ISystem {
 
   private publishStateChangeEvent(name: string, hue: string): void {
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    const isBerserk = health
+      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+      : false;
     let finalName = name;
-    
+
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
     }
@@ -80,7 +88,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   private transitionTo(nextStateKey: WeaverStateType): void {
-    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const aiComp = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
     const nextStateObj = this.states.get(nextStateKey);
@@ -99,7 +109,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const aiComp = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
     if (this.pendingTransition !== null) {
@@ -107,7 +119,9 @@ export class WeaverBrainSystem implements ISystem {
       this.pendingTransition = null;
     }
 
-    const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
+    const pHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.player);
     if (pHealth && pHealth.current <= 0) {
       this.context.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",

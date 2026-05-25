@@ -12,7 +12,7 @@ export class AudioDirectorSystem implements ISystem {
   private impactSynth: Tone.MembraneSynth | null = null;
   private noiseSynth: Tone.NoiseSynth | null = null;
   private initialized: boolean = false;
-  
+
   private subscriptions: (() => void)[] = [];
   private gestureTriggerRef: (() => void) | null = null;
 
@@ -119,8 +119,15 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.WEAVER;
           if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_1,
+              presets.DEATH_NOTE_1_DURATION
+            );
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_2,
+              presets.DEATH_NOTE_2_DURATION,
+              presets.DEATH_NOTE_2_DELAY
+            );
           }
           if (this.noiseSynth) {
             this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
@@ -138,8 +145,15 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.PLAYER;
           if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-            this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_2, presets.DEATH_NOTE_2_DURATION, presets.DEATH_NOTE_2_DELAY);
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_1,
+              presets.DEATH_NOTE_1_DURATION
+            );
+            this.impactSynth.triggerAttackRelease(
+              presets.DEATH_NOTE_2,
+              presets.DEATH_NOTE_2_DURATION,
+              presets.DEATH_NOTE_2_DELAY
+            );
           }
           if (this.noiseSynth) {
             this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
@@ -192,7 +206,12 @@ export class AudioDirectorSystem implements ISystem {
 
       this.noiseSynth = new Tone.NoiseSynth({
         noise: { type: "pink" },
-        envelope: { attack: 0.001, decay: presets.NOISE_DECAY, sustain: 0, release: presets.NOISE_DECAY }
+        envelope: {
+          attack: 0.001,
+          decay: presets.NOISE_DECAY,
+          sustain: 0,
+          release: presets.NOISE_DECAY
+        }
       }).toDestination();
       this.noiseSynth.volume.value = presets.NOISE_VOLUME;
 

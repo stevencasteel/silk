@@ -57,13 +57,19 @@ export class TensionSynthesizer {
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
     const targetBaseFreq = presets.DRONE_BASE_FREQ + clampedTension * presets.DRONE_BASE_FREQ;
-    const targetModulationIndex = synthConfig.DRONE_MOD_INDEX_BASE + clampedTension * synthConfig.DRONE_MOD_INDEX_SCALE;
-    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
-      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
-      : 0.0;
+    const targetModulationIndex =
+      synthConfig.DRONE_MOD_INDEX_BASE + clampedTension * synthConfig.DRONE_MOD_INDEX_SCALE;
+    const targetGain =
+      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
+        : 0.0;
 
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
-    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, synthConfig.DRONE_PITCH_RAMP_TIME);
+    this.fmOsc.modulationIndex.setTargetAtTime(
+      targetModulationIndex,
+      now,
+      synthConfig.DRONE_PITCH_RAMP_TIME
+    );
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
@@ -72,9 +78,10 @@ export class TensionSynthesizer {
     const now = Tone.now();
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
-    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD 
-      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD 
-      : 0.0;
+    const targetGain =
+      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
+        : 0.0;
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 

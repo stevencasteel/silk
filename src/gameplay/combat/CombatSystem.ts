@@ -15,10 +15,15 @@ import { GameEvent } from "../../core/events/GameEvents";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
-  private readonly COMBINED_RADIUS_THRESHOLD = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-  private readonly BROADPHASE_ENVELOPE = 
-    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN) * 
-    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS + GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN);
+  private readonly COMBINED_RADIUS_THRESHOLD =
+    ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+  private readonly BROADPHASE_ENVELOPE =
+    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS +
+      ARENA_CONFIG.ENTITY.WEAVER_RADIUS +
+      GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN) *
+    (ARENA_CONFIG.ENTITY.PLAYER_RADIUS +
+      ARENA_CONFIG.ENTITY.WEAVER_RADIUS +
+      GAMEPLAY_TUNING.COMBAT.BROADPHASE_MARGIN);
 
   constructor(private context: SystemContext) {}
 
@@ -38,11 +43,19 @@ export class CombatSystem implements ISystem {
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
     if (!isColliding) return;
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const pIframe = this.context.stores.get<InvulnerabilityComponent>("iframe").get(this.context.refs.player);
-    const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const pTrav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const pIframe = this.context.stores
+      .get<InvulnerabilityComponent>("iframe")
+      .get(this.context.refs.player);
+    const pVel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
 
     if (!wAI || !tether || !pTrav || !pIframe || !pVel) return;
 
@@ -56,7 +69,10 @@ export class CombatSystem implements ISystem {
         source: "PLAYER_FLING"
       });
 
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
+      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: 1.4,
+        duration: 0.55
+      });
 
       pVel.x = (dx / dist) * tuning.REBOUND_FORCE;
       pVel.y = (dy / dist) * tuning.REBOUND_FORCE;
@@ -80,7 +96,10 @@ export class CombatSystem implements ISystem {
         knockbackY: kbY
       });
 
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.5, duration: 0.3 });
+      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: 0.5,
+        duration: 0.3
+      });
       return;
     }
 
@@ -96,7 +115,9 @@ export class CombatSystem implements ISystem {
       pTrans.prevX += shiftX;
       pTrans.prevY += shiftY;
 
-      const pTarget = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+      const pTarget = this.context.stores
+        .get<KinematicTargetComponent>("target")
+        .get(this.context.refs.player);
       if (pTarget) {
         pTarget.x += shiftX;
         pTarget.y += shiftY;

@@ -18,9 +18,7 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
 
   public getUniforms() {
     return {
-      "ubo": [
-        { name: "u_noiseTime", size: 1, type: "float" }
-      ]
+      ubo: [{ name: "u_noiseTime", size: 1, type: "float" }]
     };
   }
 
@@ -28,11 +26,14 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
     return shaderLanguage === ShaderLanguage.GLSL;
   }
 
-  public getCustomCode(shaderType: string, shaderLanguage?: ShaderLanguage): Record<string, string> | null {
+  public getCustomCode(
+    shaderType: string,
+    shaderLanguage?: ShaderLanguage
+  ): Record<string, string> | null {
     if (shaderLanguage === ShaderLanguage.GLSL) {
       if (shaderType === "vertex") {
         return {
-          "CUSTOM_VERTEX_DEFINITIONS": `
+          CUSTOM_VERTEX_DEFINITIONS: `
             #ifdef NOISE
             uniform float u_noiseTime;
 
@@ -45,7 +46,7 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
             }
             #endif
           `,
-          "CUSTOM_VERTEX_UPDATE_POSITION": `
+          CUSTOM_VERTEX_UPDATE_POSITION: `
             #ifdef NOISE
             float noiseVal = getNoiseVal(positionUpdated, u_noiseTime);
 
@@ -73,12 +74,12 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
         };
       } else if (shaderType === "fragment") {
         return {
-          "CUSTOM_FRAGMENT_DEFINITIONS": `
+          CUSTOM_FRAGMENT_DEFINITIONS: `
             #ifdef NOISE
             uniform float u_noiseTime;
             #endif
           `,
-          "CUSTOM_FRAGMENT_BEFORE_LIGHTS": `
+          CUSTOM_FRAGMENT_BEFORE_LIGHTS: `
             #ifdef NOISE
             #ifdef NORMAL
             vec3 pos = vPositionW;

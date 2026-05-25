@@ -58,7 +58,12 @@ export const useHudStore = create<HudState>((set) => ({
   setTraversalHint: (text, color, opacity) =>
     set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
   showOverlay: (title, color, subtitle) =>
-    set({ overlayVisible: true, overlayTitle: title, overlayColor: color, overlaySubtitle: subtitle }),
+    set({
+      overlayVisible: true,
+      overlayTitle: title,
+      overlayColor: color,
+      overlaySubtitle: subtitle
+    }),
   hideOverlay: () => set({ overlayVisible: false }),
   setPaused: (isPaused) => set({ isPaused }),
   setBootStatus: (status) => set({ bootStatus: status }),
@@ -79,6 +84,6 @@ export const useHudStore = create<HudState>((set) => ({
       weaverHp: 100,
       weaverMaxHp: 100,
       weaverState: "SWEEPING",
-      weaverHue: "rgb(239, 68, 68)",
-    }),
+      weaverHue: "rgb(239, 68, 68)"
+    })
 }));

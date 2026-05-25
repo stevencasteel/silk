@@ -12,7 +12,7 @@ import * as BABYLON from "@babylonjs/core";
 
 export class ParallaxScrollSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-  
+
   public static currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
 
   private currentScrollOffset = 0.0;
@@ -52,17 +52,22 @@ export class ParallaxScrollSystem implements ISystem {
       this.hitStopTimer -= dt;
     }
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
-    const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
-    const wVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
+    const wHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.weaver);
+    const wVel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.weaver);
 
-    const targetScrollSpeed = this.hitStopTimer > 0
-      ? 0.0
-      : ParallaxScrollSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+    const targetScrollSpeed =
+      this.hitStopTimer > 0 ? 0.0 : ParallaxScrollSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
     ParallaxScrollSystem.currentScrollSpeed = this.scrollSpeed;
-    
+
     if (wAI) {
       wAI.scrollSpeed = this.scrollSpeed;
     }
@@ -110,8 +115,9 @@ export class ParallaxScrollSystem implements ISystem {
 
     const mapping = CANONICAL_UNITS.SCROLL_MAPPING;
     const totalRange = mapping.TOTAL_RANGE;
-    const interpolatedOffset = this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
-    
+    const interpolatedOffset =
+      this.prevScrollOffset + (this.currentScrollOffset - this.prevScrollOffset) * alpha;
+
     let wrappedOffset = interpolatedOffset % totalRange;
     if (wrappedOffset < 0) {
       wrappedOffset += totalRange;

@@ -12,7 +12,10 @@ export class RenderSystem implements ISystem {
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
 
-  constructor(canvas: HTMLCanvasElement, private visualRegistry: VisualRegistry) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    private visualRegistry: VisualRegistry
+  ) {
     this.canvas = canvas;
   }
 
@@ -28,10 +31,20 @@ export class RenderSystem implements ISystem {
 
     const camera = new BABYLON.FreeCamera(
       "renderCamera",
-      new BABYLON.Vector3(preset.CAMERA.DEFAULT_POS.x, preset.CAMERA.DEFAULT_POS.y, preset.CAMERA.DEFAULT_POS.z),
+      new BABYLON.Vector3(
+        preset.CAMERA.DEFAULT_POS.x,
+        preset.CAMERA.DEFAULT_POS.y,
+        preset.CAMERA.DEFAULT_POS.z
+      ),
       this.scene
     );
-    camera.setTarget(new BABYLON.Vector3(preset.CAMERA.DEFAULT_TARGET.x, preset.CAMERA.DEFAULT_TARGET.y, preset.CAMERA.DEFAULT_TARGET.z));
+    camera.setTarget(
+      new BABYLON.Vector3(
+        preset.CAMERA.DEFAULT_TARGET.x,
+        preset.CAMERA.DEFAULT_TARGET.y,
+        preset.CAMERA.DEFAULT_TARGET.z
+      )
+    );
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
 
     const ambientLight = new BABYLON.HemisphericLight(

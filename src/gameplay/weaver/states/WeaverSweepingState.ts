@@ -20,7 +20,7 @@ export class WeaverSweepingState implements IWeaverState {
   public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
     this.hasTelegraphed = false;
-    
+
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
       aiComp.timeInState = 0;
@@ -29,8 +29,12 @@ export class WeaverSweepingState implements IWeaverState {
 
     const healthStore = ctx.stores.get<HealthComponent>("health");
     const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-    const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+    const isBerserk = health
+      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+      : false;
+    const patrolSpeed = isBerserk
+      ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
+      : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
 
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",

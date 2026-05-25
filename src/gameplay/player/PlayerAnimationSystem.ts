@@ -17,15 +17,30 @@ export class PlayerAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const pTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.player);
+    const pTrans = this.context.stores
+      .get<TransformComponent>("transform")
+      .get(this.context.refs.player);
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
 
     if (!pTrans || !tether || !trav || !target || !vel) return;
 
-    if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
+    if (
+      pTrans.scaleX === undefined ||
+      pTrans.scaleY === undefined ||
+      pTrans.scaleZ === undefined ||
+      pTrans.prevScaleX === undefined ||
+      pTrans.prevScaleY === undefined ||
+      pTrans.prevScaleZ === undefined
+    ) {
       pTrans.scaleX = 1.0;
       pTrans.scaleY = 1.0;
       pTrans.scaleZ = 1.0;
@@ -56,7 +71,8 @@ export class PlayerAnimationSystem implements ISystem {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       const stretchFactor = Math.min(
         tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
-        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
+        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) *
+          tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
       );
       targetScaleY = 1.0 + stretchFactor;
       targetScaleX = 1.0 - stretchFactor * 0.5;

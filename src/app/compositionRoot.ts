@@ -101,7 +101,7 @@ export class CompositionRoot {
     storeContainer.register("weaverTag", weaverTags);
 
     const visualRegistry = new VisualRegistry();
-    
+
     const context = new SystemContext(
       world,
       broker,
@@ -120,7 +120,7 @@ export class CompositionRoot {
     const audioSystem = new AudioDirectorSystem(broker);
 
     const physicsSystem = new HavokPhysicsSystem(context);
-    
+
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
@@ -141,7 +141,7 @@ export class CompositionRoot {
     const gameDirector = new GameDirectorSystem(context, spawner);
 
     const hudSystem = new HudSyncSystem(broker);
-    
+
     const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 
     systemManager.register(spawner);

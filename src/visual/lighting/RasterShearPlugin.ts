@@ -19,7 +19,7 @@ export class RasterShearPlugin extends MaterialPluginBase {
 
   public getUniforms() {
     return {
-      "ubo": [
+      ubo: [
         { name: "u_shearIntensity", size: 1, type: "float" },
         { name: "u_shearTime", size: 1, type: "float" }
       ]
@@ -30,11 +30,14 @@ export class RasterShearPlugin extends MaterialPluginBase {
     return shaderLanguage === ShaderLanguage.GLSL;
   }
 
-  public getCustomCode(shaderType: string, shaderLanguage?: ShaderLanguage): Record<string, string> | null {
+  public getCustomCode(
+    shaderType: string,
+    shaderLanguage?: ShaderLanguage
+  ): Record<string, string> | null {
     if (shaderLanguage === ShaderLanguage.GLSL) {
       if (shaderType === "vertex") {
         return {
-          "CUSTOM_VERTEX_DEFINITIONS": `
+          CUSTOM_VERTEX_DEFINITIONS: `
             #ifdef SHEAR
             uniform float u_shearIntensity;
             uniform float u_shearTime;
@@ -56,7 +59,7 @@ export class RasterShearPlugin extends MaterialPluginBase {
             }
             #endif
           `,
-          "CUSTOM_VERTEX_UPDATE_POSITION": `
+          CUSTOM_VERTEX_UPDATE_POSITION: `
             #ifdef SHEAR
             float displacement = getShearDisplacement(positionUpdated, u_shearIntensity, u_shearTime);
 

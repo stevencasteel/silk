@@ -1,24 +1,24 @@
 export const CANONICAL_UNITS = {
   SPATIAL: {
-    METERS_PER_UNIT: 1.0,
+    METERS_PER_UNIT: 1.0
   },
   TEMPORAL: {
-    LEGACY_FPS_BASIS: 60.0,
+    LEGACY_FPS_BASIS: 60.0
   },
   GRAVITY: {
     PHYSICAL_EARTH: -9.81,
     PLAYER_KINEMATIC: -24.0,
-    JUICE_PARTICLE: -18.0,
+    JUICE_PARTICLE: -18.0
   },
   TETHER_STRAIN: {
     OVERLOAD_LIMIT: 1.0,
     SNAP_LIMIT: 1.3,
-    SNAP_DELAY_SECONDS: 2.6,
+    SNAP_DELAY_SECONDS: 2.6
   },
   SCROLL_MAPPING: {
     TOTAL_RANGE: 140.0,
     BOTTOM_BOUNDARY: -56.0,
-    TOP_BOUNDARY: 84.0,
+    TOP_BOUNDARY: 84.0
   }
 } as const;
 
@@ -31,7 +31,7 @@ export const ARENA_CONFIG = {
     WEAVER_PATROL_MAX_X: 13.0,
     WALL_GEOMETRY_X: 16.0,
     TICK_GEOMETRY_X: 14.9,
-    PLAY_AREA_HALF_WIDTH: 15.0,
+    PLAY_AREA_HALF_WIDTH: 15.0
   },
   VERTICAL: {
     FLOOR_Y: -8.0,
@@ -41,27 +41,27 @@ export const ARENA_CONFIG = {
     WALL_GEOMETRY_HEIGHT: 140.0,
     TOTAL_SCROLL_RANGE: 140.0,
     PLAYER_SPAWN_Y: 10.0,
-    WEAVER_SPAWN_Y: 34.0,
+    WEAVER_SPAWN_Y: 34.0
   },
   ENTITY: {
     PLAYER_HEIGHT: 1.8,
     PLAYER_RADIUS: 0.4,
     PLAYER_HALF_HEIGHT: 0.9,
-    WEAVER_RADIUS: 2.2,
+    WEAVER_RADIUS: 2.2
   },
   PROJECTILE: {
     OFFSCREEN_MIN_Y: -15.0,
-    OFFSCREEN_MAX_Y: 42.0,
+    OFFSCREEN_MAX_Y: 42.0
   },
   TETHER: {
     BASE_LENGTH: 10.0,
     MAX_LENGTH: 24.0,
-    INITIAL_LENGTH: 12.0,
+    INITIAL_LENGTH: 12.0
   },
   SCROLL_SPEED: {
     BASE: 9.0,
     BERSERK: 15.0,
-    DASH_MULTIPLIER: 0.45,
+    DASH_MULTIPLIER: 0.45
   }
 } as const;
 
@@ -92,7 +92,7 @@ export const GAMEPLAY_TUNING = {
       SQUASH_LAND_Z: 1.22,
       SQUASH_WALL_X: 0.72,
       SQUASH_WALL_Y: 1.22,
-      LAND_VEL_THRESHOLD: -1.0,
+      LAND_VEL_THRESHOLD: -1.0
     }
   },
   COMBAT: {
@@ -107,7 +107,7 @@ export const GAMEPLAY_TUNING = {
     BOUNCE_ELASTICITY_MULT: 1.3,
     BROADPHASE_MARGIN: 0.4,
     HITSTOP_PLAYER: 0.08,
-    HITSTOP_WEAVER: 0.15,
+    HITSTOP_WEAVER: 0.15
   }
 } as const;
 
@@ -115,7 +115,7 @@ export const WEAVER_AI_TUNING = {
   BERSERK_HP_THRESHOLD: 0.5,
   PATROL: {
     SPEED_NORMAL: 4.5,
-    SPEED_BERSERK: 9.0,
+    SPEED_BERSERK: 9.0
   },
   SHOOT: {
     TELEGRAPH_TIME: 1.8,
@@ -125,7 +125,7 @@ export const WEAVER_AI_TUNING = {
     MAX_LIFE: 8.0,
     PROJECTILE_DIAMETER: 0.65,
     CAMERA_SHAKE_AMP: 0.6,
-    CAMERA_SHAKE_DUR: 0.35,
+    CAMERA_SHAKE_DUR: 0.35
   },
   DASH: {
     PREP_TIME: 0.6,
@@ -141,22 +141,22 @@ export const WEAVER_AI_TUNING = {
       PREP_Y: 0.82,
       PREP_Z: 1.15,
       STRETCH_MAX: 0.25,
-      STRETCH_SPEED_BASIS: 36.0,
+      STRETCH_SPEED_BASIS: 36.0
     },
     CAMERA_SHAKE_PREP_AMP: 0.08,
     CAMERA_SHAKE_PREP_DUR: 0.05,
-    CAMERA_SHAKE_PREP_FREQ: 0.4,
+    CAMERA_SHAKE_PREP_FREQ: 0.4
   },
   RETURN: {
     SPEED: 12.0,
     THRESHOLD: 0.3,
     SQUASH_STRETCH: {
       Y: 1.08,
-      X: 0.96,
+      X: 0.96
     }
   },
   DEFEATED: {
-    SCALE: 0.2,
+    SCALE: 0.2
   },
   ANIMATION: {
     LERP_RATE: 12.0,
@@ -164,7 +164,7 @@ export const WEAVER_AI_TUNING = {
     PULSE_FREQ: 3.5,
     YAW_PITCH_ROLL_FREQ: 2.0,
     YAW_PITCH_ROLL_AMP: 0.1,
-    ROLL_ANGLE_SCALE: -0.02,
+    ROLL_ANGLE_SCALE: -0.02
   }
 } as const;
 
@@ -175,26 +175,26 @@ export const VISUAL_JUICE_CONFIG = {
     DASH_THRUST: "ef4444",
     DASH_RECOVER: "a5f3fc",
     RETURNING: "4b5563",
-    DEFEATED: "111317",
+    DEFEATED: "111317"
   },
   MATERIALS: {
     WEAVER: {
       METALLIC: 0.3,
       ROUGHNESS: 0.5,
       CLEAR_COAT_INTENSITY: 0.4,
-      CLEAR_COAT_ROUGHNESS: 0.2,
+      CLEAR_COAT_ROUGHNESS: 0.2
     },
     PLAYER: {
       METALLIC: 0.0,
       ROUGHNESS: 0.85,
       SHEEN_INTENSITY: 0.5,
-      SHEEN_ROUGHNESS: 0.4,
+      SHEEN_ROUGHNESS: 0.4
     },
     PROJECTILE: {
       METALLIC: 0.0,
       ROUGHNESS: 0.8,
       SHEEN_INTENSITY: 0.6,
-      SHEEN_ROUGHNESS: 0.4,
+      SHEEN_ROUGHNESS: 0.4
     }
   },
   TETHER_ROPE: {
@@ -209,7 +209,7 @@ export const VISUAL_JUICE_CONFIG = {
     WAVINESS_AMP: 0.12,
     WAVINESS_STRETCH: 2.5,
     BEZIER_DEPTH: 0.35,
-    MAX_SNAP_DURATION_SECONDS: 1.5,
+    MAX_SNAP_DURATION_SECONDS: 1.5
   },
   PARTICLES: {
     DRAG: 0.92,
@@ -229,7 +229,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_SPEED_MIN: 3.0,
         VELOCITY_SPEED_MAX: 8.0,
         LIFE_MIN: 0.3,
-        LIFE_MAX: 0.7,
+        LIFE_MAX: 0.7
       },
       WEAVER: {
         COUNT: 20,
@@ -239,7 +239,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_SPEED_MIN: 3.0,
         VELOCITY_SPEED_MAX: 8.0,
         LIFE_MIN: 0.3,
-        LIFE_MAX: 0.7,
+        LIFE_MAX: 0.7
       },
       LANDING: {
         COUNT: 12,
@@ -247,7 +247,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_Y_MAX: 1.5,
         VELOCITY_Z_MAX: 1.5,
         LIFE_MIN: 0.4,
-        LIFE_MAX: 0.7,
+        LIFE_MAX: 0.7
       },
       WALL: {
         COUNT: 8,
@@ -256,7 +256,7 @@ export const VISUAL_JUICE_CONFIG = {
         VELOCITY_Y_MAX: 5.0,
         VELOCITY_Z_MAX: 2.0,
         LIFE_MIN: 0.25,
-        LIFE_MAX: 0.5,
+        LIFE_MAX: 0.5
       },
       PROJECTILE: {
         COUNT: 10,
@@ -264,7 +264,7 @@ export const VISUAL_JUICE_CONFIG = {
         SPEED_MAX: 6.0,
         VELOCITY_Z_MAX: 2.0,
         LIFE_MIN: 0.3,
-        LIFE_MAX: 0.6,
+        LIFE_MAX: 0.6
       },
       TRAIL: {
         LIFE_MIN: 0.22,
@@ -273,8 +273,8 @@ export const VISUAL_JUICE_CONFIG = {
         OFFSET_Y: 0.8,
         VELOCITY_X_MAX: 1.2,
         VELOCITY_Y_MAX: 1.2,
-        VELOCITY_Z_MAX: 1.0,
-      },
+        VELOCITY_Z_MAX: 1.0
+      }
     },
     DEBRIS: {
       COUNT: 12,
@@ -290,7 +290,7 @@ export const VISUAL_JUICE_CONFIG = {
       VELOCITY_Z_MAX: 8.0,
       ANGULAR_MAX: 12.0,
       Z_FORCE_CLAMP: 0.01,
-      SCALE_DECAY_TIME: 1.5,
+      SCALE_DECAY_TIME: 1.5
     }
   },
   EMISSIVE: {
@@ -306,17 +306,17 @@ export const VISUAL_JUICE_CONFIG = {
       RANGE_R: 0.9,
       BASE_G: 0.1,
       RANGE_G: 0.1,
-      MULT_B: 0.1,
+      MULT_B: 0.1
     },
     PLAYER_EMISSIVE_LAUNCH: {
       R: 0.9,
       G: 0.9,
-      B: 0.9,
+      B: 0.9
     },
     PLAYER_EMISSIVE_DEFAULT: {
       R: 0.05,
       G: 0.05,
-      B: 0.05,
+      B: 0.05
     }
   }
 } as const;
@@ -334,10 +334,10 @@ export const POST_PROCESSING_PRESETS = {
     DIR_LIGHT_INTENSITY: 3.2,
     SHADOW_MAP_SIZE: 1024,
     SHADOW_BLUR_KERNEL: 16,
-    SHADOW_DARKNESS: 0.6,
+    SHADOW_DARKNESS: 0.6
   },
   CAMERA: {
     DEFAULT_POS: { x: 0.0, y: 14.0, z: -38.0 },
-    DEFAULT_TARGET: { x: 0.0, y: 14.0, z: 0.0 },
+    DEFAULT_TARGET: { x: 0.0, y: 14.0, z: 0.0 }
   }
 } as const;

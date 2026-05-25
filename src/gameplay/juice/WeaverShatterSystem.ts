@@ -58,32 +58,61 @@ export class WeaverShatterSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
+    const weaverMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.weaver
+    ) as BABYLON.Mesh | null;
     const activeMat = weaverMesh?.material || this.debrisMat;
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
 
-    const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere("shellProxy", { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 }, scene);
+    const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere(
+      "shellProxy",
+      { radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 1.05, subdivisions: 0 },
+      scene
+    );
     const shellPos = proxyShell.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     const shellInd = proxyShell.getIndices();
 
     if (shellPos && shellInd) {
       for (let i = 0; i < shellInd.length; i += 3) {
-        const i1 = shellInd[i], i2 = shellInd[i+1], i3 = shellInd[i+2];
-        const p1 = new BABYLON.Vector3(shellPos[i1*3], shellPos[i1*3+1], shellPos[i1*3+2]);
-        const p2 = new BABYLON.Vector3(shellPos[i2*3], shellPos[i2*3+1], shellPos[i2*3+2]);
-        const p3 = new BABYLON.Vector3(shellPos[i3*3], shellPos[i3*3+1], shellPos[i3*3+2]);
-        const centroid = p1.add(p2).add(p3).scale(1/3);
+        const i1 = shellInd[i],
+          i2 = shellInd[i + 1],
+          i3 = shellInd[i + 2];
+        const p1 = new BABYLON.Vector3(
+          shellPos[i1 * 3],
+          shellPos[i1 * 3 + 1],
+          shellPos[i1 * 3 + 2]
+        );
+        const p2 = new BABYLON.Vector3(
+          shellPos[i2 * 3],
+          shellPos[i2 * 3 + 1],
+          shellPos[i2 * 3 + 2]
+        );
+        const p3 = new BABYLON.Vector3(
+          shellPos[i3 * 3],
+          shellPos[i3 * 3 + 1],
+          shellPos[i3 * 3 + 2]
+        );
+        const centroid = p1
+          .add(p2)
+          .add(p3)
+          .scale(1 / 3);
         const outward = centroid.clone().normalize();
-        
+
         const customMesh = new BABYLON.Mesh("shard_" + i, scene);
         const vertexData = new BABYLON.VertexData();
         vertexData.positions = [
-          p1.x - centroid.x, p1.y - centroid.y, p1.z - centroid.z,
-          p2.x - centroid.x, p2.y - centroid.y, p2.z - centroid.z,
-          p3.x - centroid.x, p3.y - centroid.y, p3.z - centroid.z
+          p1.x - centroid.x,
+          p1.y - centroid.y,
+          p1.z - centroid.z,
+          p2.x - centroid.x,
+          p2.y - centroid.y,
+          p2.z - centroid.z,
+          p3.x - centroid.x,
+          p3.y - centroid.y,
+          p3.z - centroid.z
         ];
         vertexData.indices = [0, 1, 2];
-        
+
         vertexData.applyToMesh(customMesh);
         customMesh.convertToFlatShadedMesh();
 
@@ -97,7 +126,9 @@ export class WeaverShatterSystem implements ISystem {
         customMesh.position = pos.add(centroid).add(outward.scale(0.35));
         customMesh.material = activeMat;
 
-        const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
+        const speed =
+          config.VELOCITY_Y_MIN +
+          Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
         const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
         const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
         const vz = (Math.random() - 0.5) * 1.5;
@@ -119,8 +150,14 @@ export class WeaverShatterSystem implements ISystem {
 
     const coreRadius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS * 0.75;
     const directions = [
-      [-1, -1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1],
-      [-1, -1, 1],  [1, -1, 1],  [-1, 1, 1],  [1, 1, 1]
+      [-1, -1, -1],
+      [1, -1, -1],
+      [-1, 1, -1],
+      [1, 1, -1],
+      [-1, -1, 1],
+      [1, -1, 1],
+      [-1, 1, 1],
+      [1, 1, 1]
     ];
 
     for (let b = 0; b < directions.length; b++) {
@@ -133,7 +170,11 @@ export class WeaverShatterSystem implements ISystem {
       const v2 = new BABYLON.Vector3(0, dirY * coreRadius, 0);
       const v3 = new BABYLON.Vector3(0, 0, dirZ * coreRadius);
 
-      const centroid = v0.add(v1).add(v2).add(v3).scale(1 / 4);
+      const centroid = v0
+        .add(v1)
+        .add(v2)
+        .add(v3)
+        .scale(1 / 4);
       const outward = centroid.clone().normalize();
 
       const localV0 = v0.subtract(centroid);
@@ -142,10 +183,18 @@ export class WeaverShatterSystem implements ISystem {
       const localV3 = v3.subtract(centroid);
 
       const localPositions = [
-        localV0.x, localV0.y, localV0.z,
-        localV1.x, localV1.y, localV1.z,
-        localV2.x, localV2.y, localV2.z,
-        localV3.x, localV3.y, localV3.z
+        localV0.x,
+        localV0.y,
+        localV0.z,
+        localV1.x,
+        localV1.y,
+        localV1.z,
+        localV2.x,
+        localV2.y,
+        localV2.z,
+        localV3.x,
+        localV3.y,
+        localV3.z
       ];
 
       const vertices = [localV0, localV1, localV2, localV3];
@@ -157,7 +206,11 @@ export class WeaverShatterSystem implements ISystem {
       ];
 
       const localIndices: number[] = [];
-      const localCentroid = localV0.add(localV1).add(localV2).add(localV3).scale(1 / 4);
+      const localCentroid = localV0
+        .add(localV1)
+        .add(localV2)
+        .add(localV3)
+        .scale(1 / 4);
 
       for (let f = 0; f < faces.length; f++) {
         const idxA = faces[f][0];
@@ -166,14 +219,17 @@ export class WeaverShatterSystem implements ISystem {
         const a = vertices[idxA];
         const b = vertices[idxB];
         const c = vertices[idxC];
-        
+
         const ab = b.subtract(a);
         const ac = c.subtract(a);
         const faceNormal = BABYLON.Vector3.Cross(ab, ac).normalize();
-        
-        const faceCenter = a.add(b).add(c).scale(1 / 3);
+
+        const faceCenter = a
+          .add(b)
+          .add(c)
+          .scale(1 / 3);
         const toFace = faceCenter.subtract(localCentroid);
-        
+
         if (BABYLON.Vector3.Dot(faceNormal, toFace) < 0) {
           localIndices.push(idxA, idxC, idxB);
         } else {
@@ -208,7 +264,9 @@ export class WeaverShatterSystem implements ISystem {
         customMesh.receiveShadows = true;
       }
 
-      const speed = config.VELOCITY_Y_MIN + Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.8;
+      const speed =
+        config.VELOCITY_Y_MIN +
+        Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.8;
       const vx = outward.x * speed + (Math.random() - 0.5) * 5.0;
       const vy = outward.y * speed + (Math.random() - 0.5) * 5.0;
       const vz = (Math.random() - 0.5) * 1.5;
@@ -238,8 +296,8 @@ export class WeaverShatterSystem implements ISystem {
 
       if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
         if (d.body) {
-           if (d.body.shape) d.body.shape.dispose();
-           d.body.dispose();
+          if (d.body.shape) d.body.shape.dispose();
+          d.body.dispose();
         }
         d.mesh.dispose();
         this.activeDebrisList.splice(i, 1);
@@ -317,8 +375,8 @@ export class WeaverShatterSystem implements ISystem {
 
             const isPyramid1 = d.mesh.name.includes("core_shard");
             const isPyramid2 = d2.mesh.name.includes("core_shard");
-            const r1 = isPyramid1 ? 0.60 : 0.16;
-            const r2 = isPyramid2 ? 0.60 : 0.16;
+            const r1 = isPyramid1 ? 0.6 : 0.16;
+            const r2 = isPyramid2 ? 0.6 : 0.16;
             const minDist = r1 + r2;
 
             if (distSq < minDist * minDist) {
@@ -353,7 +411,10 @@ export class WeaverShatterSystem implements ISystem {
 
   private clearDebris(): void {
     for (const d of this.activeDebrisList) {
-      if (d.body) { if (d.body.shape) d.body.shape.dispose(); d.body.dispose(); }
+      if (d.body) {
+        if (d.body.shape) d.body.shape.dispose();
+        d.body.dispose();
+      }
       d.mesh.dispose();
     }
     this.activeDebrisList = [];

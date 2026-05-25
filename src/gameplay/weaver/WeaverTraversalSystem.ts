@@ -20,10 +20,18 @@ export class WeaverTraversalSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.weaver);
-    const trav = this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").get(this.context.refs.weaver);
-    const trans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.weaver);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.weaver);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.weaver);
+    const trav = this.context.stores
+      .get<WeaverTraversalComponent>("weaverTraversal")
+      .get(this.context.refs.weaver);
+    const trans = this.context.stores
+      .get<TransformComponent>("transform")
+      .get(this.context.refs.weaver);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.weaver);
     const ai = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
 
@@ -32,8 +40,12 @@ export class WeaverTraversalSystem implements ISystem {
     const isSweeping = !ai || ai.state === "SWEEPING";
     if (isSweeping) {
       let nextX = trans.x + vel.x * dt;
-      const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-      const sweepSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+      const isBerserk = health
+        ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+        : false;
+      const sweepSpeed = isBerserk
+        ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
+        : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
       if (nextX >= this.maxX) {
         nextX = this.maxX;
         vel.x = -sweepSpeed;
@@ -84,7 +96,14 @@ export class WeaverTraversalSystem implements ISystem {
     }
 
     if (trans) {
-      if (trans.scaleX === undefined || trans.scaleY === undefined || trans.scaleZ === undefined || trans.prevScaleX === undefined || trans.prevScaleY === undefined || trans.prevScaleZ === undefined) {
+      if (
+        trans.scaleX === undefined ||
+        trans.scaleY === undefined ||
+        trans.scaleZ === undefined ||
+        trans.prevScaleX === undefined ||
+        trans.prevScaleY === undefined ||
+        trans.prevScaleZ === undefined
+      ) {
         trans.scaleX = 1.0;
         trans.scaleY = 1.0;
         trans.scaleZ = 1.0;
@@ -104,12 +123,16 @@ export class WeaverTraversalSystem implements ISystem {
 
       if (ai) {
         if (ai.state === "SWEEPING") {
-          const pulse = Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) * WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
+          const pulse =
+            Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
           targetScaleX = 1.0 + pulse;
           targetScaleY = 1.0 - pulse;
 
           const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-          const yawAngle = Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
+          const yawAngle =
+            Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
           BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
         } else if (ai.state === "DASHING") {
           const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
@@ -120,7 +143,8 @@ export class WeaverTraversalSystem implements ISystem {
           } else {
             const stretch = Math.min(
               WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) * WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
+                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
             );
             targetScaleY = 1.0 + stretch;
             targetScaleX = 1.0 - stretch * 0.5;
@@ -150,7 +174,12 @@ export class WeaverTraversalSystem implements ISystem {
       trans.scaleZ = sz + (targetScaleZ - sz) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
 
       const currentQuat = new BABYLON.Quaternion(trans.qx, trans.qy, trans.qz, trans.qw);
-      BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt, currentQuat);
+      BABYLON.Quaternion.SlerpToRef(
+        currentQuat,
+        targetQuat,
+        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
+        currentQuat
+      );
       trans.qx = currentQuat.x;
       trans.qy = currentQuat.y;
       trans.qz = currentQuat.z;

@@ -25,7 +25,9 @@ export class WeaverDashingState implements IWeaverState {
   public enter(ctx: SystemContext): void {
     const healthStore = ctx.stores.get<HealthComponent>("health");
     const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    const isBerserk = health
+      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+      : false;
     this.dashCount = 0;
     this.maxDashes = isBerserk ? 3 : 2;
     this.startPrep(ctx);
@@ -36,7 +38,7 @@ export class WeaverDashingState implements IWeaverState {
   private startPrep(ctx: SystemContext): void {
     this.currentPhase = "PREP";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
-    
+
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
       aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
@@ -78,8 +80,11 @@ export class WeaverDashingState implements IWeaverState {
       const dx = this.targetPos.x - weaverTrans.x;
       const dy = this.targetPos.y - weaverTrans.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-      const speed = this.maxDashes === 3 ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
-      
+      const speed =
+        this.maxDashes === 3
+          ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK
+          : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
+
       this.thrustVelocity.x = (dx / dist) * speed;
       this.thrustVelocity.y = (dy / dist) * speed;
 
@@ -121,7 +126,10 @@ export class WeaverDashingState implements IWeaverState {
       const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
       const step = Math.floor(this.phaseTimer * strobeHz);
       if (aiComp) {
-        aiComp.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+        aiComp.hue =
+          step % 2 === 0
+            ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
+            : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       }
 
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
@@ -137,8 +145,10 @@ export class WeaverDashingState implements IWeaverState {
     } else if (this.currentPhase === "THRUST") {
       const traversalStore = ctx.stores.get<WeaverTraversalComponent>("weaverTraversal");
       const trav = traversalStore.get(ctx.refs.weaver);
-      const isGraceOver = this.phaseTimer < (WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME);
-      const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
+      const isGraceOver =
+        this.phaseTimer <
+        WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME;
+      const hitWallOrGround = isGraceOver && trav ? trav.isWallClinging || trav.isGrounded : false;
 
       if (this.phaseTimer <= 0 || hitWallOrGround) {
         this.startRecover(ctx);

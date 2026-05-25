@@ -30,29 +30,48 @@ export class PlayerKinematicsSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    this.context.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd: ApplyImpulseCommand) => {
-      if (cmd.entityId === this.context.refs.player) {
-        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
-        if (vel) {
-          vel.x += cmd.x;
-          vel.y += cmd.y;
+    this.context.commands.register<ApplyImpulseCommand>(
+      "APPLY_IMPULSE",
+      (cmd: ApplyImpulseCommand) => {
+        if (cmd.entityId === this.context.refs.player) {
+          const vel = this.context.stores
+            .get<KinematicVelocityComponent>("velocity")
+            .get(this.context.refs.player);
+          if (vel) {
+            vel.x += cmd.x;
+            vel.y += cmd.y;
+          }
         }
       }
-    });
+    );
   }
 
   public update(dt: number): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const wTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.weaver);
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const wTrans = this.context.stores
+      .get<TransformComponent>("transform")
+      .get(this.context.refs.weaver);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
+    const vel = this.context.stores
+      .get<KinematicVelocityComponent>("velocity")
+      .get(this.context.refs.player);
 
     if (!tether || !target || !trav || !wTrans || !input || !vel) return;
 
-    const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
-    const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+    const pHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.player);
+    const wHealth = this.context.stores
+      .get<HealthComponent>("health")
+      .get(this.context.refs.weaver);
 
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       vel.x = 0;
@@ -148,22 +167,33 @@ export class PlayerKinematicsSystem implements ISystem {
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
-      
+
       vel.x = 0;
       vel.y = -currentScrollSpeed;
       target.y = target.y + vel.y * dt;
 
       if (currentScrollSpeed > 0) {
         if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
+          tether.tension = Math.min(
+            CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT,
+            tether.tension + tuning.TENSION_CHARGE_RATE * dt
+          );
         } else {
-          const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-          tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+          const strainOverloadRate =
+            (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT -
+              CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) /
+            CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+          tether.tension = Math.min(
+            CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT,
+            tether.tension + strainOverloadRate * dt
+          );
         }
       }
 
       const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
-      tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
+      tether.maxLength =
+        this.BASE_TETHER_LENGTH +
+        Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
 
       if (input.jump) {
         this.triggerFling(vel, tether, target, trav);
@@ -193,22 +223,33 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.wallNormalY = 0;
 
         target.x = wallDir * this.WALL_LIMIT_X;
-        
+
         vel.x = 0;
         vel.y = -currentScrollSpeed;
         target.y = target.y + vel.y * dt;
 
         if (currentScrollSpeed > 0) {
           if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-            tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension + tuning.TENSION_CHARGE_RATE * dt);
+            tether.tension = Math.min(
+              CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT,
+              tether.tension + tuning.TENSION_CHARGE_RATE * dt
+            );
           } else {
-            const strainOverloadRate = (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT - CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) / CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-            tether.tension = Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension + strainOverloadRate * dt);
+            const strainOverloadRate =
+              (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT -
+                CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) /
+              CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
+            tether.tension = Math.min(
+              CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT,
+              tether.tension + strainOverloadRate * dt
+            );
           }
         }
 
         const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
-        tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
+        tether.maxLength =
+          this.BASE_TETHER_LENGTH +
+          Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
@@ -217,7 +258,10 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
-        tether.tension = Math.max(0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+        tether.tension = Math.max(
+          0,
+          tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt
+        );
       }
       return;
     }

@@ -49,10 +49,15 @@ export class ProjectileSystem implements ISystem {
     this.projMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
 
     const noisePlugin = new ProjectileNoisePlugin(this.projMat);
-    (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePlugin;
+    (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
+      noisePlugin;
 
     if (scene.isPhysicsEnabled()) {
-      this.sharedShape = new BABYLON.PhysicsShapeSphere(BABYLON.Vector3.Zero(), WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2, scene);
+      this.sharedShape = new BABYLON.PhysicsShapeSphere(
+        BABYLON.Vector3.Zero(),
+        WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2,
+        scene
+      );
       this.sharedShape.material = { friction: 0.1, restitution: 0.6 };
     }
 
@@ -71,7 +76,7 @@ export class ProjectileSystem implements ISystem {
         body = new BABYLON.PhysicsBody(sphere, BABYLON.PhysicsMotionType.ANIMATED, false, scene);
         body.shape = this.sharedShape;
         body.setMassProperties({ mass: 1.0 });
-        body.disablePreStep = false; 
+        body.disablePreStep = false;
       }
 
       this.projectilePool.push({
@@ -138,15 +143,21 @@ export class ProjectileSystem implements ISystem {
 
     this.noiseTime += dt;
     if (this.projMat) {
-      const noisePlugin = (this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePlugin = (
+        this.projMat as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+      )._noisePlugin;
       if (noisePlugin) {
         noisePlugin.time = this.noiseTime;
       }
     }
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
-    const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.AbstractMesh;
+    const pMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.player
+    ) as BABYLON.AbstractMesh;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
@@ -163,7 +174,11 @@ export class ProjectileSystem implements ISystem {
           p.isStuckOnWall = true;
           p.mesh.scaling.set(0.28, 1.45, 1.45);
           p.mesh.position.x = Math.sign(p.mesh.position.x) * wallLimit;
-          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: true });
+          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+            x: p.mesh.position.x,
+            y: p.mesh.position.y,
+            isWall: true
+          });
         }
 
         if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
@@ -175,8 +190,15 @@ export class ProjectileSystem implements ISystem {
               source: "PROJECTILE"
             });
 
-            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: p.mesh.position.x, y: p.mesh.position.y, isWall: false });
-            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP, duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR });
+            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: p.mesh.position.x,
+              y: p.mesh.position.y,
+              isWall: false
+            });
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+            });
             this.recycleProjectile(p);
             continue;
           }
@@ -202,7 +224,7 @@ export class ProjectileSystem implements ISystem {
     p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
     p.mesh.scaling.set(1.0, 1.0, 1.0);
-    p.fallbackVelocity.set(0,0,0);
+    p.fallbackVelocity.set(0, 0, 0);
     p.isStuck = false;
     p.isStuckOnWall = false;
     p.lifeTime = 0.0;
@@ -220,7 +242,7 @@ export class ProjectileSystem implements ISystem {
     if (this.unsubReset) this.unsubReset();
     this.clearAll();
     if (this.sharedShape) this.sharedShape.dispose();
-    this.projectilePool.forEach(p => {
+    this.projectilePool.forEach((p) => {
       if (p) {
         if (p.body) p.body.dispose();
         p.mesh.dispose();
