@@ -1,0 +1,1 @@
+import{S as e}from"./compositionRoot-CPlQvYmV.js";export{e as pbrPixelShaderWGSL};

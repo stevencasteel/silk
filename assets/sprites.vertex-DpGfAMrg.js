@@ -1,0 +1,1 @@
+import{a as e}from"./compositionRoot-CPlQvYmV.js";export{e as spritesVertexShaderWGSL};

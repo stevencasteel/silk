@@ -1,0 +1,1 @@
+import{p as e}from"./compositionRoot-CPlQvYmV.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

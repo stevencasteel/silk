@@ -1,0 +1,1 @@
+import{mt as e}from"./compositionRoot-CPlQvYmV.js";export{e as fluidRenderingParticleThicknessVertexShaderWGSL};
