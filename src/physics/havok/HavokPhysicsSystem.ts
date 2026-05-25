@@ -1,19 +1,17 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
-import { IReadablePhysics, PhysicsTransform } from "../../contracts/IPhysicsWorld";
 import {
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
-import { EntityId } from "../../core/ecs/Entity";
 import { SetKinematicVelocityCommand } from "../commands/PhysicsCommands";
 import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
 import * as BABYLON from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
 
-export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
+export class HavokPhysicsSystem implements ISystem {
   readonly phase = SystemPhase.PhysicsStep;
   readonly initPhase = InitPhase.Bootstrap;
   private havokPlugin: BABYLON.HavokPlugin | null = null;
@@ -156,27 +154,5 @@ export class HavokPhysicsSystem implements ISystem, IReadablePhysics {
       wTrans.y = wTarget.y;
       wTrans.z = wTarget.z;
     }
-  }
-
-  public getTransform(id: EntityId): PhysicsTransform | null {
-    const transforms = this.context.stores.get<TransformComponent>("transform");
-    const t = transforms.get(id);
-    return t ? { x: t.x, y: t.y, z: t.z, qx: t.qx, qy: t.qy, qz: t.qz, qw: t.qw } : null;
-  }
-
-  public getPreviousTransform(id: EntityId): PhysicsTransform | null {
-    const transforms = this.context.stores.get<TransformComponent>("transform");
-    const t = transforms.get(id);
-    return t
-      ? {
-          x: t.prevX,
-          y: t.prevY,
-          z: t.prevZ,
-          qx: t.prevQx,
-          qy: t.prevQy,
-          qz: t.prevQz,
-          qw: t.prevQw
-        }
-      : null;
   }
 }

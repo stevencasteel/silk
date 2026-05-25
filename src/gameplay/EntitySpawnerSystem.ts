@@ -1,4 +1,4 @@
-import { WarpMaterialPlugin } from "../visual/lighting/WarpMaterialPlugin";
+import { RasterShearPlugin } from "../visual/lighting/RasterShearPlugin";
 import { ISystem } from "../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
 import { EntityId } from "../core/ecs/Entity";
@@ -103,8 +103,8 @@ export class EntitySpawnerSystem implements ISystem {
     wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
     wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
     wMesh.material = wMat;
-    const warpPlugin = new WarpMaterialPlugin(wMat);
-    (wMat as BABYLON.PBRMaterial & { _warpPlugin?: WarpMaterialPlugin })._warpPlugin = warpPlugin;
+    const shearPlugin = new RasterShearPlugin(wMat);
+    (wMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin = shearPlugin;
     this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedWeaverShape) {

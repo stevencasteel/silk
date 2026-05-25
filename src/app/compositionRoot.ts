@@ -26,7 +26,7 @@ import { VisualRegistry } from "../visual/scene/VisualRegistry";
 import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
 import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
-import { DomHudSystem } from "../ui/hud/DomHudSystem";
+import { HudSyncSystem } from "../ui/hud/HudSyncSystem";
 import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/player/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/weaver/WeaverBrainSystem";
@@ -34,7 +34,7 @@ import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem"
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
-import { EnvironmentCollisionSystem } from "../gameplay/player/EnvironmentCollisionSystem";
+import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
@@ -123,7 +123,7 @@ export class CompositionRoot {
     
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
-    const environmentCollision = new EnvironmentCollisionSystem(context);
+    const environmentCollision = new VerticalBoundarySystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
     const interpolationSystem = new EntityInterpolationSystem(context);
@@ -140,7 +140,7 @@ export class CompositionRoot {
     const projectileSystem = new ProjectileSystem(context);
     const gameDirector = new GameDirectorSystem(context, spawner);
 
-    const hudSystem = new DomHudSystem(broker);
+    const hudSystem = new HudSyncSystem(broker);
     
     const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 

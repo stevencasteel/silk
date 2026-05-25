@@ -15,6 +15,11 @@ export const HudOverlay: React.FC = () => {
     overlaySubtitle,
     isPaused,
     bootStatus,
+    tetherTension,
+    weaverHp,
+    weaverMaxHp,
+    weaverState,
+    weaverHue,
   } = useHudStore(
     useShallow((state) => ({
       playerHp: state.playerHp,
@@ -28,6 +33,11 @@ export const HudOverlay: React.FC = () => {
       overlaySubtitle: state.overlaySubtitle,
       isPaused: state.isPaused,
       bootStatus: state.bootStatus,
+      tetherTension: state.tetherTension,
+      weaverHp: state.weaverHp,
+      weaverMaxHp: state.weaverMaxHp,
+      weaverState: state.weaverState,
+      weaverHue: state.weaverHue,
     }))
   );
 
@@ -40,6 +50,24 @@ export const HudOverlay: React.FC = () => {
   };
 
   const isBooting = bootStatus !== "READY";
+
+  const snapLimit = 1.3;
+  const clampedTension = Math.max(0, Math.min(snapLimit, tetherTension));
+  const displayTensionPercent = Math.round(clampedTension * 100);
+  const tensionScaleX = clampedTension / snapLimit;
+
+  let tensionBarColor = "rgb(16, 185, 129)";
+  let tensionTextColor = "rgb(244, 244, 245)";
+  if (clampedTension >= 1.0) {
+    tensionBarColor = "rgb(239, 68, 68)";
+    tensionTextColor = "rgb(239, 68, 68)";
+  } else if (clampedTension >= 0.75) {
+    tensionBarColor = "rgb(245, 158, 11)";
+    tensionTextColor = "rgb(245, 158, 11)";
+  }
+
+  const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
+  const weaverHpBarColor = weaverHp <= weaverMaxHp * 0.3 ? "rgb(245, 158, 11)" : "rgb(239, 68, 68)";
 
   return (
     <>
@@ -78,27 +106,25 @@ export const HudOverlay: React.FC = () => {
             <div className="hud-panel hud-right">
               <div className="hud-label-row">
                 <span className="hud-label">WEAVER CORE</span>
-                <span id="hud-weaver-text" className="hud-value text-zinc-400 font-bold">
-                  100/100
+                <span className="hud-value text-zinc-400 font-bold">
+                  {weaverHp}/{weaverMaxHp}
                 </span>
               </div>
               <div className="hud-bar-track">
                 <div
-                  id="hud-weaver-fill"
                   className="hud-bar-fill transition-transform duration-75"
                   style={{
-                    transform: "scaleX(1.0)",
+                    transform: `scaleX(${weaverHpRatio.toFixed(3)})`,
                     transformOrigin: "left",
-                    backgroundColor: "rgb(239, 68, 68)",
+                    backgroundColor: weaverHpBarColor,
                   }}
                 />
               </div>
               <span
-                id="hud-weaver-state-text"
                 className="hud-state-text font-bold text-xs tracking-wider transition-colors duration-150"
-                style={{ color: "rgb(239, 68, 68)" }}
+                style={{ color: weaverHue }}
               >
-                SWEEPING
+                {weaverState.toUpperCase()}
               </span>
             </div>
           </div>
@@ -116,18 +142,17 @@ export const HudOverlay: React.FC = () => {
             <div className="hud-panel hud-center">
               <div className="hud-label-row">
                 <span className="hud-label">TETHER TENSION</span>
-                <span id="hud-tension-text" className="hud-value font-bold">
-                  0%
+                <span className="hud-value font-bold" style={{ color: tensionTextColor }}>
+                  {displayTensionPercent}%
                 </span>
               </div>
               <div className="hud-bar-track">
                 <div
-                  id="hud-tension-fill"
                   className="hud-bar-fill transition-transform duration-75"
                   style={{
-                    transform: "scaleX(0.0)",
+                    transform: `scaleX(${tensionScaleX.toFixed(3)})`,
                     transformOrigin: "left",
-                    backgroundColor: "rgb(16, 185, 129)",
+                    backgroundColor: tensionBarColor,
                   }}
                 />
               </div>

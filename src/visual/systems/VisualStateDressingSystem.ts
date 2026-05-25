@@ -1,4 +1,4 @@
-import { WarpMaterialPlugin } from "../lighting/WarpMaterialPlugin";
+import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -70,10 +70,10 @@ export class VisualStateDressingSystem implements ISystem {
           cachedColor.b * emissive.WEAVER_EMISSIVE_SCALE
         );
 
-        const warpPlugin = (mat as BABYLON.PBRMaterial & { _warpPlugin?: WarpMaterialPlugin })._warpPlugin;
-        if (warpPlugin) {
-          warpPlugin.warpIntensity = wAI.damageWarpIntensity;
-          warpPlugin.warpTime = wAI.damageWarpTime;
+        const shearPlugin = (mat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin;
+        if (shearPlugin) {
+          shearPlugin.shearIntensity = wAI.damageWarpIntensity;
+          shearPlugin.shearTime = wAI.damageWarpTime;
         }
       }
     }

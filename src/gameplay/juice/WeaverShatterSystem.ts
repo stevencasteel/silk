@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveDebris {
@@ -164,7 +164,7 @@ export class WeaverShatterSystem implements ISystem {
         const idxB = faces[f][1];
         const idxC = faces[f][2];
         const a = vertices[idxA];
-        const b = Math.random() > -1 ? vertices[idxB] : vertices[idxA];
+        const b = vertices[idxB];
         const c = vertices[idxC];
         
         const ab = b.subtract(a);
@@ -263,7 +263,7 @@ export class WeaverShatterSystem implements ISystem {
         }
 
         if (!d.body) {
-          d.velocity.y += -24.0 * dt * 1.6;
+          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
 
           const debrisDrag = Math.pow(0.95, dt * 60.0);
           d.velocity.x *= debrisDrag;
