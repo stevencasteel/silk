@@ -126,15 +126,7 @@ export class CompositionRoot {
     );
     
     const playerKinematics = new PlayerKinematicsSystem(context);
-
-    const playerAnimation = new PlayerAnimationSystem(
-      refs,
-      transforms,
-      tethers,
-      traversal,
-      targets
-    );
-
+    const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new EnvironmentCollisionSystem(context);
 
     const interpolationSystem = new RenderInterpolationSystem(
@@ -147,29 +139,12 @@ export class CompositionRoot {
       broker
     );
 
-    const dressingSystem = new VisualStateDressingSystem(
-      refs,
-      tethers,
-      traversal,
-      visualRegistry,
-      weaverAIs
-    );
-
+    const dressingSystem = new VisualStateDressingSystem(context);
     const inputSystem = new PlayerInputSystem(refs, inputs, healths);
-    
     const spawner = new EntitySpawnerSystem(context);
 
     const weaverBrain = new WeaverBrainSystem(context);
-
-    const weaverTraversalSystem = new WeaverTraversalSystem(
-      refs,
-      velocities,
-      weaverTraversal,
-      transforms,
-      targets,
-      weaverAIs,
-      healths
-    );
+    const weaverTraversalSystem = new WeaverTraversalSystem(context);
 
     const combatSystem = new CombatSystem(context);
     const healthSystem = new HealthSystem(context);

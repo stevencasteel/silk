@@ -1,1 +1,0 @@
-import{_r as e}from"./compositionRoot-YW7xoxWA.js";export{e as defaultVertexShader};

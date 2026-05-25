@@ -1,0 +1,1 @@
+import{Mt as e}from"./compositionRoot-qUsucrLR.js";export{e as colorVertexShaderWGSL};

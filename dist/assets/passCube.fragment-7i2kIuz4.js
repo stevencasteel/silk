@@ -1,0 +1,1 @@
+import{pn as e}from"./compositionRoot-qUsucrLR.js";export{e as passCubePixelShader};

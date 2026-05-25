@@ -2,21 +2,19 @@ import { WarpMaterialPlugin } from "../lighting/WarpMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TetherComponent,
   TraversalStateComponent,
   WeaverAIComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
 import * as BABYLON from "@babylonjs/core";
 
 export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
   public update(dt: number): void {
-    const wAI = this.weaverAIs.get(this.refs.weaver);
+    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     if (wAI) {
       wAI.damageWarpTime += dt;
       if (wAI.damageWarpIntensity > 0.0) {
@@ -30,25 +28,19 @@ export class VisualStateDressingSystem implements ISystem {
   private currentEmissiveB = 0.05;
   private colorCache = new Map<string, BABYLON.Color3>();
 
-  constructor(
-    private refs: EntityRefs,
-    private tethers: ComponentStore<TetherComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private visualRegistry: IVisualRegistry,
-    private weaverAIs: ComponentStore<WeaverAIComponent>
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public render(): void {
     this.updateAestheticDressing();
   }
 
   private updateAestheticDressing(): void {
-    const tether = this.tethers.get(this.refs.player);
-    const trav = this.traversal.get(this.refs.player);
-    const wAI = this.weaverAIs.get(this.refs.weaver);
+    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
+    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
-    const pNode = this.visualRegistry.getTransformNode(this.refs.player);
+    const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
     if (pNode && tether && trav) {
       const mesh = pNode as BABYLON.AbstractMesh;
       const mat = mesh.material as BABYLON.PBRMaterial | null;
@@ -57,7 +49,7 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    const wNode = this.visualRegistry.getTransformNode(this.refs.weaver);
+    const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
     if (wNode && wAI) {
       const mesh = wNode as BABYLON.AbstractMesh;
       const mat = mesh.material as BABYLON.PBRMaterial | null;

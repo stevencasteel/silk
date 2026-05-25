@@ -1,6 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { SystemContext } from "../../core/engine/SystemContext";
 import {
   KinematicVelocityComponent,
   WeaverTraversalComponent,
@@ -9,7 +9,6 @@ import {
   WeaverAIComponent,
   HealthComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
@@ -18,23 +17,15 @@ export class WeaverTraversalSystem implements ISystem {
   private minX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MIN_X;
   private maxX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MAX_X;
 
-  constructor(
-    private refs: EntityRefs,
-    private velocities: ComponentStore<KinematicVelocityComponent>,
-    private traversal: ComponentStore<WeaverTraversalComponent>,
-    private transforms: ComponentStore<TransformComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>,
-    private aiStore: ComponentStore<WeaverAIComponent>,
-    private healths: ComponentStore<HealthComponent>
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const vel = this.velocities.get(this.refs.weaver);
-    const trav = this.traversal.get(this.refs.weaver);
-    const trans = this.transforms.get(this.refs.weaver);
-    const target = this.targets.get(this.refs.weaver);
-    const ai = this.aiStore.get(this.refs.weaver);
-    const health = this.healths.get(this.refs.weaver);
+    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.weaver);
+    const trav = this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").get(this.context.refs.weaver);
+    const trans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.weaver);
+    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.weaver);
+    const ai = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
 
     if (!vel || !trav || !trans || !target) return;
 

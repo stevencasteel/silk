@@ -1,32 +1,25 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
+import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TransformComponent,
   TetherComponent,
   TraversalStateComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
-  constructor(
-    private refs: EntityRefs,
-    private transforms: ComponentStore<TransformComponent>,
-    private tethers: ComponentStore<TetherComponent>,
-    private traversal: ComponentStore<TraversalStateComponent>,
-    private targets: ComponentStore<KinematicTargetComponent>
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const pTrans = this.transforms.get(this.refs.player);
-    const tether = this.tethers.get(this.refs.player);
-    const trav = this.traversal.get(this.refs.player);
-    const target = this.targets.get(this.refs.player);
+    const pTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.player);
+    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
+    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
 
     if (!pTrans || !tether || !trav || !target) return;
 
