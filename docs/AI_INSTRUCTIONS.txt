@@ -103,11 +103,14 @@
      causing terminal lockup or truncation.
 
 2.9  Strict TypeScript Constraints
-     Always comply with strict compiler rules (such as 'noUnusedLocals' and 'noUnusedParameters') 
-     by stripping unused variables, constants, or imports. When modifying or expanding strongly 
-     typed configurations, nested structures, or read-only literals (e.g., 'as const'), verify 
-     that all symmetrically accessed keys exist across all related record types or union branches 
-     to prevent compile-time property errors (TS2339).
+     Always comply with strict compiler rules (such as 'noUnusedLocals', 'noUnusedParameters',
+     and '@typescript-eslint/no-explicit-any') by stripping unused variables, constants, or imports,
+     and completely avoiding explicit 'any' type declarations. If a general or dynamically resolved
+     type is required, store references as 'unknown' and perform type assertions, narrow type guards,
+     or implement clean generic abstractions to ensure type-safe interfaces. When modifying or expanding
+     strongly typed configurations, nested structures, or read-only literals (e.g., 'as const'), verify
+     that all symmetrically accessed keys exist across all related record types or union branches to
+     prevent compile-time property errors (TS2339).
 
 
 3. REMOTE INSPECTION & EDITING TECHNIQUES

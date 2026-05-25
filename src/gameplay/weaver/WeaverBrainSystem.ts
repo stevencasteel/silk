@@ -1,18 +1,10 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
-import {
-  WeaverAIComponent,
-  TransformComponent,
-  WeaverTraversalComponent,
-  HealthComponent
-} from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { EventBroker } from "../../core/events/EventBroker";
+import { WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
-import { CommandBus } from "../../core/commands/CommandBus";
-import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
+import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { SystemContext } from "../../core/engine/SystemContext";
 import {
   WeaverSweepingState,
   WeaverDashingState,
@@ -24,20 +16,11 @@ export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   private states = new Map<WeaverStateType, IWeaverState>();
   private activeState: IWeaverState | null = null;
-  private contextCache: AIContext | null = null;
   private unsubDamage: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
-  constructor(
-    private refs: EntityRefs,
-    private ai: ComponentStore<WeaverAIComponent>,
-    private transforms: ComponentStore<TransformComponent>,
-    private weaverTraversal: ComponentStore<WeaverTraversalComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private broker: EventBroker,
-    private commands: CommandBus
-  ) {
+  constructor(private context: SystemContext) {
     this.states.set("SWEEPING", new WeaverSweepingState());
     this.states.set("DASHING", new WeaverDashingState());
     this.states.set("RETURNING", new WeaverReturningState());
@@ -47,13 +30,14 @@ export class WeaverBrainSystem implements ISystem {
   public init(): void {
     this.resetBrain();
 
-    this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
+    this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
       this.resetBrain();
     });
 
-    this.unsubDamage = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.ai.get(this.refs.weaver);
-      const health = this.healths.get(this.refs.weaver);
+    this.unsubDamage = this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+      const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+      const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+      
       if (aiComp && health) {
         aiComp.damageWarpIntensity = 1.0;
         aiComp.damageWarpTime = 0.0;
@@ -67,7 +51,7 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   private resetBrain(): void {
-    const aiComp = this.ai.get(this.refs.weaver);
+    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     if (aiComp) {
       const startState = "SWEEPING" as WeaverStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
@@ -77,58 +61,47 @@ export class WeaverBrainSystem implements ISystem {
       aiComp.timeInState = 0;
 
       this.activeState = stateObj;
-
-      this.contextCache = {
-        weaverId: this.refs.weaver,
-        playerId: this.refs.player,
-        ai: aiComp,
-        transforms: this.transforms,
-        weaverTraversal: this.weaverTraversal,
-        healths: this.healths,
-        commands: this.commands,
-        broker: this.broker
-      };
-
-      this.activeState.enter(this.contextCache);
+      this.activeState.enter(this.context);
       this.publishStateChangeEvent(stateObj.name, stateObj.hue);
     }
     this.pendingTransition = null;
   }
 
   private publishStateChangeEvent(name: string, hue: string): void {
-    const health = this.healths.get(this.refs.weaver);
+    const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
     const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     let finalName = name;
+    
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
     }
-    this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
+    this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: finalName,
       hue: hue
     });
   }
 
   private transitionTo(nextStateKey: WeaverStateType): void {
-    const aiComp = this.ai.get(this.refs.weaver);
-    if (!aiComp || !this.contextCache || !this.activeState) return;
+    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    if (!aiComp || !this.activeState) return;
 
     const nextStateObj = this.states.get(nextStateKey);
     if (nextStateObj && nextStateKey !== this.activeState.type) {
-      this.activeState.exit(this.contextCache);
+      this.activeState.exit(this.context);
 
       aiComp.state = nextStateObj.type;
       aiComp.hue = nextStateObj.hue;
       aiComp.timeInState = 0;
 
       this.activeState = nextStateObj;
-      this.activeState.enter(this.contextCache);
+      this.activeState.enter(this.context);
 
       this.publishStateChangeEvent(nextStateObj.name, nextStateObj.hue);
     }
   }
 
   public update(dt: number): void {
-    const aiComp = this.ai.get(this.refs.weaver);
+    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
     if (this.pendingTransition !== null) {
@@ -136,11 +109,11 @@ export class WeaverBrainSystem implements ISystem {
       this.pendingTransition = null;
     }
 
-    const pHealth = this.healths.get(this.refs.player);
+    const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
     if (pHealth && pHealth.current <= 0) {
-      this.commands.dispatch({
+      this.context.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: this.refs.weaver,
+        entityId: this.context.refs.weaver,
         x: 0,
         y: 0,
         z: 0
@@ -148,20 +121,7 @@ export class WeaverBrainSystem implements ISystem {
       return;
     }
 
-    if (!this.contextCache) {
-      this.contextCache = {
-        weaverId: this.refs.weaver,
-        playerId: this.refs.player,
-        ai: aiComp,
-        transforms: this.transforms,
-        weaverTraversal: this.weaverTraversal,
-        healths: this.healths,
-        commands: this.commands,
-        broker: this.broker
-      };
-    }
-
-    const nextStateKey = this.activeState.update(this.contextCache, dt);
+    const nextStateKey = this.activeState.update(this.context, dt);
 
     if (nextStateKey && nextStateKey !== this.activeState.type) {
       this.transitionTo(nextStateKey);

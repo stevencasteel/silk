@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/24/2026, 10:44:21 PM
+ [SYSTEM] Generated: 5/25/2026, 11:33:55 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -50,10 +50,12 @@
 │   │   │   ├── ComponentStore.ts
 │   │   │   ├── EcsWorld.ts
 │   │   │   ├── Entity.ts
-│   │   │   └── EntityRefs.ts
+│   │   │   ├── EntityRefs.ts
+│   │   │   └── StoreContainer.ts
 │   │   ├── engine/
 │   │   │   ├── ArenaConfig.ts
-│   │   │   └── Engine.ts
+│   │   │   ├── Engine.ts
+│   │   │   └── SystemContext.ts
 │   │   ├── events/
 │   │   │   ├── EventBroker.ts
 │   │   │   └── GameEvents.ts
@@ -817,6 +819,8 @@ import { CommandBus } from "../core/commands/CommandBus";
 import { EcsWorld } from "../core/ecs/EcsWorld";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
+import { StoreContainer } from "../core/ecs/StoreContainer";
+import { SystemContext } from "../core/engine/SystemContext";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -893,7 +897,31 @@ export class CompositionRoot {
     world.registerStore(playerTags);
     world.registerStore(weaverTags);
 
+    const storeContainer = new StoreContainer();
+    storeContainer.register("transform", transforms);
+    storeContainer.register("velocity", velocities);
+    storeContainer.register("target", targets);
+    storeContainer.register("tether", tethers);
+    storeContainer.register("health", healths);
+    storeContainer.register("input", inputs);
+    storeContainer.register("weaverAI", weaverAIs);
+    storeContainer.register("traversal", traversal);
+    storeContainer.register("iframe", iframes);
+    storeContainer.register("weaverTraversal", weaverTraversal);
+    storeContainer.register("playerTag", playerTags);
+    storeContainer.register("weaverTag", weaverTags);
+
     const visualRegistry = new VisualRegistry();
+    
+    const context = new SystemContext(
+      world,
+      broker,
+      commands,
+      refs,
+      visualRegistry,
+      storeContainer
+    );
+
     const renderSystem = new RenderSystem(canvas, visualRegistry);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
     const lightingSystem = new LightingSystem(broker, visualRegistry);
@@ -978,15 +1006,7 @@ export class CompositionRoot {
       weaverTraversal
     );
 
-    const weaverBrain = new WeaverBrainSystem(
-      refs,
-      weaverAIs,
-      transforms,
-      weaverTraversal,
-      healths,
-      broker,
-      commands
-    );
+    const weaverBrain = new WeaverBrainSystem(context);
 
     const weaverTraversalSystem = new WeaverTraversalSystem(
       refs,
@@ -2038,6 +2058,28 @@ export class EntityRefs {
 
 
 
+● ./src/core/ecs/StoreContainer.ts
+────────────────────────────────────────────────────
+import { ComponentStore } from "./ComponentStore";
+
+export class StoreContainer {
+  private stores = new Map<string, unknown>();
+
+  public register<T>(key: string, store: ComponentStore<T>): void {
+    this.stores.set(key, store);
+  }
+
+  public get<T>(key: string): ComponentStore<T> {
+    const store = this.stores.get(key);
+    if (!store) {
+      throw new Error(`Store Container: ComponentStore for key "${key}" is not registered.`);
+    }
+    return store as ComponentStore<T>;
+  }
+}
+
+
+
 ● ./src/core/engine/ArenaConfig.ts
 ────────────────────────────────────────────────────
 export const CANONICAL_UNITS = {
@@ -2509,6 +2551,28 @@ export class Engine {
     if (this.isPaused) return;
     this.systemManager.renderAll(alpha);
   }
+}
+
+
+
+● ./src/core/engine/SystemContext.ts
+────────────────────────────────────────────────────
+import { EcsWorld } from "../ecs/EcsWorld";
+import { EventBroker } from "../events/EventBroker";
+import { CommandBus } from "../commands/CommandBus";
+import { EntityRefs } from "../ecs/EntityRefs";
+import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { StoreContainer } from "../ecs/StoreContainer";
+
+export class SystemContext {
+  constructor(
+    public readonly world: EcsWorld,
+    public readonly broker: EventBroker,
+    public readonly commands: CommandBus,
+    public readonly refs: EntityRefs,
+    public readonly visualRegistry: IVisualRegistry,
+    public readonly stores: StoreContainer
+  ) {}
 }
 
 
@@ -5120,37 +5184,17 @@ export class PlayerKinematicsSystem implements ISystem {
 
 ● ./src/gameplay/weaver/IWeaverState.ts
 ────────────────────────────────────────────────────
-import { ComponentStore } from "../../core/ecs/ComponentStore";
-import {
-  WeaverAIComponent,
-  TransformComponent,
-  WeaverTraversalComponent,
-  HealthComponent
-} from "../../core/ecs/Components";
-import { EventBroker } from "../../core/events/EventBroker";
-import { CommandBus } from "../../core/commands/CommandBus";
-import { EntityId } from "../../core/ecs/Entity";
+import { SystemContext } from "../../core/engine/SystemContext";
 
 export type WeaverStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
-
-export interface AIContext {
-  weaverId: EntityId;
-  playerId: EntityId;
-  ai: WeaverAIComponent;
-  transforms: ComponentStore<TransformComponent>;
-  weaverTraversal: ComponentStore<WeaverTraversalComponent>;
-  healths: ComponentStore<HealthComponent>;
-  commands: CommandBus;
-  broker: EventBroker;
-}
 
 export interface IWeaverState {
   readonly type: WeaverStateType;
   readonly name: string;
   readonly hue: string;
-  enter(ctx: AIContext): void;
-  exit(ctx: AIContext): void;
-  update(ctx: AIContext, dt: number): WeaverStateType | null;
+  enter(ctx: SystemContext): void;
+  exit(ctx: SystemContext): void;
+  update(ctx: SystemContext, dt: number): WeaverStateType | null;
 }
 
 
@@ -5159,19 +5203,11 @@ export interface IWeaverState {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { ComponentStore } from "../../core/ecs/ComponentStore";
-import {
-  WeaverAIComponent,
-  TransformComponent,
-  WeaverTraversalComponent,
-  HealthComponent
-} from "../../core/ecs/Components";
-import { EntityRefs } from "../../core/ecs/EntityRefs";
-import { EventBroker } from "../../core/events/EventBroker";
+import { WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
-import { CommandBus } from "../../core/commands/CommandBus";
-import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
+import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { SystemContext } from "../../core/engine/SystemContext";
 import {
   WeaverSweepingState,
   WeaverDashingState,
@@ -5183,20 +5219,11 @@ export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   private states = new Map<WeaverStateType, IWeaverState>();
   private activeState: IWeaverState | null = null;
-  private contextCache: AIContext | null = null;
   private unsubDamage: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
-  constructor(
-    private refs: EntityRefs,
-    private ai: ComponentStore<WeaverAIComponent>,
-    private transforms: ComponentStore<TransformComponent>,
-    private weaverTraversal: ComponentStore<WeaverTraversalComponent>,
-    private healths: ComponentStore<HealthComponent>,
-    private broker: EventBroker,
-    private commands: CommandBus
-  ) {
+  constructor(private context: SystemContext) {
     this.states.set("SWEEPING", new WeaverSweepingState());
     this.states.set("DASHING", new WeaverDashingState());
     this.states.set("RETURNING", new WeaverReturningState());
@@ -5206,13 +5233,14 @@ export class WeaverBrainSystem implements ISystem {
   public init(): void {
     this.resetBrain();
 
-    this.unsubReset = this.broker.subscribe(GameEvent.GAME_RESET, () => {
+    this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
       this.resetBrain();
     });
 
-    this.unsubDamage = this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.ai.get(this.refs.weaver);
-      const health = this.healths.get(this.refs.weaver);
+    this.unsubDamage = this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+      const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+      const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+      
       if (aiComp && health) {
         aiComp.damageWarpIntensity = 1.0;
         aiComp.damageWarpTime = 0.0;
@@ -5226,7 +5254,7 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   private resetBrain(): void {
-    const aiComp = this.ai.get(this.refs.weaver);
+    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     if (aiComp) {
       const startState = "SWEEPING" as WeaverStateType;
       const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
@@ -5236,58 +5264,47 @@ export class WeaverBrainSystem implements ISystem {
       aiComp.timeInState = 0;
 
       this.activeState = stateObj;
-
-      this.contextCache = {
-        weaverId: this.refs.weaver,
-        playerId: this.refs.player,
-        ai: aiComp,
-        transforms: this.transforms,
-        weaverTraversal: this.weaverTraversal,
-        healths: this.healths,
-        commands: this.commands,
-        broker: this.broker
-      };
-
-      this.activeState.enter(this.contextCache);
+      this.activeState.enter(this.context);
       this.publishStateChangeEvent(stateObj.name, stateObj.hue);
     }
     this.pendingTransition = null;
   }
 
   private publishStateChangeEvent(name: string, hue: string): void {
-    const health = this.healths.get(this.refs.weaver);
+    const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
     const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     let finalName = name;
+    
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
     }
-    this.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
+    this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: finalName,
       hue: hue
     });
   }
 
   private transitionTo(nextStateKey: WeaverStateType): void {
-    const aiComp = this.ai.get(this.refs.weaver);
-    if (!aiComp || !this.contextCache || !this.activeState) return;
+    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    if (!aiComp || !this.activeState) return;
 
     const nextStateObj = this.states.get(nextStateKey);
     if (nextStateObj && nextStateKey !== this.activeState.type) {
-      this.activeState.exit(this.contextCache);
+      this.activeState.exit(this.context);
 
       aiComp.state = nextStateObj.type;
       aiComp.hue = nextStateObj.hue;
       aiComp.timeInState = 0;
 
       this.activeState = nextStateObj;
-      this.activeState.enter(this.contextCache);
+      this.activeState.enter(this.context);
 
       this.publishStateChangeEvent(nextStateObj.name, nextStateObj.hue);
     }
   }
 
   public update(dt: number): void {
-    const aiComp = this.ai.get(this.refs.weaver);
+    const aiComp = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
     if (this.pendingTransition !== null) {
@@ -5295,11 +5312,11 @@ export class WeaverBrainSystem implements ISystem {
       this.pendingTransition = null;
     }
 
-    const pHealth = this.healths.get(this.refs.player);
+    const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
     if (pHealth && pHealth.current <= 0) {
-      this.commands.dispatch({
+      this.context.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: this.refs.weaver,
+        entityId: this.context.refs.weaver,
         x: 0,
         y: 0,
         z: 0
@@ -5307,20 +5324,7 @@ export class WeaverBrainSystem implements ISystem {
       return;
     }
 
-    if (!this.contextCache) {
-      this.contextCache = {
-        weaverId: this.refs.weaver,
-        playerId: this.refs.player,
-        ai: aiComp,
-        transforms: this.transforms,
-        weaverTraversal: this.weaverTraversal,
-        healths: this.healths,
-        commands: this.commands,
-        broker: this.broker
-      };
-    }
-
-    const nextStateKey = this.activeState.update(this.contextCache, dt);
+    const nextStateKey = this.activeState.update(this.context, dt);
 
     if (nextStateKey && nextStateKey !== this.activeState.type) {
       this.transitionTo(nextStateKey);
@@ -5337,9 +5341,16 @@ export class WeaverBrainSystem implements ISystem {
 
 ● ./src/gameplay/weaver/WeaverStates.ts
 ────────────────────────────────────────────────────
-import { IWeaverState, AIContext, WeaverStateType } from "./IWeaverState";
+import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { GameEvent } from "../../core/events/GameEvents";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { SystemContext } from "../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  HealthComponent,
+  WeaverTraversalComponent,
+  WeaverAIComponent
+} from "../../core/ecs/Components";
 
 const HASH = String.fromCharCode(35);
 
@@ -5350,17 +5361,24 @@ export class WeaverSweepingState implements IWeaverState {
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 
-  public enter(ctx: AIContext): void {
+  public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
     this.hasTelegraphed = false;
-    ctx.ai.timeInState = 0;
-    ctx.ai.hue = this.hue;
-    const health = ctx.healths.get(ctx.weaverId);
+    
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore.get(ctx.refs.weaver);
     const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     const patrolSpeed = isBerserk ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
+      entityId: ctx.refs.weaver,
       x: patrolSpeed,
       y: 0,
       z: 0
@@ -5369,21 +5387,34 @@ export class WeaverSweepingState implements IWeaverState {
 
   public exit(): void {}
 
-  public update(ctx: AIContext, dt: number): WeaverStateType | null {
-    ctx.ai.timeInState += dt;
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState += dt;
+    }
+
     this.shootTimer += dt;
     const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
+
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
-      ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+      if (aiComp) {
+        aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+      }
       ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
     }
+
     if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
       this.shootTimer = 0.0;
       this.hasTelegraphed = false;
-      ctx.ai.hue = this.hue;
-      const playerTrans = ctx.transforms.get(ctx.playerId);
-      const wTrans = ctx.transforms.get(ctx.weaverId);
+      if (aiComp) {
+        aiComp.hue = this.hue;
+      }
+
+      const transforms = ctx.stores.get<TransformComponent>("transform");
+      const playerTrans = transforms.get(ctx.refs.player);
+      const wTrans = transforms.get(ctx.refs.weaver);
+
       if (playerTrans && wTrans) {
         ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
           x: wTrans.x,
@@ -5408,8 +5439,9 @@ export class WeaverDashingState implements IWeaverState {
   private targetPos = { x: 0, y: 0 };
   private thrustVelocity = { x: 0, y: 0 };
 
-  public enter(ctx: AIContext): void {
-    const health = ctx.healths.get(ctx.weaverId);
+  public enter(ctx: SystemContext): void {
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore.get(ctx.refs.weaver);
     const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
     this.dashCount = 0;
     this.maxDashes = isBerserk ? 3 : 2;
@@ -5418,18 +5450,26 @@ export class WeaverDashingState implements IWeaverState {
 
   public exit(): void {}
 
-  private startPrep(ctx: AIContext): void {
+  private startPrep(ctx: SystemContext): void {
     this.currentPhase = "PREP";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
-    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+    
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+    }
+
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
+      entityId: ctx.refs.weaver,
       x: 0,
       y: 0,
       z: 0
     });
-    const playerTrans = ctx.transforms.get(ctx.playerId);
+
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const playerTrans = transforms.get(ctx.refs.player);
+
     if (playerTrans) {
       this.targetPos.x = playerTrans.x;
       this.targetPos.y = playerTrans.y;
@@ -5439,21 +5479,30 @@ export class WeaverDashingState implements IWeaverState {
     }
   }
 
-  private startThrust(ctx: AIContext): void {
+  private startThrust(ctx: SystemContext): void {
     this.currentPhase = "THRUST";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.THRUST_TIME;
-    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
-    const weaverTrans = ctx.transforms.get(ctx.weaverId);
+
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
+    }
+
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const weaverTrans = transforms.get(ctx.refs.weaver);
+
     if (weaverTrans) {
       const dx = this.targetPos.x - weaverTrans.x;
       const dy = this.targetPos.y - weaverTrans.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
       const speed = this.maxDashes === 3 ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
+      
       this.thrustVelocity.x = (dx / dist) * speed;
       this.thrustVelocity.y = (dy / dist) * speed;
+
       ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.weaverId,
+        entityId: ctx.refs.weaver,
         x: this.thrustVelocity.x,
         y: this.thrustVelocity.y,
         z: 0
@@ -5461,39 +5510,53 @@ export class WeaverDashingState implements IWeaverState {
     }
   }
 
-  private startRecover(ctx: AIContext): void {
+  private startRecover(ctx: SystemContext): void {
     this.currentPhase = "RECOVER";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.RECOVER_TIME;
-    ctx.ai.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
+
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
+    }
+
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
+      entityId: ctx.refs.weaver,
       x: 0,
       y: 0,
       z: 0
     });
+
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
   }
 
-  public update(ctx: AIContext, dt: number): WeaverStateType | null {
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
     this.phaseTimer -= dt;
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+
     if (this.currentPhase === "PREP") {
-      const StrobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
-      const step = Math.floor(this.phaseTimer * StrobeHz);
-      ctx.ai.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+      const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
+      const step = Math.floor(this.phaseTimer * strobeHz);
+      if (aiComp) {
+        aiComp.hue = step % 2 === 0 ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+      }
+
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
         ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP,
           duration: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR
         });
       }
+
       if (this.phaseTimer <= 0) {
         this.startThrust(ctx);
       }
     } else if (this.currentPhase === "THRUST") {
-      const trav = ctx.weaverTraversal.get(ctx.weaverId);
+      const traversalStore = ctx.stores.get<WeaverTraversalComponent>("weaverTraversal");
+      const trav = traversalStore.get(ctx.refs.weaver);
       const isGraceOver = this.phaseTimer < (WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME);
       const hitWallOrGround = isGraceOver && trav ? (trav.isWallClinging || trav.isGrounded) : false;
+
       if (this.phaseTimer <= 0 || hitWallOrGround) {
         this.startRecover(ctx);
       }
@@ -5516,26 +5579,36 @@ export class WeaverReturningState implements IWeaverState {
   public readonly name = "RETURNING TO CEILING";
   public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
 
-  public enter(ctx: AIContext): void {
-    ctx.ai.timeInState = 0;
-    ctx.ai.hue = this.hue;
+  public enter(ctx: SystemContext): void {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
   }
 
   public exit(): void {}
 
-  public update(ctx: AIContext, dt: number): WeaverStateType | null {
-    ctx.ai.timeInState += dt;
-    const wTrans = ctx.transforms.get(ctx.weaverId);
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState += dt;
+    }
+
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const wTrans = transforms.get(ctx.refs.weaver);
+
     if (wTrans) {
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
       if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {
         return "SWEEPING";
       }
+
       const speed = WEAVER_AI_TUNING.RETURN.SPEED;
       ctx.commands.dispatch({
         type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.weaverId,
+        entityId: ctx.refs.weaver,
         x: 0,
         y: speed,
         z: 0
@@ -5550,18 +5623,22 @@ export class WeaverDefeatedState implements IWeaverState {
   public readonly name = "WEAVER DEFEATED";
   public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
 
-  public enter(ctx: AIContext): void {
-    ctx.ai.timeInState = 0;
-    ctx.ai.hue = this.hue;
+  public enter(ctx: SystemContext): void {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+
     ctx.commands.dispatch({
       type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.weaverId,
+      entityId: ctx.refs.weaver,
       x: 0,
       y: 0,
       z: 0
     });
+
     ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
-    // Shake handled by GameDirectorSystem
   }
 
   public exit(): void {}

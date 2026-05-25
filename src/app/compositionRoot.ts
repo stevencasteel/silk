@@ -5,6 +5,8 @@ import { CommandBus } from "../core/commands/CommandBus";
 import { EcsWorld } from "../core/ecs/EcsWorld";
 import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
+import { StoreContainer } from "../core/ecs/StoreContainer";
+import { SystemContext } from "../core/engine/SystemContext";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -81,7 +83,31 @@ export class CompositionRoot {
     world.registerStore(playerTags);
     world.registerStore(weaverTags);
 
+    const storeContainer = new StoreContainer();
+    storeContainer.register("transform", transforms);
+    storeContainer.register("velocity", velocities);
+    storeContainer.register("target", targets);
+    storeContainer.register("tether", tethers);
+    storeContainer.register("health", healths);
+    storeContainer.register("input", inputs);
+    storeContainer.register("weaverAI", weaverAIs);
+    storeContainer.register("traversal", traversal);
+    storeContainer.register("iframe", iframes);
+    storeContainer.register("weaverTraversal", weaverTraversal);
+    storeContainer.register("playerTag", playerTags);
+    storeContainer.register("weaverTag", weaverTags);
+
     const visualRegistry = new VisualRegistry();
+    
+    const context = new SystemContext(
+      world,
+      broker,
+      commands,
+      refs,
+      visualRegistry,
+      storeContainer
+    );
+
     const renderSystem = new RenderSystem(canvas, visualRegistry);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
     const lightingSystem = new LightingSystem(broker, visualRegistry);
@@ -166,15 +192,7 @@ export class CompositionRoot {
       weaverTraversal
     );
 
-    const weaverBrain = new WeaverBrainSystem(
-      refs,
-      weaverAIs,
-      transforms,
-      weaverTraversal,
-      healths,
-      broker,
-      commands
-    );
+    const weaverBrain = new WeaverBrainSystem(context);
 
     const weaverTraversalSystem = new WeaverTraversalSystem(
       refs,
