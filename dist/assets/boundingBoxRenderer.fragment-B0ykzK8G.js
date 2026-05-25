@@ -1,0 +1,1 @@
+import{Lt as e}from"./compositionRoot-CPlQvYmV.js";export{e as boundingBoxRendererPixelShaderWGSL};

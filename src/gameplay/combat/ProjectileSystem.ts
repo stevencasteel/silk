@@ -127,7 +127,6 @@ export class ProjectileSystem implements ISystem {
     proj.lifeTime = 0.0;
     proj.mesh.isVisible = true;
     proj.mesh.position.set(x, y, 0);
-    proj.mesh.scaling.set(1.0, 1.0, 1.0);
     proj.mesh.material = this.projMatActive;
 
     const dx = tx - x;
@@ -135,6 +134,11 @@ export class ProjectileSystem implements ISystem {
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
     proj.fallbackVelocity.set((dx / dist) * speed, (dy / dist) * speed, 0);
+
+    // Compute rotation angle matching the velocity direction and apply organic squash & stretch
+    const angle = Math.atan2(proj.fallbackVelocity.y, proj.fallbackVelocity.x) - Math.PI / 2;
+    proj.mesh.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, angle);
+    proj.mesh.scaling.set(0.7, 1.5, 0.7);
   }
 
   public update(dt: number): void {
@@ -179,8 +183,9 @@ export class ProjectileSystem implements ISystem {
         if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
-          p.mesh.scaling.set(0.28, 1.45, 1.45);
+          p.mesh.scaling.set(0.24, 1.45, 1.45);
           p.mesh.position.x = Math.sign(p.mesh.position.x) * (wallLimit - 0.05);
+          p.mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
           p.mesh.material = this.projMatStuck;
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: p.mesh.position.x,
@@ -232,6 +237,7 @@ export class ProjectileSystem implements ISystem {
     p.mesh.isVisible = false;
     p.mesh.position.set(0, -999, 0);
     p.mesh.scaling.set(1.0, 1.0, 1.0);
+    p.mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
     p.fallbackVelocity.set(0, 0, 0);
     p.isStuck = false;
     p.isStuckOnWall = false;

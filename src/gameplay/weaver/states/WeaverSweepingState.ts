@@ -1,12 +1,13 @@
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   HealthComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
+import * as BABYLON from "@babylonjs/core";
 
 const HASH = String.fromCharCode(35);
 
@@ -76,9 +77,15 @@ export class WeaverSweepingState implements IWeaverState {
       const wTrans = transforms.get(ctx.refs.weaver);
 
       if (playerTrans && wTrans) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const stingerTipLocal = new BABYLON.Vector3(0, -radius, 0);
+        const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+        const stingerTipWorld = new BABYLON.Vector3();
+        stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);
+
         ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-          x: wTrans.x,
-          y: wTrans.y - WEAVER_AI_TUNING.SHOOT.OFFSET_Y,
+          x: wTrans.x + stingerTipWorld.x,
+          y: wTrans.y + stingerTipWorld.y,
           tx: playerTrans.x,
           ty: playerTrans.y
         });
