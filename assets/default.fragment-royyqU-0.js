@@ -1,0 +1,1 @@
+import{Ot as e}from"./compositionRoot-qUsucrLR.js";export{e as defaultPixelShaderWGSL};

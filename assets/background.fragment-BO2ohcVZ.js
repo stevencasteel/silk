@@ -1,1 +1,0 @@
-import{Ut as e}from"./compositionRoot-YW7xoxWA.js";export{e as backgroundPixelShaderWGSL};
