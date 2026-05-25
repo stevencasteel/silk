@@ -44,14 +44,10 @@ export class WeaverTraversalSystem implements ISystem {
       target.x = nextX;
       target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
       target.active = true;
-      trav.velX = vel.x;
-      trav.velY = 0;
     } else {
       target.x = trans.x + vel.x * dt;
       target.y = trans.y + vel.y * dt;
       target.active = true;
-      trav.velX = vel.x;
-      trav.velY = vel.y;
     }
 
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WEAVER_LIMIT_X;

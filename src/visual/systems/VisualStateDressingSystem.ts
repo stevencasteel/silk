@@ -16,9 +16,9 @@ export class VisualStateDressingSystem implements ISystem {
   public update(dt: number): void {
     const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     if (wAI) {
-      wAI.damageWarpTime += dt;
-      if (wAI.damageWarpIntensity > 0.0) {
-        wAI.damageWarpIntensity = Math.max(0.0, wAI.damageWarpIntensity - dt * 1.75);
+      wAI.damageShearTime += dt;
+      if (wAI.damageShearIntensity > 0.0) {
+        wAI.damageShearIntensity = Math.max(0.0, wAI.damageShearIntensity - dt * 1.75);
       }
     }
   }
@@ -72,8 +72,8 @@ export class VisualStateDressingSystem implements ISystem {
 
         const shearPlugin = (mat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin;
         if (shearPlugin) {
-          shearPlugin.shearIntensity = wAI.damageWarpIntensity;
-          shearPlugin.shearTime = wAI.damageWarpTime;
+          shearPlugin.shearIntensity = wAI.damageShearIntensity;
+          shearPlugin.shearTime = wAI.damageShearTime;
         }
       }
     }

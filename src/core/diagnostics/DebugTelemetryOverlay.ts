@@ -70,6 +70,7 @@ export class DebugTelemetryOverlay implements ISystem {
 
     const playerTrans = transforms.get(this.context.refs.player);
     const playerTether = tethers.get(this.context.refs.player);
+    const playerVel = velocities.get(this.context.refs.player);
     const weaverTrans = transforms.get(this.context.refs.weaver);
     const weaverVel = velocities.get(this.context.refs.weaver);
 
@@ -77,14 +78,14 @@ export class DebugTelemetryOverlay implements ISystem {
     info += `FPS        : ${fps} (Frame: ${frameTime}ms)\n`;
     info += `Entities   : ${this.context.world.count()}\n\n`;
 
-    if (playerTrans && playerTether) {
+    if (playerTrans && playerTether && playerVel) {
       const spd = Math.sqrt(
-        playerTether.dynamicVelX * playerTether.dynamicVelX +
-          playerTether.dynamicVelY * playerTether.dynamicVelY
+        playerVel.x * playerVel.x +
+          playerVel.y * playerVel.y
       );
       info += `=== PLAYER STATE ===\n`;
       info += `Pos X/Y    : ${playerTrans.x.toFixed(2)}, ${playerTrans.y.toFixed(2)}\n`;
-      info += `Vel X/Y    : ${playerTether.dynamicVelX.toFixed(2)}, ${playerTether.dynamicVelY.toFixed(2)}\n`;
+      info += `Vel X/Y    : ${playerVel.x.toFixed(2)}, ${playerVel.y.toFixed(2)}\n`;
       info += `Speed      : ${spd.toFixed(2)} units/s\n\n`;
 
       info += `=== TETHER ===\n`;

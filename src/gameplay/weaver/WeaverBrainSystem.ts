@@ -37,8 +37,8 @@ export class WeaverBrainSystem implements ISystem {
       const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
       
       if (aiComp && health) {
-        aiComp.damageWarpIntensity = 1.0;
-        aiComp.damageWarpTime = 0.0;
+        aiComp.damageShearIntensity = 1.0;
+        aiComp.damageShearTime = 0.0;
         if (health.current <= 0) {
           this.pendingTransition = "DEFEATED";
         } else if (aiComp.state === "SWEEPING") {

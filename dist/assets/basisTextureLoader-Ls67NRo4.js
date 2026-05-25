@@ -1,0 +1,1 @@
+import{Wr as e}from"./compositionRoot-csEBKiV6.js";export{e as _BasisTextureLoader};

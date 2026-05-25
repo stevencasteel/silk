@@ -5,7 +5,8 @@ import {
   TransformComponent,
   TetherComponent,
   TraversalStateComponent,
-  KinematicTargetComponent
+  KinematicTargetComponent,
+  KinematicVelocityComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
@@ -20,8 +21,9 @@ export class PlayerAnimationSystem implements ISystem {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
     const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
     const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
 
-    if (!pTrans || !tether || !trav || !target) return;
+    if (!pTrans || !tether || !trav || !target || !vel) return;
 
     if (pTrans.scaleX === undefined || pTrans.scaleY === undefined || pTrans.scaleZ === undefined || pTrans.prevScaleX === undefined || pTrans.prevScaleY === undefined || pTrans.prevScaleZ === undefined) {
       pTrans.scaleX = 1.0;
@@ -51,7 +53,7 @@ export class PlayerAnimationSystem implements ISystem {
       targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
       targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
     } else {
-      const speed = Math.sqrt(tether.dynamicVelX * tether.dynamicVelX + tether.dynamicVelY * tether.dynamicVelY);
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       const stretchFactor = Math.min(
         tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
         (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
@@ -73,8 +75,8 @@ export class PlayerAnimationSystem implements ISystem {
     let rotDy = 1;
 
     if (trav.state === "LAUNCHING") {
-      const vx = tether.dynamicVelX;
-      const vy = tether.dynamicVelY;
+      const vx = vel.x;
+      const vy = vel.y;
       if (vx * vx + vy * vy > 1.0) {
         rotDx = vx;
         rotDy = vy;

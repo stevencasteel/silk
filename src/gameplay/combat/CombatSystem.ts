@@ -7,7 +7,8 @@ import {
   TetherComponent,
   TraversalStateComponent,
   KinematicTargetComponent,
-  InvulnerabilityComponent
+  InvulnerabilityComponent,
+  KinematicVelocityComponent
 } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -41,8 +42,9 @@ export class CombatSystem implements ISystem {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
     const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
     const pIframe = this.context.stores.get<InvulnerabilityComponent>("iframe").get(this.context.refs.player);
+    const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
 
-    if (!wAI || !tether || !pTrav || !pIframe) return;
+    if (!wAI || !tether || !pTrav || !pIframe || !pVel) return;
 
     const tuning = GAMEPLAY_TUNING.COMBAT;
 
@@ -56,8 +58,8 @@ export class CombatSystem implements ISystem {
 
       this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 1.4, duration: 0.55 });
 
-      tether.dynamicVelX = (dx / dist) * tuning.REBOUND_FORCE;
-      tether.dynamicVelY = (dy / dist) * tuning.REBOUND_FORCE;
+      pVel.x = (dx / dist) * tuning.REBOUND_FORCE;
+      pVel.y = (dy / dist) * tuning.REBOUND_FORCE;
       pTrav.state = "AIRBORNE";
       pTrav.launchPower = 0;
       pTrav.launchTimer = 0;
@@ -100,10 +102,10 @@ export class CombatSystem implements ISystem {
         pTarget.y += shiftY;
       }
 
-      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
+      const dot = pVel.x * nx + pVel.y * ny;
       if (dot < 0) {
-        tether.dynamicVelX -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
-        tether.dynamicVelY -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
+        pVel.x -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
+        pVel.y -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
       }
     }
   }

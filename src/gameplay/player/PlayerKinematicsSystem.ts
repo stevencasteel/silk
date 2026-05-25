@@ -8,7 +8,8 @@ import {
   TraversalStateComponent,
   TransformComponent,
   InputIntentComponent,
-  HealthComponent
+  HealthComponent,
+  KinematicVelocityComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
@@ -31,10 +32,10 @@ export class PlayerKinematicsSystem implements ISystem {
   public init(): void {
     this.context.commands.register<ApplyImpulseCommand>("APPLY_IMPULSE", (cmd: ApplyImpulseCommand) => {
       if (cmd.entityId === this.context.refs.player) {
-        const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-        if (tether) {
-          tether.dynamicVelX += cmd.x;
-          tether.dynamicVelY += cmd.y;
+        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+        if (vel) {
+          vel.x += cmd.x;
+          vel.y += cmd.y;
         }
       }
     });
@@ -46,15 +47,16 @@ export class PlayerKinematicsSystem implements ISystem {
     const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
     const wTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.weaver);
     const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
 
-    if (!tether || !target || !trav || !wTrans || !input) return;
+    if (!tether || !target || !trav || !wTrans || !input || !vel) return;
 
     const pHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
     const wHealth = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
 
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
-      tether.dynamicVelX = 0;
-      tether.dynamicVelY = 0;
+      vel.x = 0;
+      vel.y = 0;
       return;
     }
 
@@ -69,39 +71,39 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state === "LAUNCHING") {
       trav.launchTimer -= dt;
-      tether.dynamicVelX += input.x * tuning.LAUNCH_STEER_FORCE * dt;
-      tether.dynamicVelY += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
+      vel.x += input.x * tuning.LAUNCH_STEER_FORCE * dt;
+      vel.y += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      tether.dynamicVelX *= damp;
-      tether.dynamicVelY *= damp;
+      vel.x *= damp;
+      vel.y *= damp;
 
-      nextX += tether.dynamicVelX * dt;
-      nextY += tether.dynamicVelY * dt;
+      nextX += vel.x * dt;
+      nextY += vel.y * dt;
 
       if (trav.launchTimer <= 0) {
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
       }
     } else {
-      tether.dynamicVelY += this.GRAVITY * dt;
+      vel.y += this.GRAVITY * dt;
 
       if (trav.state === "AIRBORNE") {
-        tether.dynamicVelX += input.x * tuning.SWING_STEER_FORCE * dt;
+        vel.x += input.x * tuning.SWING_STEER_FORCE * dt;
       }
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      tether.dynamicVelX *= damp;
-      tether.dynamicVelY *= damp;
+      vel.x *= damp;
+      vel.y *= damp;
 
-      nextX += tether.dynamicVelX * dt;
-      nextY += tether.dynamicVelY * dt;
+      nextX += vel.x * dt;
+      nextY += vel.y * dt;
     }
 
-    this.resolveWallContact(nextX, nextY, dt, target, tether, trav, input);
+    this.resolveWallContact(nextX, nextY, dt, target, vel, tether, trav, input);
 
     if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
-      this.enforcePendulumConstraint(target, tether);
+      this.enforcePendulumConstraint(target, vel, tether);
     }
 
     const dx = target.x - tether.anchorX;
@@ -126,6 +128,7 @@ export class PlayerKinematicsSystem implements ISystem {
     nextY: number,
     dt: number,
     target: KinematicTargetComponent,
+    vel: KinematicVelocityComponent,
     tether: TetherComponent,
     trav: TraversalStateComponent,
     input: InputIntentComponent
@@ -140,15 +143,15 @@ export class PlayerKinematicsSystem implements ISystem {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (!stillPressingIn) {
-        this.triggerFling(tether, target, trav);
+        this.triggerFling(vel, tether, target, trav);
         return;
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
       
-      tether.dynamicVelX = 0;
-      tether.dynamicVelY = -currentScrollSpeed;
-      target.y = target.y + tether.dynamicVelY * dt;
+      vel.x = 0;
+      vel.y = -currentScrollSpeed;
+      target.y = target.y + vel.y * dt;
 
       if (currentScrollSpeed > 0) {
         if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
@@ -163,7 +166,7 @@ export class PlayerKinematicsSystem implements ISystem {
       tether.maxLength = this.BASE_TETHER_LENGTH + Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
 
       if (input.jump) {
-        this.triggerFling(tether, target, trav);
+        this.triggerFling(vel, tether, target, trav);
         input.jump = false;
       }
       return;
@@ -191,9 +194,9 @@ export class PlayerKinematicsSystem implements ISystem {
 
         target.x = wallDir * this.WALL_LIMIT_X;
         
-        tether.dynamicVelX = 0;
-        tether.dynamicVelY = -currentScrollSpeed;
-        target.y = target.y + tether.dynamicVelY * dt;
+        vel.x = 0;
+        vel.y = -currentScrollSpeed;
+        target.y = target.y + vel.y * dt;
 
         if (currentScrollSpeed > 0) {
           if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
@@ -209,8 +212,8 @@ export class PlayerKinematicsSystem implements ISystem {
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
-        if (Math.sign(tether.dynamicVelX) === wallDir) {
-          tether.dynamicVelX *= -0.2;
+        if (Math.sign(vel.x) === wallDir) {
+          vel.x *= -0.2;
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
@@ -229,6 +232,7 @@ export class PlayerKinematicsSystem implements ISystem {
   }
 
   private triggerFling(
+    vel: KinematicVelocityComponent,
     tether: TetherComponent,
     target: KinematicTargetComponent,
     trav: TraversalStateComponent
@@ -250,8 +254,8 @@ export class PlayerKinematicsSystem implements ISystem {
 
     const powerScale = Math.min(1.0, storedTension);
     const power = powerScale * tuning.FLING_IMPULSE;
-    tether.dynamicVelX = (dx / dist) * power;
-    tether.dynamicVelY = (dy / dist) * power;
+    vel.x = (dx / dist) * power;
+    vel.y = (dy / dist) * power;
 
     trav.state = "LAUNCHING";
     trav.launchTimer = tuning.LAUNCH_DURATION;
@@ -264,7 +268,11 @@ export class PlayerKinematicsSystem implements ISystem {
     });
   }
 
-  private enforcePendulumConstraint(target: KinematicTargetComponent, tether: TetherComponent): void {
+  private enforcePendulumConstraint(
+    target: KinematicTargetComponent,
+    vel: KinematicVelocityComponent,
+    tether: TetherComponent
+  ): void {
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
@@ -282,10 +290,10 @@ export class PlayerKinematicsSystem implements ISystem {
       target.x = tether.anchorX + nx * activeMaxLength;
       target.y = tether.anchorY + ny * activeMaxLength;
 
-      const dot = tether.dynamicVelX * nx + tether.dynamicVelY * ny;
+      const dot = vel.x * nx + vel.y * ny;
       if (dot > 0) {
-        tether.dynamicVelX -= dot * nx;
-        tether.dynamicVelY -= dot * ny;
+        vel.x -= dot * nx;
+        vel.y -= dot * ny;
       }
     }
   }

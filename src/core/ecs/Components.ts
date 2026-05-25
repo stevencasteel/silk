@@ -41,8 +41,6 @@ export interface TetherComponent {
   currentLength: number;
   isAttached: boolean;
   tension: number;
-  dynamicVelX: number;
-  dynamicVelY: number;
 }
 
 export interface HealthComponent {
@@ -61,8 +59,8 @@ export interface WeaverAIComponent {
   timeInState: number;
   hue: string;
   scrollSpeed: number;
-  damageWarpIntensity: number;
-  damageWarpTime: number;
+  damageShearIntensity: number;
+  damageShearTime: number;
 }
 
 export interface PlayerTag {
@@ -87,8 +85,6 @@ export interface TraversalStateComponent {
 }
 
 export interface WeaverTraversalComponent {
-  velX: number;
-  velY: number;
   isGrounded: boolean;
   isWallClinging: boolean;
   wallNormalX: number;

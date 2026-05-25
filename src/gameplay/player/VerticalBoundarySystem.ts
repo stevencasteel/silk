@@ -7,7 +7,8 @@ import {
   KinematicTargetComponent,
   HealthComponent,
   TraversalStateComponent,
-  TransformComponent
+  TransformComponent,
+  KinematicVelocityComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -27,18 +28,19 @@ export class VerticalBoundarySystem implements ISystem {
     const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
     const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    if (!tether || !target || !health || !trav) return;
-    this.clampToArenaBounds(target, tether);
+    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(this.context.refs.player);
+    if (!tether || !target || !health || !trav || !vel) return;
+    this.clampToArenaBounds(target, vel);
     this.updateStrainMeter(tether, health, trav);
   }
 
-  private clampToArenaBounds(target: KinematicTargetComponent, tether: TetherComponent): void {
+  private clampToArenaBounds(target: KinematicTargetComponent, vel: KinematicVelocityComponent): void {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (target.y < minY) {
-      if (tether.dynamicVelY < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
+      if (vel.y < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
         this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
         const transforms = this.context.stores.get<TransformComponent>("transform");
         const pTrans = transforms.get(this.context.refs.player);
@@ -49,10 +51,10 @@ export class VerticalBoundarySystem implements ISystem {
         }
       }
       target.y = minY;
-      tether.dynamicVelY = Math.max(0, tether.dynamicVelY);
+      vel.y = Math.max(0, vel.y);
     } else if (target.y > maxY) {
       target.y = maxY;
-      tether.dynamicVelY = Math.min(0, tether.dynamicVelY);
+      vel.y = Math.min(0, vel.y);
     }
   }
 

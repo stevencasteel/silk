@@ -73,16 +73,14 @@ export class EntitySpawnerSystem implements ISystem {
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
       scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE,
-      damageWarpIntensity: 0.0,
-      damageWarpTime: 0.0
+      damageShearIntensity: 0.0,
+      damageShearTime: 0.0
     });
     
     this.context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
     this.context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
     
     this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
-      velX: 4.5,
-      velY: 0,
       isGrounded: false,
       isWallClinging: false,
       wallNormalX: 0
@@ -152,9 +150,7 @@ export class EntitySpawnerSystem implements ISystem {
       maxLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
       currentLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
       isAttached: true,
-      tension: 0.0,
-      dynamicVelX: 0.0,
-      dynamicVelY: 0.0
+      tension: 0.0
     });
     
     this.context.stores.get<HealthComponent>("health").add(playerId, { current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY, max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY });
