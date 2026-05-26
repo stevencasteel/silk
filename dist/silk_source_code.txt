@@ -2,11 +2,14 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/25/2026, 4:48:07 PM
+ [SYSTEM] Generated: 5/25/2026, 10:11:23 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
 .
+├── .github/
+│   └── workflows/
+│       └── deploy.yml
 ├── dist/ (contents skipped)
 ├── docs/
 │   ├── AI_INSTRUCTIONS.txt
@@ -545,14 +548,14 @@ function shouldInclude(filePath) {
     return false;
   }
 
-  const ignoredPaths = ['node_modules', '.git', 'dist', '.vscode', '.github', 'BOX_BATTLE_ARCHIVE'];
+  const ignoredPaths = ['node_modules', '.git', 'dist', '.vscode', 'BOX_BATTLE_ARCHIVE'];
   if (ignoredPaths.some(p => relPath.startsWith(p) || relPath.includes(`/${p}/`))) return false;
   
   const boilerplateConfigs = ['.DS_Store', 'package-lock.json', 'tsconfig.tsbuildinfo'];
   if (boilerplateConfigs.includes(path.basename(relPath))) return false;
 
   const ext = path.extname(relPath);
-  const allowedExts = ['.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.json', '.md', '.txt', '.glsl', '.command'];
+  const allowedExts = ['.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.json', '.md', '.txt', '.glsl', '.command', '.yml', '.yaml'];
   return allowedExts.includes(ext);
 }
 
@@ -562,7 +565,9 @@ function getAllFiles(dir, fileList = []) {
     const filePath = path.join(dir, file);
     const fileName = path.basename(filePath);
     if (fs.statSync(filePath).isDirectory()) {
-      if (!fileName.startsWith('.') && fileName !== 'node_modules' && fileName !== 'dist') {
+      const isAllowedDotDir = fileName === '.github';
+      const isIgnoredDotDir = fileName.startsWith('.') && !isAllowedDotDir;
+      if (!isIgnoredDotDir && fileName !== 'node_modules' && fileName !== 'dist') {
         getAllFiles(filePath, fileList);
       }
     } else {
@@ -586,7 +591,7 @@ function generateTree(dir, prefix = '') {
       return { name: file, isDir, path: filePath };
     })
     .filter(item => {
-      if (item.name.startsWith('.') && item.name !== '.env') return false;
+      if (item.name.startsWith('.') && item.name !== '.env' && item.name !== '.github') return false;
       return true;
     })
     .sort((a, b) => {
@@ -858,10 +863,10 @@ console.log('Manifest and dynamic source assets compiled successfully.');
   transition: opacity 0.3s ease;
 }
 
-/* Absolutely positions the telemetry root relative to the cabinet, keeping the cabinet centered */
+/* Places the telemetry root exactly 44px to the left of the cabinet's bezel */
 #debug-telemetry-root {
   position: absolute;
-  right: calc(100% + 24px);
+  right: calc(100% + 44px);
   top: 2.5vmin;
   width: 250px;
   z-index: 100;
