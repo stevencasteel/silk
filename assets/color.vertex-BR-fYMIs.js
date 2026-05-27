@@ -1,0 +1,1 @@
+import{Sr as e}from"./compositionRoot-Kv22UIgn.js";export{e as colorVertexShader};

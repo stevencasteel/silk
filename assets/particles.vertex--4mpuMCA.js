@@ -1,0 +1,1 @@
+import{hn as e}from"./compositionRoot-Kv22UIgn.js";export{e as particlesVertexShader};
