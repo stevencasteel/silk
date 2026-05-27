@@ -258,7 +258,7 @@ body,
   justify-content: center;
   padding: clamp(24px, 5vmin, 44px) !important;
   border-radius: 20px !important;
-  background: rgba(12, 14, 18, 0.96) !important;
+  background: rgba(12, 14, 18, 0.98) !important;
   width: 90% !important;
   max-width: 440px !important;
   box-sizing: border-box;
@@ -395,8 +395,30 @@ body,
   position: relative;
 }
 
-/* Clean Button Hover States (No Indicator Arrows) */
-.gameover-btn-victory-hover:hover {
+/* Balanced Indicators and Core Shadows */
+.gameover-inline-arrow {
+  display: inline-block;
+  font-family: monospace;
+  font-weight: bold;
+  animation: arrow-blink 0.4s infinite alternate;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+}
+
+@keyframes arrow-blink {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.gameover-btn-victory-hover:hover,
+.gameover-btn-victory-focused {
   background: #0c0e12 !important;
   border-color: var(--signal-green) !important;
   color: #ffffff !important;
@@ -407,7 +429,8 @@ body,
   text-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
 }
 
-.gameover-btn-defeat-hover:hover {
+.gameover-btn-defeat-hover:hover,
+.gameover-btn-defeat-focused {
   background: #0c0e12 !important;
   border-color: var(--signal-red) !important;
   color: #ffffff !important;
@@ -418,7 +441,8 @@ body,
   text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
 }
 
-.gameover-btn-paused-hover:hover {
+.gameover-btn-paused-hover:hover,
+.gameover-btn-paused-focused {
   background: #0c0e12 !important;
   border-color: var(--signal-yellow) !important;
   color: #ffffff !important;
@@ -512,11 +536,6 @@ body,
   animation: text-chromatic-flicker-red 2.2s infinite ease-in-out;
 }
 
-@keyframes arrow-blink {
-  0% { opacity: 0.3; transform: scale(0.9) translateY(-50%); }
-  100% { opacity: 1; transform: scale(1.15) translateY(-50%); }
-}
-
 @keyframes victory-spin-glow {
   0% { transform: scale(0.3) rotate(0deg); filter: drop-shadow(0 0 5px var(--accent-success)); opacity: 0; }
   70% { transform: scale(1.1) rotate(370deg); filter: drop-shadow(0 0 20px var(--accent-success)); opacity: 0.9; }
@@ -564,4 +583,68 @@ body,
   ::backdrop {
     cursor: none !important;
   }
+}
+
+
+/* Box Battle Style Structural Overrides */
+.gameover-divider {
+  height: 1px;
+  width: 60px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 20px 0;
+}
+
+.gameover-btn-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  justify-content: center;
+}
+
+.neo-btn.gameover-btn {
+  flex: 1;
+  padding: 12px 18px;
+  font-size: 13px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Comfortable gap space between icon and text */
+  letter-spacing: 0.1em;
+  height: auto;
+  min-height: 0;
+}
+
+.gameover-btn-victory-focused {
+  background: #0c0e12 !important;
+  border-color: var(--signal-green) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(34, 197, 94, 0.25),
+    inset 0 0 8px rgba(34, 197, 94, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
+}
+
+.gameover-btn-defeat-focused {
+  background: #0c0e12 !important;
+  border-color: var(--signal-red) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(239, 68, 68, 0.25),
+    inset 0 0 8px rgba(239, 68, 68, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
+}
+
+.gameover-btn-paused-focused {
+  background: #0c0e12 !important;
+  border-color: var(--signal-yellow) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(234, 179, 8, 0.25),
+    inset 0 0 8px rgba(234, 179, 8, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
 }

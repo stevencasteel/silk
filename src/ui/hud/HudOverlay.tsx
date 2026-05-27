@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { usePlayerStore, useWeaverStore, useTetherStore, useOverlayStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw } from "lucide-react";
+import { Trophy, Skull, RotateCcw, Trash2 } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Tone from "tone";
@@ -32,12 +32,14 @@ export const HudOverlay: React.FC = () => {
       overlayVisible: s.overlayVisible,
       overlayTitle: s.overlayTitle,
       overlayColor: s.overlayColor,
-      overlaySubtitle: s.overlaySubtitle,
       isPaused: s.isPaused,
       awaitingGesture: s.awaitingGesture,
       wins: s.wins,
       losses: s.losses,
-      bootStatus: s.bootStatus
+      bootStatus: s.bootStatus,
+      menuIndex: s.menuIndex,
+      setMenuIndex: s.setMenuIndex,
+      clearStats: s.clearStats
     }))
   );
 
@@ -48,12 +50,14 @@ export const HudOverlay: React.FC = () => {
     overlayVisible,
     overlayTitle,
     overlayColor,
-    overlaySubtitle,
     isPaused,
     awaitingGesture,
     wins,
     losses,
-    bootStatus
+    bootStatus,
+    menuIndex,
+    setMenuIndex,
+    clearStats
   } = overlayState;
 
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
@@ -62,10 +66,6 @@ export const HudOverlay: React.FC = () => {
 
   const handleRetryClick = useCallback(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
-  }, []);
-
-  const handleResumeClick = useCallback(() => {
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP" }));
   }, []);
 
   const playTickSynth = useCallback(() => {
@@ -107,6 +107,67 @@ export const HudOverlay: React.FC = () => {
       // Ignored
     }
   }, []);
+
+  const handleClearStats = useCallback(() => {
+    clearStats();
+    setTickerWins(0);
+    setTickerLosses(0);
+  }, [clearStats]);
+
+  useEffect(() => {
+    if (awaitingGesture) {
+      const handleStartOnKey = (e: KeyboardEvent) => {
+        e.preventDefault();
+        playConfirmSynth();
+        useOverlayStore.getState().setAwaitingGesture(false);
+        useOverlayStore.getState().setBootStatus("READY");
+      };
+      window.addEventListener("keydown", handleStartOnKey);
+      return () => window.removeEventListener("keydown", handleStartOnKey);
+    }
+  }, [awaitingGesture, playConfirmSynth]);
+
+  useEffect(() => {
+    if (!overlayVisible) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const code = e.code;
+
+      const isMoveLeft = code === "ArrowLeft" || code === "KeyA";
+      const isMoveRight = code === "ArrowRight" || code === "KeyD";
+      const isMoveUp = code === "ArrowUp" || code === "KeyW";
+      const isMoveDown = code === "ArrowDown" || code === "KeyS";
+
+      if (isMoveLeft || isMoveUp) {
+        e.preventDefault();
+        playTickSynth();
+        setMenuIndex((menuIndex - 1 + 2) % 2);
+      } else if (isMoveRight || isMoveDown) {
+        e.preventDefault();
+        playTickSynth();
+        setMenuIndex((menuIndex + 1) % 2);
+      } else if (code === "Enter" || code === "Space") {
+        e.preventDefault();
+        playConfirmSynth();
+        if (menuIndex === 0) {
+          handleRetryClick();
+        } else {
+          handleClearStats();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    overlayVisible,
+    menuIndex,
+    setMenuIndex,
+    playTickSynth,
+    playConfirmSynth,
+    handleRetryClick,
+    handleClearStats
+  ]);
 
   useEffect(() => {
     if (!overlayVisible) {
@@ -164,22 +225,6 @@ export const HudOverlay: React.FC = () => {
   }, [overlayVisible, wins, losses, playTickSynth]);
 
   useEffect(() => {
-    if (!overlayVisible || staggerPhase < 3) return;
-
-    const handleKeys = (e: KeyboardEvent) => {
-      const code = e.code;
-      if (code === "Enter" || code === "Space") {
-        e.preventDefault();
-        playConfirmSynth();
-        handleRetryClick();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeys);
-    return () => window.removeEventListener("keydown", handleKeys);
-  }, [overlayVisible, staggerPhase, playConfirmSynth, handleRetryClick]);
-
-  useEffect(() => {
     if (playerHp === 1 && !overlayVisible) {
       const interval = setInterval(playTensionAlarm, 1000);
       return () => clearInterval(interval);
@@ -215,28 +260,36 @@ export const HudOverlay: React.FC = () => {
     <>
       {isBooting ? (
         <div className="overlay-root font-mono pointer-events-auto">
-          <div className="overlay-modal max-w-md w-full border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
-            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-lg mb-4 animate-pulse">
-              SILK INITIALIZATION
+          <div className="overlay-modal max-w-sm w-full border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
+            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-sm mb-4">
+              INITIALIZING...
             </h2>
-            <div className="w-full bg-black border border-zinc-800 h-2 mb-6 overflow-hidden rounded">
+            <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
               <div
-                className="h-full bg-emerald-500 animate-[pulse_1.5s_infinite]"
+                className="h-full bg-emerald-500"
                 style={{ width: "100%" }}
               />
             </div>
-            <pre className="text-zinc-400 text-[10px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
-              {"[SYSTEM BOOT]: ONLINE\n[STATUS]: " + bootStatus}
+            <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
+              {bootStatus}
             </pre>
           </div>
         </div>
       ) : awaitingGesture ? (
         <div className="overlay-root font-mono backdrop-wipe-active pointer-events-auto">
-          <div className="overlay-modal start-screen-modal victory-border">
-            <div className="led-dot led-green animate-pulse mb-6" style={{ width: "16px", height: "16px" }} />
-            <div className="text-emerald-500 text-sm font-black tracking-[0.25em] animate-pulse uppercase">
-              CLICK OR PRESS ANY KEY TO START
-            </div>
+          <div className="overlay-modal start-screen-modal victory-border max-w-sm w-full p-8 flex flex-col items-center">
+            <button
+              onClick={() => {
+                playConfirmSynth();
+                useOverlayStore.getState().setAwaitingGesture(false);
+                useOverlayStore.getState().setBootStatus("READY");
+              }}
+              onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
+              onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+              className="gameover-btn gameover-btn-victory-focused pointer-events-auto w-full flex items-center justify-center"
+            >
+              <span>CLICK OR PRESS ANY BUTTON TO BEGIN</span>
+            </button>
           </div>
         </div>
       ) : (
@@ -345,7 +398,7 @@ export const HudOverlay: React.FC = () => {
                   initial={{ opacity: 0, y: -20, scale: 0.8 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                  className="flex-col-center mb-4"
+                  className="flex-col-center mb-2"
                 >
                   {overlayTitle === "DEFEATED" ? (
                     <Skull
@@ -362,11 +415,10 @@ export const HudOverlay: React.FC = () => {
                   )}
                   <h1
                     className={`overlay-title ${overlayTitle === "DEFEATED" ? "defeat-title-anim" : "victory-title-anim"}`}
-                    style={{ color: overlayColor, marginTop: "16px" }}
+                    style={{ color: overlayColor, marginTop: "12px" }}
                   >
                     {overlayTitle}
                   </h1>
-                  <p className="overlay-subtitle mt-2">{overlaySubtitle}</p>
                 </motion.div>
               )}
 
@@ -377,7 +429,7 @@ export const HudOverlay: React.FC = () => {
                   transition={{ type: "spring", stiffness: 220, damping: 24 }}
                   onMouseEnter={() => useCursorStore.getState().setCursorType("default")}
                   onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-                  className="gameover-stat-card w-full mb-6"
+                  className="gameover-stat-card w-full"
                 >
                   <div className="gameover-stat-row">
                     <span className="gameover-stat-label">TOTAL WINS</span>
@@ -395,24 +447,53 @@ export const HudOverlay: React.FC = () => {
               )}
 
               {staggerPhase >= 3 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 220, damping: 22, delay: 0.15 }}
-                  className="w-full"
-                >
-                  <button
-                    onClick={handleRetryClick}
-                    onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
-                    onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-                    className={`gameover-btn pointer-events-auto relative w-full flex items-center justify-center gap-3 ${
-                      overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover"
-                    }`}
-                  >
-                    <RotateCcw size={14} className="flex-shrink-0" />
-                    <span>RETRY RUN</span>
-                  </button>
-                </motion.div>
+                <>
+                  <div className="gameover-divider" />
+                  <div className="gameover-btn-container w-full">
+                    <button
+                      onClick={handleRetryClick}
+                      onMouseEnter={() => {
+                        setMenuIndex(0);
+                        playTickSynth();
+                        useCursorStore.getState().setCursorType("button");
+                      }}
+                      onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+                      className={`neo-btn gameover-btn ${
+                        menuIndex === 0
+                          ? (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-victory-focused")
+                          : (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover")
+                      }`}
+                    >
+                      {menuIndex === 0 && <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>▶</span>}
+                      <RotateCcw size={16} className="flex-shrink-0" />
+                      <span>RETRY</span>
+                      {menuIndex === 0 && <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>◀</span>}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleClearStats();
+                        playConfirmSynth();
+                      }}
+                      onMouseEnter={() => {
+                        setMenuIndex(1);
+                        playTickSynth();
+                        useCursorStore.getState().setCursorType("button");
+                      }}
+                      onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+                      className={`neo-btn gameover-btn ${
+                        menuIndex === 1
+                          ? (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-victory-focused")
+                          : (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover")
+                      }`}
+                    >
+                      {menuIndex === 1 && <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>▶</span>}
+                      <Trash2 size={16} className="flex-shrink-0" />
+                      <span>CLEAR</span>
+                      {menuIndex === 1 && <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>◀</span>}
+                    </button>
+                  </div>
+                </>
               )}
             </motion.div>
           </div>
@@ -420,22 +501,17 @@ export const HudOverlay: React.FC = () => {
       </AnimatePresence>
 
       {isPaused && !isBooting && !awaitingGesture && (
-        <div className="overlay-root backdrop-wipe-active pointer-events-auto">
-          <div className="overlay-modal paused-border mb-2 animate-bounce-short">
-            <div className="led-dot led-yellow animate-pulse mb-6" style={{ width: "16px", height: "16px" }} />
-            <h1 className="overlay-title paused-title-glow" style={{ color: "var(--accent-tension)" }}>
+        <div
+          className="overlay-root font-mono pointer-events-auto flex items-center justify-center"
+          style={{ background: "rgba(12, 13, 17, 0.65)" }}
+        >
+          <div className="flex flex-col items-center justify-center text-center animate-bounce-short">
+            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--accent-tension)" }}>
               PAUSED
             </h1>
-            <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)", opacity: 0.3 }} />
-            <p className="overlay-subtitle" style={{ marginBottom: "24px" }}>SIMULATION SUSPENDED</p>
-            <button
-              onClick={handleResumeClick}
-              onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
-              onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-              className="gameover-btn gameover-btn-paused-hover pointer-events-auto"
-            >
-              RESUME RUN
-            </button>
+            <p className="text-[11px] text-zinc-400 tracking-[0.15em] uppercase mt-2">
+              PRESS 'P' TO RESUME
+            </p>
           </div>
         </div>
       )}

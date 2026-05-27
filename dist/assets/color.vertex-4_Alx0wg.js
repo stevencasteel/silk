@@ -1,0 +1,1 @@
+import{Sr as e}from"./compositionRoot-DxU4zJeM.js";export{e as colorVertexShader};
