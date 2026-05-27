@@ -677,3 +677,16 @@ body,
 .led-shaking-die {
   animation: led-shake-die-decay 0.45s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }
+
+/* Neomorphic Utility Classes */
+.neo-elevated {
+  background: var(--surface-elevated) !important;
+  box-shadow: var(--shadow-light), var(--shadow-dark) !important;
+  border: 1px solid rgba(255, 255, 255, 0.02) !important;
+}
+
+.neo-pressed {
+  background: var(--surface-bg) !important;
+  box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark) !important;
+  border: 1px solid rgba(0, 0, 0, 0.3) !important;
+}

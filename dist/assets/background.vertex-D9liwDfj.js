@@ -1,0 +1,1 @@
+import{Mr as e}from"./compositionRoot-DfpVChAv.js";export{e as backgroundVertexShader};

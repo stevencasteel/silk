@@ -1,0 +1,1 @@
+import{Rr as e}from"./compositionRoot-DfpVChAv.js";export{e as _KTXTextureLoader};

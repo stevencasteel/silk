@@ -1,0 +1,1 @@
+import{_ as e}from"./compositionRoot-DfpVChAv.js";export{e as proceduralVertexShaderWGSL};
