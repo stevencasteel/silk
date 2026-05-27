@@ -1,0 +1,1 @@
+import{T as e}from"./compositionRoot-CuTrxcQk.js";export{e as particlesVertexShaderWGSL};

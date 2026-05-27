@@ -1,0 +1,1 @@
+import{Xt as e}from"./compositionRoot-CuTrxcQk.js";export{e as spritesVertexShader};

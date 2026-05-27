@@ -1,1 +1,0 @@
-import{xt as e}from"./compositionRoot-BJIwXciG.js";export{e as extractHighlightsPixelShaderWGSL};
