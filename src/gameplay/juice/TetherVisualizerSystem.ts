@@ -155,6 +155,12 @@ export class TetherVisualizerSystem implements ISystem {
         MathSag *= 0.15;
       }
 
+      if (tether.reelVelocity < 0) {
+        MathSag *= Math.max(0.15, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
+      } else if (tether.reelVelocity > 0) {
+        MathSag *= (1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4);
+      }
+
       this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       let reelPhaseOffset = 0;
@@ -237,7 +243,7 @@ export class TetherVisualizerSystem implements ISystem {
 
       this.tetherMat.albedoColor.set(r, g, b);
 
-      let eBrightness = 0.1 + tension * 0.5;
+      let eBrightness = 0.1 + tension * 0.5 + tether.reelHeat * 0.35;
       if (isSweetSpot) {
         eBrightness *= 2.2;
       } else if (tension >= 1.0) {

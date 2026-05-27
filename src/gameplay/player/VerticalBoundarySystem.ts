@@ -6,7 +6,6 @@ import {
   TetherComponent,
   KinematicTargetComponent,
   HealthComponent,
-  TraversalStateComponent,
   TransformComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
@@ -29,15 +28,12 @@ export class VerticalBoundarySystem implements ISystem {
       .get<KinematicTargetComponent>("target")
       .get(this.context.refs.player);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
-    const trav = this.context.stores
-      .get<TraversalStateComponent>("traversal")
-      .get(this.context.refs.player);
     const vel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
       .get(this.context.refs.player);
-    if (!tether || !target || !health || !trav || !vel) return;
+    if (!tether || !target || !health || !vel) return;
     this.clampToArenaBounds(target, vel);
-    this.updateStrainMeter(tether, health, trav);
+    this.updateStrainMeter(tether, health);
   }
 
   private clampToArenaBounds(
@@ -72,10 +68,9 @@ export class VerticalBoundarySystem implements ISystem {
 
   private updateStrainMeter(
     tether: TetherComponent,
-    health: HealthComponent,
-    trav: TraversalStateComponent
+    health: HealthComponent
   ): void {
-    const isOverloaded = trav.state === "WALL_SLIDING" && tether.tension >= this.OVERLOAD_THRESHOLD;
+    const isOverloaded = tether.tension >= this.OVERLOAD_THRESHOLD;
 
     if (isOverloaded) {
       const overloadDelta = tether.tension - this.OVERLOAD_THRESHOLD;

@@ -158,6 +158,14 @@ export class PlayerKinematicsSystem implements ISystem {
 
       if (trav.state === "AIRBORNE") {
         vel.x += input.x * tuning.SWING_STEER_FORCE * dt;
+        if (input.y > 0 && tether.isAttached) {
+          const dx = tether.anchorX - target.x;
+          const dy = tether.anchorY - target.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+          const pullForce = 15.0;
+          vel.x += (dx / dist) * pullForce * dt;
+          vel.y += (dy / dist) * pullForce * dt;
+        }
       }
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
@@ -173,6 +181,10 @@ export class PlayerKinematicsSystem implements ISystem {
     if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
       this.enforcePendulumConstraint(target, vel, tether);
     }
+
+    const finalDx = target.x - tether.anchorX;
+    const finalDy = target.y - tether.anchorY;
+    tether.currentLength = Math.sqrt(finalDx * finalDx + finalDy * finalDy) || 1.0;
 
     this.updateTensionMeter(dt, tether, trav, input);
 
@@ -216,7 +228,19 @@ export class PlayerKinematicsSystem implements ISystem {
 
       vel.x = 0;
       vel.y = -currentScrollSpeed;
-      target.y = target.y + vel.y * dt;
+      
+      let finalY = target.y + vel.y * dt;
+
+      const dx = target.x - tether.anchorX;
+      const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
+      if (limitY2 >= 0) {
+        const minY = tether.anchorY - Math.sqrt(limitY2);
+        if (finalY < minY) {
+          finalY = minY;
+          vel.y = 0;
+        }
+      }
+      target.y = finalY;
 
       if (input.jump) {
         this.triggerFling(vel, tether, target, trav);
@@ -253,7 +277,18 @@ export class PlayerKinematicsSystem implements ISystem {
 
         vel.x = 0;
         vel.y = -currentScrollSpeed;
-        target.y = target.y + vel.y * dt;
+        
+        let finalY = target.y + vel.y * dt;
+        const dx = target.x - tether.anchorX;
+        const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
+        if (limitY2 >= 0) {
+          const minY = tether.anchorY - Math.sqrt(limitY2);
+          if (finalY < minY) {
+            finalY = minY;
+            vel.y = 0;
+          }
+        }
+        target.y = finalY;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;

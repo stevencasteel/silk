@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 4:18:21 PM
+ [SYSTEM] Generated: 5/27/2026, 4:30:56 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -4982,6 +4982,12 @@ export class TetherVisualizerSystem implements ISystem {
         MathSag *= 0.15;
       }
 
+      if (tether.reelVelocity < 0) {
+        MathSag *= Math.max(0.15, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
+      } else if (tether.reelVelocity > 0) {
+        MathSag *= (1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4);
+      }
+
       this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       let reelPhaseOffset = 0;
@@ -5064,7 +5070,7 @@ export class TetherVisualizerSystem implements ISystem {
 
       this.tetherMat.albedoColor.set(r, g, b);
 
-      let eBrightness = 0.1 + tension * 0.5;
+      let eBrightness = 0.1 + tension * 0.5 + tether.reelHeat * 0.35;
       if (isSweetSpot) {
         eBrightness *= 2.2;
       } else if (tension >= 1.0) {
@@ -6022,6 +6028,14 @@ export class PlayerKinematicsSystem implements ISystem {
 
       if (trav.state === "AIRBORNE") {
         vel.x += input.x * tuning.SWING_STEER_FORCE * dt;
+        if (input.y > 0 && tether.isAttached) {
+          const dx = tether.anchorX - target.x;
+          const dy = tether.anchorY - target.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+          const pullForce = 15.0;
+          vel.x += (dx / dist) * pullForce * dt;
+          vel.y += (dy / dist) * pullForce * dt;
+        }
       }
 
       const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
@@ -6037,6 +6051,10 @@ export class PlayerKinematicsSystem implements ISystem {
     if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
       this.enforcePendulumConstraint(target, vel, tether);
     }
+
+    const finalDx = target.x - tether.anchorX;
+    const finalDy = target.y - tether.anchorY;
+    tether.currentLength = Math.sqrt(finalDx * finalDx + finalDy * finalDy) || 1.0;
 
     this.updateTensionMeter(dt, tether, trav, input);
 
@@ -6080,7 +6098,19 @@ export class PlayerKinematicsSystem implements ISystem {
 
       vel.x = 0;
       vel.y = -currentScrollSpeed;
-      target.y = target.y + vel.y * dt;
+      
+      let finalY = target.y + vel.y * dt;
+
+      const dx = target.x - tether.anchorX;
+      const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
+      if (limitY2 >= 0) {
+        const minY = tether.anchorY - Math.sqrt(limitY2);
+        if (finalY < minY) {
+          finalY = minY;
+          vel.y = 0;
+        }
+      }
+      target.y = finalY;
 
       if (input.jump) {
         this.triggerFling(vel, tether, target, trav);
@@ -6117,7 +6147,18 @@ export class PlayerKinematicsSystem implements ISystem {
 
         vel.x = 0;
         vel.y = -currentScrollSpeed;
-        target.y = target.y + vel.y * dt;
+        
+        let finalY = target.y + vel.y * dt;
+        const dx = target.x - tether.anchorX;
+        const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
+        if (limitY2 >= 0) {
+          const minY = tether.anchorY - Math.sqrt(limitY2);
+          if (finalY < minY) {
+            finalY = minY;
+            vel.y = 0;
+          }
+        }
+        target.y = finalY;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
@@ -6272,7 +6313,6 @@ import {
   TetherComponent,
   KinematicTargetComponent,
   HealthComponent,
-  TraversalStateComponent,
   TransformComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
@@ -6295,15 +6335,12 @@ export class VerticalBoundarySystem implements ISystem {
       .get<KinematicTargetComponent>("target")
       .get(this.context.refs.player);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.player);
-    const trav = this.context.stores
-      .get<TraversalStateComponent>("traversal")
-      .get(this.context.refs.player);
     const vel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
       .get(this.context.refs.player);
-    if (!tether || !target || !health || !trav || !vel) return;
+    if (!tether || !target || !health || !vel) return;
     this.clampToArenaBounds(target, vel);
-    this.updateStrainMeter(tether, health, trav);
+    this.updateStrainMeter(tether, health);
   }
 
   private clampToArenaBounds(
@@ -6338,10 +6375,9 @@ export class VerticalBoundarySystem implements ISystem {
 
   private updateStrainMeter(
     tether: TetherComponent,
-    health: HealthComponent,
-    trav: TraversalStateComponent
+    health: HealthComponent
   ): void {
-    const isOverloaded = trav.state === "WALL_SLIDING" && tether.tension >= this.OVERLOAD_THRESHOLD;
+    const isOverloaded = tether.tension >= this.OVERLOAD_THRESHOLD;
 
     if (isOverloaded) {
       const overloadDelta = tether.tension - this.OVERLOAD_THRESHOLD;
