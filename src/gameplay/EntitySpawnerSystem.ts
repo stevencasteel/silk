@@ -49,7 +49,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.spawnPlayer();
   }
 
-    public spawnWeaver(existingId?: EntityId): EntityId {
+  public spawnWeaver(existingId?: EntityId): EntityId {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
@@ -169,6 +169,7 @@ export class EntitySpawnerSystem implements ISystem {
         false,
         scene
       );
+      wBody.disablePreStep = false;
       const wShape = new BABYLON.PhysicsShapeConvexHull(wMesh, scene);
       wBody.shape = wShape;
       wBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_PHYSICS_MASS });
@@ -177,7 +178,7 @@ export class EntitySpawnerSystem implements ISystem {
     return weaverId;
   }
 
-public spawnPlayer(existingId?: EntityId): EntityId {
+  public spawnPlayer(existingId?: EntityId): EntityId {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
@@ -279,6 +280,7 @@ public spawnPlayer(existingId?: EntityId): EntityId {
         false,
         scene
       );
+      pBody.disablePreStep = false;
       pBody.shape = this.sharedPlayerShape;
       pBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.PLAYER_PHYSICS_MASS });
     }

@@ -26,6 +26,9 @@ export class HavokPhysicsSystem implements ISystem {
   readonly initPhase = InitPhase.Bootstrap;
   private havokPlugin: BABYLON.HavokPlugin | null = null;
 
+  private _scratchPos = new BABYLON.Vector3();
+  private _scratchRot = new BABYLON.Quaternion();
+
   constructor(private context: SystemContext) {}
 
   public async init(): Promise<void> {
@@ -223,6 +226,21 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.x = wTarget.x;
       wTrans.y = wTarget.y;
       wTrans.z = wTarget.z;
+    }
+
+    // Modern V2 Havok kinematic synchronization
+    const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.AbstractMesh | null;
+    if (pMesh && pMesh.physicsBody && pTrans) {
+      this._scratchPos.set(pTrans.x, pTrans.y, pTrans.z);
+      this._scratchRot.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
+      pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
+    }
+
+    const wMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.AbstractMesh | null;
+    if (wMesh && wMesh.physicsBody && wTrans) {
+      this._scratchPos.set(wTrans.x, wTrans.y, wTrans.z);
+      this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+      wMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
   }
 }

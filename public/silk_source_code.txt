@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 2:08:07 PM
+ [SYSTEM] Generated: 5/27/2026, 2:55:33 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3323,7 +3323,7 @@ export class EntitySpawnerSystem implements ISystem {
     this.spawnPlayer();
   }
 
-    public spawnWeaver(existingId?: EntityId): EntityId {
+  public spawnWeaver(existingId?: EntityId): EntityId {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
@@ -3443,6 +3443,7 @@ export class EntitySpawnerSystem implements ISystem {
         false,
         scene
       );
+      wBody.disablePreStep = false;
       const wShape = new BABYLON.PhysicsShapeConvexHull(wMesh, scene);
       wBody.shape = wShape;
       wBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_PHYSICS_MASS });
@@ -3451,7 +3452,7 @@ export class EntitySpawnerSystem implements ISystem {
     return weaverId;
   }
 
-public spawnPlayer(existingId?: EntityId): EntityId {
+  public spawnPlayer(existingId?: EntityId): EntityId {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return -1;
 
@@ -3553,6 +3554,7 @@ public spawnPlayer(existingId?: EntityId): EntityId {
         false,
         scene
       );
+      pBody.disablePreStep = false;
       pBody.shape = this.sharedPlayerShape;
       pBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.PLAYER_PHYSICS_MASS });
     }
@@ -6384,8 +6386,6 @@ interface SweepState {
 
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private minX = -(15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS);
-  private maxX = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
   private sweepStates = new Map<number, SweepState>();
 
   constructor(private context: SystemContext) {}
@@ -6411,6 +6411,10 @@ export class WeaverTraversalSystem implements ISystem {
     const isSweeping = ai && ai.state === "SWEEPING";
     let sState = this.sweepStates.get(this.context.refs.weaver);
 
+    const scene = this.context.visualRegistry.getScene();
+    const physicsEngine = scene?.getPhysicsEngine();
+    const concreteEngine = physicsEngine ? (physicsEngine as BABYLON.PhysicsEngine) : null;
+
     if (isSweeping) {
       const isBerserk = health
         ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
@@ -6429,17 +6433,43 @@ export class WeaverTraversalSystem implements ISystem {
         this.sweepStates.set(this.context.refs.weaver, sState);
       }
 
-      if (sState.phase === "SWEEP") {
-        vel.x = sState.direction * sweepSpeed;
+      if (sState.phase === "SWEEP" || sState.phase === "LAUNCH") {
+        if (sState.phase === "SWEEP") {
+          vel.x = sState.direction * sweepSpeed;
+        } else {
+          const targetVel = sState.direction * sweepSpeed;
+          vel.x = vel.x + (targetVel - vel.x) * 5.0 * dt;
+        }
+
         let nextX = trans.x + vel.x * dt;
         let hitWallNormal = 0;
 
-        if (nextX >= this.maxX) {
-          nextX = this.maxX;
-          hitWallNormal = -1;
-        } else if (nextX <= this.minX) {
-          nextX = this.minX;
-          hitWallNormal = 1;
+        // Perform live raycast instead of math limits
+        if (concreteEngine && Math.abs(vel.x) > 0.001) {
+          const raycastResult = new BABYLON.PhysicsRaycastResult();
+          const start = new BABYLON.Vector3(trans.x, trans.y, 0);
+          const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
+          const end = new BABYLON.Vector3(trans.x + sState.direction * castLength, trans.y, 0);
+
+          concreteEngine.raycastToRef(start, end, raycastResult);
+
+          if (raycastResult.hasHit && raycastResult.body) {
+            const hitDistance = raycastResult.hitDistance;
+            if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
+              hitWallNormal = Math.sign(raycastResult.hitNormalWorld.x);
+              nextX = raycastResult.hitPointWorld.x - sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+            }
+          }
+        } else {
+          // Fallback if physics is disabled
+          const fallbackLimit = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          if (nextX >= fallbackLimit) {
+            nextX = fallbackLimit;
+            hitWallNormal = -1;
+          } else if (nextX <= -fallbackLimit) {
+            nextX = -fallbackLimit;
+            hitWallNormal = 1;
+          }
         }
 
         if (hitWallNormal !== 0) {
@@ -6461,6 +6491,12 @@ export class WeaverTraversalSystem implements ISystem {
           sState.timer = 0.22;
           sState.direction = hitWallNormal;
           vel.x = 0;
+        } else if (sState.phase === "LAUNCH") {
+          const currentSpeed = Math.abs(vel.x);
+          if (currentSpeed <= sweepSpeed * 1.05) {
+            sState.phase = "SWEEP";
+            vel.x = sState.direction * sweepSpeed;
+          }
         }
 
         target.x = nextX;
@@ -6486,52 +6522,6 @@ export class WeaverTraversalSystem implements ISystem {
 
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
         target.active = true;
-
-      } else if (sState.phase === "LAUNCH") {
-        const targetVel = sState.direction * sweepSpeed;
-        vel.x = vel.x + (targetVel - vel.x) * 5.0 * dt;
-
-        let nextX = trans.x + vel.x * dt;
-        let hitWallNormal = 0;
-
-        if (nextX >= this.maxX) {
-          nextX = this.maxX;
-          hitWallNormal = -1;
-        } else if (nextX <= this.minX) {
-          nextX = this.minX;
-          hitWallNormal = 1;
-        }
-
-        if (hitWallNormal !== 0) {
-          this.context.broker.publish(GameEvent.WEAVER_WALL_HIT, {
-            x: nextX,
-            y: trans.y,
-            wallNormalX: hitWallNormal
-          });
-
-          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
-
-          trans.scaleVelX += -22.0;
-          trans.scaleVelY += 28.0;
-          trans.scaleVelZ += 28.0;
-
-          sState.phase = "HOLD";
-          sState.timer = 0.22;
-          sState.direction = hitWallNormal;
-          vel.x = 0;
-        } else {
-          const currentSpeed = Math.abs(vel.x);
-          if (currentSpeed <= sweepSpeed * 1.05) {
-            sState.phase = "SWEEP";
-            vel.x = sState.direction * sweepSpeed;
-          }
-        }
-
-        target.x = nextX;
-        target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
-        target.active = true;
       }
     } else {
       target.x = trans.x + vel.x * dt;
@@ -6540,38 +6530,103 @@ export class WeaverTraversalSystem implements ISystem {
       this.sweepStates.delete(this.context.refs.weaver);
     }
 
-    const wallLimit = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    if (target.x > wallLimit && (!sState || sState.phase !== "HOLD")) {
-      target.x = wallLimit;
-      if (vel.x > 0) vel.x = 0;
-    } else if (target.x < -wallLimit && (!sState || sState.phase !== "HOLD")) {
-      target.x = -wallLimit;
-      if (vel.x < 0) vel.x = 0;
-    }
+    // Replace mathematical floor, ceiling, and wall clamps with physical contacts
+    let isGrounded = false;
+    let isWallClinging = false;
+    let wallNormalX = 0;
 
-    const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
-    const floorLimit = ARENA_CONFIG.VERTICAL.FLOOR_Y;
-    if (target.y > ceilingLimit) {
-      target.y = ceilingLimit;
-      if (vel.y > 0) vel.y = 0;
-      trav.isGrounded = false;
-      trav.isWallClinging = false;
-    } else if (target.y < floorLimit) {
-      target.y = floorLimit;
-      if (vel.y < 0) vel.y = 0;
-      trav.isGrounded = true;
-      trav.isWallClinging = false;
+    if (concreteEngine) {
+      // 1. Raycast horizontally to detect wall collision
+      if (Math.abs(vel.x) > 0.01) {
+        const wallRayResult = new BABYLON.PhysicsRaycastResult();
+        const start = new BABYLON.Vector3(trans.x, target.y, 0);
+        const dirX = Math.sign(vel.x);
+        const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
+        const end = new BABYLON.Vector3(trans.x + dirX * castLength, target.y, 0);
+
+        concreteEngine.raycastToRef(start, end, wallRayResult);
+
+        if (wallRayResult.hasHit && wallRayResult.body) {
+          const hitDistance = wallRayResult.hitDistance;
+          if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
+            target.x = wallRayResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+            if (vel.x * dirX > 0) vel.x = 0;
+          }
+        }
+      }
+
+      // 2. Raycast downward to detect floor collision
+      const floorRayResult = new BABYLON.PhysicsRaycastResult();
+      const startDown = new BABYLON.Vector3(target.x, trans.y, 0);
+      const castLengthDown = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
+      const endDown = new BABYLON.Vector3(target.x, trans.y - castLengthDown, 0);
+
+      concreteEngine.raycastToRef(startDown, endDown, floorRayResult);
+
+      if (floorRayResult.hasHit && floorRayResult.body) {
+        const hitDistance = floorRayResult.hitDistance;
+        if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)) {
+          isGrounded = true;
+          target.y = floorRayResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          if (vel.y < 0) vel.y = 0;
+        }
+      }
+
+      // 3. Determine general wall clinging state
+      const leftRayResult = new BABYLON.PhysicsRaycastResult();
+      const rightRayResult = new BABYLON.PhysicsRaycastResult();
+      const startCenter = new BABYLON.Vector3(target.x, target.y, 0);
+      const wallCheckDist = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.15;
+
+      concreteEngine.raycastToRef(startCenter, new BABYLON.Vector3(target.x - wallCheckDist, target.y, 0), leftRayResult);
+      concreteEngine.raycastToRef(startCenter, new BABYLON.Vector3(target.x + wallCheckDist, target.y, 0), rightRayResult);
+
+      if (leftRayResult.hasHit && leftRayResult.body) {
+        isWallClinging = true;
+        wallNormalX = 1;
+      } else if (rightRayResult.hasHit && rightRayResult.body) {
+        isWallClinging = true;
+        wallNormalX = -1;
+      }
     } else {
-      trav.isGrounded = false;
-      const wallThreshold = wallLimit - 0.2;
-      if (Math.abs(target.x) >= wallThreshold) {
-        trav.isWallClinging = true;
-        trav.wallNormalX = target.x > 0 ? -1 : 1;
+      // Fallback if physics is disabled
+      const wallLimitFallback = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      if (target.x > wallLimitFallback && (!sState || sState.phase !== "HOLD")) {
+        target.x = wallLimitFallback;
+        if (vel.x > 0) vel.x = 0;
+      } else if (target.x < -wallLimitFallback && (!sState || sState.phase !== "HOLD")) {
+        target.x = -wallLimitFallback;
+        if (vel.x < 0) vel.x = 0;
+      }
+
+      const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
+      const floorLimit = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+      if (target.y > ceilingLimit) {
+        target.y = ceilingLimit;
+        if (vel.y > 0) vel.y = 0;
+        isGrounded = false;
+        isWallClinging = false;
+      } else if (target.y < floorLimit) {
+        target.y = floorLimit;
+        if (vel.y < 0) vel.y = 0;
+        isGrounded = true;
+        isWallClinging = false;
       } else {
-        trav.isWallClinging = false;
-        trav.wallNormalX = 0;
+        isGrounded = false;
+        const wallThreshold = wallLimitFallback - 0.2;
+        if (Math.abs(target.x) >= wallThreshold) {
+          isWallClinging = true;
+          wallNormalX = target.x > 0 ? -1 : 1;
+        } else {
+          isWallClinging = false;
+          wallNormalX = 0;
+        }
       }
     }
+
+    trav.isGrounded = isGrounded;
+    trav.isWallClinging = isWallClinging;
+    trav.wallNormalX = wallNormalX;
 
     if (trans) {
       if (
@@ -7871,6 +7926,9 @@ export class HavokPhysicsSystem implements ISystem {
   readonly initPhase = InitPhase.Bootstrap;
   private havokPlugin: BABYLON.HavokPlugin | null = null;
 
+  private _scratchPos = new BABYLON.Vector3();
+  private _scratchRot = new BABYLON.Quaternion();
+
   constructor(private context: SystemContext) {}
 
   public async init(): Promise<void> {
@@ -8068,6 +8126,21 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.x = wTarget.x;
       wTrans.y = wTarget.y;
       wTrans.z = wTarget.z;
+    }
+
+    // Modern V2 Havok kinematic synchronization
+    const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.AbstractMesh | null;
+    if (pMesh && pMesh.physicsBody && pTrans) {
+      this._scratchPos.set(pTrans.x, pTrans.y, pTrans.z);
+      this._scratchRot.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
+      pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
+    }
+
+    const wMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.AbstractMesh | null;
+    if (wMesh && wMesh.physicsBody && wTrans) {
+      this._scratchPos.set(wTrans.x, wTrans.y, wTrans.z);
+      this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+      wMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
   }
 }
