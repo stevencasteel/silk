@@ -1,0 +1,1 @@
+import{$n as e}from"./compositionRoot-BJIwXciG.js";export{e as gaussianSplattingPixelShader};

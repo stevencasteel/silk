@@ -1,0 +1,1 @@
+import{kr as e}from"./compositionRoot-BJIwXciG.js";export{e as blackAndWhitePixelShader};

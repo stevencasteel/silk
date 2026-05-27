@@ -1,1 +1,0 @@
-import{Dt as e}from"./compositionRoot-B3lQpkMH.js";export{e as defaultVertexShaderWGSL};
