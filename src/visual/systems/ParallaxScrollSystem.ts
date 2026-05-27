@@ -1,4 +1,4 @@
-import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import {
@@ -123,6 +123,11 @@ export class ParallaxScrollSystem implements ISystem {
       wrappedOffset += totalRange;
     }
 
+    const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_POS.y;
+    const cameraYOffset = scene.activeCamera
+      ? (scene.activeCamera.position.y - defaultCameraY)
+      : 0.0;
+
     if (!this.cachedTicks) {
       this.cachedTicks = scene.meshes.filter(
         (m) => m.metadata?.type === "scrolling_tick"
@@ -131,7 +136,7 @@ export class ParallaxScrollSystem implements ISystem {
 
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
-      let y = tick.metadata.initialY - wrappedOffset;
+      let y = tick.metadata.initialY - wrappedOffset + cameraYOffset;
       while (y < mapping.BOTTOM_BOUNDARY) y += totalRange;
       while (y > mapping.TOP_BOUNDARY) y -= totalRange;
       tick.position.y = y;

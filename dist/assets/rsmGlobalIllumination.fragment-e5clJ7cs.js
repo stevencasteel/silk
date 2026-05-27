@@ -1,0 +1,1 @@
+import{p as e}from"./compositionRoot-LbPG_xGr.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

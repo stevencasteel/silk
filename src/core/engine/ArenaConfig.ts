@@ -124,7 +124,7 @@ export const GAMEPLAY_TUNING = {
   },
   REEL: {
     MIN_LENGTH: 7.0,
-    MAX_LENGTH: 26.0,
+    MAX_LENGTH: 120.0,
     IN_SPEED: 10.0,
     OUT_SPEED: 14.0,
     AUTO_SLACK_TAKEUP_SPEED: 3.0,
@@ -346,6 +346,15 @@ export const VISUAL_JUICE_CONFIG = {
       B: 0.05
     }
   }
+} as const;
+
+export const CAMERA_TUNING = {
+  LOWER_COMFORT_Y: -11.5,
+  UPPER_COMFORT_Y: 8.0,
+  WALL_SLIDE_LERP: 0.12,
+  NORMAL_LERP: 0.06,
+  MIN_SCROLL_Y: -80.0,
+  MAX_SCROLL_Y: 0.0
 } as const;
 
 export const POST_PROCESSING_PRESETS = {

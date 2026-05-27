@@ -7,7 +7,8 @@ import {
   KinematicTargetComponent,
   HealthComponent,
   TransformComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  TraversalStateComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -31,35 +32,50 @@ export class VerticalBoundarySystem implements ISystem {
     const vel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
       .get(this.context.refs.player);
-    if (!tether || !target || !health || !vel) return;
-    this.clampToArenaBounds(target, vel);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+
+    if (!tether || !target || !health || !vel || !trav) return;
+    this.clampToArenaBounds(target, vel, trav);
     this.updateStrainMeter(tether, health);
   }
 
   private clampToArenaBounds(
     target: KinematicTargetComponent,
-    vel: KinematicVelocityComponent
+    vel: KinematicVelocityComponent,
+    trav: TraversalStateComponent
   ): void {
     const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
     const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
+    const isWallSliding = trav.state === "WALL_SLIDING";
+
     if (target.y < minY) {
-      if (vel.y < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
-        this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
-        const transforms = this.context.stores.get<TransformComponent>("transform");
-        const pTrans = transforms.get(this.context.refs.player);
-        if (pTrans) {
-          if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-          if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-          if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-          pTrans.scaleVelY += -16.0;
-          pTrans.scaleVelX += 8.0;
-          pTrans.scaleVelZ += 8.0;
+      if (isWallSliding) {
+        const absoluteFloor = this.FLOOR_Y - 70.0;
+        if (target.y < absoluteFloor) {
+          target.y = absoluteFloor;
+          vel.y = Math.max(0, vel.y);
         }
+      } else {
+        if (vel.y < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
+          this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
+          const transforms = this.context.stores.get<TransformComponent>("transform");
+          const pTrans = transforms.get(this.context.refs.player);
+          if (pTrans) {
+            if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+            if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+            if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+            pTrans.scaleVelY += -16.0;
+            pTrans.scaleVelX += 8.0;
+            pTrans.scaleVelZ += 8.0;
+          }
+        }
+        target.y = minY;
+        vel.y = Math.max(0, vel.y);
       }
-      target.y = minY;
-      vel.y = Math.max(0, vel.y);
     } else if (target.y > maxY) {
       target.y = maxY;
       vel.y = Math.min(0, vel.y);

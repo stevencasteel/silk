@@ -1,0 +1,1 @@
+import{Mr as e}from"./compositionRoot-LbPG_xGr.js";export{e as backgroundVertexShader};

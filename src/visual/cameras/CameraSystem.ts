@@ -1,9 +1,9 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
-import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -15,16 +15,15 @@ export class CameraSystem implements ISystem {
   private shakeDirX = 0;
   private shakeDirY = 0;
   private noiseTime = 0.0;
-  private unsub: (() => void) | null = null;
+  private unsub: (() => void)[] = [];
   private cameraTarget = new BABYLON.Vector3();
 
-  constructor(
-    private visualRegistry: IVisualRegistry,
-    private broker: EventBroker
-  ) {}
+  private cameraScrollY = 0.0;
+
+  constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
 
@@ -43,13 +42,21 @@ export class CameraSystem implements ISystem {
       );
     }
 
-    this.unsub = this.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
-      this.shakeIntensity = Math.max(this.shakeIntensity, payload.amplitude);
-      this.shakeTimer = Math.max(this.shakeTimer, payload.duration);
-      this.shakeDuration = this.shakeTimer;
-      this.shakeDirX = payload.dirX ?? 0;
-      this.shakeDirY = payload.dirY ?? 0;
-    });
+    this.unsub.push(
+      this.context.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
+        this.shakeIntensity = Math.max(this.shakeIntensity, payload.amplitude);
+        this.shakeTimer = Math.max(this.shakeTimer, payload.duration);
+        this.shakeDuration = this.shakeTimer;
+        this.shakeDirX = payload.dirX ?? 0;
+        this.shakeDirY = payload.dirY ?? 0;
+      })
+    );
+
+    this.unsub.push(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.cameraScrollY = 0.0;
+      })
+    );
   }
 
   private noise(t: number): number {
@@ -77,7 +84,7 @@ export class CameraSystem implements ISystem {
       if (len > 0) {
         const dx = this.shakeDirX / len;
         const dy = this.shakeDirY / len;
-        
+
         const parallel = (noiseValX * dx + noiseValY * dy) * 0.85;
         const perpendicular = (-noiseValX * dy + noiseValY * dx) * 0.15;
 
@@ -98,17 +105,38 @@ export class CameraSystem implements ISystem {
       }
     }
 
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const playerTrans = transforms.get(this.context.refs.player);
+    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+
+    if (playerTrans && trav) {
+      const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+      const playerLocalY = playerTrans.y - (baseY + this.cameraScrollY);
+
+      if (trav.state === "WALL_SLIDING") {
+        if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
+          const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
+          const clampedScrollY = Math.max(CAMERA_TUNING.MIN_SCROLL_Y, Math.min(CAMERA_TUNING.MAX_SCROLL_Y, targetScrollY));
+          this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, clampedScrollY, CAMERA_TUNING.WALL_SLIDE_LERP);
+        } else if (playerLocalY > -4.0 && this.cameraScrollY < 0.0) {
+          this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
+        }
+      } else {
+        this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
+      }
+    }
+
     const preset = POST_PROCESSING_PRESETS.CAMERA;
 
     if (this.cameraNode) {
       this.cameraNode.position.set(
         preset.DEFAULT_POS.x + shakeOffsetX,
-        preset.DEFAULT_POS.y + shakeOffsetY,
+        preset.DEFAULT_POS.y + this.cameraScrollY + shakeOffsetY,
         preset.DEFAULT_POS.z + shakeOffsetZ
       );
       this.cameraTarget.set(
         preset.DEFAULT_TARGET.x + shakeOffsetX * 0.25,
-        preset.DEFAULT_TARGET.y + shakeOffsetY * 0.25,
+        preset.DEFAULT_TARGET.y + this.cameraScrollY + shakeOffsetY * 0.25,
         preset.DEFAULT_TARGET.z
       );
       this.cameraNode.setTarget(this.cameraTarget);
@@ -116,8 +144,7 @@ export class CameraSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsub) {
-      this.unsub();
-    }
+    this.unsub.forEach((unsub) => unsub());
+    this.unsub = [];
   }
 }
