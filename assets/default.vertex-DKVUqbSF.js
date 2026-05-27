@@ -1,0 +1,1 @@
+import{_r as e}from"./compositionRoot-DxU4zJeM.js";export{e as defaultVertexShader};
