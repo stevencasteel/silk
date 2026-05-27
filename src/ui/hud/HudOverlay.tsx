@@ -118,14 +118,16 @@ export const HudOverlay: React.FC = () => {
 
   useEffect(() => {
     const prevHP = prevHpRef.current;
+    let shakeTimer: ReturnType<typeof setTimeout> | null = null;
+    let animTimer: ReturnType<typeof setTimeout> | null = null;
+
     if (playerHp !== prevHP) {
       const tookDamage = playerHp < prevHP && prevHP !== -1;
       const healed = playerHp > prevHP && prevHP !== -1;
 
       if (tookDamage) {
         setHurtShakeActive(true);
-        const shakeTimer = setTimeout(() => setHurtShakeActive(false), 200);
-        return () => clearTimeout(shakeTimer);
+        shakeTimer = setTimeout(() => setHurtShakeActive(false), 200);
       }
 
       const nextCls = Array<string>(5).fill("");
@@ -141,11 +143,15 @@ export const HudOverlay: React.FC = () => {
       setHpAnims(nextCls);
       prevHpRef.current = playerHp;
 
-      const timer = setTimeout(() => {
+      animTimer = setTimeout(() => {
         setHpAnims(Array(5).fill(""));
       }, 500);
-      return () => clearTimeout(timer);
     }
+
+    return () => {
+      if (shakeTimer) clearTimeout(shakeTimer);
+      if (animTimer) clearTimeout(animTimer);
+    };
   }, [playerHp]);
 
   useEffect(() => {
