@@ -1,0 +1,1 @@
+import{Ir as e}from"./compositionRoot-DfpVChAv.js";export{e as OptimizeIndices};
