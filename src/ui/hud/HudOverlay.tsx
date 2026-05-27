@@ -4,7 +4,6 @@ import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
-import * as Tone from "tone";
 
 export const HudOverlay: React.FC = () => {
   const playerState = usePlayerStore(
@@ -80,15 +79,7 @@ export const HudOverlay: React.FC = () => {
 
   const playConfirmSynth = useCallback(() => {
     try {
-      if (Tone.getContext().state === "running") {
-        const synth = new Tone.Synth({
-          oscillator: { type: "triangle" },
-          envelope: { attack: 0.002, decay: 0.12, sustain: 0, release: 0.08 }
-        }).toDestination();
-        synth.volume.value = -6;
-        synth.triggerAttackRelease("C6", "16n");
-        setTimeout(() => synth.dispose(), 250);
-      }
+      window.dispatchEvent(new CustomEvent("silk-play-confirm"));
     } catch {
       // Ignored
     }
@@ -96,15 +87,7 @@ export const HudOverlay: React.FC = () => {
 
   const playTensionAlarm = useCallback(() => {
     try {
-      if (Tone.getContext().state === "running" && Math.random() < 0.1) {
-        const synth = new Tone.Synth({
-          oscillator: { type: "sine" },
-          envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.05 }
-        }).toDestination();
-        synth.volume.value = -18;
-        synth.triggerAttackRelease("F6", "32n");
-        setTimeout(() => synth.dispose(), 150);
-      }
+      window.dispatchEvent(new CustomEvent("silk-tension-alarm"));
     } catch {
       // Ignored
     }

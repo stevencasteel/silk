@@ -7,16 +7,20 @@ import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import * as Tone from "tone";
+import type { MembraneSynth, NoiseSynth, Synth, Panner } from "tone";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private tensionSynth: TensionSynthesizer | null = null;
-  private impactSynth: Tone.MembraneSynth | null = null;
-  private noiseSynth: Tone.NoiseSynth | null = null;
-  private tickSynth: Tone.Synth | null = null;
-  private sfxPanner: Tone.Panner | null = null;
+  private impactSynth: MembraneSynth | null = null;
+  private noiseSynth: NoiseSynth | null = null;
+  private tickSynth: Synth | null = null;
+  private confirmSynth: Synth | null = null;
+  private tensionAlarmSynth: Synth | null = null;
+  private sfxPanner: Panner | null = null;
   private windowTickListener: (() => void) | null = null;
+  private windowConfirmListener: (() => void) | null = null;
+  private windowTensionAlarmListener: (() => void) | null = null;
   private initialized: boolean = false;
 
   private broker: EventBroker;
@@ -25,6 +29,7 @@ export class AudioDirectorSystem implements ISystem {
 
   private hitComboCount = 0;
   private lastHitTime = 0;
+  private toneModule: typeof import("tone") | null = null;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -45,6 +50,20 @@ export class AudioDirectorSystem implements ISystem {
       }
     };
     window.addEventListener("silk-stats-tick", this.windowTickListener);
+
+    this.windowConfirmListener = () => {
+      if (this.initialized && this.confirmSynth) {
+        this.confirmSynth.triggerAttackRelease("C6", "16n");
+      }
+    };
+    window.addEventListener("silk-play-confirm", this.windowConfirmListener);
+
+    this.windowTensionAlarmListener = () => {
+      if (this.initialized && this.tensionAlarmSynth && Math.random() < 0.1) {
+        this.tensionAlarmSynth.triggerAttackRelease("F6", "32n");
+      }
+    };
+    window.addEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
   }
 
   public init(): void {
@@ -167,8 +186,8 @@ export class AudioDirectorSystem implements ISystem {
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
-        if (this.initialized && this.tensionSynth) {
-          const rawCtx = Tone.getContext().rawContext as unknown as AudioContext;
+        if (this.initialized && this.tensionSynth && this.toneModule) {
+          const rawCtx = this.toneModule.getContext().rawContext as unknown as AudioContext;
           if (payload.isPaused) {
             this.tensionSynth.fadeOutAndMute();
             if (rawCtx && typeof rawCtx.suspend === "function") {
@@ -251,9 +270,9 @@ export class AudioDirectorSystem implements ISystem {
         if (this.tensionSynth) {
           this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
         }
-        if (this.sfxPanner) {
+        if (this.sfxPanner && this.toneModule) {
           const panVal = Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0 * 0.45;
-          this.sfxPanner.pan.setTargetAtTime(panVal, Tone.now(), 0.05);
+          this.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
         }
       }
     }
@@ -271,54 +290,79 @@ export class AudioDirectorSystem implements ISystem {
 
   private bootAudioEngine(): void {
     if (this.initialized) return;
-    Tone.start().then(() => {
-      this.initialized = true;
+    import("tone").then((Tone) => {
+      this.toneModule = Tone;
+      Tone.start().then(() => {
+        this.initialized = true;
 
-      Tone.getDestination().mute = false;
+        Tone.getDestination().mute = false;
 
-      this.sfxPanner = new Tone.Panner(0).toDestination();
+        this.sfxPanner = new Tone.Panner(0).toDestination();
 
-      this.tensionSynth = new TensionSynthesizer();
-      this.tensionSynth.initialize();
+        this.tensionSynth = new TensionSynthesizer();
+        this.tensionSynth.initialize().then(() => {
+          this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+        });
 
-      this.impactSynth = new Tone.MembraneSynth({
-        pitchDecay: 0.05,
-        octaves: 4,
-        oscillator: { type: "sine" },
-        envelope: {
-          attack: 0.001,
-          decay: 0.2,
-          sustain: 0.01,
-          release: 0.4,
-          attackCurve: "exponential"
-        }
-      }).connect(this.sfxPanner);
+        this.impactSynth = new Tone.MembraneSynth({
+          pitchDecay: 0.05,
+          octaves: 4,
+          oscillator: { type: "sine" },
+          envelope: {
+            attack: 0.001,
+            decay: 0.2,
+            sustain: 0.01,
+            release: 0.4,
+            attackCurve: "exponential"
+          }
+        }).connect(this.sfxPanner);
 
-      const presets = AUDIO_PRESETS.PLAYER;
+        const presets = AUDIO_PRESETS.PLAYER;
 
-      this.noiseSynth = new Tone.NoiseSynth({
-        noise: { type: "pink" },
-        envelope: {
-          attack: 0.001,
-          decay: presets.NOISE_DECAY,
-          sustain: 0,
-          release: presets.NOISE_DECAY
-        }
-      }).connect(this.sfxPanner);
-      this.noiseSynth.volume.value = presets.NOISE_VOLUME;
+        this.noiseSynth = new Tone.NoiseSynth({
+          noise: { type: "pink" },
+          envelope: {
+            attack: 0.001,
+            decay: presets.NOISE_DECAY,
+            sustain: 0,
+            release: presets.NOISE_DECAY
+          }
+        }).connect(this.sfxPanner);
+        this.noiseSynth.volume.value = presets.NOISE_VOLUME;
 
-      this.tickSynth = new Tone.Synth({
-        oscillator: { type: "sine" },
-        envelope: {
-          attack: 0.002,
-          decay: 0.03,
-          sustain: 0,
-          release: 0.03
-        }
-      }).toDestination();
-      this.tickSynth.volume.value = -14;
+        this.tickSynth = new Tone.Synth({
+          oscillator: { type: "sine" },
+          envelope: {
+            attack: 0.002,
+            decay: 0.03,
+            sustain: 0,
+            release: 0.03
+          }
+        }).toDestination();
+        this.tickSynth.volume.value = -14;
 
-      this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+        this.confirmSynth = new Tone.Synth({
+          oscillator: { type: "triangle" },
+          envelope: {
+            attack: 0.002,
+            decay: 0.12,
+            sustain: 0,
+            release: 0.08
+          }
+        }).toDestination();
+        this.confirmSynth.volume.value = -6;
+
+        this.tensionAlarmSynth = new Tone.Synth({
+          oscillator: { type: "sine" },
+          envelope: {
+            attack: 0.01,
+            decay: 0.1,
+            sustain: 0,
+            release: 0.05
+          }
+        }).toDestination();
+        this.tensionAlarmSynth.volume.value = -18;
+      });
     });
   }
 
@@ -330,9 +374,17 @@ export class AudioDirectorSystem implements ISystem {
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
     if (this.tickSynth) this.tickSynth.dispose();
+    if (this.confirmSynth) this.confirmSynth.dispose();
+    if (this.tensionAlarmSynth) this.tensionAlarmSynth.dispose();
     if (this.sfxPanner) this.sfxPanner.dispose();
     if (this.windowTickListener) {
       window.removeEventListener("silk-stats-tick", this.windowTickListener);
+    }
+    if (this.windowConfirmListener) {
+      window.removeEventListener("silk-play-confirm", this.windowConfirmListener);
+    }
+    if (this.windowTensionAlarmListener) {
+      window.removeEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
     }
   }
 }

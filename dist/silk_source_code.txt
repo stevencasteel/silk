@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 6:52:24 PM
+ [SYSTEM] Generated: 5/27/2026, 6:57:12 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -495,6 +495,10 @@ export default defineConfig([
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SILK</title>
+    <!-- Preload heavy WASM runtime to start downloading early in parallel -->
+    <link rel="preload" href="./HavokPhysics.wasm" as="fetch" type="application/wasm" crossorigin="anonymous" />
+    <!-- Preload prefiltered lighting environment to avoid staging pauses -->
+    <link rel="preload" href="https://assets.babylonjs.com/environments/environmentSpecular.env" as="fetch" crossorigin="anonymous" />
   </head>
   <body>
     <div id="root"></div>
@@ -1236,16 +1240,20 @@ import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import * as Tone from "tone";
+import type { MembraneSynth, NoiseSynth, Synth, Panner } from "tone";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private tensionSynth: TensionSynthesizer | null = null;
-  private impactSynth: Tone.MembraneSynth | null = null;
-  private noiseSynth: Tone.NoiseSynth | null = null;
-  private tickSynth: Tone.Synth | null = null;
-  private sfxPanner: Tone.Panner | null = null;
+  private impactSynth: MembraneSynth | null = null;
+  private noiseSynth: NoiseSynth | null = null;
+  private tickSynth: Synth | null = null;
+  private confirmSynth: Synth | null = null;
+  private tensionAlarmSynth: Synth | null = null;
+  private sfxPanner: Panner | null = null;
   private windowTickListener: (() => void) | null = null;
+  private windowConfirmListener: (() => void) | null = null;
+  private windowTensionAlarmListener: (() => void) | null = null;
   private initialized: boolean = false;
 
   private broker: EventBroker;
@@ -1254,6 +1262,7 @@ export class AudioDirectorSystem implements ISystem {
 
   private hitComboCount = 0;
   private lastHitTime = 0;
+  private toneModule: typeof import("tone") | null = null;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -1274,6 +1283,20 @@ export class AudioDirectorSystem implements ISystem {
       }
     };
     window.addEventListener("silk-stats-tick", this.windowTickListener);
+
+    this.windowConfirmListener = () => {
+      if (this.initialized && this.confirmSynth) {
+        this.confirmSynth.triggerAttackRelease("C6", "16n");
+      }
+    };
+    window.addEventListener("silk-play-confirm", this.windowConfirmListener);
+
+    this.windowTensionAlarmListener = () => {
+      if (this.initialized && this.tensionAlarmSynth && Math.random() < 0.1) {
+        this.tensionAlarmSynth.triggerAttackRelease("F6", "32n");
+      }
+    };
+    window.addEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
   }
 
   public init(): void {
@@ -1396,8 +1419,8 @@ export class AudioDirectorSystem implements ISystem {
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
-        if (this.initialized && this.tensionSynth) {
-          const rawCtx = Tone.getContext().rawContext as unknown as AudioContext;
+        if (this.initialized && this.tensionSynth && this.toneModule) {
+          const rawCtx = this.toneModule.getContext().rawContext as unknown as AudioContext;
           if (payload.isPaused) {
             this.tensionSynth.fadeOutAndMute();
             if (rawCtx && typeof rawCtx.suspend === "function") {
@@ -1480,9 +1503,9 @@ export class AudioDirectorSystem implements ISystem {
         if (this.tensionSynth) {
           this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
         }
-        if (this.sfxPanner) {
+        if (this.sfxPanner && this.toneModule) {
           const panVal = Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0 * 0.45;
-          this.sfxPanner.pan.setTargetAtTime(panVal, Tone.now(), 0.05);
+          this.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
         }
       }
     }
@@ -1500,54 +1523,79 @@ export class AudioDirectorSystem implements ISystem {
 
   private bootAudioEngine(): void {
     if (this.initialized) return;
-    Tone.start().then(() => {
-      this.initialized = true;
+    import("tone").then((Tone) => {
+      this.toneModule = Tone;
+      Tone.start().then(() => {
+        this.initialized = true;
 
-      Tone.getDestination().mute = false;
+        Tone.getDestination().mute = false;
 
-      this.sfxPanner = new Tone.Panner(0).toDestination();
+        this.sfxPanner = new Tone.Panner(0).toDestination();
 
-      this.tensionSynth = new TensionSynthesizer();
-      this.tensionSynth.initialize();
+        this.tensionSynth = new TensionSynthesizer();
+        this.tensionSynth.initialize().then(() => {
+          this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+        });
 
-      this.impactSynth = new Tone.MembraneSynth({
-        pitchDecay: 0.05,
-        octaves: 4,
-        oscillator: { type: "sine" },
-        envelope: {
-          attack: 0.001,
-          decay: 0.2,
-          sustain: 0.01,
-          release: 0.4,
-          attackCurve: "exponential"
-        }
-      }).connect(this.sfxPanner);
+        this.impactSynth = new Tone.MembraneSynth({
+          pitchDecay: 0.05,
+          octaves: 4,
+          oscillator: { type: "sine" },
+          envelope: {
+            attack: 0.001,
+            decay: 0.2,
+            sustain: 0.01,
+            release: 0.4,
+            attackCurve: "exponential"
+          }
+        }).connect(this.sfxPanner);
 
-      const presets = AUDIO_PRESETS.PLAYER;
+        const presets = AUDIO_PRESETS.PLAYER;
 
-      this.noiseSynth = new Tone.NoiseSynth({
-        noise: { type: "pink" },
-        envelope: {
-          attack: 0.001,
-          decay: presets.NOISE_DECAY,
-          sustain: 0,
-          release: presets.NOISE_DECAY
-        }
-      }).connect(this.sfxPanner);
-      this.noiseSynth.volume.value = presets.NOISE_VOLUME;
+        this.noiseSynth = new Tone.NoiseSynth({
+          noise: { type: "pink" },
+          envelope: {
+            attack: 0.001,
+            decay: presets.NOISE_DECAY,
+            sustain: 0,
+            release: presets.NOISE_DECAY
+          }
+        }).connect(this.sfxPanner);
+        this.noiseSynth.volume.value = presets.NOISE_VOLUME;
 
-      this.tickSynth = new Tone.Synth({
-        oscillator: { type: "sine" },
-        envelope: {
-          attack: 0.002,
-          decay: 0.03,
-          sustain: 0,
-          release: 0.03
-        }
-      }).toDestination();
-      this.tickSynth.volume.value = -14;
+        this.tickSynth = new Tone.Synth({
+          oscillator: { type: "sine" },
+          envelope: {
+            attack: 0.002,
+            decay: 0.03,
+            sustain: 0,
+            release: 0.03
+          }
+        }).toDestination();
+        this.tickSynth.volume.value = -14;
 
-      this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+        this.confirmSynth = new Tone.Synth({
+          oscillator: { type: "triangle" },
+          envelope: {
+            attack: 0.002,
+            decay: 0.12,
+            sustain: 0,
+            release: 0.08
+          }
+        }).toDestination();
+        this.confirmSynth.volume.value = -6;
+
+        this.tensionAlarmSynth = new Tone.Synth({
+          oscillator: { type: "sine" },
+          envelope: {
+            attack: 0.01,
+            decay: 0.1,
+            sustain: 0,
+            release: 0.05
+          }
+        }).toDestination();
+        this.tensionAlarmSynth.volume.value = -18;
+      });
     });
   }
 
@@ -1559,9 +1607,17 @@ export class AudioDirectorSystem implements ISystem {
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
     if (this.tickSynth) this.tickSynth.dispose();
+    if (this.confirmSynth) this.confirmSynth.dispose();
+    if (this.tensionAlarmSynth) this.tensionAlarmSynth.dispose();
     if (this.sfxPanner) this.sfxPanner.dispose();
     if (this.windowTickListener) {
       window.removeEventListener("silk-stats-tick", this.windowTickListener);
+    }
+    if (this.windowConfirmListener) {
+      window.removeEventListener("silk-play-confirm", this.windowConfirmListener);
+    }
+    if (this.windowTensionAlarmListener) {
+      window.removeEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
     }
   }
 }
@@ -1625,27 +1681,31 @@ export const AUDIO_PRESETS = {
 
 ● ./src/audio/tone/TensionSynthesizer.ts
 ────────────────────────────────────────────────────
-import * as Tone from "tone";
 import { AUDIO_PRESETS } from "./AudioPresets";
+import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner } from "tone";
 
 export class TensionSynthesizer {
-  private fmOsc: Tone.FMOscillator | null = null;
-  private lowpassFilter: Tone.Filter | null = null;
-  private gainNode: Tone.Gain | null = null;
-  private lfo: Tone.LFO | null = null;
+  private fmOsc: FMOscillator | null = null;
+  private lowpassFilter: Filter | null = null;
+  private gainNode: Gain | null = null;
+  private lfo: LFO | null = null;
   private lastTension: number = -999.0;
 
-  private playerPanner: Tone.Panner | null = null;
-  private weaverPanner: Tone.Panner | null = null;
+  private playerPanner: Panner | null = null;
+  private weaverPanner: Panner | null = null;
 
-  private ratchetSynth: Tone.Synth | null = null;
-  private heartbeatSynth: Tone.MembraneSynth | null = null;
-  private heartbeatLoop: Tone.Loop | null = null;
+  private ratchetSynth: Synth | null = null;
+  private heartbeatSynth: MembraneSynth | null = null;
+  private heartbeatLoop: Loop | null = null;
 
   private lastRatchetTime: number = 0;
   private nextRatchetDelay: number = 0.25;
+  private toneModule: typeof import("tone") | null = null;
 
-  public initialize(): void {
+  public async initialize(): Promise<void> {
+    const Tone = await import("tone");
+    this.toneModule = Tone;
+
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
@@ -1668,7 +1728,7 @@ export class TensionSynthesizer {
       harmonicity: presets.HARMONICITY_NORMAL,
       modulationIndex: synthConfig.DRONE_MOD_INDEX_BASE,
       workspace: undefined
-    } as unknown as ConstructorParameters<typeof Tone.FMOscillator>[0]);
+    } as unknown as ConstructorParameters<typeof FMOscillator>[0]);
 
     this.gainNode = new Tone.Gain(0.0);
 
@@ -1721,20 +1781,20 @@ export class TensionSynthesizer {
   }
 
   public updatePositions(playerX: number, weaverX: number): void {
-    if (this.playerPanner && this.weaverPanner) {
-      const now = Tone.now();
+    if (this.playerPanner && this.weaverPanner && this.toneModule) {
+      const now = this.toneModule.now();
       this.playerPanner.pan.setTargetAtTime(this.getPanFromX(playerX), now, 0.05);
       this.weaverPanner.pan.setTargetAtTime(this.getPanFromX(weaverX), now, 0.05);
     }
   }
 
   public updateDronePitch(tensionVal: number): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
 
     const clampedTension = Math.max(0, Math.min(1.3, tensionVal));
 
     if (clampedTension > this.lastTension && clampedTension > 0.05) {
-      const now = Tone.now();
+      const now = this.toneModule.now();
       if (now > this.lastRatchetTime + this.nextRatchetDelay) {
         this.lastRatchetTime = now;
         this.nextRatchetDelay = Math.max(0.04, 0.28 - clampedTension * 0.2);
@@ -1748,7 +1808,7 @@ export class TensionSynthesizer {
     }
     this.lastTension = clampedTension;
 
-    const now = Tone.now();
+    const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
@@ -1786,8 +1846,8 @@ export class TensionSynthesizer {
   }
 
   public resumeFromPause(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
-    const now = Tone.now();
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
+    const now = this.toneModule.now();
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
     const targetGain =
@@ -1798,8 +1858,8 @@ export class TensionSynthesizer {
   }
 
   public handleStateChange(state: string): void {
-    if (!this.fmOsc || !this.lfo || !this.lowpassFilter) return;
-    const now = Tone.now();
+    if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
+    const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
 
     if (state.includes("BERSERK")) {
@@ -1818,14 +1878,14 @@ export class TensionSynthesizer {
   }
 
   public fadeOutAndMute(): void {
-    if (!this.gainNode) return;
-    const now = Tone.now();
+    if (!this.gainNode || !this.toneModule) return;
+    const now = this.toneModule.now();
     this.gainNode.gain.setTargetAtTime(0.0, now, 0.15);
   }
 
   public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter) return;
-    const now = Tone.now();
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
+    const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
 
     this.gainNode.gain.setValueAtTime(0.0, now);
@@ -8797,7 +8857,6 @@ import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
-import * as Tone from "tone";
 
 export const HudOverlay: React.FC = () => {
   const playerState = usePlayerStore(
@@ -8873,15 +8932,7 @@ export const HudOverlay: React.FC = () => {
 
   const playConfirmSynth = useCallback(() => {
     try {
-      if (Tone.getContext().state === "running") {
-        const synth = new Tone.Synth({
-          oscillator: { type: "triangle" },
-          envelope: { attack: 0.002, decay: 0.12, sustain: 0, release: 0.08 }
-        }).toDestination();
-        synth.volume.value = -6;
-        synth.triggerAttackRelease("C6", "16n");
-        setTimeout(() => synth.dispose(), 250);
-      }
+      window.dispatchEvent(new CustomEvent("silk-play-confirm"));
     } catch {
       // Ignored
     }
@@ -8889,15 +8940,7 @@ export const HudOverlay: React.FC = () => {
 
   const playTensionAlarm = useCallback(() => {
     try {
-      if (Tone.getContext().state === "running" && Math.random() < 0.1) {
-        const synth = new Tone.Synth({
-          oscillator: { type: "sine" },
-          envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.05 }
-        }).toDestination();
-        synth.volume.value = -18;
-        synth.triggerAttackRelease("F6", "32n");
-        setTimeout(() => synth.dispose(), 150);
-      }
+      window.dispatchEvent(new CustomEvent("silk-tension-alarm"));
     } catch {
       // Ignored
     }
@@ -11764,13 +11807,19 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    chunkSizeWarningLimit: 12000, // Adjusted threshold to reflect consolidated chunks
+    chunkSizeWarningLimit: 12000,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Bundles all modular Babylon assets together to reduce network request overhead
-          if (id.includes('@babylonjs')) {
-            return 'babylon';
+          // Isolate key engine layers into targeted parallel chunks
+          if (id.includes('@babylonjs/core')) {
+            return 'babylon-core';
+          }
+          if (id.includes('@babylonjs/havok')) {
+            return 'babylon-havok';
+          }
+          if (id.includes('node_modules')) {
+            return 'vendor';
           }
         }
       }

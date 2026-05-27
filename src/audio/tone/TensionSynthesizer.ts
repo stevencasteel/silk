@@ -1,24 +1,28 @@
-import * as Tone from "tone";
 import { AUDIO_PRESETS } from "./AudioPresets";
+import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner } from "tone";
 
 export class TensionSynthesizer {
-  private fmOsc: Tone.FMOscillator | null = null;
-  private lowpassFilter: Tone.Filter | null = null;
-  private gainNode: Tone.Gain | null = null;
-  private lfo: Tone.LFO | null = null;
+  private fmOsc: FMOscillator | null = null;
+  private lowpassFilter: Filter | null = null;
+  private gainNode: Gain | null = null;
+  private lfo: LFO | null = null;
   private lastTension: number = -999.0;
 
-  private playerPanner: Tone.Panner | null = null;
-  private weaverPanner: Tone.Panner | null = null;
+  private playerPanner: Panner | null = null;
+  private weaverPanner: Panner | null = null;
 
-  private ratchetSynth: Tone.Synth | null = null;
-  private heartbeatSynth: Tone.MembraneSynth | null = null;
-  private heartbeatLoop: Tone.Loop | null = null;
+  private ratchetSynth: Synth | null = null;
+  private heartbeatSynth: MembraneSynth | null = null;
+  private heartbeatLoop: Loop | null = null;
 
   private lastRatchetTime: number = 0;
   private nextRatchetDelay: number = 0.25;
+  private toneModule: typeof import("tone") | null = null;
 
-  public initialize(): void {
+  public async initialize(): Promise<void> {
+    const Tone = await import("tone");
+    this.toneModule = Tone;
+
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
@@ -41,7 +45,7 @@ export class TensionSynthesizer {
       harmonicity: presets.HARMONICITY_NORMAL,
       modulationIndex: synthConfig.DRONE_MOD_INDEX_BASE,
       workspace: undefined
-    } as unknown as ConstructorParameters<typeof Tone.FMOscillator>[0]);
+    } as unknown as ConstructorParameters<typeof FMOscillator>[0]);
 
     this.gainNode = new Tone.Gain(0.0);
 
@@ -94,20 +98,20 @@ export class TensionSynthesizer {
   }
 
   public updatePositions(playerX: number, weaverX: number): void {
-    if (this.playerPanner && this.weaverPanner) {
-      const now = Tone.now();
+    if (this.playerPanner && this.weaverPanner && this.toneModule) {
+      const now = this.toneModule.now();
       this.playerPanner.pan.setTargetAtTime(this.getPanFromX(playerX), now, 0.05);
       this.weaverPanner.pan.setTargetAtTime(this.getPanFromX(weaverX), now, 0.05);
     }
   }
 
   public updateDronePitch(tensionVal: number): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
 
     const clampedTension = Math.max(0, Math.min(1.3, tensionVal));
 
     if (clampedTension > this.lastTension && clampedTension > 0.05) {
-      const now = Tone.now();
+      const now = this.toneModule.now();
       if (now > this.lastRatchetTime + this.nextRatchetDelay) {
         this.lastRatchetTime = now;
         this.nextRatchetDelay = Math.max(0.04, 0.28 - clampedTension * 0.2);
@@ -121,7 +125,7 @@ export class TensionSynthesizer {
     }
     this.lastTension = clampedTension;
 
-    const now = Tone.now();
+    const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
@@ -159,8 +163,8 @@ export class TensionSynthesizer {
   }
 
   public resumeFromPause(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter) return;
-    const now = Tone.now();
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
+    const now = this.toneModule.now();
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
     const targetGain =
@@ -171,8 +175,8 @@ export class TensionSynthesizer {
   }
 
   public handleStateChange(state: string): void {
-    if (!this.fmOsc || !this.lfo || !this.lowpassFilter) return;
-    const now = Tone.now();
+    if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
+    const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
 
     if (state.includes("BERSERK")) {
@@ -191,14 +195,14 @@ export class TensionSynthesizer {
   }
 
   public fadeOutAndMute(): void {
-    if (!this.gainNode) return;
-    const now = Tone.now();
+    if (!this.gainNode || !this.toneModule) return;
+    const now = this.toneModule.now();
     this.gainNode.gain.setTargetAtTime(0.0, now, 0.15);
   }
 
   public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter) return;
-    const now = Tone.now();
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
+    const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
 
     this.gainNode.gain.setValueAtTime(0.0, now);
