@@ -69,18 +69,21 @@ export class HudSyncSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
+        console.log("[HudSyncSystem] GAME_OVER received! Dispatched showing DEFEATED overlay.");
         overlayStore.recordLoss();
         overlayStore.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
+        console.log("[HudSyncSystem] GAME_WIN received! Dispatched showing VICTORY overlay.");
         overlayStore.recordWin();
         overlayStore.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        console.log("[HudSyncSystem] GAME_RESET received! Resetting stores.");
         resetAllStores();
         overlayStore.loadStats();
       })

@@ -26,7 +26,7 @@ export class TensionSynthesizer {
     Tone.getTransport().start();
 
     this.lowpassFilter = new Tone.Filter({
-      frequency: synthConfig.CABINET_LOWPASS_DEFAULT,
+      frequency: 200,
       type: "lowpass",
       Q: 1.5
     }).toDestination();
@@ -47,8 +47,8 @@ export class TensionSynthesizer {
 
     this.lfo = new Tone.LFO({
       frequency: presets.LFO_NORMAL_HZ,
-      min: 120,
-      max: 240
+      min: 150,
+      max: 280
     });
 
     this.fmOsc.connect(this.gainNode);
@@ -143,16 +143,16 @@ export class TensionSynthesizer {
   }
 
   public setLowHPStatus(active: boolean): void {
-    if (!this.lowpassFilter || !this.heartbeatLoop) return;
-    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
-    const targetFreq = active 
-      ? synthConfig.CABINET_LOWPASS_MUFFLED 
-      : synthConfig.CABINET_LOWPASS_DEFAULT;
+    if (!this.lfo || !this.heartbeatLoop) return;
 
-    this.lowpassFilter.frequency.rampTo(targetFreq, 0.4);
+    const targetMin = active ? 40 : 150;
+    const targetMax = active ? 150 : 280;
+
+    this.lfo.min = targetMin;
+    this.lfo.max = targetMax;
 
     if (active) {
-      this.heartbeatLoop.start(0);
+      this.heartbeatLoop.start();
     } else {
       this.heartbeatLoop.stop();
     }

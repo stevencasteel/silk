@@ -1,0 +1,1 @@
+import{Vr as e}from"./compositionRoot-BLVZH-_Y.js";export{e as _ExrTextureLoader};

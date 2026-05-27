@@ -54,9 +54,12 @@ export class VerticalBoundarySystem implements ISystem {
         const transforms = this.context.stores.get<TransformComponent>("transform");
         const pTrans = transforms.get(this.context.refs.player);
         if (pTrans) {
-          pTrans.scaleY = tuning.SQUASH_STRETCH.SQUASH_LAND_Y;
-          pTrans.scaleX = tuning.SQUASH_STRETCH.SQUASH_LAND_X;
-          pTrans.scaleZ = tuning.SQUASH_STRETCH.SQUASH_LAND_Z;
+          if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+          if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+          if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+          pTrans.scaleVelY += -16.0;
+          pTrans.scaleVelX += 8.0;
+          pTrans.scaleVelZ += 8.0;
         }
       }
       target.y = minY;

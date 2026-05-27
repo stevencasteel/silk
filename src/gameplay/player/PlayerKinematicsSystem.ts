@@ -221,8 +221,12 @@ export class PlayerKinematicsSystem implements ISystem {
           wallNormalX: -wallDir
         });
         if (pTrans) {
-          pTrans.scaleX = tuning.SQUASH_STRETCH.SQUASH_WALL_X;
-          pTrans.scaleY = tuning.SQUASH_STRETCH.SQUASH_WALL_Y;
+          if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+          if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+          if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+          pTrans.scaleVelX += -10.0;
+          pTrans.scaleVelY += 12.0;
+          pTrans.scaleVelZ += -2.0;
         }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;

@@ -48,6 +48,11 @@ export class PlayerAnimationSystem implements ISystem {
       pTrans.prevScaleY = 1.0;
       pTrans.prevScaleZ = 1.0;
     }
+
+    if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+    if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+    if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+
     pTrans.prevScaleX = pTrans.scaleX;
     pTrans.prevScaleY = pTrans.scaleY;
     pTrans.prevScaleZ = pTrans.scaleZ;
@@ -79,13 +84,28 @@ export class PlayerAnimationSystem implements ISystem {
       targetScaleZ = 1.0 - stretchFactor * 0.5;
     }
 
-    const sx = pTrans.scaleX ?? 1.0;
-    const sy = pTrans.scaleY ?? 1.0;
-    const sz = pTrans.scaleZ ?? 1.0;
+    const stiffness = 220;
+    const damping = 14;
 
-    pTrans.scaleX = sx + (targetScaleX - sx) * tuning.SCALE_INTERP_RATE * dt;
-    pTrans.scaleY = sy + (targetScaleY - sy) * tuning.SCALE_INTERP_RATE * dt;
-    pTrans.scaleZ = sz + (targetScaleZ - sz) * tuning.SCALE_INTERP_RATE * dt;
+    const dispX = pTrans.scaleX - targetScaleX;
+    const dispY = pTrans.scaleY - targetScaleY;
+    const dispZ = pTrans.scaleZ - targetScaleZ;
+
+    const accelX = -stiffness * dispX - damping * pTrans.scaleVelX;
+    const accelY = -stiffness * dispY - damping * pTrans.scaleVelY;
+    const accelZ = -stiffness * dispZ - damping * pTrans.scaleVelZ;
+
+    pTrans.scaleVelX += accelX * dt;
+    pTrans.scaleVelY += accelY * dt;
+    pTrans.scaleVelZ += accelZ * dt;
+
+    pTrans.scaleX += pTrans.scaleVelX * dt;
+    pTrans.scaleY += pTrans.scaleVelY * dt;
+    pTrans.scaleZ += pTrans.scaleVelZ * dt;
+
+    pTrans.scaleX = Math.max(0.1, pTrans.scaleX);
+    pTrans.scaleY = Math.max(0.1, pTrans.scaleY);
+    pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ);
 
     let rotDx = 0;
     let rotDy = 1;

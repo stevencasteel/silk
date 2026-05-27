@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 12:22:24 PM
+ [SYSTEM] Generated: 5/27/2026, 12:42:34 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1588,7 +1588,7 @@ export class TensionSynthesizer {
     Tone.getTransport().start();
 
     this.lowpassFilter = new Tone.Filter({
-      frequency: synthConfig.CABINET_LOWPASS_DEFAULT,
+      frequency: 200,
       type: "lowpass",
       Q: 1.5
     }).toDestination();
@@ -1609,8 +1609,8 @@ export class TensionSynthesizer {
 
     this.lfo = new Tone.LFO({
       frequency: presets.LFO_NORMAL_HZ,
-      min: 120,
-      max: 240
+      min: 150,
+      max: 280
     });
 
     this.fmOsc.connect(this.gainNode);
@@ -1705,16 +1705,16 @@ export class TensionSynthesizer {
   }
 
   public setLowHPStatus(active: boolean): void {
-    if (!this.lowpassFilter || !this.heartbeatLoop) return;
-    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
-    const targetFreq = active 
-      ? synthConfig.CABINET_LOWPASS_MUFFLED 
-      : synthConfig.CABINET_LOWPASS_DEFAULT;
+    if (!this.lfo || !this.heartbeatLoop) return;
 
-    this.lowpassFilter.frequency.rampTo(targetFreq, 0.4);
+    const targetMin = active ? 40 : 150;
+    const targetMax = active ? 150 : 280;
+
+    this.lfo.min = targetMin;
+    this.lfo.max = targetMax;
 
     if (active) {
-      this.heartbeatLoop.start(0);
+      this.heartbeatLoop.start();
     } else {
       this.heartbeatLoop.stop();
     }
@@ -2165,6 +2165,9 @@ export interface TransformComponent {
   prevScaleX?: number;
   prevScaleY?: number;
   prevScaleZ?: number;
+  scaleVelX?: number;
+  scaleVelY?: number;
+  scaleVelZ?: number;
 }
 
 export interface KinematicVelocityComponent {
@@ -3710,7 +3713,7 @@ export class GameDirectorSystem implements ISystem {
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
   private cinematicTimer = 0.0;
-  private maxCinematicSimTime = 0.0;
+  private maxCinematicSimTime = 0.6;
 
   constructor(
     private context: SystemContext,
@@ -3720,7 +3723,9 @@ export class GameDirectorSystem implements ISystem {
   public init(): void {
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        console.log("[GameDirectorSystem] PLAYER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          console.log("[GameDirectorSystem] Commencing PLAYER_DEATH cinematic...");
           this.activeCinematic = "PLAYER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.6;
@@ -3743,7 +3748,9 @@ export class GameDirectorSystem implements ISystem {
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        console.log("[GameDirectorSystem] WEAVER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          console.log("[GameDirectorSystem] Commencing WEAVER_DEATH cinematic...");
           this.activeCinematic = "WEAVER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.875;
@@ -3795,15 +3802,18 @@ export class GameDirectorSystem implements ISystem {
 
     if (this.activeCinematic !== "NONE") {
       this.cinematicTimer += dt;
+      console.log(`[GameDirectorSystem] Cinematic progress: ${this.cinematicTimer.toFixed(3)} / ${this.maxCinematicSimTime}`);
       if (this.cinematicTimer >= this.maxCinematicSimTime) {
         const finishedCinematic = this.activeCinematic;
         this.activeCinematic = "NONE";
         GameDirectorSystem.timeScale = 1.0;
 
         if (finishedCinematic === "PLAYER_DEATH") {
+          console.log("[GameDirectorSystem] Player death cinematic complete! Publishing GAME_OVER event...");
           this.gameState = "GAME_OVER";
           this.context.broker.publish(GameEvent.GAME_OVER, undefined);
         } else if (finishedCinematic === "WEAVER_DEATH") {
+          console.log("[GameDirectorSystem] Weaver death cinematic complete! Publishing GAME_WIN event...");
           this.gameState = "VICTORY";
           this.context.broker.publish(GameEvent.GAME_WIN, undefined);
         }
@@ -3812,6 +3822,7 @@ export class GameDirectorSystem implements ISystem {
   }
 
   private resetGame(): void {
+    console.log("[GameDirectorSystem] Resetting game state...");
     this.gameState = "PLAYING";
     this.activeCinematic = "NONE";
     this.cinematicTimer = 0.0;
@@ -5465,6 +5476,11 @@ export class PlayerAnimationSystem implements ISystem {
       pTrans.prevScaleY = 1.0;
       pTrans.prevScaleZ = 1.0;
     }
+
+    if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+    if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+    if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+
     pTrans.prevScaleX = pTrans.scaleX;
     pTrans.prevScaleY = pTrans.scaleY;
     pTrans.prevScaleZ = pTrans.scaleZ;
@@ -5496,13 +5512,28 @@ export class PlayerAnimationSystem implements ISystem {
       targetScaleZ = 1.0 - stretchFactor * 0.5;
     }
 
-    const sx = pTrans.scaleX ?? 1.0;
-    const sy = pTrans.scaleY ?? 1.0;
-    const sz = pTrans.scaleZ ?? 1.0;
+    const stiffness = 220;
+    const damping = 14;
 
-    pTrans.scaleX = sx + (targetScaleX - sx) * tuning.SCALE_INTERP_RATE * dt;
-    pTrans.scaleY = sy + (targetScaleY - sy) * tuning.SCALE_INTERP_RATE * dt;
-    pTrans.scaleZ = sz + (targetScaleZ - sz) * tuning.SCALE_INTERP_RATE * dt;
+    const dispX = pTrans.scaleX - targetScaleX;
+    const dispY = pTrans.scaleY - targetScaleY;
+    const dispZ = pTrans.scaleZ - targetScaleZ;
+
+    const accelX = -stiffness * dispX - damping * pTrans.scaleVelX;
+    const accelY = -stiffness * dispY - damping * pTrans.scaleVelY;
+    const accelZ = -stiffness * dispZ - damping * pTrans.scaleVelZ;
+
+    pTrans.scaleVelX += accelX * dt;
+    pTrans.scaleVelY += accelY * dt;
+    pTrans.scaleVelZ += accelZ * dt;
+
+    pTrans.scaleX += pTrans.scaleVelX * dt;
+    pTrans.scaleY += pTrans.scaleVelY * dt;
+    pTrans.scaleZ += pTrans.scaleVelZ * dt;
+
+    pTrans.scaleX = Math.max(0.1, pTrans.scaleX);
+    pTrans.scaleY = Math.max(0.1, pTrans.scaleY);
+    pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ);
 
     let rotDx = 0;
     let rotDy = 1;
@@ -5820,8 +5851,12 @@ export class PlayerKinematicsSystem implements ISystem {
           wallNormalX: -wallDir
         });
         if (pTrans) {
-          pTrans.scaleX = tuning.SQUASH_STRETCH.SQUASH_WALL_X;
-          pTrans.scaleY = tuning.SQUASH_STRETCH.SQUASH_WALL_Y;
+          if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+          if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+          if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+          pTrans.scaleVelX += -10.0;
+          pTrans.scaleVelY += 12.0;
+          pTrans.scaleVelZ += -2.0;
         }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
@@ -6009,9 +6044,12 @@ export class VerticalBoundarySystem implements ISystem {
         const transforms = this.context.stores.get<TransformComponent>("transform");
         const pTrans = transforms.get(this.context.refs.player);
         if (pTrans) {
-          pTrans.scaleY = tuning.SQUASH_STRETCH.SQUASH_LAND_Y;
-          pTrans.scaleX = tuning.SQUASH_STRETCH.SQUASH_LAND_X;
-          pTrans.scaleZ = tuning.SQUASH_STRETCH.SQUASH_LAND_Z;
+          if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+          if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+          if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+          pTrans.scaleVelY += -16.0;
+          pTrans.scaleVelX += 8.0;
+          pTrans.scaleVelZ += 8.0;
         }
       }
       target.y = minY;
@@ -8740,18 +8778,21 @@ export class HudSyncSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
+        console.log("[HudSyncSystem] GAME_OVER received! Dispatched showing DEFEATED overlay.");
         overlayStore.recordLoss();
         overlayStore.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
+        console.log("[HudSyncSystem] GAME_WIN received! Dispatched showing VICTORY overlay.");
         overlayStore.recordWin();
         overlayStore.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        console.log("[HudSyncSystem] GAME_RESET received! Resetting stores.");
         resetAllStores();
         overlayStore.loadStats();
       })

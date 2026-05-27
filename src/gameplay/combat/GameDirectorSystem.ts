@@ -17,7 +17,7 @@ export class GameDirectorSystem implements ISystem {
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
   private cinematicTimer = 0.0;
-  private maxCinematicSimTime = 0.0;
+  private maxCinematicSimTime = 0.6;
 
   constructor(
     private context: SystemContext,
@@ -27,7 +27,9 @@ export class GameDirectorSystem implements ISystem {
   public init(): void {
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        console.log("[GameDirectorSystem] PLAYER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          console.log("[GameDirectorSystem] Commencing PLAYER_DEATH cinematic...");
           this.activeCinematic = "PLAYER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.6;
@@ -50,7 +52,9 @@ export class GameDirectorSystem implements ISystem {
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        console.log("[GameDirectorSystem] WEAVER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          console.log("[GameDirectorSystem] Commencing WEAVER_DEATH cinematic...");
           this.activeCinematic = "WEAVER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.875;
@@ -102,15 +106,18 @@ export class GameDirectorSystem implements ISystem {
 
     if (this.activeCinematic !== "NONE") {
       this.cinematicTimer += dt;
+      console.log(`[GameDirectorSystem] Cinematic progress: ${this.cinematicTimer.toFixed(3)} / ${this.maxCinematicSimTime}`);
       if (this.cinematicTimer >= this.maxCinematicSimTime) {
         const finishedCinematic = this.activeCinematic;
         this.activeCinematic = "NONE";
         GameDirectorSystem.timeScale = 1.0;
 
         if (finishedCinematic === "PLAYER_DEATH") {
+          console.log("[GameDirectorSystem] Player death cinematic complete! Publishing GAME_OVER event...");
           this.gameState = "GAME_OVER";
           this.context.broker.publish(GameEvent.GAME_OVER, undefined);
         } else if (finishedCinematic === "WEAVER_DEATH") {
+          console.log("[GameDirectorSystem] Weaver death cinematic complete! Publishing GAME_WIN event...");
           this.gameState = "VICTORY";
           this.context.broker.publish(GameEvent.GAME_WIN, undefined);
         }
@@ -119,6 +126,7 @@ export class GameDirectorSystem implements ISystem {
   }
 
   private resetGame(): void {
+    console.log("[GameDirectorSystem] Resetting game state...");
     this.gameState = "PLAYING";
     this.activeCinematic = "NONE";
     this.cinematicTimer = 0.0;

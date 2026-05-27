@@ -19,6 +19,9 @@ export interface TransformComponent {
   prevScaleX?: number;
   prevScaleY?: number;
   prevScaleZ?: number;
+  scaleVelX?: number;
+  scaleVelY?: number;
+  scaleVelZ?: number;
 }
 
 export interface KinematicVelocityComponent {

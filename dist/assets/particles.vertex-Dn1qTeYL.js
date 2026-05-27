@@ -1,1 +1,0 @@
-import{hn as e}from"./compositionRoot-CwXXSAPl.js";export{e as particlesVertexShader};

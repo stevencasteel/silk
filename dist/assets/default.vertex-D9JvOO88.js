@@ -1,0 +1,1 @@
+import{_r as e}from"./compositionRoot-BLVZH-_Y.js";export{e as defaultVertexShader};
