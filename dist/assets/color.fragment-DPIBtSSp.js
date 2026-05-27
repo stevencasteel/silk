@@ -1,0 +1,1 @@
+import{Cr as e}from"./compositionRoot-ChJFrtCq.js";export{e as colorPixelShader};

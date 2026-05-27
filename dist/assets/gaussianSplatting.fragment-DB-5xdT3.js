@@ -1,0 +1,1 @@
+import{lt as e}from"./compositionRoot-ChJFrtCq.js";export{e as gaussianSplattingPixelShaderWGSL};

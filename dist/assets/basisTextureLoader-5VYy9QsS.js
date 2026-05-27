@@ -1,1 +1,0 @@
-import{Wr as e}from"./compositionRoot-Qo9JR7oo.js";export{e as _BasisTextureLoader};

@@ -1,0 +1,1 @@
+import{Ht as e}from"./compositionRoot-ChJFrtCq.js";export{e as backgroundVertexShaderWGSL};

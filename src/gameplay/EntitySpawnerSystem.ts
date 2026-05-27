@@ -18,6 +18,8 @@ import {
   WeaverTraversalComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
+import { decorateWeaverVisual } from "../visual/mesh/WeaverVisualFactory";
+import { decoratePlayerSilkVisual } from "../visual/mesh/PlayerSilkVisualFactory";
 import * as BABYLON from "@babylonjs/core";
 
 export class EntitySpawnerSystem implements ISystem {
@@ -119,7 +121,7 @@ export class EntitySpawnerSystem implements ISystem {
       scene
     );
 
-    if (ARENA_CONFIG.ENTITY.WEAVER_RADIUS > 0) {
+    if (radius > 0) {
       const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
       if (positions) {
         for (let i = 0; i < positions.length; i += 3) {
@@ -160,6 +162,12 @@ export class EntitySpawnerSystem implements ISystem {
     wMesh.material = wMat;
     const shearPlugin = new RasterShearPlugin(wMat);
     (wMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin = shearPlugin;
+
+    const regCaster = this.context.visualRegistry.registerShadowCaster
+      ? (m: BABYLON.AbstractMesh) => this.context.visualRegistry.registerShadowCaster!(m)
+      : undefined;
+    decorateWeaverVisual(scene, wMesh, radius, regCaster);
+
     this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled()) {
@@ -276,6 +284,14 @@ export class EntitySpawnerSystem implements ISystem {
     const psc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_SHEEN;
     pMat.sheen.color = new BABYLON.Color3(psc.r, psc.g, psc.b);
     pMesh.material = pMat;
+
+    decoratePlayerSilkVisual(
+      scene,
+      pMesh,
+      ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
+      ARENA_CONFIG.ENTITY.PLAYER_RADIUS
+    );
+
     this.context.visualRegistry.registerTransformNode(playerId, pMesh);
 
     if (scene.isPhysicsEnabled() && this.sharedPlayerShape) {
