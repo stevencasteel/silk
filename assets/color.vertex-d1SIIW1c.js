@@ -1,0 +1,1 @@
+import{Sr as e}from"./compositionRoot-DaWppXxh.js";export{e as colorVertexShader};
