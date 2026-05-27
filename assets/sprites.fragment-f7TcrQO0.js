@@ -1,0 +1,1 @@
+import{o as e}from"./compositionRoot-BLVZH-_Y.js";export{e as spritesPixelShaderWGSL};

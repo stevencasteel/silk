@@ -1,1 +1,0 @@
-import{Ir as e}from"./compositionRoot-CwXXSAPl.js";export{e as OptimizeIndices};
