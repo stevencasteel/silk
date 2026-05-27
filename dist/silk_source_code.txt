@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 1:26:40 PM
+ [SYSTEM] Generated: 5/27/2026, 2:08:07 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -6374,10 +6374,19 @@ import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
+type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
+
+interface SweepState {
+  phase: SweepPhase;
+  timer: number;
+  direction: number;
+}
+
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private minX = -(15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS);
   private maxX = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+  private sweepStates = new Map<number, SweepState>();
 
   constructor(private context: SystemContext) {}
 
@@ -6399,9 +6408,10 @@ export class WeaverTraversalSystem implements ISystem {
 
     if (!vel || !trav || !trans || !target) return;
 
-    const isSweeping = !ai || ai.state === "SWEEPING";
+    const isSweeping = ai && ai.state === "SWEEPING";
+    let sState = this.sweepStates.get(this.context.refs.weaver);
+
     if (isSweeping) {
-      let nextX = trans.x + vel.x * dt;
       const isBerserk = health
         ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
         : false;
@@ -6409,47 +6419,132 @@ export class WeaverTraversalSystem implements ISystem {
         ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
         : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
 
-      let hitWallNormal = 0;
-      if (nextX >= this.maxX) {
-        nextX = this.maxX;
-        vel.x = -sweepSpeed;
-        hitWallNormal = -1;
-      } else if (nextX <= this.minX) {
-        nextX = this.minX;
-        vel.x = sweepSpeed;
-        hitWallNormal = 1;
+      if (!sState) {
+        const dir = vel.x >= 0 ? 1 : -1;
+        sState = {
+          phase: "SWEEP",
+          timer: 0.0,
+          direction: dir
+        };
+        this.sweepStates.set(this.context.refs.weaver, sState);
       }
 
-      if (hitWallNormal !== 0) {
-        this.context.broker.publish(GameEvent.WEAVER_WALL_HIT, {
-          x: nextX,
-          y: trans.y,
-          wallNormalX: hitWallNormal
-        });
+      if (sState.phase === "SWEEP") {
+        vel.x = sState.direction * sweepSpeed;
+        let nextX = trans.x + vel.x * dt;
+        let hitWallNormal = 0;
 
-        if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-        if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-        if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
+        if (nextX >= this.maxX) {
+          nextX = this.maxX;
+          hitWallNormal = -1;
+        } else if (nextX <= this.minX) {
+          nextX = this.minX;
+          hitWallNormal = 1;
+        }
 
-        trans.scaleVelX += -16.0;
-        trans.scaleVelY += 20.0;
-        trans.scaleVelZ += 20.0;
+        if (hitWallNormal !== 0) {
+          this.context.broker.publish(GameEvent.WEAVER_WALL_HIT, {
+            x: nextX,
+            y: trans.y,
+            wallNormalX: hitWallNormal
+          });
+
+          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
+          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
+          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
+
+          trans.scaleVelX += -22.0;
+          trans.scaleVelY += 28.0;
+          trans.scaleVelZ += 28.0;
+
+          sState.phase = "HOLD";
+          sState.timer = 0.22;
+          sState.direction = hitWallNormal;
+          vel.x = 0;
+        }
+
+        target.x = nextX;
+        target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
+        target.active = true;
+
+      } else if (sState.phase === "HOLD") {
+        sState.timer -= dt;
+        vel.x = 0;
+
+        if (sState.timer <= 0) {
+          sState.phase = "LAUNCH";
+          vel.x = sState.direction * sweepSpeed * 2.0;
+
+          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
+          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
+          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
+
+          trans.scaleVelX += 36.0;
+          trans.scaleVelY += -28.0;
+          trans.scaleVelZ += -28.0;
+        }
+
+        target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
+        target.active = true;
+
+      } else if (sState.phase === "LAUNCH") {
+        const targetVel = sState.direction * sweepSpeed;
+        vel.x = vel.x + (targetVel - vel.x) * 5.0 * dt;
+
+        let nextX = trans.x + vel.x * dt;
+        let hitWallNormal = 0;
+
+        if (nextX >= this.maxX) {
+          nextX = this.maxX;
+          hitWallNormal = -1;
+        } else if (nextX <= this.minX) {
+          nextX = this.minX;
+          hitWallNormal = 1;
+        }
+
+        if (hitWallNormal !== 0) {
+          this.context.broker.publish(GameEvent.WEAVER_WALL_HIT, {
+            x: nextX,
+            y: trans.y,
+            wallNormalX: hitWallNormal
+          });
+
+          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
+          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
+          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
+
+          trans.scaleVelX += -22.0;
+          trans.scaleVelY += 28.0;
+          trans.scaleVelZ += 28.0;
+
+          sState.phase = "HOLD";
+          sState.timer = 0.22;
+          sState.direction = hitWallNormal;
+          vel.x = 0;
+        } else {
+          const currentSpeed = Math.abs(vel.x);
+          if (currentSpeed <= sweepSpeed * 1.05) {
+            sState.phase = "SWEEP";
+            vel.x = sState.direction * sweepSpeed;
+          }
+        }
+
+        target.x = nextX;
+        target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
+        target.active = true;
       }
-
-      target.x = nextX;
-      target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
-      target.active = true;
     } else {
       target.x = trans.x + vel.x * dt;
       target.y = trans.y + vel.y * dt;
       target.active = true;
+      this.sweepStates.delete(this.context.refs.weaver);
     }
 
     const wallLimit = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    if (target.x > wallLimit) {
+    if (target.x > wallLimit && (!sState || sState.phase !== "HOLD")) {
       target.x = wallLimit;
       if (vel.x > 0) vel.x = 0;
-    } else if (target.x < -wallLimit) {
+    } else if (target.x < -wallLimit && (!sState || sState.phase !== "HOLD")) {
       target.x = -wallLimit;
       if (vel.x < 0) vel.x = 0;
     }
@@ -6506,17 +6601,25 @@ export class WeaverTraversalSystem implements ISystem {
 
       if (ai) {
         if (ai.state === "SWEEPING") {
-          const pulse =
-            Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
-            WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
-          targetScaleX = 1.0 + pulse;
-          targetScaleY = 1.0 - pulse;
+          if (sState && sState.phase === "HOLD") {
+            const shiver = Math.sin(ai.timeInState * 120.0) * 0.035;
+            targetScaleX = 0.42 + shiver;
+            targetScaleY = 1.45 - shiver * 0.5;
+            targetScaleZ = 1.45 - shiver * 0.5;
+            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
+          } else {
+            const pulse =
+              Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
+              WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
+            targetScaleX = 1.0 + pulse;
+            targetScaleY = 1.0 - pulse;
 
-          const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-          const yawAngle =
-            Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
-            WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
+            const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
+            const yawAngle =
+              Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
+              WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
+            BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
+          }
         } else if (ai.state === "DASHING") {
           const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
           if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
@@ -6597,6 +6700,10 @@ export class WeaverTraversalSystem implements ISystem {
       trans.qy = currentQuat.y;
       trans.qz = currentQuat.z;
       trans.qw = currentQuat.w;
+
+      if (isSweeping && sState && sState.phase === "HOLD") {
+        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX - 15.0);
+      }
     }
   }
 }
