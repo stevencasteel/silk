@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMotionValue, motion } from "framer-motion";
 import { useCursorStore } from "./useCursorStore";
 import { CursorLayer } from "./CursorLayer";
+import { useOverlayStore } from "../hud/hudStore";
 
 export function Cursor() {
   const cursorType = useCursorStore((state) => state.cursorType);
@@ -10,6 +11,11 @@ export function Cursor() {
 
   const mouseX = useMotionValue(-100);
   const mouseY = useMotionValue(-100);
+
+  const awaitingGesture = useOverlayStore((state) => state.awaitingGesture);
+  const overlayVisible = useOverlayStore((state) => state.overlayVisible);
+  const isPaused = useOverlayStore((state) => state.isPaused);
+  const modalsOpen = awaitingGesture || overlayVisible || isPaused;
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
@@ -56,7 +62,7 @@ export function Cursor() {
       }}
       className="[@media(pointer:coarse)]:hidden"
       animate={{
-        opacity: isVisible && cursorType !== "hidden" ? 1 : 0,
+        opacity: isVisible && modalsOpen && cursorType !== "hidden" ? 1 : 0,
       }}
       transition={{ duration: 0.25 }}
     >

@@ -214,7 +214,7 @@ export const HudOverlay: React.FC = () => {
   return (
     <>
       {isBooting ? (
-        <div className="overlay-root font-mono">
+        <div className="overlay-root font-mono pointer-events-auto">
           <div className="overlay-modal max-w-md w-full border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
             <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-lg mb-4 animate-pulse">
               SILK INITIALIZATION
@@ -231,13 +231,10 @@ export const HudOverlay: React.FC = () => {
           </div>
         </div>
       ) : awaitingGesture ? (
-        <div className="overlay-root font-mono">
-          <div className="overlay-modal max-w-md w-full border border-emerald-700 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
-            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-lg mb-4">
-              SILK
-            </h2>
-            <div className="text-zinc-300 text-sm mb-2">SYSTEMS NOMINAL</div>
-            <div className="text-emerald-500 text-xs uppercase tracking-widest animate-pulse mt-4">
+        <div className="overlay-root font-mono backdrop-wipe-active pointer-events-auto">
+          <div className="overlay-modal start-screen-modal victory-border">
+            <div className="led-dot led-green animate-pulse mb-6" style={{ width: "16px", height: "16px" }} />
+            <div className="text-emerald-500 text-sm font-black tracking-[0.25em] animate-pulse uppercase">
               CLICK OR PRESS ANY KEY TO START
             </div>
           </div>
@@ -378,20 +375,19 @@ export const HudOverlay: React.FC = () => {
                   initial={{ opacity: 0, height: 0, y: 15 }}
                   animate={{ opacity: 1, height: "auto", y: 0 }}
                   transition={{ type: "spring", stiffness: 220, damping: 24 }}
-                  onMouseEnter={() => useCursorStore.getState().setCursorType("text")}
+                  onMouseEnter={() => useCursorStore.getState().setCursorType("default")}
                   onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-                  className="gameover-stat-card w-full mb-6 py-3 px-4 bg-black/60 border border-zinc-800 rounded flex flex-col gap-2"
-                  style={{ overflow: "hidden" }}
+                  className="gameover-stat-card w-full mb-6"
                 >
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-500 font-bold uppercase tracking-wider">TOTAL ASCENTS (WINS)</span>
-                    <span key={`wins-${tickerWins}`} className="text-emerald-500 font-bold text-sm led-spring-impact inline-block">
+                  <div className="gameover-stat-row">
+                    <span className="gameover-stat-label">TOTAL WINS</span>
+                    <span key={`wins-${tickerWins}`} className="gameover-stat-value gameover-stat-win led-spring-impact inline-block">
                       {tickerWins}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-500 font-bold uppercase tracking-wider">LINE COLLAPSES (LOSSES)</span>
-                    <span key={`losses-${tickerLosses}`} className="text-rose-500 font-bold text-sm led-spring-impact inline-block">
+                  <div className="gameover-stat-row">
+                    <span className="gameover-stat-label">TOTAL LOSSES</span>
+                    <span key={`losses-${tickerLosses}`} className="gameover-stat-value gameover-stat-loss led-spring-impact inline-block">
                       {tickerLosses}
                     </span>
                   </div>
@@ -410,13 +406,11 @@ export const HudOverlay: React.FC = () => {
                     onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
                     onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
                     className={`gameover-btn pointer-events-auto relative w-full flex items-center justify-center gap-3 ${
-                      overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-focused"
+                      overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover"
                     }`}
                   >
-                    <span className="gameover-inline-arrow" style={{ marginRight: "8px" }}>▶</span>
                     <RotateCcw size={14} className="flex-shrink-0" />
                     <span>RETRY RUN</span>
-                    <span className="gameover-inline-arrow" style={{ marginLeft: "8px" }}>◀</span>
                   </button>
                 </motion.div>
               )}
@@ -426,23 +420,21 @@ export const HudOverlay: React.FC = () => {
       </AnimatePresence>
 
       {isPaused && !isBooting && !awaitingGesture && (
-        <div className="overlay-root">
-          <div
-            className="overlay-modal mb-2 animate-bounce-short"
-            style={{ borderColor: "var(--accent-tension)" }}
-          >
-            <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
+        <div className="overlay-root backdrop-wipe-active pointer-events-auto">
+          <div className="overlay-modal paused-border mb-2 animate-bounce-short">
+            <div className="led-dot led-yellow animate-pulse mb-6" style={{ width: "16px", height: "16px" }} />
+            <h1 className="overlay-title paused-title-glow" style={{ color: "var(--accent-tension)" }}>
               PAUSED
             </h1>
-            <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
-            <p className="overlay-subtitle">SIMULATION SUSPENDED</p>
+            <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)", opacity: 0.3 }} />
+            <p className="overlay-subtitle" style={{ marginBottom: "24px" }}>SIMULATION SUSPENDED</p>
             <button
               onClick={handleResumeClick}
               onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
               onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-              className="overlay-btn pointer-events-auto"
+              className="gameover-btn gameover-btn-paused-hover pointer-events-auto"
             >
-              RESUME
+              RESUME RUN
             </button>
           </div>
         </div>

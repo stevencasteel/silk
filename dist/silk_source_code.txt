@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 11:07:30 AM
+ [SYSTEM] Generated: 5/27/2026, 11:24:32 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2645,6 +2645,7 @@ export class Engine {
   private broker: EventBroker;
 
   public isPaused: boolean = false;
+  private isManuallyPaused: boolean = false;
   private hitStopTimer: number = 0;
   private unsubscribes: (() => void)[] = [];
 
@@ -2727,7 +2728,8 @@ export class Engine {
   private handleKeyDown = (e: KeyboardEvent): void => {
     if (e.code === "KeyP") {
       e.preventDefault();
-      this.setPaused(!this.isPaused);
+      this.isManuallyPaused = !this.isManuallyPaused;
+      this.setPaused(this.isManuallyPaused);
     }
   };
 
@@ -2736,6 +2738,7 @@ export class Engine {
   };
 
   private handleFocus = (): void => {
+    if (this.isManuallyPaused) return;
     this.setPaused(false);
   };
 
@@ -2743,6 +2746,7 @@ export class Engine {
     if (document.hidden) {
       this.setPaused(true);
     } else {
+      if (this.isManuallyPaused) return;
       this.setPaused(false);
     }
   };
@@ -2761,7 +2765,6 @@ export class Engine {
   }
 
   private render(alpha: number): void {
-    if (this.isPaused) return;
     this.systemManager.renderAll(alpha);
   }
 }
@@ -6690,6 +6693,23 @@ export class WeaverSweepingState implements IWeaverState {
   --accent-tension: rgb(245, 158, 11);
   --accent-danger: rgb(239, 68, 68);
   --accent-success: rgb(16, 185, 129);
+
+  /* Neomorphic Design Tokens */
+  --void-bg: #07080b;
+  --surface-bg: #0c0e12;
+  --surface-elevated: #141820;
+  --surface-highlight: #1d222d;
+  --signal-green: #22c55e;
+  --signal-green-glow: rgba(34, 197, 94, 0.45);
+  --signal-red: #ef4444;
+  --signal-red-glow: rgba(239, 68, 68, 0.45);
+  --signal-yellow: #eab308;
+  --signal-yellow-glow: rgba(234, 179, 8, 0.45);
+
+  --shadow-light: -4px -4px 12px rgba(255, 255, 255, 0.03);
+  --shadow-dark: 6px 6px 18px rgba(0, 0, 0, 0.75);
+  --shadow-inset-light: inset -2px -2px 6px rgba(255, 255, 255, 0.01);
+  --shadow-inset-dark: inset 3px 3px 10px rgba(0, 0, 0, 0.9);
 }
 
 html,
@@ -6719,7 +6739,7 @@ body,
   z-index: 85;
 }
 
-/* Mechanical Bezel Header Layout */
+/* Mechanical Cabinet Panels */
 .cabinet-header-panel {
   width: 100%;
   height: 52px;
@@ -6795,7 +6815,7 @@ body,
   100% { opacity: 1; text-shadow: 0 0 10px var(--accent-success); }
 }
 
-/* Mechanical Bezel Footer Layout */
+/* Mechanical Cabinet Footer */
 .cabinet-footer-panel {
   width: 100%;
   height: 48px;
@@ -6892,6 +6912,7 @@ body,
   border-radius: 4px;
 }
 
+/* Master Overlay System */
 .overlay-root {
   position: absolute;
   inset: 0;
@@ -6905,6 +6926,7 @@ body,
   padding: 24px;
   box-sizing: border-box;
   transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+  pointer-events: auto !important;
 }
 
 .backdrop-wipe-active {
@@ -6912,22 +6934,24 @@ body,
   backdrop-filter: blur(12px) !important;
 }
 
+/* Elevated Neomorphic Modals */
 .overlay-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 36px 28px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-surface);
-  max-width: 320px;
-  width: 90%;
+  padding: clamp(24px, 5vmin, 44px) !important;
+  border-radius: 20px !important;
+  background: rgba(12, 14, 18, 0.96) !important;
+  width: 90% !important;
+  max-width: 440px !important;
   box-sizing: border-box;
   text-align: center;
-  border-radius: 8px;
   transform: scale(0.9);
   opacity: 0;
-  animation: modal-slide-up 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.15) forwards;
+  animation: modal-slide-up 0.5s cubic-bezier(0.25, 1.0, 0.25, 1.15) forwards;
+  border: 2px solid rgba(255, 255, 255, 0.02);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85);
 }
 
 @keyframes modal-slide-up {
@@ -6936,13 +6960,31 @@ body,
 }
 
 .victory-border {
-  border-color: rgba(16, 185, 129, 0.35);
-  box-shadow: 0 0 30px rgba(16, 185, 129, 0.15), inset 0 0 20px rgba(16, 185, 129, 0.1);
+  border: 2px solid rgba(34, 197, 94, 0.35) !important;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
 }
 
 .defeat-border {
-  border-color: rgba(239, 68, 68, 0.35);
-  box-shadow: 0 0 30px rgba(239, 68, 68, 0.15), inset 0 0 20px rgba(239, 68, 68, 0.1);
+  border: 2px solid rgba(239, 68, 68, 0.35) !important;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.15), inset 0 0 20px rgba(239, 68, 68, 0.1) !important;
+}
+
+.start-screen-modal {
+  border: 2px solid rgba(34, 197, 94, 0.35) !important;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
+  background: rgba(12, 14, 18, 0.98) !important;
+  padding: 40px !important;
+}
+
+.paused-border {
+  border: 2px solid rgba(234, 179, 8, 0.35) !important;
+  box-shadow: 0 0 30px rgba(234, 179, 8, 0.15), inset 0 0 20px rgba(234, 179, 8, 0.1) !important;
+  background: rgba(12, 14, 18, 0.98) !important;
+  padding: 40px !important;
+}
+
+.paused-title-glow {
+  text-shadow: 0 0 15px var(--signal-yellow-glow), -2px 0 var(--signal-yellow), 2px 0 #0000ff;
 }
 
 .overlay-title {
@@ -6955,9 +6997,9 @@ body,
 
 .overlay-divider {
   height: 2px;
-  width: 48px;
-  background: var(--border-strong);
-  margin: 18px 0;
+  width: 60px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 20px 0;
 }
 
 .overlay-subtitle {
@@ -6968,36 +7010,143 @@ body,
   text-transform: uppercase;
 }
 
-.overlay-btn {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-strong);
-  color: var(--text-main);
-  padding: 14px 32px;
+/* Polished Neomorphic Stats Grid */
+.gameover-stat-card {
+  width: 100%;
+  margin-top: 24px;
+  padding: 16px 20px;
+  background: rgba(7, 8, 11, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.gameover-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gameover-stat-label {
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
+  color: #718096;
+  font-weight: bold;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.gameover-stat-value {
+  font-size: 15px;
+  font-weight: bold;
+  font-family: monospace;
+}
+
+/* Box Battle Color Matching Numbers */
+.gameover-stat-win {
+  color: var(--signal-green) !important;
+  text-shadow: 0 0 8px var(--signal-green-glow);
+}
+
+.gameover-stat-loss {
+  color: var(--signal-red) !important;
+  text-shadow: 0 0 8px var(--signal-red-glow);
+}
+
+.gameover-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background: #0f1218;
+  box-shadow:
+    -2px -2px 6px rgba(255, 255, 255, 0.01),
+    4px 4px 10px rgba(0, 0, 0, 0.8),
+    inset 1px 1px 0px rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 16px 24px;
+  border-radius: 8px;
   cursor: pointer;
+  color: #a0aec0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
   transition: all 0.15s ease;
   outline: none;
-  pointer-events: auto;
-  font-family: inherit;
-  border-radius: 4px;
+  position: relative;
 }
 
-.overlay-btn:hover,
-.overlay-btn-focused {
-  background: var(--text-main);
-  color: var(--bg-void);
-  border-color: var(--text-main);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+/* Clean Button Hover States (No Indicator Arrows) */
+.gameover-btn-victory-hover:hover {
+  background: #0c0e12 !important;
+  border-color: var(--signal-green) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(34, 197, 94, 0.25),
+    inset 0 0 8px rgba(34, 197, 94, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
 }
 
-.overlay-btn:active {
+.gameover-btn-defeat-hover:hover {
+  background: #0c0e12 !important;
+  border-color: var(--signal-red) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(239, 68, 68, 0.25),
+    inset 0 0 8px rgba(239, 68, 68, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
+}
+
+.gameover-btn-paused-hover:hover {
+  background: #0c0e12 !important;
+  border-color: var(--signal-yellow) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(234, 179, 8, 0.25),
+    inset 0 0 8px rgba(234, 179, 8, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
+}
+
+.gameover-btn:active {
   transform: scale(0.98);
 }
 
-/* Consolidated Vector Animation Keyframes */
+/* LED Matrix System */
+.led-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 25%;
+  transition: all 0.2s ease;
+}
+
+.led-green {
+  background: var(--signal-green) !important;
+  box-shadow:
+    0 0 8px var(--signal-green),
+    0 0 16px var(--signal-green-glow) !important;
+}
+
+.led-red {
+  background: var(--signal-red) !important;
+  box-shadow:
+    0 0 8px var(--signal-red),
+    0 0 16px var(--signal-red-glow) !important;
+}
+
+.led-yellow {
+  background: var(--signal-yellow) !important;
+  box-shadow:
+    0 0 8px var(--signal-yellow),
+    0 0 16px var(--signal-yellow-glow) !important;
+}
+
+/* Core Animations */
 @keyframes led-squash-spring {
   0% { transform: scale(1); }
   25% { transform: scale(1.18, 0.82); filter: brightness(1.2); }
@@ -7051,14 +7200,6 @@ body,
   0% { opacity: 0.3; transform: scale(0.9) translateY(-50%); }
   100% { opacity: 1; transform: scale(1.15) translateY(-50%); }
 }
-.cursor-arrow-indicator {
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 11px;
-  animation: arrow-blink 0.4s infinite alternate;
-}
 
 @keyframes victory-spin-glow {
   0% { transform: scale(0.3) rotate(0deg); filter: drop-shadow(0 0 5px var(--accent-success)); opacity: 0; }
@@ -7107,79 +7248,6 @@ body,
   ::backdrop {
     cursor: none !important;
   }
-}
-
-/* Box-Battle Styled game over layout overrides */
-.overlay-modal {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(20px, 4.5vmin, 40px) !important;
-  border-radius: 12px;
-  background: rgba(12, 14, 18, 0.96) !important;
-  width: 95% !important; /* closer to cabinet edge */
-  max-width: 440px !important; /* expanded horizontal bounds */
-  box-sizing: border-box;
-  text-align: center;
-  transform: scale(0.9);
-  opacity: 0;
-  animation: modal-slide-up 0.5s cubic-bezier(0.25, 1.0, 0.25, 1.15) forwards;
-}
-
-.gameover-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  background: #0f1218;
-  box-shadow:
-    -2px -2px 6px rgba(255, 255, 255, 0.01),
-    4px 4px 10px rgba(0, 0, 0, 0.8),
-    inset 1px 1px 0px rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  padding: 16px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  color: #a0aec0;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  transition: all 0.15s ease;
-  outline: none;
-  position: relative;
-}
-
-.gameover-btn-focused {
-  background: #0c0e12 !important;
-  border-color: var(--accent-success) !important;
-  color: #ffffff !important;
-  box-shadow:
-    0 0 15px rgba(16, 185, 129, 0.25),
-    inset 0 0 8px rgba(16, 185, 129, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important;
-}
-
-.gameover-btn-defeat-focused {
-  background: #0c0e12 !important;
-  border-color: var(--accent-danger) !important;
-  color: #ffffff !important;
-  box-shadow:
-    0 0 15px rgba(239, 68, 68, 0.25),
-    inset 0 0 8px rgba(239, 68, 68, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
-}
-
-.gameover-inline-arrow {
-  display: inline-block;
-  font-family: monospace;
-  font-weight: bold;
-  animation: arrow-blink 0.4s infinite alternate;
-  line-height: 1;
-  font-size: 13px;
 }
 
 
@@ -7460,6 +7528,7 @@ import { useEffect, useState } from "react";
 import { useMotionValue, motion } from "framer-motion";
 import { useCursorStore } from "./useCursorStore";
 import { CursorLayer } from "./CursorLayer";
+import { useOverlayStore } from "../hud/hudStore";
 
 export function Cursor() {
   const cursorType = useCursorStore((state) => state.cursorType);
@@ -7468,6 +7537,11 @@ export function Cursor() {
 
   const mouseX = useMotionValue(-100);
   const mouseY = useMotionValue(-100);
+
+  const awaitingGesture = useOverlayStore((state) => state.awaitingGesture);
+  const overlayVisible = useOverlayStore((state) => state.overlayVisible);
+  const isPaused = useOverlayStore((state) => state.isPaused);
+  const modalsOpen = awaitingGesture || overlayVisible || isPaused;
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
@@ -7514,7 +7588,7 @@ export function Cursor() {
       }}
       className="[@media(pointer:coarse)]:hidden"
       animate={{
-        opacity: isVisible && cursorType !== "hidden" ? 1 : 0,
+        opacity: isVisible && modalsOpen && cursorType !== "hidden" ? 1 : 0,
       }}
       transition={{ duration: 0.25 }}
     >
@@ -7985,7 +8059,7 @@ export const HudOverlay: React.FC = () => {
   return (
     <>
       {isBooting ? (
-        <div className="overlay-root font-mono">
+        <div className="overlay-root font-mono pointer-events-auto">
           <div className="overlay-modal max-w-md w-full border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
             <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-lg mb-4 animate-pulse">
               SILK INITIALIZATION
@@ -8002,13 +8076,10 @@ export const HudOverlay: React.FC = () => {
           </div>
         </div>
       ) : awaitingGesture ? (
-        <div className="overlay-root font-mono">
-          <div className="overlay-modal max-w-md w-full border border-emerald-700 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
-            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-lg mb-4">
-              SILK
-            </h2>
-            <div className="text-zinc-300 text-sm mb-2">SYSTEMS NOMINAL</div>
-            <div className="text-emerald-500 text-xs uppercase tracking-widest animate-pulse mt-4">
+        <div className="overlay-root font-mono backdrop-wipe-active pointer-events-auto">
+          <div className="overlay-modal start-screen-modal victory-border">
+            <div className="led-dot led-green animate-pulse mb-6" style={{ width: "16px", height: "16px" }} />
+            <div className="text-emerald-500 text-sm font-black tracking-[0.25em] animate-pulse uppercase">
               CLICK OR PRESS ANY KEY TO START
             </div>
           </div>
@@ -8149,20 +8220,19 @@ export const HudOverlay: React.FC = () => {
                   initial={{ opacity: 0, height: 0, y: 15 }}
                   animate={{ opacity: 1, height: "auto", y: 0 }}
                   transition={{ type: "spring", stiffness: 220, damping: 24 }}
-                  onMouseEnter={() => useCursorStore.getState().setCursorType("text")}
+                  onMouseEnter={() => useCursorStore.getState().setCursorType("default")}
                   onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-                  className="gameover-stat-card w-full mb-6 py-3 px-4 bg-black/60 border border-zinc-800 rounded flex flex-col gap-2"
-                  style={{ overflow: "hidden" }}
+                  className="gameover-stat-card w-full mb-6"
                 >
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-500 font-bold uppercase tracking-wider">TOTAL ASCENTS (WINS)</span>
-                    <span key={`wins-${tickerWins}`} className="text-emerald-500 font-bold text-sm led-spring-impact inline-block">
+                  <div className="gameover-stat-row">
+                    <span className="gameover-stat-label">TOTAL WINS</span>
+                    <span key={`wins-${tickerWins}`} className="gameover-stat-value gameover-stat-win led-spring-impact inline-block">
                       {tickerWins}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-500 font-bold uppercase tracking-wider">LINE COLLAPSES (LOSSES)</span>
-                    <span key={`losses-${tickerLosses}`} className="text-rose-500 font-bold text-sm led-spring-impact inline-block">
+                  <div className="gameover-stat-row">
+                    <span className="gameover-stat-label">TOTAL LOSSES</span>
+                    <span key={`losses-${tickerLosses}`} className="gameover-stat-value gameover-stat-loss led-spring-impact inline-block">
                       {tickerLosses}
                     </span>
                   </div>
@@ -8181,13 +8251,11 @@ export const HudOverlay: React.FC = () => {
                     onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
                     onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
                     className={`gameover-btn pointer-events-auto relative w-full flex items-center justify-center gap-3 ${
-                      overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-focused"
+                      overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover"
                     }`}
                   >
-                    <span className="gameover-inline-arrow" style={{ marginRight: "8px" }}>▶</span>
                     <RotateCcw size={14} className="flex-shrink-0" />
                     <span>RETRY RUN</span>
-                    <span className="gameover-inline-arrow" style={{ marginLeft: "8px" }}>◀</span>
                   </button>
                 </motion.div>
               )}
@@ -8197,23 +8265,21 @@ export const HudOverlay: React.FC = () => {
       </AnimatePresence>
 
       {isPaused && !isBooting && !awaitingGesture && (
-        <div className="overlay-root">
-          <div
-            className="overlay-modal mb-2 animate-bounce-short"
-            style={{ borderColor: "var(--accent-tension)" }}
-          >
-            <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
+        <div className="overlay-root backdrop-wipe-active pointer-events-auto">
+          <div className="overlay-modal paused-border mb-2 animate-bounce-short">
+            <div className="led-dot led-yellow animate-pulse mb-6" style={{ width: "16px", height: "16px" }} />
+            <h1 className="overlay-title paused-title-glow" style={{ color: "var(--accent-tension)" }}>
               PAUSED
             </h1>
-            <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
-            <p className="overlay-subtitle">SIMULATION SUSPENDED</p>
+            <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)", opacity: 0.3 }} />
+            <p className="overlay-subtitle" style={{ marginBottom: "24px" }}>SIMULATION SUSPENDED</p>
             <button
               onClick={handleResumeClick}
               onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
               onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-              className="overlay-btn pointer-events-auto"
+              className="gameover-btn gameover-btn-paused-hover pointer-events-auto"
             >
-              RESUME
+              RESUME RUN
             </button>
           </div>
         </div>

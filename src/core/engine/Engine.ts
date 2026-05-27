@@ -13,6 +13,7 @@ export class Engine {
   private broker: EventBroker;
 
   public isPaused: boolean = false;
+  private isManuallyPaused: boolean = false;
   private hitStopTimer: number = 0;
   private unsubscribes: (() => void)[] = [];
 
@@ -95,7 +96,8 @@ export class Engine {
   private handleKeyDown = (e: KeyboardEvent): void => {
     if (e.code === "KeyP") {
       e.preventDefault();
-      this.setPaused(!this.isPaused);
+      this.isManuallyPaused = !this.isManuallyPaused;
+      this.setPaused(this.isManuallyPaused);
     }
   };
 
@@ -104,6 +106,7 @@ export class Engine {
   };
 
   private handleFocus = (): void => {
+    if (this.isManuallyPaused) return;
     this.setPaused(false);
   };
 
@@ -111,6 +114,7 @@ export class Engine {
     if (document.hidden) {
       this.setPaused(true);
     } else {
+      if (this.isManuallyPaused) return;
       this.setPaused(false);
     }
   };
@@ -129,7 +133,6 @@ export class Engine {
   }
 
   private render(alpha: number): void {
-    if (this.isPaused) return;
     this.systemManager.renderAll(alpha);
   }
 }
