@@ -71,7 +71,9 @@ export class CombatSystem implements ISystem {
 
       this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
         amplitude: 1.4,
-        duration: 0.55
+        duration: 0.55,
+        dirX: dx / dist,
+        dirY: dy / dist
       });
 
       pVel.x = (dx / dist) * tuning.REBOUND_FORCE;
@@ -98,7 +100,9 @@ export class CombatSystem implements ISystem {
 
       this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
         amplitude: 0.5,
-        duration: 0.3
+        duration: 0.3,
+        dirX: dx / dist,
+        dirY: dy / dist
       });
       return;
     }

@@ -1,0 +1,1 @@
+import{gn as e}from"./compositionRoot-tTsIbOgL.js";export{e as particlesPixelShader};

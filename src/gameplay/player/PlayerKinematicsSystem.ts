@@ -319,7 +319,9 @@ export class PlayerKinematicsSystem implements ISystem {
 
     this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
       amplitude: 0.25 + powerScale * 0.35,
-      duration: 0.2
+      duration: 0.2,
+      dirX: dx / dist,
+      dirY: dy / dist
     });
   }
 

@@ -1,0 +1,1 @@
+import{Pr as e}from"./compositionRoot-tTsIbOgL.js";export{e as anaglyphPixelShader};

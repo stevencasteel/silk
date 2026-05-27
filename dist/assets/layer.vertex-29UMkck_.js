@@ -1,0 +1,1 @@
+import{R as e}from"./compositionRoot-tTsIbOgL.js";export{e as layerVertexShaderWGSL};
