@@ -1,0 +1,1 @@
+import{zt as e}from"./compositionRoot-DxhIDkUy.js";export{e as blackAndWhitePixelShaderWGSL};

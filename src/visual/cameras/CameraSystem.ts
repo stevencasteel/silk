@@ -4,6 +4,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { ParallaxScrollSystem } from "../systems/ParallaxScrollSystem";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -116,8 +117,16 @@ export class CameraSystem implements ISystem {
       if (trav.state === "WALL_SLIDING") {
         if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
           const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
-          const clampedScrollY = Math.max(CAMERA_TUNING.MIN_SCROLL_Y, Math.min(CAMERA_TUNING.MAX_SCROLL_Y, targetScrollY));
-          this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, clampedScrollY, CAMERA_TUNING.WALL_SLIDE_LERP);
+          
+          const maxCameraSpeed = ParallaxScrollSystem.currentScrollSpeed;
+          const maxDelta = -maxCameraSpeed * dt;
+          let desiredScrollY = targetScrollY;
+          if (desiredScrollY < this.cameraScrollY) {
+            desiredScrollY = Math.max(this.cameraScrollY + maxDelta, desiredScrollY);
+          }
+
+          const clampedScrollY = Math.max(CAMERA_TUNING.MIN_SCROLL_Y, Math.min(CAMERA_TUNING.MAX_SCROLL_Y, desiredScrollY));
+          this.cameraScrollY = clampedScrollY;
         } else if (playerLocalY > -4.0 && this.cameraScrollY < 0.0) {
           this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
         }

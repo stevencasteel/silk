@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 5:01:04 PM
+ [SYSTEM] Generated: 5/27/2026, 5:06:24 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -9669,6 +9669,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { ParallaxScrollSystem } from "../systems/ParallaxScrollSystem";
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -9781,8 +9782,16 @@ export class CameraSystem implements ISystem {
       if (trav.state === "WALL_SLIDING") {
         if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
           const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
-          const clampedScrollY = Math.max(CAMERA_TUNING.MIN_SCROLL_Y, Math.min(CAMERA_TUNING.MAX_SCROLL_Y, targetScrollY));
-          this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, clampedScrollY, CAMERA_TUNING.WALL_SLIDE_LERP);
+          
+          const maxCameraSpeed = ParallaxScrollSystem.currentScrollSpeed;
+          const maxDelta = -maxCameraSpeed * dt;
+          let desiredScrollY = targetScrollY;
+          if (desiredScrollY < this.cameraScrollY) {
+            desiredScrollY = Math.max(this.cameraScrollY + maxDelta, desiredScrollY);
+          }
+
+          const clampedScrollY = Math.max(CAMERA_TUNING.MIN_SCROLL_Y, Math.min(CAMERA_TUNING.MAX_SCROLL_Y, desiredScrollY));
+          this.cameraScrollY = clampedScrollY;
         } else if (playerLocalY > -4.0 && this.cameraScrollY < 0.0) {
           this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
         }
@@ -10601,6 +10610,14 @@ export class ParallaxScrollSystem implements ISystem {
     const cameraYOffset = scene.activeCamera
       ? (scene.activeCamera.position.y - defaultCameraY)
       : 0.0;
+
+    const leftWall = scene.getMeshByName("leftWall");
+    const rightWall = scene.getMeshByName("rightWall");
+    if (leftWall && rightWall) {
+      const defaultWallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
+      leftWall.position.y = defaultWallY + cameraYOffset;
+      rightWall.position.y = defaultWallY + cameraYOffset;
+    }
 
     if (!this.cachedTicks) {
       this.cachedTicks = scene.meshes.filter(

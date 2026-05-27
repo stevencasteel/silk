@@ -128,6 +128,14 @@ export class ParallaxScrollSystem implements ISystem {
       ? (scene.activeCamera.position.y - defaultCameraY)
       : 0.0;
 
+    const leftWall = scene.getMeshByName("leftWall");
+    const rightWall = scene.getMeshByName("rightWall");
+    if (leftWall && rightWall) {
+      const defaultWallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
+      leftWall.position.y = defaultWallY + cameraYOffset;
+      rightWall.position.y = defaultWallY + cameraYOffset;
+    }
+
     if (!this.cachedTicks) {
       this.cachedTicks = scene.meshes.filter(
         (m) => m.metadata?.type === "scrolling_tick"

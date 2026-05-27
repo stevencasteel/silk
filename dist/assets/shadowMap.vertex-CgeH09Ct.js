@@ -1,0 +1,1 @@
+import{c as e}from"./compositionRoot-DxhIDkUy.js";export{e as shadowMapVertexShaderWGSL};

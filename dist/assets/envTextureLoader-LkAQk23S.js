@@ -1,0 +1,1 @@
+import{Hr as e}from"./compositionRoot-DxhIDkUy.js";export{e as _ENVTextureLoader};
