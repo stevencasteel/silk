@@ -151,6 +151,29 @@ export class WeaverDashingState implements IWeaverState {
       const hitWallOrGround = isGraceOver && trav ? trav.isWallClinging || trav.isGrounded : false;
 
       if (this.phaseTimer <= 0 || hitWallOrGround) {
+        if (hitWallOrGround) {
+          const transforms = ctx.stores.get<TransformComponent>("transform");
+          const wTrans = transforms.get(ctx.refs.weaver);
+          if (wTrans) {
+            ctx.broker.publish(GameEvent.WEAVER_WALL_HIT, {
+              x: wTrans.x,
+              y: wTrans.y,
+              wallNormalX: trav ? trav.wallNormalX : 0
+            });
+            if (wTrans.scaleVelX === undefined) wTrans.scaleVelX = 0;
+            if (wTrans.scaleVelY === undefined) wTrans.scaleVelY = 0;
+            if (wTrans.scaleVelZ === undefined) wTrans.scaleVelZ = 0;
+            if (trav && trav.isWallClinging) {
+              wTrans.scaleVelX += -22.0;
+              wTrans.scaleVelY += 28.0;
+              wTrans.scaleVelZ += 28.0;
+            } else if (trav && trav.isGrounded) {
+              wTrans.scaleVelY += -22.0;
+              wTrans.scaleVelX += 28.0;
+              wTrans.scaleVelZ += 28.0;
+            }
+          }
+        }
         this.startRecover(ctx);
       }
     } else if (this.currentPhase === "RECOVER") {

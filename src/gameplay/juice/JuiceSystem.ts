@@ -117,6 +117,16 @@ export class JuiceSystem implements ISystem {
 
     this.unsubscribes.push(
       this.context.broker.subscribe(
+        GameEvent.WEAVER_WALL_HIT,
+        (payload: { x: number; y: number; wallNormalX: number }) => {
+          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
+          this.spawnWallSparks(pos, payload.wallNormalX);
+        }
+      )
+    );
+
+    this.unsubscribes.push(
+      this.context.broker.subscribe(
         GameEvent.PROJECTILE_IMPACT,
         (payload: { x: number; y: number; isWall: boolean }) => {
           const pos = new BABYLON.Vector3(payload.x, payload.y, 0);

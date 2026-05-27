@@ -14,8 +14,8 @@ import * as BABYLON from "@babylonjs/core";
 
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private minX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MIN_X;
-  private maxX = ARENA_CONFIG.HORIZONTAL.WEAVER_PATROL_MAX_X;
+  private minX = -(15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS);
+  private maxX = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
 
   constructor(private context: SystemContext) {}
 
@@ -62,7 +62,7 @@ export class WeaverTraversalSystem implements ISystem {
       target.active = true;
     }
 
-    const wallLimit = ARENA_CONFIG.HORIZONTAL.WEAVER_LIMIT_X;
+    const wallLimit = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     if (target.x > wallLimit) {
       target.x = wallLimit;
       if (vel.x > 0) vel.x = 0;
@@ -85,7 +85,7 @@ export class WeaverTraversalSystem implements ISystem {
       trav.isWallClinging = false;
     } else {
       trav.isGrounded = false;
-      const wallThreshold = ARENA_CONFIG.HORIZONTAL.WALL_CLING_THRESHOLD_X;
+      const wallThreshold = wallLimit - 0.2;
       if (Math.abs(target.x) >= wallThreshold) {
         trav.isWallClinging = true;
         trav.wallNormalX = target.x > 0 ? -1 : 1;
@@ -129,6 +129,20 @@ export class WeaverTraversalSystem implements ISystem {
           targetScaleX = 1.0 + pulse;
           targetScaleY = 1.0 - pulse;
 
+          const boundaryX = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          const distToLeft = Math.abs(trans.x - (-boundaryX));
+          const distToRight = Math.abs(trans.x - boundaryX);
+          const minDist = Math.min(distToLeft, distToRight);
+
+          if (minDist < 2.0) {
+            const squishFactor = minDist / 2.0;
+            const squishedX = 0.55 + squishFactor * 0.45;
+            const stretchedY = 1.35 - squishFactor * 0.35;
+            targetScaleX = squishedX;
+            targetScaleY = stretchedY;
+            targetScaleZ = stretchedY;
+          }
+
           const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
           const yawAngle =
             Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
@@ -137,9 +151,19 @@ export class WeaverTraversalSystem implements ISystem {
         } else if (ai.state === "DASHING") {
           const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
           if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
-            targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
-            targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
-            targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+            if (trav.isWallClinging) {
+              targetScaleX = 0.38;
+              targetScaleY = 1.55;
+              targetScaleZ = 1.55;
+            } else if (trav.isGrounded) {
+              targetScaleY = 0.38;
+              targetScaleX = 1.55;
+              targetScaleZ = 1.55;
+            } else {
+              targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
+              targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
+              targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+            }
 
           // Hornet windup shiver wobble along Z (roll)
           const wobbleFreq = 65.0;
@@ -171,13 +195,28 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
 
-      const sx = trans.scaleX ?? 1.0;
-      const sy = trans.scaleY ?? 1.0;
-      const sz = trans.scaleZ ?? 1.0;
+      if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
+      if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
+      if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
 
-      trans.scaleX = sx + (targetScaleX - sx) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
-      trans.scaleY = sy + (targetScaleY - sy) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
-      trans.scaleZ = sz + (targetScaleZ - sz) * WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt;
+      const stiffness = 220;
+      const damping = 12;
+
+      const dispX = (trans.scaleX ?? 1.0) - targetScaleX;
+      const dispY = (trans.scaleY ?? 1.0) - targetScaleY;
+      const dispZ = (trans.scaleZ ?? 1.0) - targetScaleZ;
+
+      const accelX = -stiffness * dispX - damping * trans.scaleVelX;
+      const accelY = -stiffness * dispY - damping * trans.scaleVelY;
+      const accelZ = -stiffness * dispZ - damping * trans.scaleVelZ;
+
+      trans.scaleVelX += accelX * dt;
+      trans.scaleVelY += accelY * dt;
+      trans.scaleVelZ += accelZ * dt;
+
+      trans.scaleX = (trans.scaleX ?? 1.0) + trans.scaleVelX * dt;
+      trans.scaleY = (trans.scaleY ?? 1.0) + trans.scaleVelY * dt;
+      trans.scaleZ = (trans.scaleZ ?? 1.0) + trans.scaleVelZ * dt;
 
       const currentQuat = new BABYLON.Quaternion(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(

@@ -1,0 +1,1 @@
+import{lt as e}from"./compositionRoot-B9_xEnyu.js";export{e as gaussianSplattingPixelShaderWGSL};

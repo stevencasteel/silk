@@ -111,7 +111,7 @@ export class CompositionRoot {
       storeContainer
     );
 
-    const renderSystem = new RenderSystem(canvas, visualRegistry);
+    const renderSystem = new RenderSystem(canvas, visualRegistry, broker);
     const cameraSystem = new CameraSystem(visualRegistry, broker);
     const lightingSystem = new LightingSystem(broker, visualRegistry);
     const tetherVisualizer = new TetherVisualizerSystem(context);

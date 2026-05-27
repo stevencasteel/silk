@@ -3,6 +3,8 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { ArenaGeometry } from "../mesh/ArenaGeometry";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { VisualRegistry } from "./VisualRegistry";
+import { EventBroker } from "../../core/events/EventBroker";
+import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem {
@@ -11,10 +13,13 @@ export class RenderSystem implements ISystem {
   private engine: BABYLON.Engine | null = null;
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
+  private pipeline: BABYLON.DefaultRenderingPipeline | null = null;
+  private unsubscribes: (() => void)[] = [];
 
   constructor(
     canvas: HTMLCanvasElement,
-    private visualRegistry: VisualRegistry
+    private visualRegistry: VisualRegistry,
+    private broker: EventBroker
   ) {
     this.canvas = canvas;
   }
@@ -77,7 +82,10 @@ export class RenderSystem implements ISystem {
     pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
     pipeline.imageProcessing.exposure = preset.RENDERER.EXPOSURE;
     pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
-    pipeline.chromaticAberrationEnabled = false;
+    pipeline.chromaticAberrationEnabled = true;
+    pipeline.chromaticAberration.aberrationAmount = 0.0;
+    pipeline.chromaticAberration.radialIntensity = 1.2;
+    this.pipeline = pipeline;
 
     const shadowGen = new BABYLON.ShadowGenerator(preset.RENDERER.SHADOW_MAP_SIZE, dirLight);
     shadowGen.useBlurExponentialShadowMap = true;
@@ -89,10 +97,39 @@ export class RenderSystem implements ISystem {
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
 
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        if (this.pipeline) {
+          this.pipeline.chromaticAberration.aberrationAmount = 45.0;
+        }
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        if (this.pipeline) {
+          this.pipeline.chromaticAberration.aberrationAmount = 25.0;
+        }
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.GAME_RESET, () => {
+        if (this.pipeline) {
+          this.pipeline.chromaticAberration.aberrationAmount = 0.0;
+        }
+      })
+    );
+
     window.addEventListener("resize", this.handleResize);
   }
 
-  public update(): void {}
+  public update(dt: number): void {
+    if (this.pipeline && this.pipeline.chromaticAberration.aberrationAmount > 0.0) {
+      this.pipeline.chromaticAberration.aberrationAmount -= dt * 110.0;
+      if (this.pipeline.chromaticAberration.aberrationAmount < 0.0) {
+        this.pipeline.chromaticAberration.aberrationAmount = 0.0;
+      }
+    }
+  }
 
   public render(): void {
     if (this.scene) this.scene.render();
@@ -104,6 +141,8 @@ export class RenderSystem implements ISystem {
 
   public dispose(): void {
     window.removeEventListener("resize", this.handleResize);
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
     this.visualRegistry.clear();
     if (this.scene) this.scene.dispose();
     if (this.engine) this.engine.dispose();
