@@ -219,7 +219,7 @@ export class PlayerKinematicsSystem implements ISystem {
     if (trav.state === "WALL_SLIDING") {
       const stillPressingIn = input.x === trav.wallDir;
 
-      if (!stillPressingIn) {
+      if (stillPressingIn === false) {
         this.triggerFling(vel, tether, target, trav);
         return;
       }
@@ -231,7 +231,19 @@ export class PlayerKinematicsSystem implements ISystem {
       
       let finalY = target.y + vel.y * dt;
 
+      // Elongation: The maximum length of the rope can automatically increase while wall sliding.
       const dx = target.x - tether.anchorX;
+      const dy = finalY - tether.anchorY;
+      const requiredLength = Math.sqrt(dx * dx + dy * dy);
+
+      if (input.y <= 0 && requiredLength > tether.maxLength) {
+        const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+        if (tether.maxLength < maxAllowed) {
+          tether.maxLength = Math.min(maxAllowed, requiredLength);
+          tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
+        }
+      }
+
       const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
       if (limitY2 >= 0) {
         const minY = tether.anchorY - Math.sqrt(limitY2);
@@ -279,7 +291,20 @@ export class PlayerKinematicsSystem implements ISystem {
         vel.y = -currentScrollSpeed;
         
         let finalY = target.y + vel.y * dt;
+
+        // Elongation: The maximum length of the rope can automatically increase while wall sliding.
         const dx = target.x - tether.anchorX;
+        const dy = finalY - tether.anchorY;
+        const requiredLength = Math.sqrt(dx * dx + dy * dy);
+
+        if (input.y <= 0 && requiredLength > tether.maxLength) {
+          const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+          if (tether.maxLength < maxAllowed) {
+            tether.maxLength = Math.min(maxAllowed, requiredLength);
+            tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
+          }
+        }
+
         const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
         if (limitY2 >= 0) {
           const minY = tether.anchorY - Math.sqrt(limitY2);
@@ -399,30 +424,25 @@ export class PlayerKinematicsSystem implements ISystem {
     input: InputIntentComponent
   ): void {
     const reelConfig = GAMEPLAY_TUNING.REEL;
-    let tensionDelta = 0;
-
-    if (trav.state !== "WALL_SLIDING" && input.y <= 0) {
-      tensionDelta -= GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE;
-    }
-
-    if (input.y > 0 && tether.currentLength > tether.desiredLength) {
-      tensionDelta += reelConfig.REEL_IN_TENSION_RATE;
-    }
-
-    if (input.y < 0) {
-      tensionDelta -= reelConfig.REEL_OUT_TENSION_RELIEF;
-    }
 
     if (trav.state === "WALL_SLIDING") {
-      tensionDelta += reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+      let tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+
+      if (input.y < 0) {
+        tensionDelta -= reelConfig.REEL_OUT_TENSION_RELIEF;
+      }
+
+      tether.tension += tensionDelta * dt;
+
+      // Stretch tension is only accumulated while wall sliding
+      const TENSION_STRETCH_RANGE = 2.0;
+      const stretch = Math.max(0, tether.currentLength - tether.maxLength);
+      const stretchRatio = stretch / TENSION_STRETCH_RANGE;
+      tether.tension += stretchRatio * dt;
+    } else {
+      // In any state other than WALL_SLIDING, tension decays back to 0
+      tether.tension -= GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt;
     }
-
-    tether.tension += tensionDelta * dt;
-
-    const TENSION_STRETCH_RANGE = 2.0;
-    const stretch = Math.max(0, tether.currentLength - tether.maxLength);
-    const stretchRatio = stretch / TENSION_STRETCH_RANGE;
-    tether.tension += stretchRatio * dt;
 
     tether.tension = Math.max(
       0.0,
