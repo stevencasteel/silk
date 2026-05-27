@@ -1,0 +1,1 @@
+import{Wr as e}from"./compositionRoot-vpCn1nK0.js";export{e as _BasisTextureLoader};

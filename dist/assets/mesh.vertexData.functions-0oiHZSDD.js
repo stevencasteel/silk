@@ -1,1 +1,0 @@
-import{Ir as e}from"./compositionRoot-Ptc2nsss.js";export{e as OptimizeIndices};

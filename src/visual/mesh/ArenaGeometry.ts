@@ -59,28 +59,70 @@ export class ArenaGeometry {
     rightGroove.material = verticalGrooveMaterial;
     rightGroove.receiveShadows = false;
 
-    const panelCount = 12;
+    // Procedurally vary the height, width, and depth of panels on each side
+    const panelCount = 20;
     const panelSpacing = wallHeight / panelCount;
     for (let i = 0; i < panelCount; i++) {
       const panelY = (i - panelCount / 2) * panelSpacing + (wallHeight * 0.1);
 
+      const heightScale = 0.45 + Math.abs(Math.sin(i * 1.5)) * 0.45; // vary height
+      const panelHeight = panelSpacing * heightScale;
+
+      const widthScale = 0.8 + Math.abs(Math.cos(i * 2.1)) * 0.35; // vary width
+      const panelWidth = 0.1 * widthScale;
+
+      const depthScale = 0.7 + Math.abs(Math.sin(i * 3.3)) * 0.45; // vary depth
+      const panelDepth = 3.6 * depthScale;
+
       const lp = BABYLON.MeshBuilder.CreateBox(
         `leftPanel_${i}`,
-        { width: 0.1, height: panelSpacing * 0.7, depth: 3.6 },
+        { width: panelWidth, height: panelHeight, depth: panelDepth },
         this.scene
       );
       lp.position.set(-wallX + wallThickness / 2 - 0.02, panelY, 0);
       lp.material = panelMaterial;
       lp.receiveShadows = true;
+      lp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
 
       const rp = BABYLON.MeshBuilder.CreateBox(
         `rightPanel_${i}`,
-        { width: 0.1, height: panelSpacing * 0.7, depth: 3.6 },
+        { width: panelWidth, height: panelHeight, depth: panelDepth },
         this.scene
       );
       rp.position.set(wallX - wallThickness / 2 + 0.02, panelY, 0);
       rp.material = panelMaterial;
       rp.receiveShadows = true;
+      rp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
+    }
+
+    // Add structural reinforcing ribs that scroll down
+    const ribCount = 10;
+    const ribSpacing = wallHeight / ribCount;
+    for (let i = 0; i < ribCount; i++) {
+      const ribY = (i - ribCount / 2) * ribSpacing + (wallHeight * 0.1);
+
+      const ribHeight = 0.18 + Math.abs(Math.sin(i * 1.9)) * 0.22;
+      const ribDepth = 4.15; // extends past wall profile for strong silhouettes
+
+      const leftRib = BABYLON.MeshBuilder.CreateBox(
+        `leftRib_${i}`,
+        { width: 0.25, height: ribHeight, depth: ribDepth },
+        this.scene
+      );
+      leftRib.position.set(-wallX + wallThickness / 2, ribY, 0);
+      leftRib.material = verticalGrooveMaterial;
+      leftRib.receiveShadows = true;
+      leftRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
+
+      const rightRib = BABYLON.MeshBuilder.CreateBox(
+        `rightRib_${i}`,
+        { width: 0.25, height: ribHeight, depth: ribDepth },
+        this.scene
+      );
+      rightRib.position.set(wallX - wallThickness / 2, ribY, 0);
+      rightRib.material = verticalGrooveMaterial;
+      rightRib.receiveShadows = true;
+      rightRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
     }
 
     const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);

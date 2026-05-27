@@ -19,7 +19,7 @@ export class ParallaxScrollSystem implements ISystem {
   private prevScrollOffset = 0.0;
   private scrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
 
-  private cachedTicks: BABYLON.AbstractMesh[] | null = null;
+  private cachedScrollables: BABYLON.AbstractMesh[] | null = null;
   private hitStopTimer = 0.0;
   private unsubscribes: (() => void)[] = [];
 
@@ -136,24 +136,24 @@ export class ParallaxScrollSystem implements ISystem {
       rightWall.position.y = defaultWallY + cameraYOffset;
     }
 
-    if (!this.cachedTicks) {
-      this.cachedTicks = scene.meshes.filter(
-        (m) => m.metadata?.type === "scrolling_tick"
+    if (!this.cachedScrollables) {
+      this.cachedScrollables = scene.meshes.filter(
+        (m) => typeof m.metadata?.type === "string" && m.metadata.type.startsWith("scrolling_")
       ) as BABYLON.AbstractMesh[];
     }
 
-    for (let i = 0; i < this.cachedTicks.length; i++) {
-      const tick = this.cachedTicks[i];
-      let y = tick.metadata.initialY - wrappedOffset + cameraYOffset;
+    for (let i = 0; i < this.cachedScrollables.length; i++) {
+      const element = this.cachedScrollables[i];
+      let y = element.metadata.initialY - wrappedOffset + cameraYOffset;
       while (y < mapping.BOTTOM_BOUNDARY) y += totalRange;
       while (y > mapping.TOP_BOUNDARY) y -= totalRange;
-      tick.position.y = y;
+      element.position.y = y;
     }
   }
 
   public dispose(): void {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
-    this.cachedTicks = null;
+    this.cachedScrollables = null;
   }
 }
