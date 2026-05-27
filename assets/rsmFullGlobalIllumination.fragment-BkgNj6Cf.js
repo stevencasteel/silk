@@ -1,0 +1,1 @@
+import{m as e}from"./compositionRoot-D2LnzbOj.js";export{e as rsmFullGlobalIlluminationPixelShaderWGSL};

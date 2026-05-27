@@ -1,0 +1,1 @@
+import{Ot as e}from"./compositionRoot-D2LnzbOj.js";export{e as defaultPixelShaderWGSL};
