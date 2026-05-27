@@ -128,6 +128,9 @@ export class ParallaxScrollSystem implements ISystem {
       ? (scene.activeCamera.position.y - defaultCameraY)
       : 0.0;
 
+    const bottomBoundary = mapping.BOTTOM_BOUNDARY + cameraYOffset;
+    const topBoundary = mapping.TOP_BOUNDARY + cameraYOffset;
+
     if (!this.cachedTicks) {
       this.cachedTicks = scene.meshes.filter(
         (m) => m.metadata?.type === "scrolling_tick"
@@ -136,9 +139,9 @@ export class ParallaxScrollSystem implements ISystem {
 
     for (let i = 0; i < this.cachedTicks.length; i++) {
       const tick = this.cachedTicks[i];
-      let y = tick.metadata.initialY - wrappedOffset + cameraYOffset;
-      while (y < mapping.BOTTOM_BOUNDARY) y += totalRange;
-      while (y > mapping.TOP_BOUNDARY) y -= totalRange;
+      let y = tick.metadata.initialY - wrappedOffset;
+      while (y < bottomBoundary) y += totalRange;
+      while (y > topBoundary) y -= totalRange;
       tick.position.y = y;
     }
   }
