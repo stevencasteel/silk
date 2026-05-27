@@ -5,7 +5,8 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { TensionSynthesizer } from "../tone/TensionSynthesizer";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent } from "../../core/ecs/Components";
+import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as Tone from "tone";
 
 export class AudioDirectorSystem implements ISystem {
@@ -51,6 +52,39 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.updateDronePitch(payload.tension);
+        }
+      })
+    );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
+        if (payload.state === "LAUNCHING" && this.initialized) {
+          const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+          const pTrav = travStore.get(this.context.refs.player);
+          if (pTrav) {
+            const reelConfig = GAMEPLAY_TUNING.REEL;
+            const power = pTrav.launchPower;
+            
+            if (power >= 1.0) {
+              if (this.impactSynth) {
+                this.impactSynth.triggerAttackRelease("A1", "4n");
+              }
+              if (this.noiseSynth) {
+                this.noiseSynth.triggerAttackRelease("4n");
+              }
+            } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
+              if (this.tickSynth) {
+                this.tickSynth.triggerAttackRelease("G6", "16n");
+              }
+              if (this.impactSynth) {
+                this.impactSynth.triggerAttackRelease("D4", "16n");
+              }
+            } else {
+              if (this.impactSynth) {
+                this.impactSynth.triggerAttackRelease("C3", "16n");
+              }
+            }
+          }
         }
       })
     );

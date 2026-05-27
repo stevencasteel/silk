@@ -1,0 +1,1 @@
+import{Gt as e}from"./compositionRoot-BJIwXciG.js";export{e as shadowMapFragmentSoftTransparentShadowWGSL};

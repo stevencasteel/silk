@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class TetherVisualizerSystem implements ISystem {
@@ -128,20 +128,39 @@ export class TetherVisualizerSystem implements ISystem {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
-      const tension = Math.max(0, Math.min(1, tether.tension));
+      const tension = Math.max(0, Math.min(1.3, tether.tension));
+      const reelConfig = GAMEPLAY_TUNING.REEL;
+      const isSweetSpot = tension >= reelConfig.SWEET_SPOT_MIN && tension <= reelConfig.SWEET_SPOT_MAX;
 
       const timeMs = performance.now();
       const frequency = VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      const vibAmp =
-        Math.max(0, tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
-        VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
-      const vibOffset = Math.sin(vibPhase) * vibAmp;
+      
+      let vibAmp = 0;
+      if (tension >= 1.0) {
+        vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.0;
+      } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
+        vibAmp = (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
+      }
+      
+      const vibOffset = Math.sin(vibPhase * (tension >= 1.0 ? 3.0 : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-      const MathSag = this.MAX_SAG * (1.0 - tension) + vibOffset;
+      
+      let MathSag = this.MAX_SAG * (1.0 - Math.min(1.0, tension)) + vibOffset;
+      if (tension < 0.4) {
+        MathSag *= 1.3;
+      } else if (isSweetSpot) {
+        MathSag *= 0.15;
+      }
+
       this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
+
+      let reelPhaseOffset = 0;
+      if (tether.reelVelocity !== 0) {
+        reelPhaseOffset = timeMs * 0.02 * Math.sign(tether.reelVelocity);
+      }
 
       for (let i = 0; i <= this.SEGMENTS; i++) {
         const t = i / this.SEGMENTS;
@@ -160,14 +179,32 @@ export class TetherVisualizerSystem implements ISystem {
           2 * t1 * t * this.scratchCtrl.z +
           t * t * this.scratchPlayer.z;
 
-        pt.z +=
-          Math.sin(
-            (i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH +
-              timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ
-          ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
+        const baseWave = Math.sin(
+          (i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH +
+            timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ + reelPhaseOffset
+        );
+        
+        let waveAmp = VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
+        if (tension < 0.4) {
+          waveAmp *= 1.8;
+        } else if (isSweetSpot) {
+          waveAmp *= 0.35;
+        } else if (tension >= 1.0) {
+          waveAmp *= 0.1;
+          pt.x += (Math.random() - 0.5) * 0.08;
+          pt.y += (Math.random() - 0.5) * 0.08;
+        }
+
+        pt.z += baseWave * waveAmp;
       }
 
-      const radius = this.BASE_RADIUS + tension * (this.MAX_RADIUS - this.BASE_RADIUS);
+      let radius = this.BASE_RADIUS + Math.min(1.0, tension) * (this.MAX_RADIUS - this.BASE_RADIUS);
+      if (tension < 0.4) {
+        radius *= 0.85;
+      } else if (isSweetSpot) {
+        radius *= 1.1;
+      }
+
       this.tetherMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
         path: this.points,
         radius: radius,
@@ -176,21 +213,41 @@ export class TetherVisualizerSystem implements ISystem {
         instance: this.tetherMesh
       });
 
-      const r = tension < 0.5 ? 0.55 + tension * 0.9 : 1.0;
-      const g = tension < 0.5 ? 0.78 + tension * 0.44 : 1.0 - (tension - 0.5) * 1.1;
-      const b = tension < 0.5 ? 1.0 - tension * 0.2 : 0.9 - (tension - 0.5) * 1.7;
+      let r = 0.6;
+      let g = 0.85;
+      let b = 1.0;
 
-      this.tetherMat.albedoColor.set(
-        Math.max(0, Math.min(1, r)),
-        Math.max(0, Math.min(1, g)),
-        Math.max(0, Math.min(1, b))
-      );
+      if (tension >= 1.0) {
+        r = 1.0;
+        g = 0.15;
+        b = 0.15;
+      } else if (tension >= 0.75) {
+        r = 1.0;
+        g = 0.55;
+        b = 0.15;
+      } else if (isSweetSpot) {
+        r = 0.95;
+        g = 0.95;
+        b = 1.0;
+      } else if (tension < 0.4) {
+        r = 0.65;
+        g = 0.82;
+        b = 0.95;
+      }
 
-      const eBrightness = 0.1 + tension * 0.5;
+      this.tetherMat.albedoColor.set(r, g, b);
+
+      let eBrightness = 0.1 + tension * 0.5;
+      if (isSweetSpot) {
+        eBrightness *= 2.2;
+      } else if (tension >= 1.0) {
+        eBrightness *= 3.0;
+      }
+
       this.tetherMat.emissiveColor.set(
-        eBrightness * (0.3 + tension * 0.7),
-        eBrightness * (0.6 - tension * 0.4),
-        eBrightness * (1.0 - tension * 0.9)
+        eBrightness * r,
+        eBrightness * g,
+        eBrightness * b
       );
     } else {
       this.tetherMesh.setEnabled(false);

@@ -1,0 +1,1 @@
+import{Y as e}from"./compositionRoot-BJIwXciG.js";export{e as hdrIrradianceFilteringPixelShaderWGSL};

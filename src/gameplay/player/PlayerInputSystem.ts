@@ -34,9 +34,13 @@ export class PlayerInputSystem implements ISystem {
     if (this.keysPressed["a"] || this.keysPressed["arrowleft"]) x -= 1;
     if (this.keysPressed["d"] || this.keysPressed["arrowright"]) x += 1;
 
+    let y = 0;
+    if (this.keysPressed["w"] || this.keysPressed["arrowup"]) y += 1;
+    if (this.keysPressed["s"] || this.keysPressed["arrowdown"]) y -= 1;
+
     input.x = x;
-    input.y = 0;
-    input.jump = !!(this.keysPressed[" "] || this.keysPressed["w"] || this.keysPressed["arrowup"]);
+    input.y = y;
+    input.jump = !!this.keysPressed[" "];
   }
 
   public dispose(): void {

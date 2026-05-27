@@ -1,0 +1,1 @@
+import{x as e}from"./compositionRoot-BJIwXciG.js";export{e as pbrVertexShaderWGSL};

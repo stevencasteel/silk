@@ -20,8 +20,6 @@ export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
   private readonly GRAVITY = CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC;
-  private readonly BASE_TETHER_LENGTH = ARENA_CONFIG.TETHER.BASE_LENGTH;
-  private readonly MAX_TETHER_LENGTH = ARENA_CONFIG.TETHER.MAX_LENGTH;
   private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
   private lastTraversalState: string = "";
@@ -90,6 +88,50 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.anchorY = wTrans.y + stingerTipWorld.y;
     tether.anchorZ = wTrans.z + stingerTipWorld.z;
 
+    const dx = target.x - tether.anchorX;
+    const dy = target.y - tether.anchorY;
+    tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+    const reelConfig = GAMEPLAY_TUNING.REEL;
+
+    if (input.y > 0) {
+      tether.desiredLength -= reelConfig.IN_SPEED * dt;
+      tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2);
+    } else if (input.y < 0) {
+      tether.desiredLength += reelConfig.OUT_SPEED * dt;
+      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5);
+    } else {
+      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
+      const AUTO_SLACK_MARGIN = 2.0;
+      tether.desiredLength = Math.min(
+        tether.desiredLength,
+        tether.currentLength + AUTO_SLACK_MARGIN
+      );
+    }
+    tether.desiredLength = Math.max(
+      reelConfig.MIN_LENGTH,
+      Math.min(reelConfig.MAX_LENGTH, tether.desiredLength)
+    );
+
+    let easeSpeed = 0;
+    if (tether.maxLength > tether.desiredLength) {
+      const resistance = Math.max(0.1, 1.0 - tether.tension);
+      easeSpeed = reelConfig.IN_SPEED * resistance;
+      tether.reelVelocity = -easeSpeed;
+    } else if (tether.maxLength < tether.desiredLength) {
+      easeSpeed = reelConfig.OUT_SPEED;
+      tether.reelVelocity = easeSpeed;
+    } else {
+      tether.reelVelocity = 0;
+    }
+
+    const maxDelta = easeSpeed * dt;
+    if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
+      tether.maxLength = tether.desiredLength;
+    } else {
+      tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
+    }
+
     let nextX = target.x;
     let nextY = target.y;
 
@@ -132,9 +174,7 @@ export class PlayerKinematicsSystem implements ISystem {
       this.enforcePendulumConstraint(target, vel, tether);
     }
 
-    const dx = target.x - tether.anchorX;
-    const dy = target.y - tether.anchorY;
-    tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    this.updateTensionMeter(dt, tether, trav, input);
 
     this.tensionPayload.tension = tether.tension;
     this.context.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
@@ -163,7 +203,6 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
-    const tuning = GAMEPLAY_TUNING.PLAYER;
 
     if (trav.state === "WALL_SLIDING") {
       const stillPressingIn = input.x === trav.wallDir;
@@ -178,29 +217,6 @@ export class PlayerKinematicsSystem implements ISystem {
       vel.x = 0;
       vel.y = -currentScrollSpeed;
       target.y = target.y + vel.y * dt;
-
-      if (currentScrollSpeed > 0) {
-        if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-          tether.tension = Math.min(
-            CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT,
-            tether.tension + tuning.TENSION_CHARGE_RATE * dt
-          );
-        } else {
-          const strainOverloadRate =
-            (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT -
-              CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) /
-            CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-          tether.tension = Math.min(
-            CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT,
-            tether.tension + strainOverloadRate * dt
-          );
-        }
-      }
-
-      const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
-      tether.maxLength =
-        this.BASE_TETHER_LENGTH +
-        Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
 
       if (input.jump) {
         this.triggerFling(vel, tether, target, trav);
@@ -238,29 +254,6 @@ export class PlayerKinematicsSystem implements ISystem {
         vel.x = 0;
         vel.y = -currentScrollSpeed;
         target.y = target.y + vel.y * dt;
-
-        if (currentScrollSpeed > 0) {
-          if (tether.tension < CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-            tether.tension = Math.min(
-              CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT,
-              tether.tension + tuning.TENSION_CHARGE_RATE * dt
-            );
-          } else {
-            const strainOverloadRate =
-              (CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT -
-                CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) /
-              CANONICAL_UNITS.TETHER_STRAIN.SNAP_DELAY_SECONDS;
-            tether.tension = Math.min(
-              CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT,
-              tether.tension + strainOverloadRate * dt
-            );
-          }
-        }
-
-        const maxStretch = this.MAX_TETHER_LENGTH - this.BASE_TETHER_LENGTH;
-        tether.maxLength =
-          this.BASE_TETHER_LENGTH +
-          Math.min(CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT, tether.tension) * maxStretch;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
@@ -269,10 +262,6 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
-        tether.tension = Math.max(
-          0,
-          tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt
-        );
       }
       return;
     }
@@ -281,7 +270,6 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.state = "AIRBORNE";
     }
     trav.wallDir = 0;
-    tether.tension = Math.max(0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
     target.x = nextX;
     target.y = nextY;
   }
@@ -295,6 +283,7 @@ export class PlayerKinematicsSystem implements ISystem {
     const storedTension = tether.tension;
     tether.tension = 0.0;
     const tuning = GAMEPLAY_TUNING.PLAYER;
+    const reelConfig = GAMEPLAY_TUNING.REEL;
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
@@ -307,8 +296,14 @@ export class PlayerKinematicsSystem implements ISystem {
     const dy = tether.anchorY - target.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-    const powerScale = Math.min(1.0, storedTension);
+    const tensionPower = Math.min(1.0, storedTension);
+    const reelBonus = tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
+    const isSweetSpot = storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
+    const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
+    
+    const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
     const power = powerScale * tuning.FLING_IMPULSE;
+
     vel.x = (dx / dist) * power;
     vel.y = (dy / dist) * power;
 
@@ -317,9 +312,20 @@ export class PlayerKinematicsSystem implements ISystem {
     trav.launchPower = powerScale;
     trav.wallDir = 0;
 
+    let shakeAmp = 0.25 + powerScale * 0.35;
+    let shakeDur = 0.2;
+
+    if (storedTension >= CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+      shakeAmp = 0.85;
+      shakeDur = 0.45;
+    } else if (isSweetSpot) {
+      shakeAmp = 0.5;
+      shakeDur = 0.28;
+    }
+
     this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-      amplitude: 0.25 + powerScale * 0.35,
-      duration: 0.2,
+      amplitude: shakeAmp,
+      duration: shakeDur,
       dirX: dx / dist,
       dirY: dy / dist
     });
@@ -329,16 +335,12 @@ export class PlayerKinematicsSystem implements ISystem {
     target: KinematicTargetComponent,
     vel: KinematicVelocityComponent,
     tether: TetherComponent
-  ): void {
+  ) {
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-    const activeMaxLength = Math.min(this.MAX_TETHER_LENGTH, tether.maxLength);
-
-    if (dist < activeMaxLength) {
-      tether.maxLength = Math.max(this.BASE_TETHER_LENGTH, dist);
-    }
+    const activeMaxLength = tether.maxLength;
 
     if (dist > activeMaxLength) {
       const nx = dx / dist;
@@ -353,5 +355,43 @@ export class PlayerKinematicsSystem implements ISystem {
         vel.y -= dot * ny;
       }
     }
+  }
+
+  private updateTensionMeter(
+    dt: number,
+    tether: TetherComponent,
+    trav: TraversalStateComponent,
+    input: InputIntentComponent
+  ): void {
+    const reelConfig = GAMEPLAY_TUNING.REEL;
+    let tensionDelta = 0;
+
+    if (trav.state !== "WALL_SLIDING" && input.y <= 0) {
+      tensionDelta -= GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE;
+    }
+
+    if (input.y > 0 && tether.currentLength > tether.desiredLength) {
+      tensionDelta += reelConfig.REEL_IN_TENSION_RATE;
+    }
+
+    if (input.y < 0) {
+      tensionDelta -= reelConfig.REEL_OUT_TENSION_RELIEF;
+    }
+
+    if (trav.state === "WALL_SLIDING") {
+      tensionDelta += reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+    }
+
+    tether.tension += tensionDelta * dt;
+
+    const TENSION_STRETCH_RANGE = 2.0;
+    const stretch = Math.max(0, tether.currentLength - tether.maxLength);
+    const stretchRatio = stretch / TENSION_STRETCH_RANGE;
+    tether.tension += stretchRatio * dt;
+
+    tether.tension = Math.max(
+      0.0,
+      Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension)
+    );
   }
 }

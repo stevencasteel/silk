@@ -44,6 +44,9 @@ export interface TetherComponent {
   currentLength: number;
   isAttached: boolean;
   tension: number;
+  desiredLength: number;
+  reelVelocity: number;
+  reelHeat: number;
 }
 
 export interface HealthComponent {

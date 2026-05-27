@@ -1,4 +1,4 @@
-import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -142,16 +142,49 @@ export class JuiceSystem implements ISystem {
           if (playerNode) {
             const config = VISUAL_JUICE_CONFIG.PARTICLES;
             const colors = config.COLORS;
-            const colorRef = new BABYLON.Color3(
+            
+            const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
+            const pTrav = traversal.get(this.context.refs.player);
+            
+            let colorRef = new BABYLON.Color3(
               colors.PLAYER_SPARK.r,
               colors.PLAYER_SPARK.g,
               colors.PLAYER_SPARK.b
             );
+            let particleCount = 15;
+            let burstSettings: {
+              readonly VELOCITY_Y_MIN: number;
+              readonly VELOCITY_Y_MAX: number;
+              readonly VELOCITY_Z_MAX: number;
+              readonly VELOCITY_SPEED_MIN: number;
+              readonly VELOCITY_SPEED_MAX: number;
+              readonly LIFE_MIN: number;
+              readonly LIFE_MAX: number;
+            } = config.BURST.PLAYER;
+            
+            if (pTrav) {
+              const reelConfig = GAMEPLAY_TUNING.REEL;
+              const power = pTrav.launchPower;
+              
+              if (power >= 1.0) {
+                colorRef = new BABYLON.Color3(1.0, 0.15, 0.15);
+                particleCount = 25;
+                burstSettings = {
+                  ...config.BURST.PLAYER,
+                  VELOCITY_SPEED_MIN: config.BURST.PLAYER.VELOCITY_SPEED_MIN * 1.5,
+                  VELOCITY_SPEED_MAX: config.BURST.PLAYER.VELOCITY_SPEED_MAX * 1.8
+                };
+              } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
+                colorRef = new BABYLON.Color3(0.95, 0.95, 1.0);
+                particleCount = 22;
+              }
+            }
+            
             this.spawnBurst(
               playerNode.position,
               colorRef,
-              15,
-              config.BURST.PLAYER
+              particleCount,
+              burstSettings
             );
           }
         }

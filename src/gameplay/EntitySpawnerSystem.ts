@@ -225,7 +225,10 @@ export class EntitySpawnerSystem implements ISystem {
       maxLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
       currentLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
       isAttached: true,
-      tension: 0.0
+      tension: 0.0,
+      desiredLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
+      reelVelocity: 0.0,
+      reelHeat: 0.0
     });
 
     this.context.stores
