@@ -84,7 +84,7 @@ export class CombatSystem implements ISystem {
       return;
     }
 
-    const weaverIsHostile = wAI.state === "DASHING";
+    const weaverIsHostile = wAI.state === "STRIKING";
     if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
       const kbX = (dx / dist) * tuning.KNOCKBACK_FORCE_X;
       const kbY = (dy / dist) * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y;

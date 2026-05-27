@@ -45,14 +45,14 @@ export class WeaverTraversalSystem implements ISystem {
 
     if (!vel || !trav || !trans || !target) return;
 
-    const isSweeping = ai && ai.state === "SWEEPING";
+    const isPatrolling = ai && ai.state === "PATROLLING";
     let sState = this.sweepStates.get(this.context.refs.weaver);
 
     const scene = this.context.visualRegistry.getScene();
     const physicsEngine = scene?.getPhysicsEngine();
     const concreteEngine = physicsEngine ? (physicsEngine as BABYLON.PhysicsEngine) : null;
 
-    if (isSweeping) {
+    if (isPatrolling) {
       const isBerserk = health
         ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
         : false;
@@ -294,14 +294,27 @@ export class WeaverTraversalSystem implements ISystem {
       const targetQuat = new BABYLON.Quaternion();
 
       if (ai) {
-        if (ai.state === "SWEEPING") {
-          if (sState && sState.phase === "HOLD") {
-            const breath = Math.sin(ai.timeInState * 10.0) * 0.015;
-            targetScaleX = 0.72 + breath;
-            targetScaleY = 1.15 - breath * 0.5;
-            targetScaleZ = 1.15 - breath * 0.5;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
-          } else {
+        if (ai.state === "DEFEATED") {
+          targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
+        } else if (trav.isWallClinging) {
+          // Globally squish against the wall whenever in contact across all states
+          const breath = ai.state === "PATROLLING" ? Math.sin(ai.timeInState * 10.0) * 0.015 : 0.0;
+          targetScaleX = 0.75 + breath;
+          targetScaleY = 1.15 - breath * 0.5;
+          targetScaleZ = 1.15 - breath * 0.5;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
+        } else if (trav.isGrounded) {
+          // Globally squish against the floor whenever in contact across all states
+          targetScaleY = 0.75;
+          targetScaleX = 1.15;
+          targetScaleZ = 1.15;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
+        } else {
+          // Standard state-based aero scale
+          if (ai.state === "PATROLLING") {
             const pulse =
               Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
               WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
@@ -313,50 +326,35 @@ export class WeaverTraversalSystem implements ISystem {
               Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
               WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
             BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
-          }
-        } else if (ai.state === "DASHING") {
-          const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-          if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
-            if (trav.isWallClinging) {
-              targetScaleX = 0.75;
-              targetScaleY = 1.15;
-              targetScaleZ = 1.15;
-            } else if (trav.isGrounded) {
-              targetScaleY = 0.75;
-              targetScaleX = 1.15;
-              targetScaleZ = 1.15;
-            } else {
+          } else if (ai.state === "STRIKING") {
+            const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+            if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
               targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
               targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
               targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+
+              const wobbleFreq = 12.0;
+              const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+              const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+              BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
+            } else {
+              const stretch = Math.min(
+                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+                (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
+                  WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+              );
+              targetScaleY = 1.0 + stretch;
+              targetScaleX = 1.0 - stretch * 0.5;
+              targetScaleZ = 1.0 - stretch * 0.5;
+
+              const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
+              BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
             }
-
-            const wobbleFreq = 12.0;
-            const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-            const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
-          } else {
-            const stretch = Math.min(
-              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
-                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
-            );
-            targetScaleY = 1.0 + stretch;
-            targetScaleX = 1.0 - stretch * 0.5;
-            targetScaleZ = 1.0 - stretch * 0.5;
-
-            const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
-            BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
+          } else if (ai.state === "ASCENDING") {
+            targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
+            targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
+            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
           }
-        } else if (ai.state === "RETURNING") {
-          targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
-          targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
-        } else if (ai.state === "DEFEATED") {
-          targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
         }
       }
 
@@ -396,7 +394,7 @@ export class WeaverTraversalSystem implements ISystem {
       trans.qz = currentQuat.z;
       trans.qw = currentQuat.w;
 
-      if (isSweeping && sState && sState.phase === "HOLD") {
+      if (isPatrolling && sState && sState.phase === "HOLD") {
         target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX - 15.0);
       }
     }

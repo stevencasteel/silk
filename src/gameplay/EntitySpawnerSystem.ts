@@ -93,7 +93,7 @@ export class EntitySpawnerSystem implements ISystem {
       .add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
 
     this.context.stores.get<WeaverAIComponent>("weaverAI").add(weaverId, {
-      state: "SWEEPING",
+      state: "PATROLLING",
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
       scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE,
@@ -119,7 +119,7 @@ export class EntitySpawnerSystem implements ISystem {
       scene
     );
 
-    if (ARENA_CONFIG.ENTITY.WEAVER_MESH_POSITION_MODIFY) {
+    if (ARENA_CONFIG.ENTITY.WEAVER_RADIUS > 0) {
       const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
       if (positions) {
         for (let i = 0; i < positions.length; i += 3) {
@@ -237,7 +237,9 @@ export class EntitySpawnerSystem implements ISystem {
     this.context.stores
       .get<InputIntentComponent>("input")
       .add(playerId, { x: 0, y: 0, jump: false });
-    this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+    this.context.stores
+      .get<PlayerTag>("playerTag")
+      .add(playerId, {});
 
     this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",

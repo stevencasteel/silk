@@ -85,12 +85,12 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
-    if (wAI.state === "SWEEPING") {
+    if (wAI.state === "PATROLLING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
       return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
 
-    if (wAI.state === "DASHING") {
+    if (wAI.state === "STRIKING") {
       if (wVel) {
         if (wVel.y < -0.1) {
           return wVel.y * ARENA_CONFIG.SCROLL_SPEED.DASH_MULTIPLIER;
@@ -101,7 +101,7 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
-    if (wAI.state === "RETURNING") {
+    if (wAI.state === "ASCENDING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
       return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
     }

@@ -167,7 +167,7 @@ export class GameDirectorSystem implements ISystem {
       maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
-      state: "SWEEPING",
+      state: "PATROLLING",
       hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {

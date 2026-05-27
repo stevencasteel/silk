@@ -5,9 +5,9 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WeaverSweepingState } from "./states/WeaverSweepingState";
-import { WeaverDashingState } from "./states/WeaverDashingState";
-import { WeaverReturningState } from "./states/WeaverReturningState";
+import { WeaverPatrollingState } from "./states/WeaverPatrollingState";
+import { WeaverStrikingState } from "./states/WeaverStrikingState";
+import { WeaverAscendingState } from "./states/WeaverAscendingState";
 import { WeaverDefeatedState } from "./states/WeaverDefeatedState";
 
 export class WeaverBrainSystem implements ISystem {
@@ -19,9 +19,9 @@ export class WeaverBrainSystem implements ISystem {
   private pendingTransition: WeaverStateType | null = null;
 
   constructor(private context: SystemContext) {
-    this.states.set("SWEEPING", new WeaverSweepingState());
-    this.states.set("DASHING", new WeaverDashingState());
-    this.states.set("RETURNING", new WeaverReturningState());
+    this.states.set("PATROLLING", new WeaverPatrollingState());
+    this.states.set("STRIKING", new WeaverStrikingState());
+    this.states.set("ASCENDING", new WeaverAscendingState());
     this.states.set("DEFEATED", new WeaverDefeatedState());
   }
 
@@ -45,8 +45,8 @@ export class WeaverBrainSystem implements ISystem {
         aiComp.damageShearTime = 0.0;
         if (health.current <= 0) {
           this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "SWEEPING") {
-          this.pendingTransition = "DASHING";
+        } else if (aiComp.state === "PATROLLING") {
+          this.pendingTransition = "STRIKING";
         }
       }
     });
@@ -57,8 +57,8 @@ export class WeaverBrainSystem implements ISystem {
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
     if (aiComp) {
-      const startState = "SWEEPING" as WeaverStateType;
-      const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
+      const startState = "PATROLLING" as WeaverStateType;
+      const stateObj = this.states.get(startState) || this.states.get("PATROLLING")!;
 
       aiComp.state = stateObj.type;
       aiComp.hue = stateObj.hue;
@@ -114,7 +114,6 @@ export class WeaverBrainSystem implements ISystem {
       .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
-    // Globally increment elapsed state time for dynamic visual animations
     aiComp.timeInState += dt;
 
     if (this.pendingTransition !== null) {

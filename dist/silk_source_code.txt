@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 3:08:22 PM
+ [SYSTEM] Generated: 5/27/2026, 3:32:15 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -87,10 +87,10 @@
 │   │   │   └── VerticalBoundarySystem.ts
 │   │   ├── weaver/
 │   │   │   ├── states/
-│   │   │   │   ├── WeaverDashingState.ts
+│   │   │   │   ├── WeaverAscendingState.ts
 │   │   │   │   ├── WeaverDefeatedState.ts
-│   │   │   │   ├── WeaverReturningState.ts
-│   │   │   │   └── WeaverSweepingState.ts
+│   │   │   │   ├── WeaverPatrollingState.ts
+│   │   │   │   └── WeaverStrikingState.ts
 │   │   │   ├── IWeaverState.ts
 │   │   │   ├── WeaverBrainSystem.ts
 │   │   │   └── WeaverTraversalSystem.ts
@@ -3367,7 +3367,7 @@ export class EntitySpawnerSystem implements ISystem {
       .add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
 
     this.context.stores.get<WeaverAIComponent>("weaverAI").add(weaverId, {
-      state: "SWEEPING",
+      state: "PATROLLING",
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
       scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE,
@@ -3393,7 +3393,7 @@ export class EntitySpawnerSystem implements ISystem {
       scene
     );
 
-    if (ARENA_CONFIG.ENTITY.WEAVER_MESH_POSITION_MODIFY) {
+    if (ARENA_CONFIG.ENTITY.WEAVER_RADIUS > 0) {
       const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
       if (positions) {
         for (let i = 0; i < positions.length; i += 3) {
@@ -3511,7 +3511,9 @@ export class EntitySpawnerSystem implements ISystem {
     this.context.stores
       .get<InputIntentComponent>("input")
       .add(playerId, { x: 0, y: 0, jump: false });
-    this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+    this.context.stores
+      .get<PlayerTag>("playerTag")
+      .add(playerId, {});
 
     this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",
@@ -3674,7 +3676,7 @@ export class CombatSystem implements ISystem {
       return;
     }
 
-    const weaverIsHostile = wAI.state === "DASHING";
+    const weaverIsHostile = wAI.state === "STRIKING";
     if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
       const kbX = (dx / dist) * tuning.KNOCKBACK_FORCE_X;
       const kbY = (dy / dist) * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y;
@@ -3899,7 +3901,7 @@ export class GameDirectorSystem implements ISystem {
       maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
-      state: "SWEEPING",
+      state: "PATROLLING",
       hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
@@ -6191,7 +6193,7 @@ export class VerticalBoundarySystem implements ISystem {
 ────────────────────────────────────────────────────
 import { SystemContext } from "../../core/engine/SystemContext";
 
-export type WeaverStateType = "SWEEPING" | "DASHING" | "RETURNING" | "DEFEATED";
+export type WeaverStateType = "PATROLLING" | "STRIKING" | "ASCENDING" | "DEFEATED";
 
 export interface IWeaverState {
   readonly type: WeaverStateType;
@@ -6213,9 +6215,9 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WeaverSweepingState } from "./states/WeaverSweepingState";
-import { WeaverDashingState } from "./states/WeaverDashingState";
-import { WeaverReturningState } from "./states/WeaverReturningState";
+import { WeaverPatrollingState } from "./states/WeaverPatrollingState";
+import { WeaverStrikingState } from "./states/WeaverStrikingState";
+import { WeaverAscendingState } from "./states/WeaverAscendingState";
 import { WeaverDefeatedState } from "./states/WeaverDefeatedState";
 
 export class WeaverBrainSystem implements ISystem {
@@ -6227,9 +6229,9 @@ export class WeaverBrainSystem implements ISystem {
   private pendingTransition: WeaverStateType | null = null;
 
   constructor(private context: SystemContext) {
-    this.states.set("SWEEPING", new WeaverSweepingState());
-    this.states.set("DASHING", new WeaverDashingState());
-    this.states.set("RETURNING", new WeaverReturningState());
+    this.states.set("PATROLLING", new WeaverPatrollingState());
+    this.states.set("STRIKING", new WeaverStrikingState());
+    this.states.set("ASCENDING", new WeaverAscendingState());
     this.states.set("DEFEATED", new WeaverDefeatedState());
   }
 
@@ -6253,8 +6255,8 @@ export class WeaverBrainSystem implements ISystem {
         aiComp.damageShearTime = 0.0;
         if (health.current <= 0) {
           this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "SWEEPING") {
-          this.pendingTransition = "DASHING";
+        } else if (aiComp.state === "PATROLLING") {
+          this.pendingTransition = "STRIKING";
         }
       }
     });
@@ -6265,8 +6267,8 @@ export class WeaverBrainSystem implements ISystem {
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
     if (aiComp) {
-      const startState = "SWEEPING" as WeaverStateType;
-      const stateObj = this.states.get(startState) || this.states.get("SWEEPING")!;
+      const startState = "PATROLLING" as WeaverStateType;
+      const stateObj = this.states.get(startState) || this.states.get("PATROLLING")!;
 
       aiComp.state = stateObj.type;
       aiComp.hue = stateObj.hue;
@@ -6322,7 +6324,6 @@ export class WeaverBrainSystem implements ISystem {
       .get(this.context.refs.weaver);
     if (!aiComp || !this.activeState) return;
 
-    // Globally increment elapsed state time for dynamic visual animations
     aiComp.timeInState += dt;
 
     if (this.pendingTransition !== null) {
@@ -6408,14 +6409,14 @@ export class WeaverTraversalSystem implements ISystem {
 
     if (!vel || !trav || !trans || !target) return;
 
-    const isSweeping = ai && ai.state === "SWEEPING";
+    const isPatrolling = ai && ai.state === "PATROLLING";
     let sState = this.sweepStates.get(this.context.refs.weaver);
 
     const scene = this.context.visualRegistry.getScene();
     const physicsEngine = scene?.getPhysicsEngine();
     const concreteEngine = physicsEngine ? (physicsEngine as BABYLON.PhysicsEngine) : null;
 
-    if (isSweeping) {
+    if (isPatrolling) {
       const isBerserk = health
         ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
         : false;
@@ -6657,14 +6658,27 @@ export class WeaverTraversalSystem implements ISystem {
       const targetQuat = new BABYLON.Quaternion();
 
       if (ai) {
-        if (ai.state === "SWEEPING") {
-          if (sState && sState.phase === "HOLD") {
-            const breath = Math.sin(ai.timeInState * 10.0) * 0.015;
-            targetScaleX = 0.72 + breath;
-            targetScaleY = 1.15 - breath * 0.5;
-            targetScaleZ = 1.15 - breath * 0.5;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
-          } else {
+        if (ai.state === "DEFEATED") {
+          targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
+        } else if (trav.isWallClinging) {
+          // Globally squish against the wall whenever in contact across all states
+          const breath = ai.state === "PATROLLING" ? Math.sin(ai.timeInState * 10.0) * 0.015 : 0.0;
+          targetScaleX = 0.75 + breath;
+          targetScaleY = 1.15 - breath * 0.5;
+          targetScaleZ = 1.15 - breath * 0.5;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
+        } else if (trav.isGrounded) {
+          // Globally squish against the floor whenever in contact across all states
+          targetScaleY = 0.75;
+          targetScaleX = 1.15;
+          targetScaleZ = 1.15;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
+        } else {
+          // Standard state-based aero scale
+          if (ai.state === "PATROLLING") {
             const pulse =
               Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
               WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
@@ -6676,50 +6690,35 @@ export class WeaverTraversalSystem implements ISystem {
               Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
               WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
             BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, targetQuat);
-          }
-        } else if (ai.state === "DASHING") {
-          const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-          if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
-            if (trav.isWallClinging) {
-              targetScaleX = 0.75;
-              targetScaleY = 1.15;
-              targetScaleZ = 1.15;
-            } else if (trav.isGrounded) {
-              targetScaleY = 0.75;
-              targetScaleX = 1.15;
-              targetScaleZ = 1.15;
-            } else {
+          } else if (ai.state === "STRIKING") {
+            const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+            if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
               targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
               targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
               targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+
+              const wobbleFreq = 12.0;
+              const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+              const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+              BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
+            } else {
+              const stretch = Math.min(
+                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+                (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
+                  WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+              );
+              targetScaleY = 1.0 + stretch;
+              targetScaleX = 1.0 - stretch * 0.5;
+              targetScaleZ = 1.0 - stretch * 0.5;
+
+              const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
+              BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
             }
-
-            const wobbleFreq = 12.0;
-            const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-            const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
-          } else {
-            const stretch = Math.min(
-              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
-                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
-            );
-            targetScaleY = 1.0 + stretch;
-            targetScaleX = 1.0 - stretch * 0.5;
-            targetScaleZ = 1.0 - stretch * 0.5;
-
-            const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
-            BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, targetQuat);
+          } else if (ai.state === "ASCENDING") {
+            targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
+            targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
+            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
           }
-        } else if (ai.state === "RETURNING") {
-          targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
-          targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
-        } else if (ai.state === "DEFEATED") {
-          targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
         }
       }
 
@@ -6759,7 +6758,7 @@ export class WeaverTraversalSystem implements ISystem {
       trans.qz = currentQuat.z;
       trans.qw = currentQuat.w;
 
-      if (isSweeping && sState && sState.phase === "HOLD") {
+      if (isPatrolling && sState && sState.phase === "HOLD") {
         target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX - 15.0);
       }
     }
@@ -6768,7 +6767,205 @@ export class WeaverTraversalSystem implements ISystem {
 
 
 
-● ./src/gameplay/weaver/states/WeaverDashingState.ts
+● ./src/gameplay/weaver/states/WeaverAscendingState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import {
+  ARENA_CONFIG,
+  WEAVER_AI_TUNING,
+  VISUAL_JUICE_CONFIG
+} from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import { TransformComponent, WeaverAIComponent } from "../../../core/ecs/Components";
+
+const HASH = String.fromCharCode(35);
+
+export class WeaverAscendingState implements IWeaverState {
+  public readonly type: WeaverStateType = "ASCENDING";
+  public readonly name = "ASCENDING TO CEILING";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
+
+  public enter(ctx: SystemContext): void {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+  }
+
+  public exit(): void {}
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    void dt;
+
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const wTrans = transforms.get(ctx.refs.weaver);
+
+    if (wTrans) {
+      const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
+      const dy = targetY - wTrans.y;
+      if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {
+        return "PATROLLING";
+      }
+
+      const speed = WEAVER_AI_TUNING.RETURN.SPEED;
+      ctx.commands.dispatch({
+        type: "SET_KINEMATIC_VELOCITY",
+        entityId: ctx.refs.weaver,
+        x: 0,
+        y: speed,
+        z: 0
+      });
+    }
+    return null;
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverDefeatedState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import { GameEvent } from "../../../core/events/GameEvents";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import { WeaverAIComponent } from "../../../core/ecs/Components";
+
+const HASH = String.fromCharCode(35);
+
+export class WeaverDefeatedState implements IWeaverState {
+  public readonly type: WeaverStateType = "DEFEATED";
+  public readonly name = "WEAVER DEFEATED";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
+
+  public enter(ctx: SystemContext): void {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.refs.weaver,
+      x: 0,
+      y: 0,
+      z: 0
+    });
+
+    ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
+  }
+
+  public exit(): void {}
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    void ctx;
+    void dt;
+    return null;
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverPatrollingState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import { GameEvent } from "../../../core/events/GameEvents";
+import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  HealthComponent,
+  WeaverAIComponent
+} from "../../../core/ecs/Components";
+import * as BABYLON from "@babylonjs/core";
+
+const HASH = String.fromCharCode(35);
+
+export class WeaverPatrollingState implements IWeaverState {
+  public readonly type: WeaverStateType = "PATROLLING";
+  public readonly name = "PATROLLING CEILING";
+  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+  private shootTimer = 0.0;
+  private hasTelegraphed = false;
+
+  public enter(ctx: SystemContext): void {
+    this.shootTimer = 0.0;
+    this.hasTelegraphed = false;
+
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (aiComp) {
+      aiComp.timeInState = 0;
+      aiComp.hue = this.hue;
+    }
+
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore.get(ctx.refs.weaver);
+    const isBerserk = health
+      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
+      : false;
+    const patrolSpeed = isBerserk
+      ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
+      : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+
+    ctx.commands.dispatch({
+      type: "SET_KINEMATIC_VELOCITY",
+      entityId: ctx.refs.weaver,
+      x: patrolSpeed,
+      y: 0,
+      z: 0
+    });
+  }
+
+  public exit(): void {}
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+
+    this.shootTimer += dt;
+    const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
+
+    if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
+      this.hasTelegraphed = true;
+      if (aiComp) {
+        aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+      }
+      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
+    }
+
+    if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
+      this.shootTimer = 0.0;
+      this.hasTelegraphed = false;
+      if (aiComp) {
+        aiComp.hue = this.hue;
+      }
+
+      const transforms = ctx.stores.get<TransformComponent>("transform");
+      const playerTrans = transforms.get(ctx.refs.player);
+      const wTrans = transforms.get(ctx.refs.weaver);
+
+      if (playerTrans && wTrans) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const stingerTipLocal = new BABYLON.Vector3(0, -radius, 0);
+        const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+        const stingerTipWorld = new BABYLON.Vector3();
+        stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);
+
+        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+          x: wTrans.x + stingerTipWorld.x,
+          y: wTrans.y + stingerTipWorld.y,
+          tx: playerTrans.x,
+          ty: playerTrans.y
+        });
+      }
+    }
+    return null;
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverStrikingState.ts
 ────────────────────────────────────────────────────
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
@@ -6783,12 +6980,12 @@ import {
 
 const HASH = String.fromCharCode(35);
 
-export class WeaverDashingState implements IWeaverState {
-  public readonly type: WeaverStateType = "DASHING";
-  public readonly name = "WEAVER DASH";
+export class WeaverStrikingState implements IWeaverState {
+  public readonly type: WeaverStateType = "STRIKING";
+  public readonly name = "WEAVER STRIKE";
   public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-  private dashCount = 0;
-  private maxDashes = 2;
+  private strikeCount = 0;
+  private maxStrikes = 2;
   private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
   private phaseTimer = 0.0;
   private targetPos = { x: 0, y: 0 };
@@ -6800,8 +6997,8 @@ export class WeaverDashingState implements IWeaverState {
     const isBerserk = health
       ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
       : false;
-    this.dashCount = 0;
-    this.maxDashes = isBerserk ? 3 : 2;
+    this.strikeCount = 0;
+    this.maxStrikes = isBerserk ? 3 : 2;
     this.startPrep(ctx);
   }
 
@@ -6853,7 +7050,7 @@ export class WeaverDashingState implements IWeaverState {
       const dy = this.targetPos.y - weaverTrans.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
       const speed =
-        this.maxDashes === 3
+        this.maxStrikes === 3
           ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK
           : WEAVER_AI_TUNING.DASH.SPEED_NORMAL;
 
@@ -6936,12 +7133,10 @@ export class WeaverDashingState implements IWeaverState {
             if (wTrans.scaleVelY === undefined) wTrans.scaleVelY = 0;
             if (wTrans.scaleVelZ === undefined) wTrans.scaleVelZ = 0;
             if (trav && trav.isWallClinging) {
-              // Scaled down to gentle realistic values
               wTrans.scaleVelX += -3.5;
               wTrans.scaleVelY += 2.5;
               wTrans.scaleVelZ += 2.5;
             } else if (trav && trav.isGrounded) {
-              // Scaled down to gentle realistic values
               wTrans.scaleVelY += -3.5;
               wTrans.scaleVelX += 2.5;
               wTrans.scaleVelZ += 2.5;
@@ -6952,213 +7147,12 @@ export class WeaverDashingState implements IWeaverState {
       }
     } else if (this.currentPhase === "RECOVER") {
       if (this.phaseTimer <= 0) {
-        this.dashCount++;
-        if (this.dashCount >= this.maxDashes) {
-          return "RETURNING";
+        this.strikeCount++;
+        if (this.strikeCount >= this.maxStrikes) {
+          return "ASCENDING";
         } else {
           this.startPrep(ctx);
         }
-      }
-    }
-    return null;
-  }
-}
-
-
-
-● ./src/gameplay/weaver/states/WeaverDefeatedState.ts
-────────────────────────────────────────────────────
-import { IWeaverState, WeaverStateType } from "../IWeaverState";
-import { GameEvent } from "../../../core/events/GameEvents";
-import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
-import { SystemContext } from "../../../core/engine/SystemContext";
-import { WeaverAIComponent } from "../../../core/ecs/Components";
-
-const HASH = String.fromCharCode(35);
-
-export class WeaverDefeatedState implements IWeaverState {
-  public readonly type: WeaverStateType = "DEFEATED";
-  public readonly name = "WEAVER DEFEATED";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
-
-  public enter(ctx: SystemContext): void {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: 0,
-      y: 0,
-      z: 0
-    });
-
-    ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
-  }
-
-  public exit(): void {}
-
-  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    void ctx;
-    void dt;
-    return null;
-  }
-}
-
-
-
-● ./src/gameplay/weaver/states/WeaverReturningState.ts
-────────────────────────────────────────────────────
-import { IWeaverState, WeaverStateType } from "../IWeaverState";
-import {
-  ARENA_CONFIG,
-  WEAVER_AI_TUNING,
-  VISUAL_JUICE_CONFIG
-} from "../../../core/engine/ArenaConfig";
-import { SystemContext } from "../../../core/engine/SystemContext";
-import { TransformComponent, WeaverAIComponent } from "../../../core/ecs/Components";
-
-const HASH = String.fromCharCode(35);
-
-export class WeaverReturningState implements IWeaverState {
-  public readonly type: WeaverStateType = "RETURNING";
-  public readonly name = "RETURNING TO CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
-
-  public enter(ctx: SystemContext): void {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
-  }
-
-  public exit(): void {}
-
-  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    // State timer is incremented globally in WeaverBrainSystem
-    void dt;
-    void dt;
-
-    const transforms = ctx.stores.get<TransformComponent>("transform");
-    const wTrans = transforms.get(ctx.refs.weaver);
-
-    if (wTrans) {
-      const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
-      const dy = targetY - wTrans.y;
-      if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {
-        return "SWEEPING";
-      }
-
-      const speed = WEAVER_AI_TUNING.RETURN.SPEED;
-      ctx.commands.dispatch({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.refs.weaver,
-        x: 0,
-        y: speed,
-        z: 0
-      });
-    }
-    return null;
-  }
-}
-
-
-
-● ./src/gameplay/weaver/states/WeaverSweepingState.ts
-────────────────────────────────────────────────────
-import { IWeaverState, WeaverStateType } from "../IWeaverState";
-import { GameEvent } from "../../../core/events/GameEvents";
-import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
-import { SystemContext } from "../../../core/engine/SystemContext";
-import {
-  TransformComponent,
-  HealthComponent,
-  WeaverAIComponent
-} from "../../../core/ecs/Components";
-import * as BABYLON from "@babylonjs/core";
-
-const HASH = String.fromCharCode(35);
-
-export class WeaverSweepingState implements IWeaverState {
-  public readonly type: WeaverStateType = "SWEEPING";
-  public readonly name = "SWEEPING CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
-  private shootTimer = 0.0;
-  private hasTelegraphed = false;
-
-  public enter(ctx: SystemContext): void {
-    this.shootTimer = 0.0;
-    this.hasTelegraphed = false;
-
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
-
-    const healthStore = ctx.stores.get<HealthComponent>("health");
-    const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health
-      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
-      : false;
-    const patrolSpeed = isBerserk
-      ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
-      : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: patrolSpeed,
-      y: 0,
-      z: 0
-    });
-  }
-
-  public exit(): void {}
-
-  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    // State timer is incremented globally in WeaverBrainSystem
-
-    this.shootTimer += dt;
-    const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
-
-    if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
-      this.hasTelegraphed = true;
-      if (aiComp) {
-        aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-      }
-      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
-    }
-
-    if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
-      this.shootTimer = 0.0;
-      this.hasTelegraphed = false;
-      if (aiComp) {
-        aiComp.hue = this.hue;
-      }
-
-      const transforms = ctx.stores.get<TransformComponent>("transform");
-      const playerTrans = transforms.get(ctx.refs.player);
-      const wTrans = transforms.get(ctx.refs.weaver);
-
-      if (playerTrans && wTrans) {
-        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const stingerTipLocal = new BABYLON.Vector3(0, -radius, 0);
-        const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-        const stingerTipWorld = new BABYLON.Vector3();
-        stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);
-
-        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-          x: wTrans.x + stingerTipWorld.x,
-          y: wTrans.y + stingerTipWorld.y,
-          tx: playerTrans.x,
-          ty: playerTrans.y
-        });
       }
     }
     return null;
@@ -10242,12 +10236,12 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
-    if (wAI.state === "SWEEPING") {
+    if (wAI.state === "PATROLLING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
       return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
 
-    if (wAI.state === "DASHING") {
+    if (wAI.state === "STRIKING") {
       if (wVel) {
         if (wVel.y < -0.1) {
           return wVel.y * ARENA_CONFIG.SCROLL_SPEED.DASH_MULTIPLIER;
@@ -10258,7 +10252,7 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
-    if (wAI.state === "RETURNING") {
+    if (wAI.state === "ASCENDING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
       return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
     }
