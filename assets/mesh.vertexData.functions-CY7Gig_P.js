@@ -1,0 +1,1 @@
+import{Ir as e}from"./compositionRoot-WAnp9nkN.js";export{e as OptimizeIndices};

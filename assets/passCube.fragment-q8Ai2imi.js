@@ -1,0 +1,1 @@
+import{C as e}from"./compositionRoot-WAnp9nkN.js";export{e as passCubePixelShaderWGSL};
