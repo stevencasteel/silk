@@ -427,3 +427,76 @@ body,
     cursor: none !important;
   }
 }
+
+/* Box-Battle Styled game over layout overrides */
+.overlay-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 4.5vmin, 40px) !important;
+  border-radius: 12px;
+  background: rgba(12, 14, 18, 0.96) !important;
+  width: 95% !important; /* closer to cabinet edge */
+  max-width: 440px !important; /* expanded horizontal bounds */
+  box-sizing: border-box;
+  text-align: center;
+  transform: scale(0.9);
+  opacity: 0;
+  animation: modal-slide-up 0.5s cubic-bezier(0.25, 1.0, 0.25, 1.15) forwards;
+}
+
+.gameover-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background: #0f1218;
+  box-shadow:
+    -2px -2px 6px rgba(255, 255, 255, 0.01),
+    4px 4px 10px rgba(0, 0, 0, 0.8),
+    inset 1px 1px 0px rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 16px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #a0aec0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+  outline: none;
+  position: relative;
+}
+
+.gameover-btn-focused {
+  background: #0c0e12 !important;
+  border-color: var(--accent-success) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(16, 185, 129, 0.25),
+    inset 0 0 8px rgba(16, 185, 129, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important;
+}
+
+.gameover-btn-defeat-focused {
+  background: #0c0e12 !important;
+  border-color: var(--accent-danger) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(239, 68, 68, 0.25),
+    inset 0 0 8px rgba(239, 68, 68, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
+}
+
+.gameover-inline-arrow {
+  display: inline-block;
+  font-family: monospace;
+  font-weight: bold;
+  animation: arrow-blink 0.4s infinite alternate;
+  line-height: 1;
+  font-size: 13px;
+}

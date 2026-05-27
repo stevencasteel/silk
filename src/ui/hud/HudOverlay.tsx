@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { usePlayerStore, useWeaverStore, useTetherStore, useOverlayStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw, Trash2 } from "lucide-react";
+import { Trophy, Skull, RotateCcw } from "lucide-react";
+import { useCursorStore } from "../cursor/useCursorStore";
+import { motion, AnimatePresence } from "framer-motion";
 import * as Tone from "tone";
 
 export const HudOverlay: React.FC = () => {
@@ -35,9 +37,6 @@ export const HudOverlay: React.FC = () => {
       awaitingGesture: s.awaitingGesture,
       wins: s.wins,
       losses: s.losses,
-      menuIndex: s.menuIndex,
-      setMenuIndex: s.setMenuIndex,
-      clearStats: s.clearStats,
       bootStatus: s.bootStatus
     }))
   );
@@ -54,13 +53,9 @@ export const HudOverlay: React.FC = () => {
     awaitingGesture,
     wins,
     losses,
-    menuIndex,
-    setMenuIndex,
-    clearStats,
     bootStatus
   } = overlayState;
 
-  // Staggered entry states
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
   const [tickerWins, setTickerWins] = useState<number>(0);
   const [tickerLosses, setTickerLosses] = useState<number>(0);
@@ -73,29 +68,9 @@ export const HudOverlay: React.FC = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP" }));
   }, []);
 
-  // Sound Synth Helpers
   const playTickSynth = useCallback(() => {
     try {
-      if (Tone.getContext().state === "running") {
-        const osc = new Tone.Oscillator({
-          frequency: 1800,
-          type: "sine"
-        }).toDestination();
-        const env = new Tone.AmplitudeEnvelope({
-          attack: 0.001,
-          decay: 0.015,
-          sustain: 0,
-          release: 0.015
-        }).connect(Tone.getDestination());
-        osc.connect(env);
-        osc.start();
-        env.triggerAttack();
-        setTimeout(() => {
-          osc.stop();
-          osc.dispose();
-          env.dispose();
-        }, 80);
-      }
+      window.dispatchEvent(new CustomEvent("silk-stats-tick"));
     } catch {
       // Ignored
     }
@@ -133,14 +108,6 @@ export const HudOverlay: React.FC = () => {
     }
   }, []);
 
-  const handleClearStatsClick = useCallback(() => {
-    clearStats();
-    setTickerWins(0);
-    setTickerLosses(0);
-    playConfirmSynth();
-  }, [clearStats, playConfirmSynth]);
-
-  // Effect 1: Handles staggered post-game transitions and ticking stats counters
   useEffect(() => {
     if (!overlayVisible) {
       const resetTimeout = setTimeout(() => {
@@ -182,7 +149,7 @@ export const HudOverlay: React.FC = () => {
           playTickSynth();
         } else {
           clearInterval(statsInterval);
-          setStaggerPhase(3); // Unlock navigation options
+          setStaggerPhase(3);
         }
       }, 70);
 
@@ -196,32 +163,22 @@ export const HudOverlay: React.FC = () => {
     };
   }, [overlayVisible, wins, losses, playTickSynth]);
 
-  // Effect 2: Capture Keyboard navigation inputs for post-game sequences
   useEffect(() => {
     if (!overlayVisible || staggerPhase < 3) return;
 
     const handleKeys = (e: KeyboardEvent) => {
       const code = e.code;
-      if (code === "ArrowUp" || code === "KeyW" || code === "ArrowDown" || code === "KeyS") {
-        e.preventDefault();
-        playTickSynth();
-        setMenuIndex(menuIndex === 0 ? 1 : 0);
-      } else if (code === "Enter" || code === "Space") {
+      if (code === "Enter" || code === "Space") {
         e.preventDefault();
         playConfirmSynth();
-        if (menuIndex === 0) {
-          handleRetryClick();
-        } else {
-          handleClearStatsClick();
-        }
+        handleRetryClick();
       }
     };
 
     window.addEventListener("keydown", handleKeys);
     return () => window.removeEventListener("keydown", handleKeys);
-  }, [overlayVisible, menuIndex, staggerPhase, setMenuIndex, playTickSynth, playConfirmSynth, handleRetryClick, handleClearStatsClick]);
+  }, [overlayVisible, staggerPhase, playConfirmSynth, handleRetryClick]);
 
-  // Effect 3: Critical integrity alarm siren
   useEffect(() => {
     if (playerHp === 1 && !overlayVisible) {
       const interval = setInterval(playTensionAlarm, 1000);
@@ -287,7 +244,6 @@ export const HudOverlay: React.FC = () => {
         </div>
       ) : (
         <div className="hud-root select-none pointer-events-none">
-          {/* Cabinet Header Panel Bezel */}
           <div className={`cabinet-header-panel ${isCriticalHp ? "hud-stress-shiver" : ""}`}>
             <div className="header-left">
               <span className="bezel-panel-label">PILOT CORE</span>
@@ -332,7 +288,6 @@ export const HudOverlay: React.FC = () => {
             </div>
           </div>
 
-          {/* Floated dynamic hint prompt */}
           <div className="hud-bottom">
             <div
               className="hud-hint"
@@ -345,7 +300,6 @@ export const HudOverlay: React.FC = () => {
             </div>
           </div>
 
-          {/* Cabinet Footer Panel Bezel */}
           <div className="cabinet-footer-panel">
             <div className="footer-left">
               <div className="hud-label-row">
@@ -378,95 +332,116 @@ export const HudOverlay: React.FC = () => {
         </div>
       )}
 
-      {/* Sequenced Box-Battle Style Post-Game Overlay */}
-      {overlayVisible && (
-        <div className={`overlay-root ${staggerPhase >= 1 ? "backdrop-wipe-active" : ""}`}>
-          <div className={`overlay-modal ${overlayTitle === "DEFEATED" ? "defeat-border" : "victory-border"}`}>
-            
-            {/* Step 1: Big animated vector icons */}
-            {staggerPhase >= 1 && (
-              <div className="flex-col-center mb-4">
-                {overlayTitle === "DEFEATED" ? (
-                  <Skull
-                    size={48}
-                    className="defeat-icon-anim"
-                    style={{ color: "var(--accent-danger)", filter: "drop-shadow(0 0 8px rgba(239, 68, 68, 0.4))" }}
-                  />
-                ) : (
-                  <Trophy
-                    size={48}
-                    className="victory-icon-anim"
-                    style={{ color: "var(--accent-success)", filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.4))" }}
-                  />
-                )}
-                <h1 className={`overlay-title ${overlayTitle === "DEFEATED" ? "defeat-title-anim" : "victory-title-anim"}`} style={{ color: overlayColor, marginTop: "16px" }}>
-                  {overlayTitle}
-                </h1>
-                <p className="overlay-subtitle mt-2">{overlaySubtitle}</p>
-              </div>
-            )}
-
-            {staggerPhase >= 2 && <div className="overlay-divider" />}
-
-            {/* Step 2: Sliding and count-up ticking stats panel with scale-pop triggers */}
-            {staggerPhase >= 2 && (
-              <div className="gameover-stat-card w-full mb-6 py-3 px-4 bg-black/60 border border-zinc-800 rounded flex flex-col gap-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500 font-bold uppercase tracking-wider">TOTAL ASCENTS (WINS)</span>
-                  <span
-                    key={`wins-${tickerWins}`}
-                    className="text-emerald-500 font-bold text-sm led-spring-impact inline-block"
-                  >
-                    {tickerWins}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-zinc-500 font-bold uppercase tracking-wider">LINE COLLAPSES (LOSSES)</span>
-                  <span
-                    key={`losses-${tickerLosses}`}
-                    className="text-rose-500 font-bold text-sm led-spring-impact inline-block"
-                  >
-                    {tickerLosses}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Interactive navigation action buttons with icons */}
-            {staggerPhase >= 3 && (
-              <div className="flex flex-col gap-3 w-full">
-                <button
-                  onClick={handleRetryClick}
-                  className={`overlay-btn pointer-events-auto relative w-full flex items-center justify-center gap-2 ${menuIndex === 0 ? "overlay-btn-focused" : ""}`}
+      <AnimatePresence>
+        {overlayVisible && (
+          <div className="overlay-root backdrop-wipe-active pointer-events-auto">
+            <motion.div
+              layout
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 220, damping: 26 }}
+              className={`overlay-modal ${overlayTitle === "DEFEATED" ? "defeat-border" : "victory-border"}`}
+            >
+              {staggerPhase >= 1 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                  className="flex-col-center mb-4"
                 >
-                  {menuIndex === 0 && <span className="cursor-arrow-indicator">▶</span>}
-                  <RotateCcw size={13} className="flex-shrink-0" />
-                  <span>RETRY RUN</span>
-                </button>
-                <button
-                  onClick={handleClearStatsClick}
-                  className={`overlay-btn pointer-events-auto relative w-full flex items-center justify-center gap-2 ${menuIndex === 1 ? "overlay-btn-focused" : ""}`}
-                  style={menuIndex === 1 ? { borderColor: "var(--accent-danger)", color: "var(--accent-danger)" } : {}}
+                  {overlayTitle === "DEFEATED" ? (
+                    <Skull
+                      size={48}
+                      className="defeat-icon-anim"
+                      style={{ color: "var(--accent-danger)", filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))" }}
+                    />
+                  ) : (
+                    <Trophy
+                      size={48}
+                      className="victory-icon-anim"
+                      style={{ color: "var(--accent-success)", filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))" }}
+                    />
+                  )}
+                  <h1
+                    className={`overlay-title ${overlayTitle === "DEFEATED" ? "defeat-title-anim" : "victory-title-anim"}`}
+                    style={{ color: overlayColor, marginTop: "16px" }}
+                  >
+                    {overlayTitle}
+                  </h1>
+                  <p className="overlay-subtitle mt-2">{overlaySubtitle}</p>
+                </motion.div>
+              )}
+
+              {staggerPhase >= 2 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, y: 15 }}
+                  animate={{ opacity: 1, height: "auto", y: 0 }}
+                  transition={{ type: "spring", stiffness: 220, damping: 24 }}
+                  onMouseEnter={() => useCursorStore.getState().setCursorType("text")}
+                  onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+                  className="gameover-stat-card w-full mb-6 py-3 px-4 bg-black/60 border border-zinc-800 rounded flex flex-col gap-2"
+                  style={{ overflow: "hidden" }}
                 >
-                  {menuIndex === 1 && <span className="cursor-arrow-indicator">▶</span>}
-                  <Trash2 size={13} className="flex-shrink-0" />
-                  <span>CLEAR DIALS / RESET</span>
-                </button>
-              </div>
-            )}
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-500 font-bold uppercase tracking-wider">TOTAL ASCENTS (WINS)</span>
+                    <span key={`wins-${tickerWins}`} className="text-emerald-500 font-bold text-sm led-spring-impact inline-block">
+                      {tickerWins}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-500 font-bold uppercase tracking-wider">LINE COLLAPSES (LOSSES)</span>
+                    <span key={`losses-${tickerLosses}`} className="text-rose-500 font-bold text-sm led-spring-impact inline-block">
+                      {tickerLosses}
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+
+              {staggerPhase >= 3 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 220, damping: 22, delay: 0.15 }}
+                  className="w-full"
+                >
+                  <button
+                    onClick={handleRetryClick}
+                    onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
+                    onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+                    className={`gameover-btn pointer-events-auto relative w-full flex items-center justify-center gap-3 ${
+                      overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-focused"
+                    }`}
+                  >
+                    <span className="gameover-inline-arrow" style={{ marginRight: "8px" }}>▶</span>
+                    <RotateCcw size={14} className="flex-shrink-0" />
+                    <span>RETRY RUN</span>
+                    <span className="gameover-inline-arrow" style={{ marginLeft: "8px" }}>◀</span>
+                  </button>
+                </motion.div>
+              )}
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {isPaused && !isBooting && !awaitingGesture && (
         <div className="overlay-root">
-          <div className="overlay-modal mb-2 animate-bounce-short" style={{ borderColor: "var(--accent-tension)" }}>
+          <div
+            className="overlay-modal mb-2 animate-bounce-short"
+            style={{ borderColor: "var(--accent-tension)" }}
+          >
             <h1 className="overlay-title" style={{ color: "var(--accent-tension)" }}>
               PAUSED
             </h1>
             <div className="overlay-divider" style={{ backgroundColor: "var(--accent-tension)" }} />
             <p className="overlay-subtitle">SIMULATION SUSPENDED</p>
-            <button onClick={handleResumeClick} className="overlay-btn pointer-events-auto">
+            <button
+              onClick={handleResumeClick}
+              onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
+              onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+              className="overlay-btn pointer-events-auto"
+            >
               RESUME
             </button>
           </div>

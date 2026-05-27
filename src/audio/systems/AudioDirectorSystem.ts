@@ -11,6 +11,8 @@ export class AudioDirectorSystem implements ISystem {
   private tensionSynth: TensionSynthesizer | null = null;
   private impactSynth: Tone.MembraneSynth | null = null;
   private noiseSynth: Tone.NoiseSynth | null = null;
+  private tickSynth: Tone.Synth | null = null;
+  private windowTickListener: (() => void) | null = null;
   private initialized: boolean = false;
 
   private subscriptions: (() => void)[] = [];
@@ -26,6 +28,13 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("keydown", this.gestureTriggerRef);
     window.addEventListener("touchend", this.gestureTriggerRef);
     window.addEventListener("mousedown", this.gestureTriggerRef);
+
+    this.windowTickListener = () => {
+      if (this.initialized && this.tickSynth) {
+        this.tickSynth.triggerAttackRelease("E6", "32n");
+      }
+    };
+    window.addEventListener("silk-stats-tick", this.windowTickListener);
   }
 
   public init(): void {
@@ -215,6 +224,17 @@ export class AudioDirectorSystem implements ISystem {
       }).toDestination();
       this.noiseSynth.volume.value = presets.NOISE_VOLUME;
 
+      this.tickSynth = new Tone.Synth({
+        oscillator: { type: "sine" },
+        envelope: {
+          attack: 0.002,
+          decay: 0.03,
+          sustain: 0,
+          release: 0.03
+        }
+      }).toDestination();
+      this.tickSynth.volume.value = -14;
+
       this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
     });
   }
@@ -226,5 +246,9 @@ export class AudioDirectorSystem implements ISystem {
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
+    if (this.tickSynth) this.tickSynth.dispose();
+    if (this.windowTickListener) {
+      window.removeEventListener("silk-stats-tick", this.windowTickListener);
+    }
   }
 }

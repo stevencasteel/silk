@@ -3,6 +3,7 @@ import { bootstrapApplication } from "./app/bootstrap";
 import { HudOverlay } from "./ui/hud/HudOverlay";
 import { ErrorBoundary } from "./ui/hud/ErrorBoundary";
 import { Engine } from "./core/engine/Engine";
+import { Cursor } from "./ui/cursor/Cursor";
 import "./App.css";
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
           </ErrorBoundary>
         </div>
       </div>
+      <Cursor />
     </div>
   );
 }
