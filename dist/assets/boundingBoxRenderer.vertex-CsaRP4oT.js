@@ -1,0 +1,1 @@
+import{Er as e}from"./compositionRoot-DwiROHUW.js";export{e as boundingBoxRendererVertexShader};

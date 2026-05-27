@@ -1,0 +1,1 @@
+import{m as e}from"./compositionRoot-DwiROHUW.js";export{e as rsmFullGlobalIlluminationPixelShaderWGSL};

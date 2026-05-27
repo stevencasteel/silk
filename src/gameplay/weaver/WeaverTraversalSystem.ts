@@ -120,9 +120,10 @@ export class WeaverTraversalSystem implements ISystem {
           if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
           if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
 
-          trans.scaleVelX += -22.0;
-          trans.scaleVelY += 28.0;
-          trans.scaleVelZ += 28.0;
+          // Scaled down to gentle realistic values
+          trans.scaleVelX += -3.5;
+          trans.scaleVelY += 2.5;
+          trans.scaleVelZ += 2.5;
 
           sState.phase = "HOLD";
           sState.timer = 0.22;
@@ -152,9 +153,10 @@ export class WeaverTraversalSystem implements ISystem {
           if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
           if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
 
-          trans.scaleVelX += 36.0;
-          trans.scaleVelY += -28.0;
-          trans.scaleVelZ += -28.0;
+          // Scaled down to gentle realistic values
+          trans.scaleVelX += 4.5;
+          trans.scaleVelY += -3.5;
+          trans.scaleVelZ += -3.5;
         }
 
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
@@ -294,10 +296,10 @@ export class WeaverTraversalSystem implements ISystem {
       if (ai) {
         if (ai.state === "SWEEPING") {
           if (sState && sState.phase === "HOLD") {
-            const shiver = Math.sin(ai.timeInState * 120.0) * 0.035;
-            targetScaleX = 0.42 + shiver;
-            targetScaleY = 1.45 - shiver * 0.5;
-            targetScaleZ = 1.45 - shiver * 0.5;
+            const breath = Math.sin(ai.timeInState * 10.0) * 0.015;
+            targetScaleX = 0.72 + breath;
+            targetScaleY = 1.15 - breath * 0.5;
+            targetScaleZ = 1.15 - breath * 0.5;
             BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, targetQuat);
           } else {
             const pulse =
@@ -316,21 +318,21 @@ export class WeaverTraversalSystem implements ISystem {
           const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
           if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
             if (trav.isWallClinging) {
-              targetScaleX = 0.38;
-              targetScaleY = 1.55;
-              targetScaleZ = 1.55;
+              targetScaleX = 0.75;
+              targetScaleY = 1.15;
+              targetScaleZ = 1.15;
             } else if (trav.isGrounded) {
-              targetScaleY = 0.38;
-              targetScaleX = 1.55;
-              targetScaleZ = 1.55;
+              targetScaleY = 0.75;
+              targetScaleX = 1.15;
+              targetScaleZ = 1.15;
             } else {
               targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
               targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
               targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
             }
 
-            const wobbleFreq = 65.0;
-            const wobbleAmp = 0.15 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+            const wobbleFreq = 12.0;
+            const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
             const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
             BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
           } else {
@@ -362,8 +364,9 @@ export class WeaverTraversalSystem implements ISystem {
       if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
       if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
 
-      const stiffness = 220;
-      const damping = 12;
+      // Critically damped mass-spring parameters for ultra-smooth realistic transitions
+      const stiffness = 120;
+      const damping = 22;
 
       const dispX = (trans.scaleX ?? 1.0) - targetScaleX;
       const dispY = (trans.scaleY ?? 1.0) - targetScaleY;

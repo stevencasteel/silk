@@ -164,13 +164,15 @@ export class WeaverDashingState implements IWeaverState {
             if (wTrans.scaleVelY === undefined) wTrans.scaleVelY = 0;
             if (wTrans.scaleVelZ === undefined) wTrans.scaleVelZ = 0;
             if (trav && trav.isWallClinging) {
-              wTrans.scaleVelX += -22.0;
-              wTrans.scaleVelY += 28.0;
-              wTrans.scaleVelZ += 28.0;
+              // Scaled down to gentle realistic values
+              wTrans.scaleVelX += -3.5;
+              wTrans.scaleVelY += 2.5;
+              wTrans.scaleVelZ += 2.5;
             } else if (trav && trav.isGrounded) {
-              wTrans.scaleVelY += -22.0;
-              wTrans.scaleVelX += 28.0;
-              wTrans.scaleVelZ += 28.0;
+              // Scaled down to gentle realistic values
+              wTrans.scaleVelY += -3.5;
+              wTrans.scaleVelX += 2.5;
+              wTrans.scaleVelZ += 2.5;
             }
           }
         }
