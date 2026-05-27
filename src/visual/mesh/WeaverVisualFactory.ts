@@ -28,14 +28,13 @@ export function decorateWeaverVisual(
   const textureGen = new ProceduralTextureGenerator();
 
   const carapaceMat = new BABYLON.PBRMaterial("carapaceMat", scene) as CustomPBRMaterial;
-  carapaceMat.metallic = 0.45; // Scaled down from 0.85 for a more organic, bone/chitin look
-  carapaceMat.roughness = 0.65; // Shifted up from 0.22 to match the dry concrete aesthetic
+  carapaceMat.metallic = 0.45;
+  carapaceMat.roughness = 0.65;
 
-  // Synthesize coarse micro-bump texture mappings
   const carapaceTexs = textureGen.generatePBRTextures("carapaceShell", scene, {
     resolution: 512,
     noiseScale: 28.0,
-    bumpStrength: 2.2, // Enhanced normal depth for tactile surface grit
+    bumpStrength: 2.2,
     baseColor: new BABYLON.Color3(0.09, 0.07, 0.11),
     roughnessMin: 0.55,
     roughnessMax: 0.85,
@@ -51,7 +50,7 @@ export function decorateWeaverVisual(
   carapaceMat.useRoughnessFromMetallicTextureAlpha = false;
 
   carapaceMat.clearCoat.isEnabled = true;
-  carapaceMat.clearCoat.intensity = 0.35; // Lowered clear coat to minimize shiny glints
+  carapaceMat.clearCoat.intensity = 0.35;
   carapaceMat.clearCoat.roughness = 0.4;
   carapaceMat.enableSpecularAntiAliasing = true;
   carapaceMat.forceIrradianceInFragment = true;
@@ -213,8 +212,8 @@ export function decorateWeaverVisual(
         scene
       );
       coxa.position.set(sideSign * coxaLength * 0.45, coxaLength * 0.1, -coxaLength * 0.1);
-      coxa.rotation.z = sideSign * (Math.PI / 4 + angleOffset * 0.3);
       coxa.rotation.y = angleOffset;
+      coxa.rotation.z = sideSign * (Math.PI / 4 + angleOffset * 0.3);
       coxa.material = carapaceMat;
       coxa.parent = legRoot;
 

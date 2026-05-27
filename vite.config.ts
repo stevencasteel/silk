@@ -15,6 +15,16 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    chunkSizeWarningLimit: 8000,
+    chunkSizeWarningLimit: 12000, // Adjusted threshold to reflect consolidated chunks
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Bundles all modular Babylon assets together to reduce network request overhead
+          if (id.includes('@babylonjs')) {
+            return 'babylon';
+          }
+        }
+      }
+    }
   }
 })
