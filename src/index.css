@@ -140,7 +140,7 @@ body,
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 0 16px;
   box-sizing: border-box;
 }
@@ -647,4 +647,33 @@ body,
     inset 0 0 8px rgba(234, 179, 8, 0.1),
     4px 4px 12px rgba(0, 0, 0, 0.95) !important;
   text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
+}
+
+/* Box Battle style LED Damage Shaking/Decay animation */
+@keyframes led-shake-die-decay {
+  0% {
+    transform: translate(2px, 2px) scale(1.3) rotate(5deg);
+    filter: brightness(1.9) saturate(2);
+    background: #ef4444;
+  }
+  20% {
+    transform: translate(-3px, -2px) scale(1.1) rotate(-8deg);
+    background: #ef4444;
+  }
+  40% {
+    transform: translate(-2px, 2px) scale(1) rotate(8deg);
+  }
+  60% {
+    transform: translate(3px, -2px) scale(0.9) rotate(-4deg);
+  }
+  80% {
+    transform: translate(-2px, -2px) scale(0.8) rotate(4deg);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+  }
+}
+
+.led-shaking-die {
+  animation: led-shake-die-decay 0.45s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }

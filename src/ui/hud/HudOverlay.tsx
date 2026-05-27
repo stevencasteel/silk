@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useTetherStore, useOverlayStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2 } from "lucide-react";
@@ -16,11 +16,10 @@ export const HudOverlay: React.FC = () => {
     useShallow((s) => ({
       weaverHp: s.weaverHp,
       weaverMaxHp: s.weaverMaxHp,
-      weaverState: s.weaverState,
       weaverHue: s.weaverHue
     }))
   );
-  const { weaverHp, weaverMaxHp, weaverState: wStateName, weaverHue } = weaverState;
+  const { weaverHp, weaverMaxHp, weaverHue } = weaverState;
 
   const tetherTension = useTetherStore((s) => s.tetherTension);
 
@@ -63,6 +62,9 @@ export const HudOverlay: React.FC = () => {
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
   const [tickerWins, setTickerWins] = useState<number>(0);
   const [tickerLosses, setTickerLosses] = useState<number>(0);
+
+  const [hpAnims, setHpAnims] = useState<string[]>(Array(5).fill(""));
+  const prevHpRef = useRef(playerHp);
 
   const handleRetryClick = useCallback(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
@@ -113,6 +115,32 @@ export const HudOverlay: React.FC = () => {
     setTickerWins(0);
     setTickerLosses(0);
   }, [clearStats]);
+
+  useEffect(() => {
+    const prevHP = prevHpRef.current;
+    if (playerHp !== prevHP) {
+      const tookDamage = playerHp < prevHP && prevHP !== -1;
+      const healed = playerHp > prevHP && prevHP !== -1;
+
+      const nextCls = Array<string>(5).fill("");
+      for (let i = 0; i < 5; i++) {
+        if (tookDamage && i === playerHp) {
+          nextCls[i] = "led-shaking-die";
+        } else if (healed && i === playerHp - 1) {
+          nextCls[i] = "led-elastic-spring";
+        } else if (tookDamage && i < playerHp) {
+          nextCls[i] = "led-spring-impact";
+        }
+      }
+      setHpAnims(nextCls);
+      prevHpRef.current = playerHp;
+
+      const timer = setTimeout(() => {
+        setHpAnims(Array(5).fill(""));
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [playerHp]);
 
   useEffect(() => {
     if (awaitingGesture) {
@@ -296,14 +324,17 @@ export const HudOverlay: React.FC = () => {
         <div className="hud-root select-none pointer-events-none">
           <div className={`cabinet-header-panel ${isCriticalHp ? "hud-stress-shiver" : ""}`}>
             <div className="header-left">
-              <span className="bezel-panel-label">PILOT CORE</span>
+              <span className="bezel-panel-label">PLAYER HP</span>
               <div className="hud-hp-row">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i + "-" + playerHp}
-                    className={`hp-block ${i < playerHp ? "hp-active led-spring-impact" : ""}`}
-                  />
-                ))}
+                {[...Array(5)].map((_, i) => {
+                  const isLit = i < playerHp;
+                  return (
+                    <div
+                      key={i}
+                      className={`led-dot hp-block ${isLit ? "led-green" : ""} ${hpAnims[i]}`}
+                    />
+                  );
+                })}
               </div>
             </div>
 
@@ -317,23 +348,20 @@ export const HudOverlay: React.FC = () => {
               )}
             </div>
 
-            <div className="header-right">
-              <div className="weaver-hp-block">
-                <div className="hud-label-row">
-                  <span className="bezel-panel-label" style={{ color: weaverHue }}>
-                    {wStateName}
-                  </span>
-                </div>
-                <div className="hud-bar-track">
-                  <div
-                    className="hud-bar-fill transition-transform duration-75"
-                    style={{
-                      transform: `scaleX(${weaverHpRatio.toFixed(3)})`,
-                      transformOrigin: "left",
-                      backgroundColor: weaverHpBarColor
-                    }}
-                  />
-                </div>
+            <div className="header-right flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1 text-[9px] font-bold text-rose-500">
+                <Skull size={10} className="flex-shrink-0" style={{ color: weaverHue }} />
+                <span className="bezel-panel-label" style={{ color: weaverHue }}>BOSS</span>
+              </div>
+              <div className="hud-bar-track" style={{ width: "120px" }}>
+                <div
+                  className="hud-bar-fill transition-transform duration-75"
+                  style={{
+                    transform: `scaleX(${weaverHpRatio.toFixed(3)})`,
+                    transformOrigin: "left",
+                    backgroundColor: weaverHpBarColor
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -351,14 +379,14 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className="footer-left">
-              <div className="hud-label-row">
+            <div className="flex flex-col items-center gap-1.5" style={{ width: "240px" }}>
+              <div className="flex justify-between w-full text-[9px] font-bold">
                 <span className="bezel-panel-label">TETHER TENSILE LOAD</span>
                 <span className="bezel-panel-val" style={{ color: tensionTextColor }}>
                   {displayTensionPercent}%
                 </span>
               </div>
-              <div className="hud-bar-track" style={{ width: "160px" }}>
+              <div className="hud-bar-track" style={{ width: "100%" }}>
                 <div
                   className="hud-bar-fill transition-transform duration-75"
                   style={{
@@ -367,15 +395,6 @@ export const HudOverlay: React.FC = () => {
                     backgroundColor: tensionBarColor
                   }}
                 />
-              </div>
-            </div>
-
-            <div className="footer-right">
-              <span className="bezel-panel-label">HISTORICAL CAREER DIAGS</span>
-              <div className="footer-stats-box font-mono text-[10px]">
-                <span className="text-emerald-500">ASC: {wins}</span>
-                <span className="text-zinc-500">|</span>
-                <span className="text-rose-500">COL: {losses}</span>
               </div>
             </div>
           </div>
