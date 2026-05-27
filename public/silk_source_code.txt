@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 5:06:24 PM
+ [SYSTEM] Generated: 5/27/2026, 5:17:39 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2547,6 +2547,7 @@ export const ARENA_CONFIG = {
 export const GAMEPLAY_TUNING = {
   PLAYER: {
     MAX_INTEGRITY: 5,
+    SLIDE_VELOCITY: 4.5,
     TENSION_DECAY_RATE: 4.0,
     STRAIN_RUMBLE_SCALE: 0.25,
     SWING_STEER_FORCE: 36.0,
@@ -6121,7 +6122,7 @@ export class PlayerKinematicsSystem implements ISystem {
       target.x = trav.wallDir * this.WALL_LIMIT_X;
 
       vel.x = 0;
-      vel.y = -currentScrollSpeed;
+      vel.y = -currentScrollSpeed - GAMEPLAY_TUNING.PLAYER.SLIDE_VELOCITY;
 
       let cameraDeltaY = 0;
       if (this.wasWallSliding) {
@@ -6188,7 +6189,7 @@ export class PlayerKinematicsSystem implements ISystem {
         target.x = wallDir * this.WALL_LIMIT_X;
 
         vel.x = 0;
-        vel.y = -currentScrollSpeed;
+        vel.y = -currentScrollSpeed - GAMEPLAY_TUNING.PLAYER.SLIDE_VELOCITY;
 
         let cameraDeltaY = 0;
         if (this.wasWallSliding) {

@@ -1,1 +1,0 @@
-import{Ht as e}from"./compositionRoot-DxhIDkUy.js";export{e as backgroundVertexShaderWGSL};

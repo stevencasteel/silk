@@ -1,0 +1,1 @@
+import{lt as e}from"./compositionRoot-CEvtrS_7.js";export{e as gaussianSplattingPixelShaderWGSL};
