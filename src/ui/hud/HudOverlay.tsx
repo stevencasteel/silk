@@ -401,7 +401,7 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className="flex flex-col items-center gap-2" style={{ width: "320px" }}>
+            <div className={`flex flex-col items-center gap-2 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
               <div className="flex justify-between w-full font-bold" style={{ padding: "0 4px", alignItems: "center" }}>
                 <span style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>TENSION</span>
                 <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>

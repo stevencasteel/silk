@@ -137,6 +137,24 @@ export class JuiceSystem implements ISystem {
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
+        if (payload.state === "LAUNCHING" && this.playerState !== "LAUNCHING") {
+          const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+          if (playerNode) {
+            const config = VISUAL_JUICE_CONFIG.PARTICLES;
+            const colors = config.COLORS;
+            const colorRef = new BABYLON.Color3(
+              colors.PLAYER_SPARK.r,
+              colors.PLAYER_SPARK.g,
+              colors.PLAYER_SPARK.b
+            );
+            this.spawnBurst(
+              playerNode.position,
+              colorRef,
+              15,
+              config.BURST.PLAYER
+            );
+          }
+        }
         this.playerState = payload.state;
       })
     );
