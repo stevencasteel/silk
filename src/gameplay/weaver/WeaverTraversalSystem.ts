@@ -10,6 +10,7 @@ import {
   HealthComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
 export class WeaverTraversalSystem implements ISystem {
@@ -46,13 +47,34 @@ export class WeaverTraversalSystem implements ISystem {
       const sweepSpeed = isBerserk
         ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
         : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
+
+      let hitWallNormal = 0;
       if (nextX >= this.maxX) {
         nextX = this.maxX;
         vel.x = -sweepSpeed;
+        hitWallNormal = -1;
       } else if (nextX <= this.minX) {
         nextX = this.minX;
         vel.x = sweepSpeed;
+        hitWallNormal = 1;
       }
+
+      if (hitWallNormal !== 0) {
+        this.context.broker.publish(GameEvent.WEAVER_WALL_HIT, {
+          x: nextX,
+          y: trans.y,
+          wallNormalX: hitWallNormal
+        });
+
+        if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
+        if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
+        if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
+
+        trans.scaleVelX += -16.0;
+        trans.scaleVelY += 20.0;
+        trans.scaleVelZ += 20.0;
+      }
+
       target.x = nextX;
       target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
       target.active = true;
@@ -129,20 +151,6 @@ export class WeaverTraversalSystem implements ISystem {
           targetScaleX = 1.0 + pulse;
           targetScaleY = 1.0 - pulse;
 
-          const boundaryX = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-          const distToLeft = Math.abs(trans.x - (-boundaryX));
-          const distToRight = Math.abs(trans.x - boundaryX);
-          const minDist = Math.min(distToLeft, distToRight);
-
-          if (minDist < 2.0) {
-            const squishFactor = minDist / 2.0;
-            const squishedX = 0.55 + squishFactor * 0.45;
-            const stretchedY = 1.35 - squishFactor * 0.35;
-            targetScaleX = squishedX;
-            targetScaleY = stretchedY;
-            targetScaleZ = stretchedY;
-          }
-
           const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
           const yawAngle =
             Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
@@ -165,12 +173,11 @@ export class WeaverTraversalSystem implements ISystem {
               targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
             }
 
-          // Hornet windup shiver wobble along Z (roll)
-          const wobbleFreq = 65.0;
-          const wobbleAmp = 0.15 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-          const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
-        } else {
+            const wobbleFreq = 65.0;
+            const wobbleAmp = 0.15 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+            const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, targetQuat);
+          } else {
             const stretch = Math.min(
               WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
               (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *

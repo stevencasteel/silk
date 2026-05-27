@@ -14,12 +14,16 @@ export class AudioDirectorSystem implements ISystem {
   private impactSynth: Tone.MembraneSynth | null = null;
   private noiseSynth: Tone.NoiseSynth | null = null;
   private tickSynth: Tone.Synth | null = null;
+  private sfxPanner: Tone.Panner | null = null;
   private windowTickListener: (() => void) | null = null;
   private initialized: boolean = false;
 
   private broker: EventBroker;
   private subscriptions: (() => void)[] = [];
   private gestureTriggerRef: (() => void) | null = null;
+
+  private hitComboCount = 0;
+  private lastHitTime = 0;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -73,9 +77,22 @@ export class AudioDirectorSystem implements ISystem {
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const presets = AUDIO_PRESETS.WEAVER;
         if (this.initialized && this.impactSynth) {
-          this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+          const nowMs = performance.now();
+          if (nowMs - this.lastHitTime < 1500) {
+            this.hitComboCount++;
+          } else {
+            this.hitComboCount = 0;
+          }
+          this.lastHitTime = nowMs;
+
+          const DORIAN_RATIOS = [1.0000, 1.1225, 1.1892, 1.3348, 1.4983, 1.6818, 1.7818, 2.0000];
+          const scaleIndex = this.hitComboCount % DORIAN_RATIOS.length;
+          const octave = Math.pow(2, Math.floor(this.hitComboCount / DORIAN_RATIOS.length));
+          const baseFreq = 164.81; 
+          const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
+
+          this.impactSynth.triggerAttackRelease(freq, "16n");
         }
       })
     );
@@ -109,6 +126,8 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.resetToBaseline();
         }
+        this.hitComboCount = 0;
+        this.lastHitTime = 0;
       })
     );
 
@@ -190,12 +209,18 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   public update(): void {
-    if (this.initialized && this.tensionSynth) {
+    if (this.initialized) {
       const transforms = this.context.stores.get<TransformComponent>("transform");
       const playerTrans = transforms.get(this.context.refs.player);
       const weaverTrans = transforms.get(this.context.refs.weaver);
       if (playerTrans && weaverTrans) {
-        this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
+        if (this.tensionSynth) {
+          this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
+        }
+        if (this.sfxPanner) {
+          const panVal = Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0 * 0.45;
+          this.sfxPanner.pan.setTargetAtTime(panVal, Tone.now(), 0.05);
+        }
       }
     }
   }
@@ -217,6 +242,8 @@ export class AudioDirectorSystem implements ISystem {
 
       Tone.getDestination().mute = false;
 
+      this.sfxPanner = new Tone.Panner(0).toDestination();
+
       this.tensionSynth = new TensionSynthesizer();
       this.tensionSynth.initialize();
 
@@ -231,7 +258,7 @@ export class AudioDirectorSystem implements ISystem {
           release: 0.4,
           attackCurve: "exponential"
         }
-      }).toDestination();
+      }).connect(this.sfxPanner);
 
       const presets = AUDIO_PRESETS.PLAYER;
 
@@ -243,7 +270,7 @@ export class AudioDirectorSystem implements ISystem {
           sustain: 0,
           release: presets.NOISE_DECAY
         }
-      }).toDestination();
+      }).connect(this.sfxPanner);
       this.noiseSynth.volume.value = presets.NOISE_VOLUME;
 
       this.tickSynth = new Tone.Synth({
@@ -269,6 +296,7 @@ export class AudioDirectorSystem implements ISystem {
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
     if (this.tickSynth) this.tickSynth.dispose();
+    if (this.sfxPanner) this.sfxPanner.dispose();
     if (this.windowTickListener) {
       window.removeEventListener("silk-stats-tick", this.windowTickListener);
     }
