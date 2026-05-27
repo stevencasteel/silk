@@ -1,0 +1,1 @@
+import{Sr as e}from"./compositionRoot-DwiROHUW.js";export{e as colorVertexShader};

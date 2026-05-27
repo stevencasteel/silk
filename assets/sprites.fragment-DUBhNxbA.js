@@ -1,0 +1,1 @@
+import{o as e}from"./compositionRoot-DwiROHUW.js";export{e as spritesPixelShaderWGSL};
