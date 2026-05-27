@@ -1,1 +1,0 @@
-import{_ as e}from"./compositionRoot-ChJFrtCq.js";export{e as proceduralVertexShaderWGSL};

@@ -14,11 +14,14 @@ export function decorateWeaverVisual(
   wMesh.isVisible = false;
   wMesh.getChildMeshes().forEach((child) => child.dispose());
 
-  // Remove the parent wMesh from casting shadows to completely eliminate the ghost cone-shadow
+  // Cast through unknown to bypass IShadowGenerator interface limitations safely
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
-    if (shadowGen && typeof shadowGen.removeShadowCaster === "function") {
-      shadowGen.removeShadowCaster(wMesh);
+    if (shadowGen) {
+      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (mesh: BABYLON.AbstractMesh) => void };
+      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
+        concreteGen.removeShadowCaster(wMesh);
+      }
     }
   });
 

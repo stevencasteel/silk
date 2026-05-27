@@ -1,1 +1,0 @@
-import{y as e}from"./compositionRoot-ChJFrtCq.js";export{e as pickingVertexShaderWGSL};

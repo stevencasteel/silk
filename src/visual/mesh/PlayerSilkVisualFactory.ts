@@ -9,11 +9,14 @@ export function decoratePlayerSilkVisual(
   pMesh.isVisible = false;
   pMesh.getChildMeshes().forEach((child) => child.dispose());
 
-  // Remove the parent pMesh from casting shadows to completely eliminate ghost capsule shadows
+  // Cast through unknown to bypass IShadowGenerator interface limitations safely
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
-    if (shadowGen && typeof shadowGen.removeShadowCaster === "function") {
-      shadowGen.removeShadowCaster(pMesh);
+    if (shadowGen) {
+      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (mesh: BABYLON.AbstractMesh) => void };
+      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
+        concreteGen.removeShadowCaster(pMesh);
+      }
     }
   });
 

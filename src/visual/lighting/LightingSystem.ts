@@ -1,8 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { IVisualRegistry } from "../../contracts/IVisualRegistry";
+import { SystemContext } from "../../core/engine/SystemContext";
 import * as BABYLON from "@babylonjs/core";
 
 export class LightingSystem implements ISystem {
@@ -11,19 +10,17 @@ export class LightingSystem implements ISystem {
 
   private unsub: (() => void) | null = null;
   private weaverLight: BABYLON.PointLight | null = null;
+  private rimLight: BABYLON.DirectionalLight | null = null;
   private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
   private currentColor = new BABYLON.Color3(0.3, 0.3, 0.4);
 
   private flashTimer = 0.0;
   private isFlashing = false;
 
-  constructor(
-    private broker: EventBroker,
-    private visualRegistry: IVisualRegistry
-  ) {}
+  constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.visualRegistry.getScene();
+    const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
     this.weaverLight = new BABYLON.PointLight(
@@ -31,25 +28,40 @@ export class LightingSystem implements ISystem {
       new BABYLON.Vector3(0, 5, -2),
       scene
     );
-    this.weaverLight.intensity = 1.5;
+    this.weaverLight.intensity = 1.8;
     this.weaverLight.diffuse = this.currentColor;
     this.weaverLight.specular = this.currentColor;
 
-    this.unsub = this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
+    this.rimLight = new BABYLON.DirectionalLight(
+      "rimLight",
+      new BABYLON.Vector3(0.1, 0.35, -0.95),
+      scene
+    );
+    this.rimLight.intensity = 1.35;
+    this.rimLight.diffuse = new BABYLON.Color3(0.72, 0.87, 1.0);
+    this.rimLight.specular = new BABYLON.Color3(0.72, 0.87, 1.0);
+
+    this.unsub = this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
       this.setWeaverPhaseHue(payload.hue);
     });
 
-    this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+    this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
       this.triggerFlash();
     });
 
-    this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+    this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
       this.triggerFlash();
     });
   }
 
   public update(dt: number): void {
     if (!this.weaverLight) return;
+
+    const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+    if (weaverNode) {
+      this.weaverLight.position.copyFrom(weaverNode.position);
+      this.weaverLight.position.z = weaverNode.position.z - 3.5;
+    }
 
     if (this.isFlashing) {
       this.flashTimer -= dt;
@@ -92,5 +104,6 @@ export class LightingSystem implements ISystem {
   public dispose(): void {
     if (this.unsub) this.unsub();
     if (this.weaverLight) this.weaverLight.dispose();
+    if (this.rimLight) this.rimLight.dispose();
   }
 }
