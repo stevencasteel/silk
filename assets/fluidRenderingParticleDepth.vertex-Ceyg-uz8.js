@@ -1,0 +1,1 @@
+import{sr as e}from"./compositionRoot-tTsIbOgL.js";export{e as fluidRenderingParticleDepthVertexShader};

@@ -1,0 +1,1 @@
+import{hn as e}from"./compositionRoot-tTsIbOgL.js";export{e as particlesVertexShader};

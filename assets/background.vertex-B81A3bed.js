@@ -1,0 +1,1 @@
+import{Mr as e}from"./compositionRoot-tTsIbOgL.js";export{e as backgroundVertexShader};
