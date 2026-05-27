@@ -20,7 +20,10 @@ export class HudSyncSystem implements ISystem {
     this.registerSubscriptions();
   }
 
-  public init(): void {}
+  public init(): void {
+    const overlayStore = useOverlayStore.getState();
+    overlayStore.loadStats();
+  }
 
   private registerSubscriptions(): void {
     const playerStore = usePlayerStore.getState();
@@ -66,17 +69,20 @@ export class HudSyncSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
+        overlayStore.recordLoss();
         overlayStore.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
+        overlayStore.recordWin();
         overlayStore.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         resetAllStores();
+        overlayStore.loadStats();
       })
     );
     this.subscriptions.push(

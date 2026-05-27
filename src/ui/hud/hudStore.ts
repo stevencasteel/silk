@@ -36,6 +36,17 @@ export interface OverlayState {
   overlaySubtitle: string;
   isPaused: boolean;
   awaitingGesture: boolean;
+  
+  // High-Polish Box-Battle Style Persistent Stats & Keyboard Navigation
+  wins: number;
+  losses: number;
+  menuIndex: number;
+  setMenuIndex: (index: number) => void;
+  recordWin: () => void;
+  recordLoss: () => void;
+  loadStats: () => void;
+  clearStats: () => void;
+
   setBootStatus: (status: string) => void;
   setTraversalHint: (text: string, color: string, opacity: number) => void;
   showOverlay: (title: string, color: string, subtitle: string) => void;
@@ -58,7 +69,8 @@ const OVERLAY_RESET = {
   overlayColor: "rgb(16, 185, 129)",
   overlaySubtitle: "The shaft is clear.",
   isPaused: false,
-  awaitingGesture: false
+  awaitingGesture: false,
+  menuIndex: 0
 };
 
 export const usePlayerStore = create<PlayerState>((set) => ({
@@ -81,8 +93,10 @@ export const useTetherStore = create<TetherState>((set) => ({
   reset: () => set(TETHER_RESET)
 }));
 
-export const useOverlayStore = create<OverlayState>((set) => ({
+export const useOverlayStore = create<OverlayState>((set, get) => ({
   ...OVERLAY_RESET,
+  wins: 0,
+  losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
   setTraversalHint: (text, color, opacity) =>
     set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
@@ -91,7 +105,54 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   hideOverlay: () => set({ overlayVisible: false }),
   setPaused: (isPaused) => set({ isPaused }),
   setAwaitingGesture: (awaiting) => set({ awaitingGesture: awaiting }),
-  reset: () => set(OVERLAY_RESET)
+  
+  setMenuIndex: (index) => set({ menuIndex: index }),
+  loadStats: () => {
+    try {
+      const raw = localStorage.getItem("silk_stats");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        set({
+          wins: typeof parsed.wins === "number" ? parsed.wins : 0,
+          losses: typeof parsed.losses === "number" ? parsed.losses : 0
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to load local stats", e);
+    }
+  },
+  recordWin: () => {
+    const nextWins = get().wins + 1;
+    set({ wins: nextWins });
+    try {
+      localStorage.setItem("silk_stats", JSON.stringify({ wins: nextWins, losses: get().losses }));
+    } catch (e) {
+      console.warn("Failed to save stats", e);
+    }
+  },
+  recordLoss: () => {
+    const nextLosses = get().losses + 1;
+    set({ losses: nextLosses });
+    try {
+      localStorage.setItem("silk_stats", JSON.stringify({ wins: get().wins, losses: nextLosses }));
+    } catch (e) {
+      console.warn("Failed to save stats", e);
+    }
+  },
+  clearStats: () => {
+    set({ wins: 0, losses: 0 });
+    try {
+      localStorage.setItem("silk_stats", JSON.stringify({ wins: 0, losses: 0 }));
+    } catch (e) {
+      console.warn("Failed to clear stats", e);
+    }
+  },
+
+  reset: () => set((state) => ({
+    ...OVERLAY_RESET,
+    wins: state.wins,
+    losses: state.losses
+  }))
 }));
 
 export function resetAllStores(): void {
