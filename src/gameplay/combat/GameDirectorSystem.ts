@@ -19,6 +19,9 @@ export class GameDirectorSystem implements ISystem {
   private cinematicTimer = 0.0;
   private maxCinematicSimTime = 0.6;
 
+  private adrenalineTimer = 0.0;
+  private readonly ADRENALINE_SURGE_DURATION = 1.2;
+
   constructor(
     private context: SystemContext,
     private spawner: EntitySpawnerSystem
@@ -64,6 +67,15 @@ export class GameDirectorSystem implements ISystem {
             amplitude: 0.8,
             duration: 0.4
           });
+        }
+      })
+    );
+
+    this.unsubscribes.push(
+      this.context.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
+        if (payload.hp === 1 && this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
+          console.log("[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo...");
+          this.adrenalineTimer = this.ADRENALINE_SURGE_DURATION;
         }
       })
     );
@@ -122,6 +134,14 @@ export class GameDirectorSystem implements ISystem {
           this.context.broker.publish(GameEvent.GAME_WIN, undefined);
         }
       }
+    } else {
+      if (this.adrenalineTimer > 0) {
+        this.adrenalineTimer -= dt;
+        const progress = Math.max(0, this.adrenalineTimer / this.ADRENALINE_SURGE_DURATION);
+        GameDirectorSystem.timeScale = 0.45 + (1.0 - progress) * 0.55;
+      } else {
+        GameDirectorSystem.timeScale = 1.0;
+      }
     }
   }
 
@@ -130,6 +150,7 @@ export class GameDirectorSystem implements ISystem {
     this.gameState = "PLAYING";
     this.activeCinematic = "NONE";
     this.cinematicTimer = 0.0;
+    this.adrenalineTimer = 0.0;
     GameDirectorSystem.timeScale = 1.0;
 
     this.spawner.spawnWeaver(this.context.refs.weaver);

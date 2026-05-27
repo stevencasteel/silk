@@ -1,1 +1,0 @@
-import{It as e}from"./compositionRoot-tTsIbOgL.js";export{e as boundingBoxRendererVertexShaderWGSL};
