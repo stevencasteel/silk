@@ -314,11 +314,18 @@ export class WeaverShatterSystem implements ISystem {
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
     const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
+    const scene = this.context.visualRegistry.getScene();
+    const defaultCameraY = 14.0;
+    const cameraYOffset = scene && scene.activeCamera
+      ? (scene.activeCamera.position.y - defaultCameraY)
+      : 0.0;
+    const disposeThreshold = -16.0 + cameraYOffset;
+
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
       const d = this.activeDebrisList[i];
       d.lifeRemaining -= dt;
 
-      if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
+      if (d.lifeRemaining <= 0 || d.mesh.position.y < disposeThreshold) {
         if (d.body) {
           if (d.body.shape) d.body.shape.dispose();
           d.body.dispose();

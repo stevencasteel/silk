@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 5:17:39 PM
+ [SYSTEM] Generated: 5/27/2026, 5:29:03 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2547,7 +2547,6 @@ export const ARENA_CONFIG = {
 export const GAMEPLAY_TUNING = {
   PLAYER: {
     MAX_INTEGRITY: 5,
-    SLIDE_VELOCITY: 4.5,
     TENSION_DECAY_RATE: 4.0,
     STRAIN_RUMBLE_SCALE: 0.25,
     SWING_STEER_FORCE: 36.0,
@@ -5531,11 +5530,18 @@ export class WeaverShatterSystem implements ISystem {
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
     const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
+    const scene = this.context.visualRegistry.getScene();
+    const defaultCameraY = 14.0;
+    const cameraYOffset = scene && scene.activeCamera
+      ? (scene.activeCamera.position.y - defaultCameraY)
+      : 0.0;
+    const disposeThreshold = -16.0 + cameraYOffset;
+
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
       const d = this.activeDebrisList[i];
       d.lifeRemaining -= dt;
 
-      if (d.lifeRemaining <= 0 || d.mesh.position.y < -16.0) {
+      if (d.lifeRemaining <= 0 || d.mesh.position.y < disposeThreshold) {
         if (d.body) {
           if (d.body.shape) d.body.shape.dispose();
           d.body.dispose();
@@ -6122,7 +6128,7 @@ export class PlayerKinematicsSystem implements ISystem {
       target.x = trav.wallDir * this.WALL_LIMIT_X;
 
       vel.x = 0;
-      vel.y = -currentScrollSpeed - GAMEPLAY_TUNING.PLAYER.SLIDE_VELOCITY;
+      vel.y = -currentScrollSpeed;
 
       let cameraDeltaY = 0;
       if (this.wasWallSliding) {
@@ -6189,7 +6195,7 @@ export class PlayerKinematicsSystem implements ISystem {
         target.x = wallDir * this.WALL_LIMIT_X;
 
         vel.x = 0;
-        vel.y = -currentScrollSpeed - GAMEPLAY_TUNING.PLAYER.SLIDE_VELOCITY;
+        vel.y = -currentScrollSpeed;
 
         let cameraDeltaY = 0;
         if (this.wasWallSliding) {
@@ -6706,6 +6712,8 @@ export class WeaverTraversalSystem implements ISystem {
 
     if (!vel || !trav || !trans || !target) return;
 
+  const isStriking = ai && ai.state === "STRIKING";
+
     const isPatrolling = ai && ai.state === "PATROLLING";
     let sState = this.sweepStates.get(this.context.refs.weaver);
 
@@ -6863,7 +6871,7 @@ export class WeaverTraversalSystem implements ISystem {
 
       concreteEngine.raycastToRef(startDown, endDown, floorRayResult);
 
-      if (floorRayResult.hasHit && floorRayResult.body) {
+      if (floorRayResult.hasHit && floorRayResult.body && !isStriking) {
         const hitDistance = floorRayResult.hitDistance;
         if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)) {
           isGrounded = true;
@@ -6900,7 +6908,7 @@ export class WeaverTraversalSystem implements ISystem {
       }
 
       const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
-      const floorLimit = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+      const floorLimit = isStriking ? ARENA_CONFIG.VERTICAL.FLOOR_Y - 70.0 : ARENA_CONFIG.VERTICAL.FLOOR_Y;
       if (target.y > ceilingLimit) {
         target.y = ceilingLimit;
         if (vel.y > 0) vel.y = 0;
@@ -6909,7 +6917,7 @@ export class WeaverTraversalSystem implements ISystem {
       } else if (target.y < floorLimit) {
         target.y = floorLimit;
         if (vel.y < 0) vel.y = 0;
-        isGrounded = true;
+        isGrounded = !isStriking;
         isWallClinging = false;
       } else {
         isGrounded = false;

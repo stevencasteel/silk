@@ -45,6 +45,8 @@ export class WeaverTraversalSystem implements ISystem {
 
     if (!vel || !trav || !trans || !target) return;
 
+  const isStriking = ai && ai.state === "STRIKING";
+
     const isPatrolling = ai && ai.state === "PATROLLING";
     let sState = this.sweepStates.get(this.context.refs.weaver);
 
@@ -202,7 +204,7 @@ export class WeaverTraversalSystem implements ISystem {
 
       concreteEngine.raycastToRef(startDown, endDown, floorRayResult);
 
-      if (floorRayResult.hasHit && floorRayResult.body) {
+      if (floorRayResult.hasHit && floorRayResult.body && !isStriking) {
         const hitDistance = floorRayResult.hitDistance;
         if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)) {
           isGrounded = true;
@@ -239,7 +241,7 @@ export class WeaverTraversalSystem implements ISystem {
       }
 
       const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
-      const floorLimit = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+      const floorLimit = isStriking ? ARENA_CONFIG.VERTICAL.FLOOR_Y - 70.0 : ARENA_CONFIG.VERTICAL.FLOOR_Y;
       if (target.y > ceilingLimit) {
         target.y = ceilingLimit;
         if (vel.y > 0) vel.y = 0;
@@ -248,7 +250,7 @@ export class WeaverTraversalSystem implements ISystem {
       } else if (target.y < floorLimit) {
         target.y = floorLimit;
         if (vel.y < 0) vel.y = 0;
-        isGrounded = true;
+        isGrounded = !isStriking;
         isWallClinging = false;
       } else {
         isGrounded = false;
