@@ -1,0 +1,1 @@
+import{Mt as e}from"./compositionRoot-Ptc2nsss.js";export{e as colorVertexShaderWGSL};

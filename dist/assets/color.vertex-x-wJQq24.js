@@ -1,0 +1,1 @@
+import{Sr as e}from"./compositionRoot-Ptc2nsss.js";export{e as colorVertexShader};
