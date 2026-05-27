@@ -1,0 +1,1 @@
+import{Dt as e}from"./compositionRoot-DxhIDkUy.js";export{e as defaultVertexShaderWGSL};
