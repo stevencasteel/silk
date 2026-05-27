@@ -1,1 +1,0 @@
-import{a as e}from"./compositionRoot-Kv22UIgn.js";export{e as spritesVertexShaderWGSL};

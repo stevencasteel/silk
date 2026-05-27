@@ -14,7 +14,7 @@ import {
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
-import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -25,6 +25,9 @@ export class PlayerKinematicsSystem implements ISystem {
   private lastTraversalState: string = "";
   private tensionPayload = { tension: 0.0 };
   private lengthPayload = { length: 0.0, maxLength: 0.0 };
+
+  private lastCameraYOffset = 0.0;
+  private wasWallSliding = false;
 
   constructor(private context: SystemContext) {}
 
@@ -43,6 +46,11 @@ export class PlayerKinematicsSystem implements ISystem {
         }
       }
     );
+
+    this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+      this.lastCameraYOffset = 0.0;
+      this.wasWallSliding = false;
+    });
   }
 
   public update(dt: number): void {
@@ -216,11 +224,18 @@ export class PlayerKinematicsSystem implements ISystem {
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
 
+    const scene = this.context.visualRegistry.getScene();
+    const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_POS.y;
+    const cameraY = scene && scene.activeCamera ? scene.activeCamera.position.y : defaultCameraY;
+    const cameraYOffset = cameraY - defaultCameraY;
+
     if (trav.state === "WALL_SLIDING") {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (stillPressingIn === false) {
         this.triggerFling(vel, tether, target, trav);
+        this.wasWallSliding = false;
+        this.lastCameraYOffset = cameraYOffset;
         return;
       }
 
@@ -228,10 +243,14 @@ export class PlayerKinematicsSystem implements ISystem {
 
       vel.x = 0;
       vel.y = -currentScrollSpeed;
-      
-      let finalY = target.y + vel.y * dt;
 
-      // Elongation: The maximum length of the rope can automatically increase while wall sliding.
+      let cameraDeltaY = 0;
+      if (this.wasWallSliding) {
+        cameraDeltaY = cameraYOffset - this.lastCameraYOffset;
+      }
+
+      let finalY = target.y + vel.y * dt + cameraDeltaY;
+
       const dx = target.x - tether.anchorX;
       const dy = finalY - tether.anchorY;
       const requiredLength = Math.sqrt(dx * dx + dy * dy);
@@ -253,11 +272,13 @@ export class PlayerKinematicsSystem implements ISystem {
         }
       }
       target.y = finalY;
+      this.wasWallSliding = true;
 
       if (input.jump) {
         this.triggerFling(vel, tether, target, trav);
         input.jump = false;
       }
+      this.lastCameraYOffset = cameraYOffset;
       return;
     }
 
@@ -289,10 +310,14 @@ export class PlayerKinematicsSystem implements ISystem {
 
         vel.x = 0;
         vel.y = -currentScrollSpeed;
-        
-        let finalY = target.y + vel.y * dt;
 
-        // Elongation: The maximum length of the rope can automatically increase while wall sliding.
+        let cameraDeltaY = 0;
+        if (this.wasWallSliding) {
+          cameraDeltaY = cameraYOffset - this.lastCameraYOffset;
+        }
+
+        let finalY = target.y + vel.y * dt + cameraDeltaY;
+
         const dx = target.x - tether.anchorX;
         const dy = finalY - tether.anchorY;
         const requiredLength = Math.sqrt(dx * dx + dy * dy);
@@ -314,6 +339,7 @@ export class PlayerKinematicsSystem implements ISystem {
           }
         }
         target.y = finalY;
+        this.wasWallSliding = true;
       } else {
         target.x = wallDir * this.WALL_LIMIT_X;
         target.y = nextY;
@@ -322,7 +348,9 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         trav.state = "AIRBORNE";
         trav.wallDir = 0;
+        this.wasWallSliding = false;
       }
+      this.lastCameraYOffset = cameraYOffset;
       return;
     }
 
@@ -332,6 +360,8 @@ export class PlayerKinematicsSystem implements ISystem {
     trav.wallDir = 0;
     target.x = nextX;
     target.y = nextY;
+    this.wasWallSliding = false;
+    this.lastCameraYOffset = cameraYOffset;
   }
 
   private triggerFling(
@@ -360,7 +390,7 @@ export class PlayerKinematicsSystem implements ISystem {
     const reelBonus = tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
     const isSweetSpot = storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
-    
+
     const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
     const power = powerScale * tuning.FLING_IMPULSE;
 
@@ -434,13 +464,11 @@ export class PlayerKinematicsSystem implements ISystem {
 
       tether.tension += tensionDelta * dt;
 
-      // Stretch tension is only accumulated while wall sliding
       const TENSION_STRETCH_RANGE = 2.0;
       const stretch = Math.max(0, tether.currentLength - tether.maxLength);
       const stretchRatio = stretch / TENSION_STRETCH_RANGE;
       tether.tension += stretchRatio * dt;
     } else {
-      // In any state other than WALL_SLIDING, tension decays back to 0
       tether.tension -= GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt;
     }
 
