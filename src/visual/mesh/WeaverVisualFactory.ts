@@ -1,5 +1,6 @@
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
+import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
 interface CustomPBRMaterial extends BABYLON.PBRMaterial {
   _shearPlugin?: RasterShearPlugin;
@@ -14,7 +15,6 @@ export function decorateWeaverVisual(
   wMesh.isVisible = false;
   wMesh.getChildMeshes().forEach((child) => child.dispose());
 
-  // Cast through unknown to bypass IShadowGenerator interface limitations safely
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
     if (shadowGen) {
@@ -25,30 +25,95 @@ export function decorateWeaverVisual(
     }
   });
 
+  const textureGen = new ProceduralTextureGenerator();
+
   const carapaceMat = new BABYLON.PBRMaterial("carapaceMat", scene) as CustomPBRMaterial;
-  carapaceMat.albedoColor = new BABYLON.Color3(0.09, 0.07, 0.11);
-  carapaceMat.metallic = 0.8;
-  carapaceMat.roughness = 0.15;
+  carapaceMat.metallic = 0.45; // Scaled down from 0.85 for a more organic, bone/chitin look
+  carapaceMat.roughness = 0.65; // Shifted up from 0.22 to match the dry concrete aesthetic
+
+  // Synthesize coarse micro-bump texture mappings
+  const carapaceTexs = textureGen.generatePBRTextures("carapaceShell", scene, {
+    resolution: 512,
+    noiseScale: 28.0,
+    bumpStrength: 2.2, // Enhanced normal depth for tactile surface grit
+    baseColor: new BABYLON.Color3(0.09, 0.07, 0.11),
+    roughnessMin: 0.55,
+    roughnessMax: 0.85,
+    metallic: 0.4
+  });
+
+  carapaceMat.albedoTexture = carapaceTexs.albedo;
+  carapaceMat.bumpTexture = carapaceTexs.normal;
+  carapaceMat.metallicTexture = carapaceTexs.orm;
+  carapaceMat.useAmbientOcclusionFromMetallicTextureRed = true;
+  carapaceMat.useRoughnessFromMetallicTextureGreen = true;
+  carapaceMat.useMetallnessFromMetallicTextureBlue = true;
+  carapaceMat.useRoughnessFromMetallicTextureAlpha = false;
+
   carapaceMat.clearCoat.isEnabled = true;
-  carapaceMat.clearCoat.intensity = 0.6;
-  carapaceMat.clearCoat.roughness = 0.1;
+  carapaceMat.clearCoat.intensity = 0.35; // Lowered clear coat to minimize shiny glints
+  carapaceMat.clearCoat.roughness = 0.4;
+  carapaceMat.enableSpecularAntiAliasing = true;
+  carapaceMat.forceIrradianceInFragment = true;
+
   const shearPluginCarapace = new RasterShearPlugin(carapaceMat);
   carapaceMat._shearPlugin = shearPluginCarapace;
 
   const shellMat = new BABYLON.PBRMaterial("carapaceUpperMat", scene) as CustomPBRMaterial;
-  shellMat.albedoColor = new BABYLON.Color3(0.13, 0.09, 0.18);
-  shellMat.metallic = 0.8;
-  shellMat.roughness = 0.2;
+  shellMat.metallic = 0.4;
+  shellMat.roughness = 0.7;
+
+  const shellTexs = textureGen.generatePBRTextures("carapaceUpper", scene, {
+    resolution: 512,
+    noiseScale: 22.0,
+    bumpStrength: 2.4,
+    baseColor: new BABYLON.Color3(0.13, 0.09, 0.18),
+    roughnessMin: 0.58,
+    roughnessMax: 0.88,
+    metallic: 0.35
+  });
+
+  shellMat.albedoTexture = shellTexs.albedo;
+  shellMat.bumpTexture = shellTexs.normal;
+  shellMat.metallicTexture = shellTexs.orm;
+  shellMat.useAmbientOcclusionFromMetallicTextureRed = true;
+  shellMat.useRoughnessFromMetallicTextureGreen = true;
+  shellMat.useMetallnessFromMetallicTextureBlue = true;
+  shellMat.useRoughnessFromMetallicTextureAlpha = false;
+
   shellMat.clearCoat.isEnabled = true;
-  shellMat.clearCoat.intensity = 0.6;
-  shellMat.clearCoat.roughness = 0.1;
+  shellMat.clearCoat.intensity = 0.35;
+  shellMat.clearCoat.roughness = 0.45;
+  shellMat.enableSpecularAntiAliasing = true;
+  shellMat.forceIrradianceInFragment = true;
+
   const shearPluginShell = new RasterShearPlugin(shellMat);
   shellMat._shearPlugin = shearPluginShell;
 
   const legMat = new BABYLON.PBRMaterial("legMat", scene) as CustomPBRMaterial;
-  legMat.albedoColor = new BABYLON.Color3(0.04, 0.03, 0.05);
-  legMat.metallic = 0.6;
-  legMat.roughness = 0.3;
+  legMat.metallic = 0.3;
+  legMat.roughness = 0.75;
+
+  const legTexs = textureGen.generatePBRTextures("legScratches", scene, {
+    resolution: 256,
+    noiseScale: 34.0,
+    bumpStrength: 2.0,
+    baseColor: new BABYLON.Color3(0.04, 0.03, 0.05),
+    roughnessMin: 0.6,
+    roughnessMax: 0.9,
+    metallic: 0.25
+  });
+
+  legMat.albedoTexture = legTexs.albedo;
+  legMat.bumpTexture = legTexs.normal;
+  legMat.metallicTexture = legTexs.orm;
+  legMat.useAmbientOcclusionFromMetallicTextureRed = true;
+  legMat.useRoughnessFromMetallicTextureGreen = true;
+  legMat.useMetallnessFromMetallicTextureBlue = true;
+  legMat.useRoughnessFromMetallicTextureAlpha = false;
+  legMat.enableSpecularAntiAliasing = true;
+  legMat.forceIrradianceInFragment = true;
+
   const shearPluginLeg = new RasterShearPlugin(legMat);
   legMat._shearPlugin = shearPluginLeg;
 

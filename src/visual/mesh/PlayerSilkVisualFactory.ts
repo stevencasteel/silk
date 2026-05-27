@@ -1,4 +1,5 @@
 import * as BABYLON from "@babylonjs/core";
+import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
 export function decoratePlayerSilkVisual(
   scene: BABYLON.Scene,
@@ -9,7 +10,6 @@ export function decoratePlayerSilkVisual(
   pMesh.isVisible = false;
   pMesh.getChildMeshes().forEach((child) => child.dispose());
 
-  // Cast through unknown to bypass IShadowGenerator interface limitations safely
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
     if (shadowGen) {
@@ -31,9 +31,9 @@ export function decoratePlayerSilkVisual(
   );
   innerBody.position.set(0, 0, 0);
   const innerMat = new BABYLON.PBRMaterial("playerInnerMat", scene);
-  innerMat.albedoColor = new BABYLON.Color3(0.1, 0.08, 0.12);
-  innerMat.roughness = 0.8;
-  innerMat.metallic = 0.2;
+  innerMat.albedoColor = new BABYLON.Color3(0.08, 0.07, 0.1);
+  innerMat.roughness = 0.85;
+  innerMat.metallic = 0.1;
   innerBody.material = innerMat;
   innerBody.parent = pMesh;
 
@@ -48,25 +48,69 @@ export function decoratePlayerSilkVisual(
   );
   cocoonShell.position.set(0, 0, 0);
 
+  const textureGen = new ProceduralTextureGenerator();
+
   const silkMat = new BABYLON.PBRMaterial("playerSilkMat", scene);
-  silkMat.albedoColor = new BABYLON.Color3(0.93, 0.95, 0.96);
-  silkMat.roughness = 0.9;
   silkMat.metallic = 0.0;
+  silkMat.roughness = 0.85;
+
+  // Generate a procedural dense fibrous texture for player's silk
+  const silkTexs = textureGen.generatePBRTextures("silkFiber", scene, {
+    resolution: 512,
+    noiseScale: 40.0, // High scale for individual tight thread lines
+    bumpStrength: 3.2,
+    baseColor: new BABYLON.Color3(0.93, 0.95, 0.96),
+    roughnessMin: 0.72,
+    roughnessMax: 0.98,
+    metallic: 0.0
+  });
+
+  silkMat.albedoTexture = silkTexs.albedo;
+  silkMat.bumpTexture = silkTexs.normal;
+  silkMat.metallicTexture = silkTexs.orm;
+  silkMat.useAmbientOcclusionFromMetallicTextureRed = true;
+  silkMat.useRoughnessFromMetallicTextureGreen = true;
+  silkMat.useMetallnessFromMetallicTextureBlue = true;
+  silkMat.useRoughnessFromMetallicTextureAlpha = false;
+
   silkMat.sheen.isEnabled = true;
   silkMat.sheen.intensity = 0.8;
-  silkMat.sheen.roughness = 0.5;
+  silkMat.sheen.roughness = 0.45;
   silkMat.sheen.color = new BABYLON.Color3(0.98, 0.96, 0.9);
   silkMat.emissiveColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+  silkMat.enableSpecularAntiAliasing = true;
+  silkMat.forceIrradianceInFragment = true;
+
   cocoonShell.material = silkMat;
   cocoonShell.parent = pMesh;
 
   const bandCount = 7;
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
-  bandMat.albedoColor = new BABYLON.Color3(0.85, 0.88, 0.9);
-  bandMat.roughness = 0.95;
-  bandMat.metallic = 0.0;
+  bandMat.metallic = 0.05;
+  bandMat.roughness = 0.9;
+
+  const bandTexs = textureGen.generatePBRTextures("silkBand", scene, {
+    resolution: 256,
+    noiseScale: 30.0,
+    bumpStrength: 2.8,
+    baseColor: new BABYLON.Color3(0.85, 0.88, 0.9),
+    roughnessMin: 0.75,
+    roughnessMax: 0.95,
+    metallic: 0.0
+  });
+
+  bandMat.albedoTexture = bandTexs.albedo;
+  bandMat.bumpTexture = bandTexs.normal;
+  bandMat.metallicTexture = bandTexs.orm;
+  bandMat.useAmbientOcclusionFromMetallicTextureRed = true;
+  bandMat.useRoughnessFromMetallicTextureGreen = true;
+  bandMat.useMetallnessFromMetallicTextureBlue = true;
+  bandMat.useRoughnessFromMetallicTextureAlpha = false;
+
   bandMat.sheen.isEnabled = true;
   bandMat.sheen.intensity = 0.6;
+  bandMat.enableSpecularAntiAliasing = true;
+  bandMat.forceIrradianceInFragment = true;
 
   for (let i = 0; i < bandCount; i++) {
     const t = i / (bandCount - 1);

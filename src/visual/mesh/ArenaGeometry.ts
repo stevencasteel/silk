@@ -1,23 +1,67 @@
 import * as BABYLON from "@babylonjs/core";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
 export class ArenaGeometry {
   constructor(private scene: BABYLON.Scene) {}
 
   public generateElevatorShaft(): void {
+    const textureGen = new ProceduralTextureGenerator();
+
     const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
-    wallMaterial.albedoColor = new BABYLON.Color3(0.043, 0.051, 0.063);
-    wallMaterial.metallic = 0.15;
+    wallMaterial.metallic = 0.0;
     wallMaterial.roughness = 0.85;
 
+    // Generate stone/concrete micro-bump map for shaft walls
+    const wallTexs = textureGen.generatePBRTextures("concreteWall", this.scene, {
+      resolution: 512,
+      noiseScale: 10.0,
+      bumpStrength: 2.5,
+      baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
+      roughnessMin: 0.75,
+      roughnessMax: 0.98,
+      metallic: 0.0
+    });
+
+    wallMaterial.albedoTexture = wallTexs.albedo;
+    wallMaterial.bumpTexture = wallTexs.normal;
+    wallMaterial.metallicTexture = wallTexs.orm;
+    wallMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
+    wallMaterial.useRoughnessFromMetallicTextureGreen = true;
+    wallMaterial.useMetallnessFromMetallicTextureBlue = true;
+    wallMaterial.useRoughnessFromMetallicTextureAlpha = false;
+    wallMaterial.enableSpecularAntiAliasing = true;
+    wallMaterial.forceIrradianceInFragment = true;
+
     const panelMaterial = new BABYLON.PBRMaterial("panelMat", this.scene);
-    panelMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.11);
-    panelMaterial.metallic = 0.2;
-    panelMaterial.roughness = 0.7;
+    panelMaterial.metallic = 0.25;
+    panelMaterial.roughness = 0.65;
+
+    // Generate metallic scuffed panel maps
+    const panelTexs = textureGen.generatePBRTextures("scrollingPanel", this.scene, {
+      resolution: 512,
+      noiseScale: 16.0,
+      bumpStrength: 1.8,
+      baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
+      roughnessMin: 0.45,
+      roughnessMax: 0.75,
+      metallic: 0.2
+    });
+
+    panelMaterial.albedoTexture = panelTexs.albedo;
+    panelMaterial.bumpTexture = panelTexs.normal;
+    panelMaterial.metallicTexture = panelTexs.orm;
+    panelMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
+    panelMaterial.useRoughnessFromMetallicTextureGreen = true;
+    panelMaterial.useMetallnessFromMetallicTextureBlue = true;
+    panelMaterial.useRoughnessFromMetallicTextureAlpha = false;
+    panelMaterial.enableSpecularAntiAliasing = true;
+    panelMaterial.forceIrradianceInFragment = true;
 
     const verticalGrooveMaterial = new BABYLON.PBRMaterial("grooveMat", this.scene);
-    verticalGrooveMaterial.albedoColor = new BABYLON.Color3(0.02, 0.02, 0.03);
-    verticalGrooveMaterial.roughness = 0.95;
+    verticalGrooveMaterial.albedoColor = new BABYLON.Color3(0.015, 0.015, 0.02);
+    verticalGrooveMaterial.roughness = 0.98;
+    verticalGrooveMaterial.metallic = 0.0;
 
     const wallThickness = 2.0;
     const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
@@ -59,19 +103,18 @@ export class ArenaGeometry {
     rightGroove.material = verticalGrooveMaterial;
     rightGroove.receiveShadows = false;
 
-    // Procedurally vary the height, width, and depth of panels on each side
     const panelCount = 20;
     const panelSpacing = wallHeight / panelCount;
     for (let i = 0; i < panelCount; i++) {
       const panelY = (i - panelCount / 2) * panelSpacing + (wallHeight * 0.1);
 
-      const heightScale = 0.45 + Math.abs(Math.sin(i * 1.5)) * 0.45; // vary height
+      const heightScale = 0.45 + Math.abs(Math.sin(i * 1.5)) * 0.45;
       const panelHeight = panelSpacing * heightScale;
 
-      const widthScale = 0.8 + Math.abs(Math.cos(i * 2.1)) * 0.35; // vary width
+      const widthScale = 0.8 + Math.abs(Math.cos(i * 2.1)) * 0.35;
       const panelWidth = 0.1 * widthScale;
 
-      const depthScale = 0.7 + Math.abs(Math.sin(i * 3.3)) * 0.45; // vary depth
+      const depthScale = 0.7 + Math.abs(Math.sin(i * 3.3)) * 0.45;
       const panelDepth = 3.6 * depthScale;
 
       const lp = BABYLON.MeshBuilder.CreateBox(
@@ -95,14 +138,13 @@ export class ArenaGeometry {
       rp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
     }
 
-    // Add structural reinforcing ribs that scroll down
     const ribCount = 10;
     const ribSpacing = wallHeight / ribCount;
     for (let i = 0; i < ribCount; i++) {
       const ribY = (i - ribCount / 2) * ribSpacing + (wallHeight * 0.1);
 
       const ribHeight = 0.18 + Math.abs(Math.sin(i * 1.9)) * 0.22;
-      const ribDepth = 4.15; // extends past wall profile for strong silhouettes
+      const ribDepth = 4.15;
 
       const leftRib = BABYLON.MeshBuilder.CreateBox(
         `leftRib_${i}`,

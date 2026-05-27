@@ -30,7 +30,7 @@ export class RenderSystem implements ISystem {
       stencil: true
     });
     this.scene = new BABYLON.Scene(this.engine);
-    this.scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.012, 1.0);
+    this.scene.clearColor = new BABYLON.Color4(0.008, 0.008, 0.01, 1.0);
 
     const preset = POST_PROCESSING_PRESETS;
 
@@ -52,20 +52,61 @@ export class RenderSystem implements ISystem {
     );
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
 
+    const envTexture = BABYLON.CubeTexture.CreateFromPrefilteredData(
+      "https://assets.babylonjs.com/environments/environmentSpecular.env",
+      this.scene
+    );
+    this.scene.environmentTexture = envTexture;
+    this.scene.environmentIntensity = 0.95; // Boosted baseline environment reflection
+
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
       new BABYLON.Vector3(0, 1, 0),
       this.scene
     );
-    ambientLight.intensity = preset.RENDERER.AMBIENT_LIGHT_INTENSITY;
+    ambientLight.intensity = 0.18; // Elevated from 0.06 to lift unlit crevices
 
+    // --- KEY LIGHT (Left wall & front coverage, casts shadows) ---
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
-      new BABYLON.Vector3(-0.3, -0.8, 0.5),
+      new BABYLON.Vector3(-0.35, -0.75, 0.55),
       this.scene
     );
-    dirLight.intensity = preset.RENDERER.DIR_LIGHT_INTENSITY;
-    dirLight.specular = new BABYLON.Color3(0.9, 0.9, 0.95);
+    dirLight.intensity = 1.65;
+    dirLight.specular = new BABYLON.Color3(0.6, 0.6, 0.65);
+
+    // --- FILL LIGHT (Right wall & shadow balance, no duplicate cast shadows) ---
+    const dirFillLight = new BABYLON.DirectionalLight(
+      "dirFillLight",
+      new BABYLON.Vector3(0.35, -0.75, 0.55),
+      this.scene
+    );
+    dirFillLight.intensity = 1.35; // Illuminates the right wall and offsets dark shadows
+    dirFillLight.specular = new BABYLON.Color3(0.4, 0.4, 0.45);
+    dirFillLight.setEnabled(true);
+
+    // --- ARCHITECTURAL POINT LIGHTS (Highlights concrete & scroll ticks) ---
+    const leftPointLight = new BABYLON.PointLight(
+      "leftPointLight",
+      new BABYLON.Vector3(-13.5, 14.0, -1.0),
+      this.scene
+    );
+    leftPointLight.intensity = 1.35;
+    leftPointLight.range = 35.0;
+    leftPointLight.diffuse = new BABYLON.Color3(0.5, 0.6, 0.7);
+    leftPointLight.specular = new BABYLON.Color3(0.2, 0.2, 0.25);
+    leftPointLight.setEnabled(true);
+
+    const rightPointLight = new BABYLON.PointLight(
+      "rightPointLight",
+      new BABYLON.Vector3(13.5, 14.0, -1.0),
+      this.scene
+    );
+    rightPointLight.intensity = 1.35;
+    rightPointLight.range = 35.0;
+    rightPointLight.diffuse = new BABYLON.Color3(0.5, 0.6, 0.7);
+    rightPointLight.specular = new BABYLON.Color3(0.2, 0.2, 0.25);
+    rightPointLight.setEnabled(true);
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -76,20 +117,25 @@ export class RenderSystem implements ISystem {
     pipeline.bloomThreshold = preset.RENDERER.BLOOM_THRESHOLD;
     pipeline.bloomWeight = preset.RENDERER.BLOOM_WEIGHT;
     pipeline.bloomKernel = preset.RENDERER.BLOOM_KERNEL;
+
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
     pipeline.imageProcessing.vignetteWeight = preset.RENDERER.VIGNETTE_WEIGHT;
     pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
     pipeline.imageProcessing.exposure = preset.RENDERER.EXPOSURE;
     pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
+
+    pipeline.imageProcessing.toneMappingEnabled = true;
+    pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
+
     pipeline.chromaticAberrationEnabled = true;
     pipeline.chromaticAberration.aberrationAmount = 0.0;
     pipeline.chromaticAberration.radialIntensity = 1.2;
     this.pipeline = pipeline;
 
     const shadowGen = new BABYLON.ShadowGenerator(preset.RENDERER.SHADOW_MAP_SIZE, dirLight);
-    shadowGen.useBlurExponentialShadowMap = true;
-    shadowGen.blurKernel = preset.RENDERER.SHADOW_BLUR_KERNEL;
+    shadowGen.usePercentageCloserFiltering = true;
+    shadowGen.filteringQuality = BABYLON.ShadowGenerator.QUALITY_MEDIUM;
     shadowGen.darkness = preset.RENDERER.SHADOW_DARKNESS;
 
     this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
