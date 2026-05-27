@@ -4,6 +4,8 @@ import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TensionSynthesizer } from "../tone/TensionSynthesizer";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { TransformComponent } from "../../core/ecs/Components";
 import * as Tone from "tone";
 
 export class AudioDirectorSystem implements ISystem {
@@ -15,10 +17,13 @@ export class AudioDirectorSystem implements ISystem {
   private windowTickListener: (() => void) | null = null;
   private initialized: boolean = false;
 
+  private broker: EventBroker;
   private subscriptions: (() => void)[] = [];
   private gestureTriggerRef: (() => void) | null = null;
 
-  constructor(private broker: EventBroker) {
+  constructor(private context: SystemContext) {
+    this.broker = this.context.broker;
+
     this.gestureTriggerRef = (): void => {
       this.bootAudioEngine();
       this.removeGestureListeners();
@@ -42,6 +47,14 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.updateDronePitch(payload.tension);
+        }
+      })
+    );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
+        if (this.initialized && this.tensionSynth) {
+          this.tensionSynth.setLowHPStatus(payload.hp === 1);
         }
       })
     );
@@ -176,7 +189,16 @@ export class AudioDirectorSystem implements ISystem {
     );
   }
 
-  public update(): void {}
+  public update(): void {
+    if (this.initialized && this.tensionSynth) {
+      const transforms = this.context.stores.get<TransformComponent>("transform");
+      const playerTrans = transforms.get(this.context.refs.player);
+      const weaverTrans = transforms.get(this.context.refs.weaver);
+      if (playerTrans && weaverTrans) {
+        this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
+      }
+    }
+  }
 
   private removeGestureListeners(): void {
     if (this.gestureTriggerRef) {

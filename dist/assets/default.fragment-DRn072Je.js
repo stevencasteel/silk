@@ -1,1 +1,0 @@
-import{Ot as e}from"./compositionRoot-DfpVChAv.js";export{e as defaultPixelShaderWGSL};

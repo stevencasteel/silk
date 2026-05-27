@@ -117,7 +117,7 @@ export class CompositionRoot {
     const tetherVisualizer = new TetherVisualizerSystem(context);
     const juiceSystem = new JuiceSystem(context);
     const shatterSystem = new WeaverShatterSystem(context);
-    const audioSystem = new AudioDirectorSystem(broker);
+    const audioSystem = new AudioDirectorSystem(context);
 
     const physicsSystem = new HavokPhysicsSystem(context);
 

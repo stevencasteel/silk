@@ -1,0 +1,1 @@
+import{y as e}from"./compositionRoot-CwXXSAPl.js";export{e as pickingVertexShaderWGSL};

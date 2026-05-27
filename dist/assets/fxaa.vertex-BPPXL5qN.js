@@ -1,0 +1,1 @@
+import{ut as e}from"./compositionRoot-CwXXSAPl.js";export{e as fxaaVertexShaderWGSL};
