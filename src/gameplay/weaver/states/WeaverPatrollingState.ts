@@ -18,6 +18,11 @@ export class WeaverPatrollingState implements IWeaverState {
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 
+  // Reusable scratch objects to completely prevent dynamic GC allocations during active firing updates
+  private readonly _stingerTipLocal = new BABYLON.Vector3();
+  private readonly _weaverQuat = new BABYLON.Quaternion();
+  private readonly _stingerTipWorld = new BABYLON.Vector3();
+
   public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
     this.hasTelegraphed = false;
@@ -75,14 +80,13 @@ export class WeaverPatrollingState implements IWeaverState {
 
       if (playerTrans && wTrans) {
         const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const stingerTipLocal = new BABYLON.Vector3(0, -radius, 0);
-        const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-        const stingerTipWorld = new BABYLON.Vector3();
-        stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);
+        this._stingerTipLocal.set(0, -radius, 0);
+        this._weaverQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+        this._stingerTipLocal.rotateByQuaternionToRef(this._weaverQuat, this._stingerTipWorld);
 
         ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-          x: wTrans.x + stingerTipWorld.x,
-          y: wTrans.y + stingerTipWorld.y,
+          x: wTrans.x + this._stingerTipWorld.x,
+          y: wTrans.y + this._stingerTipWorld.y,
           tx: playerTrans.x,
           ty: playerTrans.y
         });
