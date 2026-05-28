@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 9:14:21 PM
+ [SYSTEM] Generated: 5/28/2026, 9:22:54 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -58,6 +58,7 @@
 │   │   ├── engine/
 │   │   │   ├── ArenaConfig.ts
 │   │   │   ├── Engine.ts
+│   │   │   ├── EngineTime.ts
 │   │   │   └── SystemContext.ts
 │   │   ├── events/
 │   │   │   ├── EventBroker.ts
@@ -2943,8 +2944,7 @@ import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
-import { GameDirectorSystem } from "../../gameplay/combat/GameDirectorSystem";
-import { GAMEPLAY_TUNING } from "./ArenaConfig";
+import { EngineTime } from "./EngineTime";
 
 export class Engine {
   private loop: GameLoop;
@@ -2953,7 +2953,6 @@ export class Engine {
 
   public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
-  private hitStopTimer: number = 0;
   private unsubscribes: (() => void)[] = [];
 
   constructor(
@@ -2979,7 +2978,6 @@ export class Engine {
     await this.systemManager.initAll();
 
     this.initPauseHandlers();
-    this.initHitStopHandlers();
     this.initGestureHandlers();
 
     this.loop.start();
@@ -2988,7 +2986,6 @@ export class Engine {
   public stop(): void {
     this.loop.cleanup();
     this.removePauseHandlers();
-    this.removeHitStopHandlers();
     this.systemManager.disposeAll();
   }
 
@@ -3012,32 +3009,6 @@ export class Engine {
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
-  private initHitStopHandlers(): void {
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
-      })
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
-      })
-    );
-    // Micro-Freeze Impact: Satisfying 0.04-second hit-stop when projectile is smashed
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
-        if (!payload.isWall) {
-          this.hitStopTimer = 0.04;
-        }
-      })
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        this.hitStopTimer = 0;
-      })
-    );
-  }
-
   private initGestureHandlers(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
@@ -3045,11 +3016,6 @@ export class Engine {
         this.isManuallyPaused = false;
       })
     );
-  }
-
-  private removeHitStopHandlers(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
   }
 
   private handleKeyDown = (e: KeyboardEvent): void => {
@@ -3081,18 +3047,34 @@ export class Engine {
   private update(dt: number): void {
     if (this.isPaused) return;
 
-    let isHitStop = false;
-    if (this.hitStopTimer > 0) {
-      this.hitStopTimer -= dt;
-      isHitStop = true;
-    }
+    EngineTime.update(dt);
+    const isHitStop = EngineTime.isHitStop;
+    const scaledDt = dt * EngineTime.timeScale;
 
-    const scaledDt = dt * GameDirectorSystem.timeScale;
     this.systemManager.updateAll(scaledDt, isHitStop);
   }
 
   private render(alpha: number): void {
     this.systemManager.renderAll(alpha);
+  }
+}
+
+
+
+● ./src/core/engine/EngineTime.ts
+────────────────────────────────────────────────────
+export class EngineTime {
+  public static timeScale = 1.0;
+  public static hitStopTimer = 0.0;
+
+  public static get isHitStop(): boolean {
+    return this.hitStopTimer > 0;
+  }
+
+  public static update(dt: number): void {
+    if (this.hitStopTimer > 0) {
+      this.hitStopTimer = Math.max(0, this.hitStopTimer - dt);
+    }
   }
 }
 
@@ -4168,10 +4150,10 @@ import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { EngineTime } from "../../core/engine/EngineTime";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
-  public static timeScale = 1.0;
 
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
@@ -4199,7 +4181,7 @@ export class GameDirectorSystem implements ISystem {
           this.activeCinematic = "PLAYER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.6;
-          GameDirectorSystem.timeScale = 0.2;
+          EngineTime.timeScale = 0.2;
 
           const tethers = this.context.stores.get<TetherComponent>("tether");
           const pTether = tethers.get(this.context.refs.player);
@@ -4224,7 +4206,7 @@ export class GameDirectorSystem implements ISystem {
           this.activeCinematic = "WEAVER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.875;
-          GameDirectorSystem.timeScale = 0.25;
+          EngineTime.timeScale = 0.25;
 
           this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.8,
@@ -4242,6 +4224,32 @@ export class GameDirectorSystem implements ISystem {
           );
           this.adrenalineTimer = this.ADRENALINE_SURGE_DURATION;
         }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        EngineTime.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        EngineTime.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
+        if (!payload.isWall) {
+          EngineTime.hitStopTimer = 0.04;
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        EngineTime.hitStopTimer = 0;
       })
     );
 
@@ -4289,7 +4297,7 @@ export class GameDirectorSystem implements ISystem {
       if (this.cinematicTimer >= this.maxCinematicSimTime) {
         const finishedCinematic = this.activeCinematic;
         this.activeCinematic = "NONE";
-        GameDirectorSystem.timeScale = 1.0;
+        EngineTime.timeScale = 1.0;
 
         if (finishedCinematic === "PLAYER_DEATH") {
           console.log(
@@ -4309,9 +4317,9 @@ export class GameDirectorSystem implements ISystem {
       if (this.adrenalineTimer > 0) {
         this.adrenalineTimer -= dt;
         const progress = Math.max(0, this.adrenalineTimer / this.ADRENALINE_SURGE_DURATION);
-        GameDirectorSystem.timeScale = 0.45 + (1.0 - progress) * 0.55;
+        EngineTime.timeScale = 0.45 + (1.0 - progress) * 0.55;
       } else {
-        GameDirectorSystem.timeScale = 1.0;
+        EngineTime.timeScale = 1.0;
       }
     }
   }
@@ -4322,7 +4330,7 @@ export class GameDirectorSystem implements ISystem {
     this.activeCinematic = "NONE";
     this.cinematicTimer = 0.0;
     this.adrenalineTimer = 0.0;
-    GameDirectorSystem.timeScale = 1.0;
+    EngineTime.timeScale = 1.0;
 
     this.spawner.spawnWeaver(this.context.refs.weaver);
     this.spawner.spawnPlayer(this.context.refs.player);
