@@ -33,6 +33,7 @@ import {
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
 import { CollisionResolutionSystem } from "../physics/systems/CollisionResolutionSystem";
+import { EnvironmentClampingSystem } from "../physics/systems/EnvironmentClampingSystem";
 import { VisualRegistry } from "../visual/scene/VisualRegistry";
 import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
@@ -149,6 +150,7 @@ export class CompositionRoot {
 
     const physicsSystem = new HavokPhysicsSystem(context);
     const kinematicIntegrationSystem = new KinematicIntegrationSystem(context);
+    const environmentClampingSystem = new EnvironmentClampingSystem(context);
     const collisionResolutionSystem = new CollisionResolutionSystem(context);
 
     const playerKinematics = new PlayerKinematicsSystem(context);
@@ -184,6 +186,7 @@ export class CompositionRoot {
     systemManager.register(renderSystem);
     systemManager.register(physicsSystem);
     systemManager.register(kinematicIntegrationSystem);
+    systemManager.register(environmentClampingSystem);
     systemManager.register(collisionResolutionSystem);
     systemManager.register(inputSystem);
     systemManager.register(weaverBrain);
