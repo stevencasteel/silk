@@ -50,10 +50,12 @@ import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem"
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
 import { TutorialSystem } from "../gameplay/player/TutorialSystem";
+import { TetherStrainSystem } from "../gameplay/player/TetherStrainSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
 import { VisualStateDressingSystem } from "../visual/systems/VisualStateDressingSystem";
+import { LegJointAnimationSystem } from "../visual/systems/LegJointAnimationSystem";
 import { CombatSystem } from "../gameplay/combat/CombatSystem";
 import { HealthSystem } from "../gameplay/combat/HealthSystem";
 import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
@@ -152,6 +154,7 @@ export class CompositionRoot {
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
+    const strainCollision = new TetherStrainSystem(context);
     const wallBugSystem = new WallBugSystem(context);
     const tutorialSystem = new TutorialSystem(context);
 
@@ -159,6 +162,7 @@ export class CompositionRoot {
     const interpolationSystem = new EntityInterpolationSystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
+    const legAnimationSystem = new LegJointAnimationSystem(context);
     const inputSystem = new PlayerInputSystem(context);
     const spawner = new EntitySpawnerSystem(context);
 
@@ -188,11 +192,13 @@ export class CompositionRoot {
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
+    systemManager.register(strainCollision);
     systemManager.register(wallBugSystem);
     systemManager.register(tutorialSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
     systemManager.register(dressingSystem);
+    systemManager.register(legAnimationSystem);
     systemManager.register(tetherVisualizer);
     systemManager.register(cameraSystem);
     systemManager.register(combatSystem);

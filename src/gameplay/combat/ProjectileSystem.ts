@@ -5,13 +5,10 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
 import {
-  HealthComponent,
-  InvulnerabilityComponent,
-  WeaverAIComponent,
-  TraversalStateComponent,
   TransformComponent,
   KinematicVelocityComponent,
-  ProjectileComponent
+  ProjectileComponent,
+  WeaverAIComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
@@ -216,19 +213,8 @@ export class ProjectileSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const healthStore = this.context.stores.get<HealthComponent>("health");
-    const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
-    const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const projStore = this.context.stores.get<ProjectileComponent>("projectile");
-
-    const pHealth = healthStore.get(this.context.refs.player);
-    const wHealth = healthStore.get(this.context.refs.weaver);
-    const pIframe = iframeStore.get(this.context.refs.player);
-    const pTrav = traversalStore.get(this.context.refs.player);
-
-    if (!pHealth || !wHealth || !pIframe) return;
-    if (pHealth.current <= 0 || wHealth.current <= 0) return;
 
     this.noiseTime += dt;
     if (this.projMatActive) {
@@ -244,9 +230,6 @@ export class ProjectileSystem implements ISystem {
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
-    const pMesh = this.context.visualRegistry.getTransformNode(
-      this.context.refs.player
-    ) as BABYLON.AbstractMesh;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const projId = this.projectileEntities[i];
@@ -259,8 +242,6 @@ export class ProjectileSystem implements ISystem {
       const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
       if (!trans || !mesh) continue;
 
-      // Projectile translation is now cleanly handled by KinematicIntegrationSystem.
-      // We only execute programmatic scroll-tracking of stuck wall projectiles and intersection triggers.
       if (p.isStuckOnWall) {
         trans.y -= currentScrollSpeed * dt;
         mesh.position.y = trans.y;
@@ -270,51 +251,6 @@ export class ProjectileSystem implements ISystem {
             mesh.position,
             mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
           );
-        }
-      } else {
-        // Evaluate dynamic collisions against player capsule mesh bounds
-        if (pMesh && mesh.intersectsMesh(pMesh, false)) {
-          const isLaunching = pTrav && pTrav.state === "LAUNCHING";
-          const hasIframe = pIframe.timeRemaining > 0;
-
-          if (isLaunching) {
-            const dx = trans.x - pMesh.position.x;
-            const dy = trans.y - pMesh.position.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-
-            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-              x: trans.x,
-              y: trans.y,
-              isWall: false
-            });
-            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
-              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
-              dirX: dx / dist,
-              dirY: dy / dist
-            });
-            this.recycleProjectile(projId, p);
-            continue;
-          } else if (!hasIframe) {
-            this.context.commands.dispatch({
-              type: "DAMAGE_REQUEST",
-              targetId: this.context.refs.player,
-              amount: 1,
-              source: "PROJECTILE"
-            });
-
-            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-              x: trans.x,
-              y: trans.y,
-              isWall: false
-            });
-            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-            });
-            this.recycleProjectile(projId, p);
-            continue;
-          }
         }
       }
 
@@ -328,7 +264,7 @@ export class ProjectileSystem implements ISystem {
     }
   }
 
-  private recycleProjectile(projId: EntityId, p: ProjectileComponent): void {
+  public recycleProjectile(projId: EntityId, p: ProjectileComponent): void {
     if (!p) return;
     p.isActive = false;
     p.isStuck = false;
