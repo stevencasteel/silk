@@ -88,10 +88,24 @@ export interface TraversalStateComponent {
   wallDir: number;
   launchTimer: number;
   launchPower: number;
+  stickyEntityId?: number;
+  stickyWallX?: number;
+  stickyWallYOffset?: number;
 }
 
 export interface WeaverTraversalComponent {
   isGrounded: boolean;
   isWallClinging: boolean;
   wallNormalX: number;
+}
+
+export interface WallBugComponent {
+  state: "CRAWLING_DOWN" | "INACTIVE";
+  timer: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  stayDuration: number;
 }

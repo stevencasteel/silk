@@ -19,7 +19,8 @@ import {
   WeaverTag,
   TraversalStateComponent,
   InvulnerabilityComponent,
-  WeaverTraversalComponent
+  WeaverTraversalComponent,
+  WallBugComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { VisualRegistry } from "../visual/scene/VisualRegistry";
@@ -35,6 +36,7 @@ import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
+import { WallBugSystem } from "../gameplay/player/WallBugSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
@@ -68,6 +70,7 @@ export class CompositionRoot {
     const traversal = new ComponentStore<TraversalStateComponent>();
     const iframes = new ComponentStore<InvulnerabilityComponent>();
     const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
+    const wallBugs = new ComponentStore<WallBugComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -83,6 +86,7 @@ export class CompositionRoot {
     world.registerStore(traversal);
     world.registerStore(iframes);
     world.registerStore(weaverTraversal);
+    world.registerStore(wallBugs);
     world.registerStore(playerTags);
     world.registerStore(weaverTags);
 
@@ -97,6 +101,7 @@ export class CompositionRoot {
     storeContainer.register("traversal", traversal);
     storeContainer.register("iframe", iframes);
     storeContainer.register("weaverTraversal", weaverTraversal);
+    storeContainer.register("wallBug", wallBugs);
     storeContainer.register("playerTag", playerTags);
     storeContainer.register("weaverTag", weaverTags);
 
@@ -124,6 +129,7 @@ export class CompositionRoot {
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
+    const wallBugSystem = new WallBugSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
     const interpolationSystem = new EntityInterpolationSystem(context);
@@ -153,6 +159,7 @@ export class CompositionRoot {
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
+    systemManager.register(wallBugSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
     systemManager.register(dressingSystem);

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 12:32:47 PM
+ [SYSTEM] Generated: 5/28/2026, 1:00:32 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -84,7 +84,8 @@
 │   │   │   ├── PlayerAnimationSystem.ts
 │   │   │   ├── PlayerInputSystem.ts
 │   │   │   ├── PlayerKinematicsSystem.ts
-│   │   │   └── VerticalBoundarySystem.ts
+│   │   │   ├── VerticalBoundarySystem.ts
+│   │   │   └── WallBugSystem.ts
 │   │   ├── weaver/
 │   │   │   ├── states/
 │   │   │   │   ├── WeaverAscendingState.ts
@@ -358,7 +359,7 @@ protocol based on scope:
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.3 (Shatter Extraction & De-monolithization Refactor)
+Version: 1.4 (Fling Invulnerability & State Alignment Update)
 Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
 Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
 Architecture: Strict Custom ECS (Entity Component System)
@@ -415,8 +416,14 @@ SILK starts in the vertical portrait arena immediately without title screens.
 ===============================================================================
 3. COMBAT & WEAVER AI STATE MACHINE
 ===============================================================================
-- PLAYER OFFENSE (FLING ATTACKS):
-  Impacts Weaver while LAUNCHING with >= 80% power.
+- PLAYER OFFENSE & COUNTER-PLAY (FLING ATTACKS & PROJECTILE DESTRUCTION):
+  * Fling Attacks: Impacts Weaver while LAUNCHING with >= 80% power.
+  * Projectile Smash: The player is invulnerable to web shot projectile damage 
+    during a tension-driven fling/launch (LAUNCHING state). Colliding with a web 
+    projectile in this state immediately destroys (recycles) the projectile, 
+    triggering satisfying impact particle splats and a minor camera shake without 
+    inflicting any damage. Standard post-damage iframes allow projectiles to pass 
+    through safely.
 - WEAVER OFFENSE (CONTACT DAMAGE & PROJECTILES):
   Weaver damages player via direct contact while DASHING, or by firing 
   object-pooled kinematic Web Projectiles (managed by ProjectileSystem).
@@ -424,11 +431,14 @@ SILK starts in the vertical portrait arena immediately without title screens.
 - WEAVER STATE MACHINE:
   The state machine is evaluated by WeaverBrainSystem, which delegates runtime 
   updates to isolated single-responsibility state classes:
-  1. SWEEPING (WeaverSweepingState - Red): Dormant patrol. Fires projectiles.
-  2. DASHING (WeaverDashingState - Orange/Red/White): Triggered by damage. 
-     Prep, Thrust, and Recover sub-phases.
-  3. RETURNING (WeaverReturningState - Gray): Ascends back to patrol line.
-  4. DEFEATED (WeaverDefeatedState - Dark): Triggers 2-Layer procedural shatter.
+  1. PATROLLING (WeaverPatrollingState - Silver/Yellow): Dormant patrol on the ceiling. 
+     Fires telegraph-based web projectiles.
+  2. STRIKING (WeaverStrikingState - Sulfur Yellow/Pink): Triggered by taking damage. 
+     Consists of Prep (strobe/shiver), Thrust (high-speed homing dash), and Recover phases.
+  3. ASCENDING (WeaverAscendingState - Pink): Ascends vertically back to the ceiling 
+     patrol line after strikes are finished.
+  4. DEFEATED (WeaverDefeatedState - Saturated Black): Triggers on 0 HP. Commences the 
+     dual-layer procedural shatter cinematic.
 
 ===============================================================================
 4. AUDIO-VISUAL JUICE & SPECTACLE
@@ -1067,7 +1077,8 @@ import {
   WeaverTag,
   TraversalStateComponent,
   InvulnerabilityComponent,
-  WeaverTraversalComponent
+  WeaverTraversalComponent,
+  WallBugComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { VisualRegistry } from "../visual/scene/VisualRegistry";
@@ -1083,6 +1094,7 @@ import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
+import { WallBugSystem } from "../gameplay/player/WallBugSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
@@ -1116,6 +1128,7 @@ export class CompositionRoot {
     const traversal = new ComponentStore<TraversalStateComponent>();
     const iframes = new ComponentStore<InvulnerabilityComponent>();
     const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
+    const wallBugs = new ComponentStore<WallBugComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1131,6 +1144,7 @@ export class CompositionRoot {
     world.registerStore(traversal);
     world.registerStore(iframes);
     world.registerStore(weaverTraversal);
+    world.registerStore(wallBugs);
     world.registerStore(playerTags);
     world.registerStore(weaverTags);
 
@@ -1145,6 +1159,7 @@ export class CompositionRoot {
     storeContainer.register("traversal", traversal);
     storeContainer.register("iframe", iframes);
     storeContainer.register("weaverTraversal", weaverTraversal);
+    storeContainer.register("wallBug", wallBugs);
     storeContainer.register("playerTag", playerTags);
     storeContainer.register("weaverTag", weaverTags);
 
@@ -1172,6 +1187,7 @@ export class CompositionRoot {
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
+    const wallBugSystem = new WallBugSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
     const interpolationSystem = new EntityInterpolationSystem(context);
@@ -1201,6 +1217,7 @@ export class CompositionRoot {
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
+    systemManager.register(wallBugSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
     systemManager.register(dressingSystem);
@@ -2356,12 +2373,26 @@ export interface TraversalStateComponent {
   wallDir: number;
   launchTimer: number;
   launchPower: number;
+  stickyEntityId?: number;
+  stickyWallX?: number;
+  stickyWallYOffset?: number;
 }
 
 export interface WeaverTraversalComponent {
   isGrounded: boolean;
   isWallClinging: boolean;
   wallNormalX: number;
+}
+
+export interface WallBugComponent {
+  state: "CRAWLING_DOWN" | "INACTIVE";
+  timer: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  stayDuration: number;
 }
 
 
@@ -4172,7 +4203,8 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   HealthComponent,
   InvulnerabilityComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  TraversalStateComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
@@ -4310,10 +4342,12 @@ export class ProjectileSystem implements ISystem {
   public update(dt: number): void {
     const healthStore = this.context.stores.get<HealthComponent>("health");
     const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
+    const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
 
     const pHealth = healthStore.get(this.context.refs.player);
     const wHealth = healthStore.get(this.context.refs.weaver);
     const pIframe = iframeStore.get(this.context.refs.player);
+    const pTrav = traversalStore.get(this.context.refs.player);
 
     if (!pHealth || !wHealth || !pIframe) return;
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
@@ -4360,26 +4394,43 @@ export class ProjectileSystem implements ISystem {
           });
         }
 
-        if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
+        if (!p.isStuck && pMesh) {
           if (p.mesh.intersectsMesh(pMesh, false)) {
-            this.context.commands.dispatch({
-              type: "DAMAGE_REQUEST",
-              targetId: this.context.refs.player,
-              amount: 1,
-              source: "PROJECTILE"
-            });
+            const isLaunching = pTrav && pTrav.state === "LAUNCHING";
+            const hasIframe = pIframe.timeRemaining > 0;
 
-            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-              x: p.mesh.position.x,
-              y: p.mesh.position.y,
-              isWall: false
-            });
-            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-            });
-            this.recycleProjectile(p);
-            continue;
+            if (isLaunching) {
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: p.mesh.position.x,
+                y: p.mesh.position.y,
+                isWall: false
+              });
+              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.5,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 0.5
+              });
+              this.recycleProjectile(p);
+              continue;
+            } else if (!hasIframe) {
+              this.context.commands.dispatch({
+                type: "DAMAGE_REQUEST",
+                targetId: this.context.refs.player,
+                amount: 1,
+                source: "PROJECTILE"
+              });
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: p.mesh.position.x,
+                y: p.mesh.position.y,
+                isWall: false
+              });
+              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+              this.recycleProjectile(p);
+              continue;
+            }
           }
         }
       }
@@ -5985,7 +6036,8 @@ import {
   TransformComponent,
   InputIntentComponent,
   HealthComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
@@ -6199,13 +6251,91 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const reelConfig = GAMEPLAY_TUNING.REEL;
 
     const scene = this.context.visualRegistry.getScene();
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_POS.y;
     const cameraY = scene && scene.activeCamera ? scene.activeCamera.position.y : defaultCameraY;
     const cameraYOffset = cameraY - defaultCameraY;
 
-    if (trav.state === "WALL_SLIDING") {
+    // --- BRANCH 1: STICKING TO A DESCENT COLUMN BUG ---
+    if (trav.state === "WALL_SLIDING" && trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+      const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+      const bug = bugStore.get(trav.stickyEntityId);
+      const bugTransStore = this.context.stores.get<TransformComponent>("transform");
+      const bugTrans = bugTransStore.get(trav.stickyEntityId);
+
+      if (!bug || bug.state === "INACTIVE" || !bugTrans || trav.stickyWallYOffset === undefined) {
+        trav.state = "AIRBORNE";
+        trav.stickyEntityId = -1;
+        trav.wallDir = 0;
+        this.wasWallSliding = false;
+      } else {
+        const stillPressingIn = input.x === trav.wallDir;
+        if (!stillPressingIn) {
+          this.triggerFling(vel, tether, target, trav);
+          this.wasWallSliding = false;
+          this.lastCameraYOffset = cameraYOffset;
+          return;
+        }
+
+        const halfW = bug.width / 2;
+        target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+
+        // Slow, controlled drift relative to body to simulate clinging and riding
+        const slideSpeed = 1.35; 
+        trav.stickyWallYOffset -= slideSpeed * dt;
+
+        const finalY = bugTrans.y + trav.stickyWallYOffset;
+
+        // Auto-elongate string dynamically to match vertical drag on crawling bug
+        const dx = target.x - tether.anchorX;
+        const dy = finalY - tether.anchorY;
+        const requiredLength = Math.sqrt(dx * dx + dy * dy);
+
+        if (input.y <= 0 && requiredLength > tether.maxLength) {
+          const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+          if (tether.maxLength < maxAllowed) {
+            tether.maxLength = Math.min(maxAllowed, requiredLength);
+            tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
+          }
+        }
+        target.y = finalY;
+
+        vel.x = 0;
+        vel.y = -(currentScrollSpeed + bug.speed + slideSpeed);
+
+        // Scale passive tension delta by ratio: 1.0 + (bug speed / background scroll speed)
+        const speedScale = 1.0 + (bug.speed / Math.max(1.0, currentScrollSpeed));
+        const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
+        tether.tension += tensionDelta * dt;
+
+        const TENSION_STRETCH_RANGE = 2.0;
+        const stretch = Math.max(0, requiredLength - tether.maxLength);
+        const stretchRatio = stretch / TENSION_STRETCH_RANGE;
+        tether.tension += stretchRatio * dt;
+
+        const halfH = bug.height / 2;
+        if (Math.abs(trav.stickyWallYOffset) > halfH + ARENA_CONFIG.ENTITY.PLAYER_RADIUS) {
+          // Player drifted off bottom limit
+          trav.state = "AIRBORNE";
+          trav.stickyEntityId = -1;
+          trav.wallDir = 0;
+          this.wasWallSliding = false;
+        } else {
+          this.wasWallSliding = true;
+          if (input.jump) {
+            this.triggerFling(vel, tether, target, trav);
+            input.jump = false;
+          }
+        }
+      }
+      this.lastCameraYOffset = cameraYOffset;
+      return;
+    }
+
+    // --- BRANCH 2: SLIDING ON SOLID PERIMETER GLASS WALLS ---
+    if (trav.state === "WALL_SLIDING" && (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)) {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (stillPressingIn === false) {
@@ -6249,6 +6379,65 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
+    // --- BRANCH 3: CHECK COLLISION INITIATION ---
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    const bugTransStore = this.context.stores.get<TransformComponent>("transform");
+    if (bugStore) {
+      for (const [bugId, bug] of bugStore.entries()) {
+        if (bug.state === "INACTIVE") continue;
+        const bugTrans = bugTransStore.get(bugId);
+        if (!bugTrans) continue;
+
+        const halfW = bug.width / 2;
+        const halfH = bug.height / 2;
+
+        const distToBugX = nextX - bugTrans.x;
+        const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
+
+        if (Math.abs(distToBugX) <= contactDist) {
+          if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
+            const bugWallDir = distToBugX > 0 ? -1 : 1;
+            const pressingIn = input.x === bugWallDir;
+
+            if (pressingIn) {
+              const transforms = this.context.stores.get<TransformComponent>("transform");
+              const pTrans = transforms.get(this.context.refs.player);
+              if (pTrans) {
+                if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+                if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+                if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+                pTrans.scaleVelX += -10.0;
+                pTrans.scaleVelY += 12.0;
+                pTrans.scaleVelZ += -2.0;
+              }
+
+              trav.state = "WALL_SLIDING";
+              trav.wallDir = bugWallDir;
+              trav.wallNormalX = -bugWallDir;
+              trav.wallNormalY = 0;
+              trav.stickyEntityId = bugId;
+              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+              trav.stickyWallYOffset = nextY - bugTrans.y;
+
+              target.x = trav.stickyWallX;
+              target.y = nextY;
+              vel.x = 0;
+              vel.y = -(currentScrollSpeed + bug.speed + 6.2);
+              this.wasWallSliding = true;
+
+              this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+                x: target.x,
+                y: target.y,
+                wallNormalX: -bugWallDir
+              });
+              this.lastCameraYOffset = cameraYOffset;
+              return;
+            }
+          }
+        }
+      }
+    }
+
     if (wallDir !== 0) {
       const pressingIn = input.x === wallDir;
 
@@ -6272,6 +6461,7 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.wallDir = wallDir;
         trav.wallNormalX = -wallDir;
         trav.wallNormalY = 0;
+        trav.stickyEntityId = -1;
 
         target.x = wallDir * this.WALL_LIMIT_X;
 
@@ -6332,6 +6522,8 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.tension = 0.0;
     const tuning = GAMEPLAY_TUNING.PLAYER;
     const reelConfig = GAMEPLAY_TUNING.REEL;
+
+    trav.stickyEntityId = -1;
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
@@ -6415,14 +6607,16 @@ export class PlayerKinematicsSystem implements ISystem {
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
     if (trav.state === "WALL_SLIDING") {
-      const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+      // Passive tension delta is calculated inside Branch 1 for active column bugs
+      if (trav.stickyEntityId === undefined || trav.stickyEntityId === -1) {
+        const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+        tether.tension += tensionDelta * dt;
 
-      tether.tension += tensionDelta * dt;
-
-      const TENSION_STRETCH_RANGE = 2.0;
-      const stretch = Math.max(0, tether.currentLength - tether.maxLength);
-      const stretchRatio = stretch / TENSION_STRETCH_RANGE;
-      tether.tension += stretchRatio * dt;
+        const TENSION_STRETCH_RANGE = 2.0;
+        const stretch = Math.max(0, tether.currentLength - tether.maxLength);
+        const stretchRatio = stretch / TENSION_STRETCH_RANGE;
+        tether.tension += stretchRatio * dt;
+      }
     } else {
       tether.tension -= GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt;
     }
@@ -6556,6 +6750,243 @@ export class VerticalBoundarySystem implements ISystem {
       amplitude: 1.5,
       duration: 0.7
     });
+  }
+}
+
+
+
+● ./src/gameplay/player/WallBugSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { TransformComponent, WallBugComponent } from "../../core/ecs/Components";
+import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+import { GameEvent } from "../../core/events/GameEvents";
+import * as BABYLON from "@babylonjs/core";
+
+export class WallBugSystem implements ISystem {
+  readonly phase = SystemPhase.Gameplay;
+  readonly initPhase = InitPhase.Gameplay;
+
+  private spawnTimer = 0.0;
+  private readonly spawnInterval = 10.0; // Spawns every 10 seconds
+  private bugMaterial: BABYLON.PBRMaterial | null = null;
+  private eyeMaterial: BABYLON.StandardMaterial | null = null;
+  private unsubscribes: (() => void)[] = [];
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    const scene = this.context.visualRegistry.getScene();
+    if (!scene) return;
+
+    this.bugMaterial = new BABYLON.PBRMaterial("wallBugCarapace", scene);
+    this.bugMaterial.metallic = 0.95;
+    this.bugMaterial.roughness = 0.12;
+    this.bugMaterial.albedoColor = new BABYLON.Color3(0.18, 0.18, 0.22);
+    this.bugMaterial.emissiveColor = new BABYLON.Color3(0.85, 0.35, 0.0);
+    this.bugMaterial.emissiveIntensity = 1.25;
+
+    this.eyeMaterial = new BABYLON.StandardMaterial("wallBugEyes", scene);
+    this.eyeMaterial.emissiveColor = new BABYLON.Color3(1.0, 0.55, 0.0);
+    this.eyeMaterial.disableLighting = true;
+
+    // Trigger instant spawn on game start
+    this.spawnTimer = this.spawnInterval;
+
+    this.unsubscribes.push(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.clearAllBugs();
+        // Trigger instant spawn on game reset
+        this.spawnTimer = this.spawnInterval;
+      })
+    );
+  }
+
+  public update(dt: number): void {
+    const scene = this.context.visualRegistry.getScene();
+    if (!scene) return;
+
+    this.spawnTimer += dt;
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    const activeCount = Array.from(bugStore.entries()).filter(([, b]) => b.state !== "INACTIVE").length;
+
+    if (this.spawnTimer >= this.spawnInterval && activeCount < 2) {
+      this.spawnTimer = 0.0;
+      this.spawnBug();
+    }
+
+    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
+    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
+
+    for (const [id, bug] of bugStore.entries()) {
+      if (bug.state === "INACTIVE") continue;
+
+      const trans = transformStore.get(id);
+      if (!trans) continue;
+
+      bug.timer += dt;
+
+      // Consistent downward crawl
+      const extraCrawlSpeed = 3.8; 
+      bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
+
+      if (bug.y < cameraY - 24.0) {
+        bug.state = "INACTIVE";
+        this.context.world.destroy(id);
+        this.context.visualRegistry.unregisterTransformNode(id);
+        continue;
+      }
+
+      trans.x = bug.x;
+      trans.y = bug.y;
+
+      const node = this.context.visualRegistry.getTransformNode(id);
+      if (node) {
+        const phase = performance.now() * 0.001 * 9.5; 
+        node.getChildren().forEach((child) => {
+          if (child.name.startsWith("leg_joint_left")) {
+            const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
+            const childTrans = child as BABYLON.TransformNode;
+            childTrans.rotation.z = -0.28 + Math.sin(phase + index) * 0.25;
+          } else if (child.name.startsWith("leg_joint_right")) {
+            const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
+            const childTrans = child as BABYLON.TransformNode;
+            childTrans.rotation.z = 0.28 - Math.sin(phase + index) * 0.25;
+          }
+        });
+      }
+    }
+  }
+
+  private spawnBug(): void {
+    const scene = this.context.visualRegistry.getScene();
+    if (!scene) return;
+
+    const id = this.context.world.create();
+    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
+
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const startX = side * 6.2;
+    const startY = cameraY + 22.0; // Enters from top
+
+    this.context.stores.get<TransformComponent>("transform").add(id, {
+      x: startX,
+      y: startY,
+      z: 0,
+      qx: 0,
+      qy: 0,
+      qz: 0,
+      qw: 1,
+      prevX: startX,
+      prevY: startY,
+      prevZ: 0,
+      prevQx: 0,
+      prevQy: 0,
+      prevQz: 0,
+      prevQw: 1
+    });
+
+    this.context.stores.get<WallBugComponent>("wallBug").add(id, {
+      state: "CRAWLING_DOWN",
+      timer: 0.0,
+      x: startX,
+      y: startY,
+      width: 1.15,
+      height: 7.2,
+      speed: 3.8,
+      stayDuration: 0.0
+    });
+
+    const bugRoot = new BABYLON.TransformNode(`wall_bug_root_${id}`, scene);
+
+    const capsule = BABYLON.MeshBuilder.CreateCapsule(
+      `wall_bug_capsule_${id}`,
+      { height: 7.2, radius: 0.58, subdivisions: 2 },
+      scene
+    );
+    capsule.material = this.bugMaterial;
+    capsule.parent = bugRoot;
+
+    for (let i = 0; i < 5; i++) {
+      const ring = BABYLON.MeshBuilder.CreateTorus(
+        `ring_${id}_${i}`,
+        { diameter: 1.2, thickness: 0.1, tessellation: 8 },
+        scene
+      );
+      ring.position.y = -2.6 + i * 1.3;
+      ring.rotation.x = Math.PI / 2;
+      ring.material = this.bugMaterial;
+      ring.parent = bugRoot;
+    }
+
+    const eyeL = BABYLON.MeshBuilder.CreateSphere(`eyeL_${id}`, { diameter: 0.18 }, scene);
+    eyeL.position.set(-0.25, -3.1, -0.42);
+    eyeL.material = this.eyeMaterial;
+    eyeL.parent = bugRoot;
+
+    const eyeR = BABYLON.MeshBuilder.CreateSphere(`eyeR_${id}`, { diameter: 0.18 }, scene);
+    eyeR.position.set(0.25, -3.1, -0.42);
+    eyeR.material = this.eyeMaterial;
+    eyeR.parent = bugRoot;
+
+    for (let leg = 0; leg < 4; leg++) {
+      const legY = -2.0 + leg * 1.35;
+
+      // Left Legs
+      const jointL = new BABYLON.TransformNode(`leg_joint_left_${id}_${leg}`, scene);
+      jointL.position.set(-0.45, legY, 0);
+      jointL.parent = bugRoot;
+
+      const coxaL = BABYLON.MeshBuilder.CreateCylinder(
+        `coxaL_${id}_${leg}`,
+        { height: 0.9, diameterTop: 0.12, diameterBottom: 0.08, tessellation: 6 },
+        scene
+      );
+      coxaL.position.set(-0.45, 0, 0);
+      coxaL.rotation.z = Math.PI / 2;
+      coxaL.material = this.bugMaterial;
+      coxaL.parent = jointL;
+
+      // Right Legs
+      const jointR = new BABYLON.TransformNode(`leg_joint_right_${id}_${leg}`, scene);
+      jointR.position.set(0.45, legY, 0);
+      jointR.parent = bugRoot;
+
+      const coxaR = BABYLON.MeshBuilder.CreateCylinder(
+        `coxaR_${id}_${leg}`,
+        { height: 0.9, diameterTop: 0.12, diameterBottom: 0.08, tessellation: 6 },
+        scene
+      );
+      coxaR.position.set(0.45, 0, 0);
+      coxaR.rotation.z = -Math.PI / 2;
+      coxaR.material = this.bugMaterial;
+      coxaR.parent = jointR;
+    }
+
+    bugRoot.position.set(startX, startY, 0);
+    this.context.visualRegistry.registerTransformNode(id, bugRoot);
+  }
+
+  private clearAllBugs(): void {
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    for (const [id] of bugStore.entries()) {
+      bugStore.remove(id);
+      this.context.world.destroy(id);
+      this.context.visualRegistry.unregisterTransformNode(id);
+    }
+    this.spawnTimer = 0.0;
+  }
+
+  public dispose(): void {
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
+    this.clearAllBugs();
+
+    if (this.bugMaterial) this.bugMaterial.dispose();
+    if (this.eyeMaterial) this.eyeMaterial.dispose();
   }
 }
 

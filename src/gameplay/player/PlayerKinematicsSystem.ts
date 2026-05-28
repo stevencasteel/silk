@@ -10,7 +10,8 @@ import {
   TransformComponent,
   InputIntentComponent,
   HealthComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
@@ -224,13 +225,91 @@ export class PlayerKinematicsSystem implements ISystem {
     const hitLeft = nextX < -this.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const reelConfig = GAMEPLAY_TUNING.REEL;
 
     const scene = this.context.visualRegistry.getScene();
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_POS.y;
     const cameraY = scene && scene.activeCamera ? scene.activeCamera.position.y : defaultCameraY;
     const cameraYOffset = cameraY - defaultCameraY;
 
-    if (trav.state === "WALL_SLIDING") {
+    // --- BRANCH 1: STICKING TO A DESCENT COLUMN BUG ---
+    if (trav.state === "WALL_SLIDING" && trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+      const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+      const bug = bugStore.get(trav.stickyEntityId);
+      const bugTransStore = this.context.stores.get<TransformComponent>("transform");
+      const bugTrans = bugTransStore.get(trav.stickyEntityId);
+
+      if (!bug || bug.state === "INACTIVE" || !bugTrans || trav.stickyWallYOffset === undefined) {
+        trav.state = "AIRBORNE";
+        trav.stickyEntityId = -1;
+        trav.wallDir = 0;
+        this.wasWallSliding = false;
+      } else {
+        const stillPressingIn = input.x === trav.wallDir;
+        if (!stillPressingIn) {
+          this.triggerFling(vel, tether, target, trav);
+          this.wasWallSliding = false;
+          this.lastCameraYOffset = cameraYOffset;
+          return;
+        }
+
+        const halfW = bug.width / 2;
+        target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+
+        // Slow, controlled drift relative to body to simulate clinging and riding
+        const slideSpeed = 1.35; 
+        trav.stickyWallYOffset -= slideSpeed * dt;
+
+        const finalY = bugTrans.y + trav.stickyWallYOffset;
+
+        // Auto-elongate string dynamically to match vertical drag on crawling bug
+        const dx = target.x - tether.anchorX;
+        const dy = finalY - tether.anchorY;
+        const requiredLength = Math.sqrt(dx * dx + dy * dy);
+
+        if (input.y <= 0 && requiredLength > tether.maxLength) {
+          const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+          if (tether.maxLength < maxAllowed) {
+            tether.maxLength = Math.min(maxAllowed, requiredLength);
+            tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
+          }
+        }
+        target.y = finalY;
+
+        vel.x = 0;
+        vel.y = -(currentScrollSpeed + bug.speed + slideSpeed);
+
+        // Scale passive tension delta by ratio: 1.0 + (bug speed / background scroll speed)
+        const speedScale = 1.0 + (bug.speed / Math.max(1.0, currentScrollSpeed));
+        const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
+        tether.tension += tensionDelta * dt;
+
+        const TENSION_STRETCH_RANGE = 2.0;
+        const stretch = Math.max(0, requiredLength - tether.maxLength);
+        const stretchRatio = stretch / TENSION_STRETCH_RANGE;
+        tether.tension += stretchRatio * dt;
+
+        const halfH = bug.height / 2;
+        if (Math.abs(trav.stickyWallYOffset) > halfH + ARENA_CONFIG.ENTITY.PLAYER_RADIUS) {
+          // Player drifted off bottom limit
+          trav.state = "AIRBORNE";
+          trav.stickyEntityId = -1;
+          trav.wallDir = 0;
+          this.wasWallSliding = false;
+        } else {
+          this.wasWallSliding = true;
+          if (input.jump) {
+            this.triggerFling(vel, tether, target, trav);
+            input.jump = false;
+          }
+        }
+      }
+      this.lastCameraYOffset = cameraYOffset;
+      return;
+    }
+
+    // --- BRANCH 2: SLIDING ON SOLID PERIMETER GLASS WALLS ---
+    if (trav.state === "WALL_SLIDING" && (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)) {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (stillPressingIn === false) {
@@ -274,6 +353,65 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
+    // --- BRANCH 3: CHECK COLLISION INITIATION ---
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    const bugTransStore = this.context.stores.get<TransformComponent>("transform");
+    if (bugStore) {
+      for (const [bugId, bug] of bugStore.entries()) {
+        if (bug.state === "INACTIVE") continue;
+        const bugTrans = bugTransStore.get(bugId);
+        if (!bugTrans) continue;
+
+        const halfW = bug.width / 2;
+        const halfH = bug.height / 2;
+
+        const distToBugX = nextX - bugTrans.x;
+        const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
+
+        if (Math.abs(distToBugX) <= contactDist) {
+          if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
+            const bugWallDir = distToBugX > 0 ? -1 : 1;
+            const pressingIn = input.x === bugWallDir;
+
+            if (pressingIn) {
+              const transforms = this.context.stores.get<TransformComponent>("transform");
+              const pTrans = transforms.get(this.context.refs.player);
+              if (pTrans) {
+                if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
+                if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
+                if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
+                pTrans.scaleVelX += -10.0;
+                pTrans.scaleVelY += 12.0;
+                pTrans.scaleVelZ += -2.0;
+              }
+
+              trav.state = "WALL_SLIDING";
+              trav.wallDir = bugWallDir;
+              trav.wallNormalX = -bugWallDir;
+              trav.wallNormalY = 0;
+              trav.stickyEntityId = bugId;
+              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+              trav.stickyWallYOffset = nextY - bugTrans.y;
+
+              target.x = trav.stickyWallX;
+              target.y = nextY;
+              vel.x = 0;
+              vel.y = -(currentScrollSpeed + bug.speed + 6.2);
+              this.wasWallSliding = true;
+
+              this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+                x: target.x,
+                y: target.y,
+                wallNormalX: -bugWallDir
+              });
+              this.lastCameraYOffset = cameraYOffset;
+              return;
+            }
+          }
+        }
+      }
+    }
+
     if (wallDir !== 0) {
       const pressingIn = input.x === wallDir;
 
@@ -297,6 +435,7 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.wallDir = wallDir;
         trav.wallNormalX = -wallDir;
         trav.wallNormalY = 0;
+        trav.stickyEntityId = -1;
 
         target.x = wallDir * this.WALL_LIMIT_X;
 
@@ -357,6 +496,8 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.tension = 0.0;
     const tuning = GAMEPLAY_TUNING.PLAYER;
     const reelConfig = GAMEPLAY_TUNING.REEL;
+
+    trav.stickyEntityId = -1;
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
@@ -440,14 +581,16 @@ export class PlayerKinematicsSystem implements ISystem {
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
     if (trav.state === "WALL_SLIDING") {
-      const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+      // Passive tension delta is calculated inside Branch 1 for active column bugs
+      if (trav.stickyEntityId === undefined || trav.stickyEntityId === -1) {
+        const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+        tether.tension += tensionDelta * dt;
 
-      tether.tension += tensionDelta * dt;
-
-      const TENSION_STRETCH_RANGE = 2.0;
-      const stretch = Math.max(0, tether.currentLength - tether.maxLength);
-      const stretchRatio = stretch / TENSION_STRETCH_RANGE;
-      tether.tension += stretchRatio * dt;
+        const TENSION_STRETCH_RANGE = 2.0;
+        const stretch = Math.max(0, tether.currentLength - tether.maxLength);
+        const stretchRatio = stretch / TENSION_STRETCH_RANGE;
+        tether.tension += stretchRatio * dt;
+      }
     } else {
       tether.tension -= GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt;
     }
