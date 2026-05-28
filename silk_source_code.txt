@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 5:09:23 PM
+ [SYSTEM] Generated: 5/28/2026, 5:23:01 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -7538,32 +7538,33 @@ export class WeaverStrikingState implements IWeaverState {
 ● ./src/index.css
 ────────────────────────────────────────────────────
 :root {
-  --bg-void: #050209;
-  --bg-surface: #0a0414;
-  --bg-elevated: #150626;
-  --border-subtle: rgba(255, 0, 127, 0.25);
-  --border-strong: #ff007f;
-  --text-main: #00f0ff;
-  --text-muted: #ff007f;
-  --accent-tension: #dffe00;
-  --accent-danger: #ff007f;
-  --accent-success: #00f0ff;
+  --bg-void: rgb(5, 5, 6);
+  --bg-surface: rgb(14, 14, 17);
+  --bg-elevated: rgb(22, 22, 26);
+  --border-subtle: rgb(39, 39, 42);
+  --border-strong: rgb(63, 63, 70);
+  --text-main: rgb(244, 244, 245);
+  --text-muted: rgb(161, 161, 170);
+  --accent-tension: rgb(245, 158, 11);
+  --accent-danger: rgb(239, 68, 68);
+  --accent-success: rgb(16, 185, 129);
 
-  /* CHROME FLESH APOCRYPHA Palette Tokens */
-  --neon-pink: #ff007f;
-  --neon-cyan: #00f0ff;
-  --sulfur-yellow: #dffe00;
-  --deep-violet: #1a0033;
-  --neon-pink-glow: rgba(255, 0, 127, 0.45);
-  --neon-cyan-glow: rgba(0, 240, 255, 0.45);
-  --sulfur-yellow-glow: rgba(223, 254, 0, 0.45);
+  /* Neomorphic Design Tokens */
+  --void-bg: #07080b;
+  --surface-bg: #0c0e12;
+  --surface-elevated: #141820;
+  --surface-highlight: #1d222d;
+  --signal-green: #22c55e;
+  --signal-green-glow: rgba(34, 197, 94, 0.45);
+  --signal-red: #ef4444;
+  --signal-red-glow: rgba(239, 68, 68, 0.45);
+  --signal-yellow: #eab308;
+  --signal-yellow-glow: rgba(234, 179, 8, 0.45);
 
-  /* Frisket-masking linear sharp shadow styling */
-  --frisket-edge: 1px solid rgba(255, 255, 255, 0.95);
-  --shadow-light: -1px -1px 0px rgba(255, 255, 255, 0.2), inset 1px 1px 0px rgba(255, 255, 255, 0.1);
-  --shadow-dark: 8px 8px 24px rgba(0, 0, 0, 0.9);
-  --shadow-inset-light: inset -1px -1px 0px rgba(255, 255, 255, 0.15);
-  --shadow-inset-dark: inset 4px 4px 12px rgba(0, 0, 0, 0.95);
+  --shadow-light: -4px -4px 12px rgba(255, 255, 255, 0.03);
+  --shadow-dark: 6px 6px 18px rgba(0, 0, 0, 0.75);
+  --shadow-inset-light: inset -2px -2px 6px rgba(255, 255, 255, 0.01);
+  --shadow-inset-dark: inset 3px 3px 10px rgba(0, 0, 0, 0.9);
 }
 
 html,
@@ -7574,12 +7575,6 @@ body,
   width: 100vw;
   height: 100vh;
   background-color: var(--bg-void);
-  background-image: 
-    radial-gradient(at 10% 10%, rgba(26, 0, 51, 0.5) 0px, transparent 50%),
-    radial-gradient(at 90% 90%, rgba(255, 0, 127, 0.15) 0px, transparent 50%),
-    linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
   overflow: hidden;
   font-family: "SF Mono", Monaco, Consolas, "Courier New", monospace;
   -webkit-touch-callout: none;
@@ -7599,31 +7594,18 @@ body,
   z-index: 85;
 }
 
-/* Mechanical Cabinet Panels with Industrial Decal lines */
+/* Mechanical Cabinet Panels */
 .cabinet-header-panel {
   width: 100%;
-  height: 64px;
-  background: linear-gradient(180deg, #120024 0%, #06010c 100%);
-  border-bottom: 2px solid var(--neon-pink);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
+  height: 52px;
+  background: linear-gradient(180deg, #10121a 0%, #06080c 100%);
+  border-bottom: 2px solid #1c202d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
   box-sizing: border-box;
-  position: relative;
-}
-
-.cabinet-header-panel::after {
-  content: "CLASSIFIED // DECALS GRID APOCRYPHA [+] SYSTEM LEVEL 09";
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 6px;
-  letter-spacing: 0.3em;
-  color: rgba(0, 240, 255, 0.35);
-  font-weight: 900;
 }
 
 .header-left, .header-right {
@@ -7645,7 +7627,7 @@ body,
 .bezel-panel-label {
   font-size: 8px;
   font-weight: 900;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.2em;
   color: var(--text-muted);
   text-transform: uppercase;
 }
@@ -7653,50 +7635,48 @@ body,
 .bezel-panel-val {
   font-size: 10px;
   font-weight: bold;
-  text-shadow: 0 0 6px var(--neon-cyan-glow);
 }
 
 .warn-text {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.3em;
-  color: var(--sulfur-yellow);
-  text-shadow: 0 0 8px var(--sulfur-yellow-glow);
-  animation: pulse-glow-default 1.5s infinite alternate;
+  letter-spacing: 0.25em;
+  color: var(--text-muted);
+  animation: pulse-glow-default 2s infinite alternate;
 }
 
 @keyframes pulse-glow-default {
-  0% { opacity: 0.7; filter: brightness(0.9); }
-  100% { opacity: 1; filter: brightness(1.2); }
+  0% { opacity: 0.6; }
+  100% { opacity: 1; text-shadow: 0 0 4px rgba(255, 255, 255, 0.2); }
 }
 
 .warn-alert {
-  color: var(--neon-pink);
-  animation: pulse-glow-danger 0.3s infinite alternate;
+  color: var(--accent-danger);
+  animation: pulse-glow-danger 0.4s infinite alternate;
 }
 
 @keyframes pulse-glow-danger {
-  0% { opacity: 0.5; text-shadow: 0 0 2px var(--neon-pink); }
-  100% { opacity: 1; text-shadow: 0 0 14px var(--neon-pink-glow), 0 0 20px var(--neon-pink); }
+  0% { opacity: 0.4; }
+  100% { opacity: 1; text-shadow: 0 0 10px var(--accent-danger); }
 }
 
 .warn-launch {
-  color: var(--neon-cyan);
-  animation: pulse-glow-success 0.3s infinite alternate;
+  color: var(--accent-success);
+  animation: pulse-glow-success 0.4s infinite alternate;
 }
 
 @keyframes pulse-glow-success {
-  0% { opacity: 0.5; text-shadow: 0 0 2px var(--neon-cyan); }
-  100% { opacity: 1; text-shadow: 0 0 14px var(--neon-cyan-glow), 0 0 20px var(--neon-cyan); }
+  0% { opacity: 0.4; }
+  100% { opacity: 1; text-shadow: 0 0 10px var(--accent-success); }
 }
 
 /* Mechanical Cabinet Footer */
 .cabinet-footer-panel {
   width: 100%;
-  height: 60px;
-  background: linear-gradient(180deg, #06010c 0%, #120024 100%);
-  border-top: 2px solid var(--neon-cyan);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.85);
+  height: 48px;
+  background: linear-gradient(180deg, #06080c 0%, #10121a 100%);
+  border-top: 2px solid #1c202d;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7721,12 +7701,12 @@ body,
   display: flex;
   gap: 8px;
   font-weight: bold;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
 }
 
 .hud-bottom {
   position: absolute;
-  bottom: 74px;
+  bottom: 60px;
   left: 0;
   right: 0;
   display: flex;
@@ -7750,9 +7730,9 @@ body,
 }
 
 .hp-active {
-  background: var(--neon-cyan);
-  border-color: var(--neon-cyan);
-  box-shadow: 0 0 10px var(--neon-cyan-glow);
+  background: var(--accent-success);
+  border-color: var(--accent-success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
 }
 
 .hud-bar-track {
@@ -7768,7 +7748,7 @@ body,
   width: 100%;
   transform: scaleX(0);
   transform-origin: left;
-  background: var(--neon-pink);
+  background: var(--accent-danger);
   transition:
     transform 0.15s ease,
     background-color 0.15s ease;
@@ -7776,24 +7756,22 @@ body,
 
 .hud-hint {
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.15em;
   color: var(--text-muted);
   opacity: 0;
   transition: opacity 0.2s ease;
   text-align: center;
-  font-weight: 900;
-  background: rgba(10, 4, 20, 0.95);
-  border: 1px solid var(--neon-pink);
-  padding: 6px 16px;
-  border-radius: 2px;
-  box-shadow: 0 0 12px rgba(255, 0, 127, 0.25);
+  font-weight: 700;
+  background: rgba(5, 5, 6, 0.8);
+  padding: 4px 12px;
+  border-radius: 4px;
 }
 
-/* Master Overlay System with High-Gloss wet look */
+/* Master Overlay System */
 .overlay-root {
   position: absolute;
   inset: 0;
-  background: rgba(5, 2, 9, 0.0);
+  background: rgba(5, 5, 6, 0.0);
   backdrop-filter: blur(0px);
   display: flex;
   flex-direction: column;
@@ -7802,96 +7780,80 @@ body,
   z-index: 99;
   padding: 24px;
   box-sizing: border-box;
-  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
   pointer-events: auto !important;
 }
 
 .backdrop-wipe-active {
-  background: rgba(10, 4, 20, 0.94) !important;
-  backdrop-filter: blur(16px) !important;
+  background: rgba(5, 5, 6, 0.94) !important;
+  backdrop-filter: blur(12px) !important;
 }
 
-/* Frisket-Stencil sharp edge borders and airbrush glow backing */
+/* Elevated Neomorphic Modals */
 .overlay-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: clamp(24px, 5vmin, 44px) !important;
-  border-radius: 4px !important;
-  background: rgba(13, 3, 28, 0.98) !important;
+  border-radius: 20px !important;
+  background: rgba(12, 14, 18, 0.98) !important;
   width: 90% !important;
   max-width: 440px !important;
   box-sizing: border-box;
   text-align: center;
   transform: scale(0.9);
   opacity: 0;
-  animation: modal-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  border: 1px solid #ffffff;
-  box-shadow: 
-    -2px -2px 0px rgba(255, 255, 255, 0.95),
-    0 0 35px rgba(26, 0, 51, 0.8),
-    0 15px 50px rgba(0, 0, 0, 0.95);
+  animation: modal-slide-up 0.5s cubic-bezier(0.25, 1.0, 0.25, 1.15) forwards;
+  border: 2px solid rgba(255, 255, 255, 0.02);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85);
 }
 
 @keyframes modal-slide-up {
-  0% { transform: scale(0.92); opacity: 0; }
+  0% { transform: scale(0.9); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
 
 .victory-border {
-  border: 1px solid var(--neon-cyan) !important;
-  box-shadow: 
-    -1px -1px 0px #ffffff,
-    0 0 30px rgba(0, 240, 255, 0.35), 
-    inset 0 0 20px rgba(0, 240, 255, 0.15) !important;
+  border: 2px solid rgba(34, 197, 94, 0.35) !important;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
 }
 
 .defeat-border {
-  border: 1px solid var(--neon-pink) !important;
-  box-shadow: 
-    -1px -1px 0px #ffffff,
-    0 0 30px rgba(255, 0, 127, 0.35), 
-    inset 0 0 20px rgba(255, 0, 127, 0.15) !important;
+  border: 2px solid rgba(239, 68, 68, 0.35) !important;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.15), inset 0 0 20px rgba(239, 68, 68, 0.1) !important;
 }
 
 .start-screen-modal {
-  border: 1px solid var(--neon-cyan) !important;
-  box-shadow: 
-    -1px -1px 0px #ffffff,
-    0 0 30px rgba(0, 240, 255, 0.3), 
-    inset 0 0 20px rgba(0, 240, 255, 0.15) !important;
-  background: rgba(10, 4, 20, 0.98) !important;
+  border: 2px solid rgba(34, 197, 94, 0.35) !important;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
+  background: rgba(12, 14, 18, 0.98) !important;
+  padding: 40px !important;
 }
 
 .paused-border {
-  border: 1px solid var(--sulfur-yellow) !important;
-  box-shadow: 
-    -1px -1px 0px #ffffff,
-    0 0 30px rgba(223, 254, 0, 0.3), 
-    inset 0 0 20px rgba(223, 254, 0, 0.15) !important;
-  background: rgba(10, 4, 20, 0.98) !important;
+  border: 2px solid rgba(234, 179, 8, 0.35) !important;
+  box-shadow: 0 0 30px rgba(234, 179, 8, 0.15), inset 0 0 20px rgba(234, 179, 8, 0.1) !important;
+  background: rgba(12, 14, 18, 0.98) !important;
+  padding: 40px !important;
 }
 
 .paused-title-glow {
-  text-shadow: 
-    0 0 15px var(--sulfur-yellow-glow), 
-    -2px 0 var(--neon-pink), 
-    2px 0 var(--neon-cyan);
+  text-shadow: 0 0 15px var(--signal-yellow-glow), -2px 0 var(--signal-yellow), 2px 0 #0000ff;
 }
 
 .overlay-title {
-  font-size: 26px;
+  font-size: 24px;
   margin: 0;
-  letter-spacing: 0.35em;
+  letter-spacing: 0.2em;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .overlay-divider {
-  height: 1px;
-  width: 80px;
-  background: linear-gradient(90deg, transparent, var(--neon-pink), transparent);
+  height: 2px;
+  width: 60px;
+  background: rgba(255, 255, 255, 0.08);
   margin: 20px 0;
 }
 
@@ -7899,7 +7861,7 @@ body,
   font-size: 11px;
   color: var(--text-muted);
   margin: 0;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -7907,13 +7869,13 @@ body,
 .gameover-stat-card {
   width: 100%;
   margin-top: 24px;
-  padding: 18px 22px;
-  background: rgba(5, 2, 9, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: 2px;
+  padding: 16px 20px;
+  background: rgba(7, 8, 11, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   box-sizing: border-box;
 }
 
@@ -7924,28 +7886,28 @@ body,
 }
 
 .gameover-stat-label {
-  font-size: 10px;
-  color: var(--neon-cyan);
-  font-weight: 900;
-  letter-spacing: 0.18em;
+  font-size: 11px;
+  color: #718096;
+  font-weight: bold;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .gameover-stat-value {
-  font-size: 16px;
-  font-weight: 900;
+  font-size: 15px;
+  font-weight: bold;
   font-family: monospace;
 }
 
 /* Box Battle Color Matching Numbers */
 .gameover-stat-win {
-  color: var(--neon-cyan) !important;
-  text-shadow: 0 0 10px var(--neon-cyan-glow);
+  color: var(--signal-green) !important;
+  text-shadow: 0 0 8px var(--signal-green-glow);
 }
 
 .gameover-stat-loss {
-  color: var(--neon-pink) !important;
-  text-shadow: 0 0 10px var(--neon-pink-glow);
+  color: var(--signal-red) !important;
+  text-shadow: 0 0 8px var(--signal-red-glow);
 }
 
 .gameover-btn {
@@ -7953,19 +7915,19 @@ body,
   align-items: center;
   justify-content: center;
   width: 100%;
-  background: #110324;
+  background: #0f1218;
   box-shadow:
-    -1px -1px 0px rgba(255, 255, 255, 0.15),
-    4px 4px 12px rgba(0, 0, 0, 0.9),
-    inset 1px 1px 0px rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
+    -2px -2px 6px rgba(255, 255, 255, 0.01),
+    4px 4px 10px rgba(0, 0, 0, 0.8),
+    inset 1px 1px 0px rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.03);
   padding: 16px 24px;
-  border-radius: 2px;
+  border-radius: 8px;
   cursor: pointer;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.25em;
+  color: #a0aec0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   transition: all 0.15s ease;
   outline: none;
@@ -7976,10 +7938,10 @@ body,
 .gameover-inline-arrow {
   display: inline-block;
   font-family: monospace;
-  font-weight: 900;
-  animation: arrow-blink 0.35s infinite alternate;
+  font-weight: bold;
+  animation: arrow-blink 0.4s infinite alternate;
   color: inherit;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
 }
 
@@ -7996,45 +7958,45 @@ body,
 
 .gameover-btn-victory-hover:hover,
 .gameover-btn-victory-focused {
-  background: #001f24 !important;
-  border-color: var(--neon-cyan) !important;
+  background: #0c0e12 !important;
+  border-color: var(--signal-green) !important;
   color: #ffffff !important;
   box-shadow:
-    0 0 18px rgba(0, 240, 255, 0.35),
-    inset 0 0 8px rgba(0, 240, 255, 0.15),
-    4px 4px 14px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6) !important;
+    0 0 15px rgba(34, 197, 94, 0.25),
+    inset 0 0 8px rgba(34, 197, 94, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
 }
 
 .gameover-btn-defeat-hover:hover,
 .gameover-btn-defeat-focused {
-  background: #240012 !important;
-  border-color: var(--neon-pink) !important;
+  background: #0c0e12 !important;
+  border-color: var(--signal-red) !important;
   color: #ffffff !important;
   box-shadow:
-    0 0 18px rgba(255, 0, 127, 0.35),
-    inset 0 0 8px rgba(255, 0, 127, 0.15),
-    4px 4px 14px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(255, 0, 127, 0.6) !important;
+    0 0 15px rgba(239, 68, 68, 0.25),
+    inset 0 0 8px rgba(239, 68, 68, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
 }
 
 .gameover-btn-paused-hover:hover,
 .gameover-btn-paused-focused {
-  background: #242200 !important;
-  border-color: var(--sulfur-yellow) !important;
+  background: #0c0e12 !important;
+  border-color: var(--signal-yellow) !important;
   color: #ffffff !important;
   box-shadow:
-    0 0 18px rgba(223, 254, 0, 0.35),
-    inset 0 0 8px rgba(223, 254, 0, 0.15),
-    4px 4px 14px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(223, 254, 0, 0.6) !important;
+    0 0 15px rgba(234, 179, 8, 0.25),
+    inset 0 0 8px rgba(234, 179, 8, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
 }
 
 .gameover-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
-/* LED Matrix System resembling gel buttons */
+/* LED Matrix System resembling glossy spheres */
 .led-dot {
   width: 14px;
   height: 14px;
@@ -8055,41 +8017,41 @@ body,
 }
 
 .led-green {
-  background: var(--neon-cyan) !important;
+  background: var(--signal-green) !important;
   box-shadow:
-    0 0 10px var(--neon-cyan),
-    0 0 20px var(--neon-cyan-glow) !important;
+    0 0 8px var(--signal-green),
+    0 0 16px var(--signal-green-glow) !important;
 }
 
 .led-red {
-  background: var(--neon-pink) !important;
+  background: var(--signal-red) !important;
   box-shadow:
-    0 0 10px var(--neon-pink),
-    0 0 20px var(--neon-pink-glow) !important;
+    0 0 8px var(--signal-red),
+    0 0 16px var(--signal-red-glow) !important;
 }
 
 .led-yellow {
-  background: var(--sulfur-yellow) !important;
+  background: var(--signal-yellow) !important;
   box-shadow:
-    0 0 10px var(--sulfur-yellow),
-    0 0 20px var(--sulfur-yellow-glow) !important;
+    0 0 8px var(--signal-yellow),
+    0 0 16px var(--signal-yellow-glow) !important;
 }
 
 /* Core Animations */
 @keyframes led-squash-spring {
   0% { transform: scale(1); }
-  25% { transform: scale(1.22, 0.78); filter: brightness(1.3); }
-  60% { transform: scale(0.9, 1.1); }
+  25% { transform: scale(1.18, 0.82); filter: brightness(1.2); }
+  60% { transform: scale(0.92, 1.08); }
   100% { transform: scale(1); }
 }
 .led-spring-impact {
-  animation: led-squash-spring 0.38s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  animation: led-squash-spring 0.38s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }
 
 @keyframes led-elastic-pop {
   0% { transform: scale(0.3); opacity: 0; }
-  55% { transform: scale(1.4); filter: brightness(1.35); }
-  80% { transform: scale(0.92); }
+  55% { transform: scale(1.35); filter: brightness(1.3); }
+  80% { transform: scale(0.95); }
   100% { transform: scale(1); opacity: 1; }
 }
 .led-elastic-spring {
@@ -8098,51 +8060,51 @@ body,
 
 @keyframes stress-shiver {
   0%, 100% { transform: translate(0, 0); }
-  20% { transform: translate(-1.5px, 1px); filter: brightness(1.2); }
-  40% { transform: translate(1.5px, -1px); }
-  60% { transform: translate(-1px, -1.5px); }
-  80% { transform: translate(1px, 1.5px); }
+  20% { transform: translate(-1.2px, 0.8px); filter: brightness(1.15); }
+  40% { transform: translate(1.2px, -0.8px); }
+  60% { transform: translate(-0.8px, -1.2px); }
+  80% { transform: translate(0.8px, 1.2px); }
 }
 .hud-stress-shiver {
-  animation: stress-shiver 0.1s infinite linear !important;
+  animation: stress-shiver 0.12s infinite linear !important;
 }
 
 @keyframes text-chromatic-flicker-green {
-  0%, 100% { text-shadow: 0 0 15px rgba(0, 240, 255, 0.6), -2px 0 var(--neon-cyan), 2px 0 var(--neon-pink); }
-  50% { text-shadow: 0 0 8px rgba(0, 240, 255, 0.2), -1px 0 var(--neon-cyan), 1px 0 var(--neon-pink); filter: brightness(0.95); }
-  92% { text-shadow: 0 0 25px rgba(0, 240, 255, 0.95), -3px 0 var(--neon-cyan), 3px 0 var(--neon-pink); filter: brightness(1.15); }
+  0%, 100% { text-shadow: 0 0 15px rgba(16, 185, 129, 0.6), -2px 0 #00ff00, 2px 0 #0000ff; }
+  50% { text-shadow: 0 0 8px rgba(16, 185, 129, 0.2), -1px 0 #00ff00, 1px 0 #0000ff; filter: brightness(0.95); }
+  92% { text-shadow: 0 0 25px rgba(16, 185, 129, 0.95), -3px 0 #00ff00, 3px 0 #0000ff; filter: brightness(1.1); }
 }
 .victory-title-anim {
-  animation: text-chromatic-flicker-green 2s infinite ease-in-out;
+  animation: text-chromatic-flicker-green 2.5s infinite ease-in-out;
 }
 
 @keyframes text-chromatic-flicker-red {
-  0%, 100% { text-shadow: 0 0 15px rgba(255, 0, 127, 0.6), -2px 0 var(--neon-pink), 2px 0 var(--neon-cyan); }
-  45% { text-shadow: 0 0 6px rgba(255, 0, 127, 0.2), -1px 0 var(--neon-pink), 1px 0 var(--neon-cyan); filter: brightness(0.9); }
-  85% { text-shadow: 0 0 22px rgba(255, 0, 127, 0.95), -4px 0 var(--neon-pink), 4px 0 var(--neon-cyan); filter: brightness(1.2); }
+  0%, 100% { text-shadow: 0 0 15px rgba(239, 68, 68, 0.6), -2px 0 #ff0000, 2px 0 #0000ff; }
+  45% { text-shadow: 0 0 6px rgba(239, 68, 68, 0.2), -1px 0 #ff0000, 1px 0 #0000ff; filter: brightness(0.9); }
+  85% { text-shadow: 0 0 22px rgba(239, 68, 68, 0.95), -4px 0 #ff0000, 4px 0 #0000ff; filter: brightness(1.2); }
 }
 .defeat-title-anim {
-  animation: text-chromatic-flicker-red 1.8s infinite ease-in-out;
+  animation: text-chromatic-flicker-red 2.2s infinite ease-in-out;
 }
 
 @keyframes victory-spin-glow {
-  0% { transform: scale(0.3) rotate(0deg); filter: drop-shadow(0 0 5px var(--neon-cyan)); opacity: 0; }
-  70% { transform: scale(1.1) rotate(370deg); filter: drop-shadow(0 0 20px var(--neon-cyan)); opacity: 0.9; }
-  100% { transform: scale(1) rotate(360deg); filter: drop-shadow(0 0 10px var(--neon-cyan)); opacity: 1; }
+  0% { transform: scale(0.3) rotate(0deg); filter: drop-shadow(0 0 5px var(--accent-success)); opacity: 0; }
+  70% { transform: scale(1.1) rotate(370deg); filter: drop-shadow(0 0 20px var(--accent-success)); opacity: 0.9; }
+  100% { transform: scale(1) rotate(360deg); filter: drop-shadow(0 0 10px var(--accent-success)); opacity: 1; }
 }
 .victory-icon-anim {
   animation: victory-spin-glow 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 @keyframes defeat-shiver-glow {
-  0%, 100% { transform: translate(0, 0) scale(1); filter: drop-shadow(0 0 5px var(--neon-pink)); opacity: 1; }
-  20% { transform: translate(-2px, 1.5px) rotate(-1.5deg) scale(1.05); }
-  40% { transform: translate(2px, -1.5px) rotate(2deg); filter: drop-shadow(0 0 16px var(--neon-pink)); }
-  60% { transform: translate(-2px, -1.5px) rotate(-1.5deg); }
-  80% { transform: translate(2px, 2px) rotate(1deg); }
+  0%, 100% { transform: translate(0, 0) scale(1); filter: drop-shadow(0 0 5px var(--accent-danger)); opacity: 1; }
+  20% { transform: translate(-1.5px, 1px) rotate(-1.5deg) scale(1.05); }
+  40% { transform: translate(1.5px, -1px) rotate(2deg); filter: drop-shadow(0 0 16px var(--accent-danger)); }
+  60% { transform: translate(-1.5px, -1px) rotate(-1.5deg); }
+  80% { transform: translate(1.5px, 1.5px) rotate(1deg); }
 }
 .defeat-icon-anim {
-  animation: defeat-shiver-glow 0.2s infinite linear;
+  animation: defeat-shiver-glow 0.22s infinite linear;
 }
 
 @keyframes bounce-short {
@@ -8154,7 +8116,7 @@ body,
 }
 
 .gameover-stat-card {
-  animation: stats-card-entry 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: stats-card-entry 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
 }
 
 @keyframes stats-card-entry {
@@ -8177,8 +8139,8 @@ body,
 /* Box Battle Style Structural Overrides */
 .gameover-divider {
   height: 1px;
-  width: 80px;
-  background: rgba(255, 255, 255, 0.1);
+  width: 60px;
+  background: rgba(255, 255, 255, 0.08);
   margin: 20px 0;
 }
 
@@ -8192,16 +8154,49 @@ body,
 
 .neo-btn.gameover-btn {
   flex: 1;
-  padding: 14px 18px;
-  font-size: 11px;
-  border-radius: 2px;
+  padding: 12px 18px;
+  font-size: 13px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.1em;
   height: auto;
   min-height: 0;
+}
+
+.gameover-btn-victory-focused {
+  background: #0c0e12 !important;
+  border-color: var(--signal-green) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(34, 197, 94, 0.25),
+    inset 0 0 8px rgba(34, 197, 94, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
+}
+
+.gameover-btn-defeat-focused {
+  background: #0c0e12 !important;
+  border-color: var(--signal-red) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(239, 68, 68, 0.25),
+    inset 0 0 8px rgba(239, 68, 68, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
+}
+
+.gameover-btn-paused-focused {
+  background: #0c0e12 !important;
+  border-color: var(--signal-yellow) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 15px rgba(234, 179, 8, 0.25),
+    inset 0 0 8px rgba(234, 179, 8, 0.1),
+    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
 }
 
 /* Box Battle style LED Damage Shaking/Decay animation */
@@ -8209,11 +8204,11 @@ body,
   0% {
     transform: translate(2px, 2px) scale(1.3) rotate(5deg);
     filter: brightness(1.9) saturate(2);
-    background: var(--neon-pink);
+    background: #ef4444;
   }
   20% {
     transform: translate(-3px, -2px) scale(1.1) rotate(-8deg);
-    background: var(--neon-pink);
+    background: #ef4444;
   }
   40% {
     transform: translate(-2px, 2px) scale(1) rotate(8deg);
@@ -8230,26 +8225,26 @@ body,
 }
 
 .led-shaking-die {
-  animation: led-shake-die-decay 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  animation: led-shake-die-decay 0.45s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }
 
 /* Neomorphic Utility Classes */
 .neo-elevated {
-  background: var(--bg-elevated) !important;
+  background: var(--surface-elevated) !important;
   box-shadow: var(--shadow-light), var(--shadow-dark) !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.02) !important;
 }
 
 .neo-pressed {
-  background: var(--bg-void) !important;
+  background: var(--surface-bg) !important;
   box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark) !important;
-  border: 1px solid rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Progressive blur overlay for seamless immediate startup */
 .backdrop-wipe-gesture {
-  background: rgba(10, 4, 20, 0.35) !important;
-  backdrop-filter: blur(4px) !important;
+  background: rgba(5, 5, 6, 0.25) !important;
+  backdrop-filter: blur(2px) !important;
 }
 
 
@@ -9126,14 +9121,14 @@ export const HudOverlay: React.FC = () => {
   const displayTensionPercent = Math.round(clampedTension * 100);
   const tensionScaleX = clampedTension / snapLimit;
 
-  let tensionBarColor = "var(--neon-cyan)";
-  let tensionTextColor = "#ffffff";
+  let tensionBarColor = "rgb(16, 185, 129)";
+  let tensionTextColor = "rgb(244, 244, 245)";
   if (clampedTension >= 1.0) {
-    tensionBarColor = "var(--neon-pink)";
-    tensionTextColor = "var(--neon-pink)";
+    tensionBarColor = "rgb(239, 68, 68)";
+    tensionTextColor = "rgb(239, 68, 68)";
   } else if (clampedTension >= 0.75) {
-    tensionBarColor = "var(--sulfur-yellow)";
-    tensionTextColor = "var(--sulfur-yellow)";
+    tensionBarColor = "rgb(245, 158, 11)";
+    tensionTextColor = "rgb(245, 158, 11)";
   }
 
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
@@ -9179,9 +9174,9 @@ export const HudOverlay: React.FC = () => {
       ) : (
         <div className="hud-root select-none pointer-events-none">
           <div className={`cabinet-header-panel ${isCriticalHp || hurtShakeActive ? "hud-stress-shiver" : ""}`}>
-            <div className="header-left flex flex-col gap-1">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--neon-cyan)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                [+] <Heart size={11} fill="var(--neon-cyan)" style={{ color: "var(--neon-cyan)", flexShrink: 0 }} /> HP
+            <div className="header-left flex flex-col gap-1.5">
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-green)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                [+] <Heart size={13} fill="var(--signal-green)" style={{ color: "var(--signal-green)", flexShrink: 0 }} /> HP
               </span>
               <div className="hud-hp-row" style={{ display: "flex", gap: "6px" }}>
                 {[...Array(5)].map((_, i) => {
@@ -9192,7 +9187,7 @@ export const HudOverlay: React.FC = () => {
                       className={`led-dot ${isLit ? "led-green" : ""} ${hpAnims[i]}`}
                       style={{
                         border: "1px solid rgba(0,0,0,0.6)",
-                        background: isLit ? undefined : "#0a0414",
+                        background: isLit ? undefined : "#07080b",
                         width: "14px",
                         height: "14px"
                       }}
@@ -9212,30 +9207,30 @@ export const HudOverlay: React.FC = () => {
               )}
             </div>
 
-            <div className="header-right flex flex-col items-end gap-1">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--neon-pink)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                <Skull size={11} fill="var(--neon-pink)" style={{ color: "var(--neon-pink)", flexShrink: 0 }} /> BOSS [-]
+            <div className="header-right flex flex-col items-end gap-1.5">
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-red)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                <Skull size={13} fill="var(--signal-red)" style={{ color: "var(--signal-red)", flexShrink: 0 }} /> BOSS
               </span>
               <div
                 className="neo-pressed"
                 style={{
                   width: "140px",
                   height: "12px",
-                  borderRadius: "2px",
+                  borderRadius: "6px",
                   padding: "2px",
                   boxSizing: "border-box",
                   overflow: "hidden",
-                  background: "#0a0414",
-                  border: "1px solid var(--border-subtle)"
+                  background: "#07080b",
+                  border: "1px solid rgba(0,0,0,0.4)"
                 }}
               >
                 <div
                   className={weaverHp > 0 ? "led-red" : ""}
                   style={{
                     height: "100%",
-                    borderRadius: "1px",
+                    borderRadius: "4px",
                     width: `${(weaverHpRatio * 100).toFixed(1)}%`,
-                    transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                    transition: "width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
                   }}
                 />
               </div>
@@ -9255,10 +9250,10 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className={`flex flex-col items-center gap-1.5 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
+            <div className={`flex flex-col items-center gap-2 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
               <div className="flex justify-between w-full font-bold" style={{ padding: "0 4px", alignItems: "center" }}>
-                <span style={{ color: "var(--neon-cyan)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.25em", textTransform: "uppercase" }}>|||||| TENSION</span>
-                <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "13px", fontWeight: "900", letterSpacing: "0.05em" }}>
+                <span style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>TENSION</span>
+                <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>
                   {displayTensionPercent}%
                 </span>
               </div>
@@ -9267,22 +9262,22 @@ export const HudOverlay: React.FC = () => {
                 style={{
                   width: "100%",
                   height: "14px",
-                  borderRadius: "2px",
+                  borderRadius: "7px",
                   padding: "2px",
                   boxSizing: "border-box",
                   overflow: "hidden",
-                  background: "#0a0414",
-                  border: "1px solid var(--border-subtle)"
+                  background: "#07080b",
+                  border: "1px solid rgba(0,0,0,0.4)"
                 }}
               >
                 <div
                   style={{
                     height: "100%",
-                    borderRadius: "1px",
+                    borderRadius: "5px",
                     width: `${(tensionScaleX * 100).toFixed(1)}%`,
-                    transition: "width 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
+                    transition: "width 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
                     background: tensionBarColor,
-                    boxShadow: `0 0 10px ${tensionBarColor}`
+                    boxShadow: `0 0 8px ${tensionBarColor}`
                   }}
                 />
               </div>
@@ -9313,13 +9308,13 @@ export const HudOverlay: React.FC = () => {
                     <Skull
                       size={48}
                       className="defeat-icon-anim"
-                      style={{ color: "var(--neon-pink)", filter: "drop-shadow(0 0 12px var(--neon-pink-glow))" }}
+                      style={{ color: "var(--accent-danger)", filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))" }}
                     />
                   ) : (
                     <Trophy
                       size={48}
                       className="victory-icon-anim"
-                      style={{ color: "var(--neon-cyan)", filter: "drop-shadow(0 0 12px var(--neon-cyan-glow))" }}
+                      style={{ color: "var(--accent-success)", filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))" }}
                     />
                   )}
                   <h1
@@ -9412,10 +9407,10 @@ export const HudOverlay: React.FC = () => {
       {isPaused && !isBooting && !awaitingGesture && (
         <div
           className="overlay-root font-mono pointer-events-auto flex items-center justify-center"
-          style={{ background: "rgba(10, 4, 20, 0.75)" }}
+          style={{ background: "rgba(12, 13, 17, 0.65)" }}
         >
           <div className="flex flex-col items-center justify-center text-center animate-bounce-short">
-            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--sulfur-yellow)" }}>
+            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--accent-tension)" }}>
               PAUSED
             </h1>
             <p className="text-[11px] text-zinc-400 tracking-[0.15em] uppercase mt-2">
