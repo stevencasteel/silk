@@ -101,11 +101,12 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
+    const isWallSliding = trav.state === "WALL_SLIDING";
 
-    if (input.y > 0) {
+    if (input.y > 0 && !isWallSliding) {
       tether.desiredLength -= reelConfig.IN_SPEED * dt;
       tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2);
-    } else if (input.y < 0) {
+    } else if (input.y < 0 && !isWallSliding) {
       tether.desiredLength += reelConfig.OUT_SPEED * dt;
       tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5);
     } else {
@@ -249,7 +250,7 @@ export class PlayerKinematicsSystem implements ISystem {
         cameraDeltaY = cameraYOffset - this.lastCameraYOffset;
       }
 
-      let finalY = target.y + vel.y * dt + cameraDeltaY;
+      const finalY = target.y + vel.y * dt + cameraDeltaY;
 
       const dx = target.x - tether.anchorX;
       const dy = finalY - tether.anchorY;
@@ -260,15 +261,6 @@ export class PlayerKinematicsSystem implements ISystem {
         if (tether.maxLength < maxAllowed) {
           tether.maxLength = Math.min(maxAllowed, requiredLength);
           tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
-        }
-      }
-
-      const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
-      if (limitY2 >= 0) {
-        const minY = tether.anchorY - Math.sqrt(limitY2);
-        if (finalY < minY) {
-          finalY = minY;
-          vel.y = 0;
         }
       }
       target.y = finalY;
@@ -316,7 +308,7 @@ export class PlayerKinematicsSystem implements ISystem {
           cameraDeltaY = cameraYOffset - this.lastCameraYOffset;
         }
 
-        let finalY = target.y + vel.y * dt + cameraDeltaY;
+        const finalY = target.y + vel.y * dt + cameraDeltaY;
 
         const dx = target.x - tether.anchorX;
         const dy = finalY - tether.anchorY;
@@ -327,15 +319,6 @@ export class PlayerKinematicsSystem implements ISystem {
           if (tether.maxLength < maxAllowed) {
             tether.maxLength = Math.min(maxAllowed, requiredLength);
             tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
-          }
-        }
-
-        const limitY2 = tether.maxLength * tether.maxLength - dx * dx;
-        if (limitY2 >= 0) {
-          const minY = tether.anchorY - Math.sqrt(limitY2);
-          if (finalY < minY) {
-            finalY = minY;
-            vel.y = 0;
           }
         }
         target.y = finalY;
@@ -453,14 +436,11 @@ export class PlayerKinematicsSystem implements ISystem {
     trav: TraversalStateComponent,
     input: InputIntentComponent
   ): void {
+    void input;
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
     if (trav.state === "WALL_SLIDING") {
-      let tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
-
-      if (input.y < 0) {
-        tensionDelta -= reelConfig.REEL_OUT_TENSION_RELIEF;
-      }
+      const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
 
       tether.tension += tensionDelta * dt;
 
