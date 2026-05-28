@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 9:34:17 PM
+ [SYSTEM] Generated: 5/28/2026, 9:35:24 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -87,6 +87,7 @@
 │   │   │   ├── PlayerAnimationSystem.ts
 │   │   │   ├── PlayerInputSystem.ts
 │   │   │   ├── PlayerKinematicsSystem.ts
+│   │   │   ├── TutorialSystem.ts
 │   │   │   ├── VerticalBoundarySystem.ts
 │   │   │   └── WallBugSystem.ts
 │   │   ├── weaver/
@@ -1098,6 +1099,7 @@ import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSyste
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
+import { TutorialSystem } from "../gameplay/player/TutorialSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
@@ -1189,6 +1191,7 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
     const wallBugSystem = new WallBugSystem(context);
+    const tutorialSystem = new TutorialSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
     const interpolationSystem = new EntityInterpolationSystem(context);
@@ -1219,6 +1222,7 @@ export class CompositionRoot {
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
     systemManager.register(wallBugSystem);
+    systemManager.register(tutorialSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
     systemManager.register(dressingSystem);
@@ -6992,6 +6996,129 @@ export class PlayerKinematicsSystem implements ISystem {
 
 
 
+● ./src/gameplay/player/TutorialSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
+import { useOverlayStore } from "../../ui/hud/hudStore";
+import { dispatchUIFeedback, SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { GameEvent } from "../../core/events/GameEvents";
+
+export class TutorialSystem implements ISystem {
+  readonly phase = SystemPhase.Gameplay;
+
+  private step0Completed = false;
+  private step1Completed = false;
+  private step2Completed = false;
+
+  private reeledUp = false;
+  private reeledDown = false;
+
+  private lastTetherLength = 0.0;
+  private _tracker = new SubscriptionTracker();
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.step0Completed = false;
+        this.step1Completed = false;
+        this.step2Completed = false;
+        this.reeledUp = false;
+        this.reeledDown = false;
+        this.lastTetherLength = 0.0;
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
+        const overlayStore = useOverlayStore.getState();
+        const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+        const pTrav = travStore.get(this.context.refs.player);
+        const currentState = pTrav ? pTrav.state : "AIRBORNE";
+
+        if (
+          !this.step0Completed &&
+          overlayStore.calibrationStep === 0 &&
+          currentState === "WALL_SLIDING" &&
+          tension >= 0.5
+        ) {
+          this.step0Completed = true;
+          overlayStore.setCalibrationStep(1);
+          dispatchUIFeedback("silk-play-confirm");
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
+        const overlayStore = useOverlayStore.getState();
+        if (this.lastTetherLength > 0.0) {
+          const delta = maxLength - this.lastTetherLength;
+          if (overlayStore.calibrationStep === 1) {
+            if (delta < -0.01) {
+              this.reeledUp = true;
+            } else if (delta > 0.01) {
+              this.reeledDown = true;
+            }
+
+            if (!this.step1Completed && this.reeledUp && this.reeledDown) {
+              this.step1Completed = true;
+              overlayStore.setCalibrationStep(2);
+              dispatchUIFeedback("silk-play-confirm");
+            }
+          }
+        }
+        this.lastTetherLength = maxLength;
+      })
+    );
+  }
+
+  public update(dt: number): void {
+    void dt;
+    const overlayStore = useOverlayStore.getState();
+
+    if (overlayStore.calibrationStep === 1) {
+      const inputStore = this.context.stores.get<InputIntentComponent>("input");
+      const input = inputStore.get(this.context.refs.player);
+      if (input) {
+        if (input.y > 0) {
+          this.reeledUp = true;
+        } else if (input.y < 0) {
+          this.reeledDown = true;
+        }
+
+        if (!this.step1Completed && this.reeledUp && this.reeledDown) {
+          this.step1Completed = true;
+          overlayStore.setCalibrationStep(2);
+          dispatchUIFeedback("silk-play-confirm");
+        }
+      }
+    }
+
+    if (overlayStore.calibrationStep === 2) {
+      const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+      const pTrav = travStore.get(this.context.refs.player);
+      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
+        if (!this.step2Completed) {
+          this.step2Completed = true;
+          overlayStore.setCalibrationStep(3);
+          dispatchUIFeedback("silk-play-confirm");
+        }
+      }
+    }
+  }
+
+  public dispose(): void {
+    this._tracker.clear();
+  }
+}
+
+
+
 ● ./src/gameplay/player/VerticalBoundarySystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
@@ -10658,12 +10785,10 @@ export const HudOverlay: React.FC = () => {
 
 ● ./src/ui/hud/HudSyncSystem.ts
 ────────────────────────────────────────────────────
-import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { usePlayerStore, useWeaverStore, useOverlayStore, resetAllStores } from "./hudStore";
 
@@ -10672,14 +10797,6 @@ export class HudSyncSystem implements ISystem {
   private subscriptions: (() => void)[] = [];
   private lastHintLevel: "none" | "charging" | "ready" | "maxout" = "none";
   private currentState: string = "AIRBORNE";
-
-  private lastTetherLength = 0.0;
-  private reeledUp = false;
-  private reeledDown = false;
-
-  private step0Completed = false;
-  private step1Completed = false;
-  private step2Completed = false;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -10708,41 +10825,8 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
 
-        if (
-          !this.step0Completed &&
-          overlayStore.calibrationStep === 0 &&
-          this.currentState === "WALL_SLIDING" &&
-          tension >= 0.5
-        ) {
-          this.step0Completed = true;
-          overlayStore.setCalibrationStep(1);
-          dispatchUIFeedback("silk-play-confirm");
-        }
-
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
         window.dispatchEvent(evt);
-      })
-    );
-
-    this.subscriptions.push(
-      this.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
-        if (this.lastTetherLength > 0.0) {
-          const delta = maxLength - this.lastTetherLength;
-          if (overlayStore.calibrationStep === 1) {
-            if (delta < -0.01) {
-              this.reeledUp = true;
-            } else if (delta > 0.01) {
-              this.reeledDown = true;
-            }
-
-            if (!this.step1Completed && this.reeledUp && this.reeledDown) {
-              this.step1Completed = true;
-              overlayStore.setCalibrationStep(2);
-              dispatchUIFeedback("silk-play-confirm");
-            }
-          }
-        }
-        this.lastTetherLength = maxLength;
       })
     );
 
@@ -10787,12 +10871,6 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         resetAllStores();
         overlayStore.loadStats();
-        this.lastTetherLength = 0.0;
-        this.reeledUp = false;
-        this.reeledDown = false;
-        this.step0Completed = false;
-        this.step1Completed = false;
-        this.step2Completed = false;
       })
     );
     this.subscriptions.push(
@@ -10806,41 +10884,6 @@ export class HudSyncSystem implements ISystem {
         overlayStore.setBootStatus("READY");
       })
     );
-  }
-
-  public update(dt: number): void {
-    void dt;
-    const overlayStore = useOverlayStore.getState();
-
-    if (overlayStore.calibrationStep === 1) {
-      const inputStore = this.context.stores.get<InputIntentComponent>("input");
-      const input = inputStore.get(this.context.refs.player);
-      if (input) {
-        if (input.y > 0) {
-          this.reeledUp = true;
-        } else if (input.y < 0) {
-          this.reeledDown = true;
-        }
-
-        if (!this.step1Completed && this.reeledUp && this.reeledDown) {
-          this.step1Completed = true;
-          overlayStore.setCalibrationStep(2);
-          dispatchUIFeedback("silk-play-confirm");
-        }
-      }
-    }
-
-    if (overlayStore.calibrationStep === 2) {
-      const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
-      const pTrav = travStore.get(this.context.refs.player);
-      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
-        if (!this.step2Completed) {
-          this.step2Completed = true;
-          overlayStore.setCalibrationStep(3);
-          dispatchUIFeedback("silk-play-confirm");
-        }
-      }
-    }
   }
 
   private updateHint(tension: number): void {
