@@ -8,6 +8,7 @@ import {
   WeaverTraversalComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
+import { setKinematicVelocity } from "../../../core/utils/EngineUtils";
 
 const HASH = String.fromCharCode(35);
 
@@ -39,18 +40,7 @@ export class WeaverStrikingState implements IWeaverState {
     this.currentPhase = "PREP";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
 
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-    }
-
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: 0,
-      y: 0,
-      z: 0
-    });
+    setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const playerTrans = transforms.get(ctx.refs.player);
@@ -88,13 +78,7 @@ export class WeaverStrikingState implements IWeaverState {
       this.thrustVelocity.x = (dx / dist) * speed;
       this.thrustVelocity.y = (dy / dist) * speed;
 
-      ctx.commands.dispatch({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.refs.weaver,
-        x: this.thrustVelocity.x,
-        y: this.thrustVelocity.y,
-        z: 0
-      });
+      setKinematicVelocity(ctx, ctx.refs.weaver, this.thrustVelocity.x, this.thrustVelocity.y);
     }
   }
 
@@ -107,13 +91,7 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
     }
 
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: 0,
-      y: 0,
-      z: 0
-    });
+    setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
 
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
   }

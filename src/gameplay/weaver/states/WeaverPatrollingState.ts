@@ -1,4 +1,4 @@
-import { getWeaverStingerTip } from "../../../core/utils/EngineUtils";
+import { getWeaverStingerTip, setKinematicVelocity } from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -22,12 +22,6 @@ export class WeaverPatrollingState implements IWeaverState {
     this.shootTimer = 0.0;
     this.hasTelegraphed = false;
 
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
-
     const healthStore = ctx.stores.get<HealthComponent>("health");
     const health = healthStore.get(ctx.refs.weaver);
     const isBerserk = health
@@ -37,13 +31,7 @@ export class WeaverPatrollingState implements IWeaverState {
       ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
       : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
 
-    ctx.commands.dispatch({
-      type: "SET_KINEMATIC_VELOCITY",
-      entityId: ctx.refs.weaver,
-      x: patrolSpeed,
-      y: 0,
-      z: 0
-    });
+    setKinematicVelocity(ctx, ctx.refs.weaver, patrolSpeed, 0);
   }
 
   public exit(): void {}
@@ -75,24 +63,24 @@ export class WeaverPatrollingState implements IWeaverState {
 
       if (playerTrans && wTrans) {
         const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const tipWorld = getWeaverStingerTip(
-      wTrans.x,
-      wTrans.y,
-      wTrans.z,
-      wTrans.qx,
-      wTrans.qy,
-      wTrans.qz,
-      wTrans.qw,
-      radius,
-      1.0
-    );
+        const tipWorld = getWeaverStingerTip(
+          wTrans.x,
+          wTrans.y,
+          wTrans.z,
+          wTrans.qx,
+          wTrans.qy,
+          wTrans.qz,
+          wTrans.qw,
+          radius,
+          1.0
+        );
 
-    ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-      x: tipWorld.x,
-      y: tipWorld.y,
-      tx: playerTrans.x,
-      ty: playerTrans.y
-    });
+        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+          x: tipWorld.x,
+          y: tipWorld.y,
+          tx: playerTrans.x,
+          ty: playerTrans.y
+        });
       }
     }
     return null;

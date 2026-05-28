@@ -5,7 +5,8 @@ import {
   VISUAL_JUICE_CONFIG
 } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { TransformComponent, WeaverAIComponent } from "../../../core/ecs/Components";
+import { TransformComponent } from "../../../core/ecs/Components";
+import { setKinematicVelocity } from "../../../core/utils/EngineUtils";
 
 const HASH = String.fromCharCode(35);
 
@@ -15,11 +16,7 @@ export class WeaverAscendingState implements IWeaverState {
   public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
 
   public enter(ctx: SystemContext): void {
-    const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (aiComp) {
-      aiComp.timeInState = 0;
-      aiComp.hue = this.hue;
-    }
+    void ctx;
   }
 
   public exit(): void {}
@@ -38,13 +35,7 @@ export class WeaverAscendingState implements IWeaverState {
       }
 
       const speed = WEAVER_AI_TUNING.RETURN.SPEED;
-      ctx.commands.dispatch({
-        type: "SET_KINEMATIC_VELOCITY",
-        entityId: ctx.refs.weaver,
-        x: 0,
-        y: speed,
-        z: 0
-      });
+      setKinematicVelocity(ctx, ctx.refs.weaver, 0, speed);
     }
     return null;
   }
