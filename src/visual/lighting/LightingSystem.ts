@@ -121,11 +121,8 @@ export class LightingSystem implements ISystem {
   }
 
   private setWeaverPhaseHue(colorHex: string): void {
-    const hex = colorHex.replace("#", "");
-    const r = parseInt(hex.substring(0, 2), 16) / 255;
-    const g = parseInt(hex.substring(2, 4), 16) / 255;
-    const b = parseInt(hex.substring(4, 6), 16) / 255;
-    this.targetColor.set(r, g, b);
+    // Standardize using Babylon’s robust built-in Hex string parser
+    this.targetColor.copyFrom(BABYLON.Color3.FromHexString(colorHex));
   }
 
   public dispose(): void {

@@ -74,7 +74,16 @@ export class EntitySpawnerSystem implements ISystem {
       prevQx: 0,
       prevQy: 0,
       prevQz: 0,
-      prevQw: 1
+      prevQw: 1,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      scaleZ: 1.0,
+      prevScaleX: 1.0,
+      prevScaleY: 1.0,
+      prevScaleZ: 1.0,
+      scaleVelX: 0.0,
+      scaleVelY: 0.0,
+      scaleVelZ: 0.0
     });
 
     this.context.stores
@@ -208,7 +217,16 @@ export class EntitySpawnerSystem implements ISystem {
       prevQx: 0,
       prevQy: 0,
       prevQz: 0,
-      prevQw: 1
+      prevQw: 1,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      scaleZ: 1.0,
+      prevScaleX: 1.0,
+      prevScaleY: 1.0,
+      prevScaleZ: 1.0,
+      scaleVelX: 0.0,
+      scaleVelY: 0.0,
+      scaleVelZ: 0.0
     });
 
     this.context.stores

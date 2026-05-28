@@ -125,13 +125,9 @@ export class WeaverTraversalSystem implements ISystem {
             wallNormalX: hitWallNormal
           });
 
-          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
-
-          trans.scaleVelX += -3.5;
-          trans.scaleVelY += 2.5;
-          trans.scaleVelZ += 2.5;
+          trans.scaleVelX! += -3.5;
+          trans.scaleVelY! += 2.5;
+          trans.scaleVelZ! += 2.5;
 
           sState.phase = "HOLD";
           sState.timer = 0.22;
@@ -157,13 +153,9 @@ export class WeaverTraversalSystem implements ISystem {
           sState.phase = "LAUNCH";
           vel.x = sState.direction * sweepSpeed * 2.0;
 
-          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
-
-          trans.scaleVelX += 4.5;
-          trans.scaleVelY += -3.5;
-          trans.scaleVelZ += -3.5;
+          trans.scaleVelX! += 4.5;
+          trans.scaleVelY! += -3.5;
+          trans.scaleVelZ! += -3.5;
         }
 
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
@@ -269,24 +261,9 @@ export class WeaverTraversalSystem implements ISystem {
     trav.wallNormalX = wallNormalX;
 
     if (trans) {
-      if (
-        trans.scaleX === undefined ||
-        trans.scaleY === undefined ||
-        trans.scaleZ === undefined ||
-        trans.prevScaleX === undefined ||
-        trans.prevScaleY === undefined ||
-        trans.prevScaleZ === undefined
-      ) {
-        trans.scaleX = 1.0;
-        trans.scaleY = 1.0;
-        trans.scaleZ = 1.0;
-        trans.prevScaleX = 1.0;
-        trans.prevScaleY = 1.0;
-        trans.prevScaleZ = 1.0;
-      }
-      trans.prevScaleX = trans.scaleX;
-      trans.prevScaleY = trans.scaleY;
-      trans.prevScaleZ = trans.scaleZ;
+      trans.prevScaleX = trans.scaleX!;
+      trans.prevScaleY = trans.scaleY!;
+      trans.prevScaleZ = trans.scaleZ!;
 
       let targetScaleX = 1.0;
       let targetScaleY = 1.0;
@@ -356,28 +333,24 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
 
-      if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-      if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-      if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
-
       const stiffness = 120;
       const damping = 22;
 
-      const dispX = (trans.scaleX ?? 1.0) - targetScaleX;
-      const dispY = (trans.scaleY ?? 1.0) - targetScaleY;
-      const dispZ = (trans.scaleZ ?? 1.0) - targetScaleZ;
+      const dispX = trans.scaleX! - targetScaleX;
+      const dispY = trans.scaleY! - targetScaleY;
+      const dispZ = trans.scaleZ! - targetScaleZ;
 
-      const accelX = -stiffness * dispX - damping * trans.scaleVelX;
-      const accelY = -stiffness * dispY - damping * trans.scaleVelY;
-      const accelZ = -stiffness * dispZ - damping * trans.scaleVelZ;
+      const accelX = -stiffness * dispX - damping * trans.scaleVelX!;
+      const accelY = -stiffness * dispY - damping * trans.scaleVelY!;
+      const accelZ = -stiffness * dispZ - damping * trans.scaleVelZ!;
 
-      trans.scaleVelX += accelX * dt;
-      trans.scaleVelY += accelY * dt;
-      trans.scaleVelZ += accelZ * dt;
+      trans.scaleVelX! += accelX * dt;
+      trans.scaleVelY! += accelY * dt;
+      trans.scaleVelZ! += accelZ * dt;
 
-      trans.scaleX = (trans.scaleX ?? 1.0) + trans.scaleVelX * dt;
-      trans.scaleY = (trans.scaleY ?? 1.0) + trans.scaleVelY * dt;
-      trans.scaleZ = (trans.scaleZ ?? 1.0) + trans.scaleVelZ * dt;
+      trans.scaleX! += trans.scaleVelX! * dt;
+      trans.scaleY! += trans.scaleVelY! * dt;
+      trans.scaleZ! += trans.scaleVelZ! * dt;
 
       this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(
@@ -392,7 +365,7 @@ export class WeaverTraversalSystem implements ISystem {
       trans.qw = this._currentQuat.w;
 
       if (isPatrolling && sState && sState.phase === "HOLD") {
-        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX - 15.0);
+        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX! - 15.0);
       }
     }
   }

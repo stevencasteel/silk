@@ -151,11 +151,8 @@ export class VisualStateDressingSystem implements ISystem {
 
       let cachedColor = this.colorCache.get(wAI.hue);
       if (!cachedColor) {
-        const hex = wAI.hue.replace(String.fromCharCode(35), "");
-        const r = parseInt(hex.substring(0, 2), 16) / 255;
-        const g = parseInt(hex.substring(2, 4), 16) / 255;
-        const b = parseInt(hex.substring(4, 6), 16) / 255;
-        cachedColor = new BABYLON.Color3(r, g, b);
+        // Standardize using Babylon’s robust built-in Hex string parser
+        cachedColor = BABYLON.Color3.FromHexString(wAI.hue);
         this.colorCache.set(wAI.hue, cachedColor);
       }
 
