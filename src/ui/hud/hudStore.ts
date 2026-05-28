@@ -35,10 +35,7 @@ export interface OverlayState {
   losses: number;
   menuIndex: number;
   setMenuIndex: (index: number) => void;
-  recordWin: () => void;
-  recordLoss: () => void;
-  loadStats: () => void;
-  clearStats: () => void;
+  setStats: (wins: number, losses: number) => void;
 
   calibrationStep: number;
   setCalibrationStep: (step: number) => void;
@@ -94,7 +91,7 @@ export const useWeaverStore = create<WeaverState>((set) => ({
   reset: () => set(WEAVER_RESET)
 }));
 
-export const useOverlayStore = create<OverlayState>((set, get) => ({
+export const useOverlayStore = create<OverlayState>((set) => ({
   ...OVERLAY_RESET,
   wins: 0,
   losses: 0,
@@ -113,46 +110,7 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   setAwaitingGesture: (awaiting) => set({ awaitingGesture: awaiting }),
 
   setMenuIndex: (index) => set({ menuIndex: index }),
-  loadStats: () => {
-    try {
-      const raw = localStorage.getItem("silk_stats");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        set({
-          wins: typeof parsed.wins === "number" ? parsed.wins : 0,
-          losses: typeof parsed.losses === "number" ? parsed.losses : 0
-        });
-      }
-    } catch (e) {
-      console.warn("Failed to load local stats", e);
-    }
-  },
-  recordWin: () => {
-    const nextWins = get().wins + 1;
-    set({ wins: nextWins });
-    try {
-      localStorage.setItem("silk_stats", JSON.stringify({ wins: nextWins, losses: get().losses }));
-    } catch (e) {
-      console.warn("Failed to save stats", e);
-    }
-  },
-  recordLoss: () => {
-    const nextLosses = get().losses + 1;
-    set({ losses: nextLosses });
-    try {
-      localStorage.setItem("silk_stats", JSON.stringify({ wins: get().wins, losses: nextLosses }));
-    } catch (e) {
-      console.warn("Failed to save stats", e);
-    }
-  },
-  clearStats: () => {
-    set({ wins: 0, losses: 0 });
-    try {
-      localStorage.setItem("silk_stats", JSON.stringify({ wins: 0, losses: 0 }));
-    } catch (e) {
-      console.warn("Failed to clear stats", e);
-    }
-  },
+  setStats: (wins, losses) => set({ wins, losses }),
 
   setCalibrationStep: (step) => set({ calibrationStep: step }),
 

@@ -104,7 +104,6 @@ export const HudOverlay: React.FC = () => {
       bootStatus: s.bootStatus,
       menuIndex: s.menuIndex,
       setMenuIndex: s.setMenuIndex,
-      clearStats: s.clearStats,
       calibrationStep: s.calibrationStep
     }))
   );
@@ -123,7 +122,6 @@ export const HudOverlay: React.FC = () => {
     bootStatus,
     menuIndex,
     setMenuIndex,
-    clearStats,
     calibrationStep
   } = overlayState;
 
@@ -178,10 +176,10 @@ export const HudOverlay: React.FC = () => {
   }, []);
 
   const handleClearStats = useCallback(() => {
-    clearStats();
+    window.dispatchEvent(new CustomEvent("silk-clear-stats"));
     setTickerWins(0);
     setTickerLosses(0);
-  }, [clearStats]);
+  }, []);
 
   useEffect(() => {
     let timerA: ReturnType<typeof setTimeout>;
@@ -846,10 +844,7 @@ export const HudOverlay: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={() => {
-                        handleClearStats();
-                        playConfirmSynth();
-                      }}
+                      onClick={handleClearStats}
                       onMouseEnter={() => {
                         setMenuIndex(1);
                         playTickSynth();

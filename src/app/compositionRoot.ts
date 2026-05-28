@@ -38,6 +38,7 @@ import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
 import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
 import { HudSyncSystem } from "../ui/hud/HudSyncSystem";
+import { ProfilePersistenceSystem } from "../core/systems/ProfilePersistenceSystem";
 import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/player/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/weaver/WeaverBrainSystem";
@@ -169,6 +170,7 @@ export class CompositionRoot {
     const gameDirector = new GameDirectorSystem(context, spawner);
 
     const hudSystem = new HudSyncSystem(context);
+    const persistenceSystem = new ProfilePersistenceSystem(context);
 
     const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 
@@ -199,6 +201,7 @@ export class CompositionRoot {
     systemManager.register(audioSystem);
     systemManager.register(lightingSystem);
     systemManager.register(hudSystem);
+    systemManager.register(persistenceSystem);
     systemManager.register(debugTelemetry);
 
     const clock = new PerformanceClock();

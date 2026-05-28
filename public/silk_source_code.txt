@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 4:55:51 PM
+ [SYSTEM] Generated: 5/28/2026, 4:59:03 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -68,6 +68,7 @@
 │   │   │   ├── IScheduler.ts
 │   │   │   └── RafScheduler.ts
 │   │   ├── systems/
+│   │   │   ├── ProfilePersistenceSystem.ts
 │   │   │   └── SystemManager.ts
 │   │   ├── utils/
 │   │   │   └── EngineUtils.ts
@@ -1101,6 +1102,7 @@ import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
 import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
 import { HudSyncSystem } from "../ui/hud/HudSyncSystem";
+import { ProfilePersistenceSystem } from "../core/systems/ProfilePersistenceSystem";
 import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/player/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/weaver/WeaverBrainSystem";
@@ -1232,6 +1234,7 @@ export class CompositionRoot {
     const gameDirector = new GameDirectorSystem(context, spawner);
 
     const hudSystem = new HudSyncSystem(context);
+    const persistenceSystem = new ProfilePersistenceSystem(context);
 
     const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 
@@ -1262,6 +1265,7 @@ export class CompositionRoot {
     systemManager.register(audioSystem);
     systemManager.register(lightingSystem);
     systemManager.register(hudSystem);
+    systemManager.register(persistenceSystem);
     systemManager.register(debugTelemetry);
 
     const clock = new PerformanceClock();
@@ -3418,6 +3422,98 @@ export class RafScheduler implements IScheduler {
       this.rafId = null;
     }
     this.callback = null;
+  }
+}
+
+
+
+● ./src/core/systems/ProfilePersistenceSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../engine/SystemContext";
+import { GameEvent } from "../events/GameEvents";
+import { SubscriptionTracker } from "../utils/EngineUtils";
+import { useOverlayStore } from "../../ui/hud/hudStore";
+
+export class ProfilePersistenceSystem implements ISystem {
+  readonly phase = SystemPhase.PostRender;
+  readonly initPhase = InitPhase.UI;
+
+  private _tracker = new SubscriptionTracker();
+  private wins = 0;
+  private losses = 0;
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    this.loadStats();
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.recordLoss();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
+        this.recordWin();
+      })
+    );
+
+    window.addEventListener("silk-clear-stats", this.handleClearStats);
+  }
+
+  private loadStats(): void {
+    try {
+      const raw = localStorage.getItem("silk_stats");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        this.wins = typeof parsed.wins === "number" ? parsed.wins : 0;
+        this.losses = typeof parsed.losses === "number" ? parsed.losses : 0;
+      }
+    } catch (e) {
+      console.warn("ProfilePersistenceSystem: Failed to load local stats", e);
+    }
+    useOverlayStore.getState().setStats(this.wins, this.losses);
+  }
+
+  private recordWin(): void {
+    this.wins++;
+    this.saveStats();
+  }
+
+  private recordLoss(): void {
+    this.losses++;
+    this.saveStats();
+  }
+
+  private saveStats(): void {
+    try {
+      localStorage.setItem(
+        "silk_stats",
+        JSON.stringify({ wins: this.wins, losses: this.losses })
+      );
+    } catch (e) {
+      console.warn("ProfilePersistenceSystem: Failed to save stats", e);
+    }
+    useOverlayStore.getState().setStats(this.wins, this.losses);
+  }
+
+  private handleClearStats = () => {
+    this.wins = 0;
+    this.losses = 0;
+    try {
+      localStorage.setItem("silk_stats", JSON.stringify({ wins: 0, losses: 0 }));
+    } catch (e) {
+      console.warn("ProfilePersistenceSystem: Failed to clear stats", e);
+    }
+    useOverlayStore.getState().setStats(0, 0);
+  };
+
+  public dispose(): void {
+    this._tracker.clear();
+    window.removeEventListener("silk-clear-stats", this.handleClearStats);
   }
 }
 
@@ -10243,7 +10339,6 @@ export const HudOverlay: React.FC = () => {
       bootStatus: s.bootStatus,
       menuIndex: s.menuIndex,
       setMenuIndex: s.setMenuIndex,
-      clearStats: s.clearStats,
       calibrationStep: s.calibrationStep
     }))
   );
@@ -10262,7 +10357,6 @@ export const HudOverlay: React.FC = () => {
     bootStatus,
     menuIndex,
     setMenuIndex,
-    clearStats,
     calibrationStep
   } = overlayState;
 
@@ -10317,10 +10411,10 @@ export const HudOverlay: React.FC = () => {
   }, []);
 
   const handleClearStats = useCallback(() => {
-    clearStats();
+    window.dispatchEvent(new CustomEvent("silk-clear-stats"));
     setTickerWins(0);
     setTickerLosses(0);
-  }, [clearStats]);
+  }, []);
 
   useEffect(() => {
     let timerA: ReturnType<typeof setTimeout>;
@@ -10985,10 +11079,7 @@ export const HudOverlay: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={() => {
-                        handleClearStats();
-                        playConfirmSynth();
-                      }}
+                      onClick={handleClearStats}
                       onMouseEnter={() => {
                         setMenuIndex(1);
                         playTickSynth();
@@ -11073,8 +11164,7 @@ export class HudSyncSystem implements ISystem {
   private broker: EventBroker;
 
   public init(): void {
-    const overlayStore = useOverlayStore.getState();
-    overlayStore.loadStats();
+    // Stats are now read and verified natively by ProfilePersistenceSystem
   }
 
   private registerSubscriptions(): void {
@@ -11124,20 +11214,17 @@ export class HudSyncSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
-        overlayStore.recordLoss();
         overlayStore.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        overlayStore.recordWin();
         overlayStore.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         resetAllStores();
-        overlayStore.loadStats();
       })
     );
     this.subscriptions.push(
@@ -11233,10 +11320,7 @@ export interface OverlayState {
   losses: number;
   menuIndex: number;
   setMenuIndex: (index: number) => void;
-  recordWin: () => void;
-  recordLoss: () => void;
-  loadStats: () => void;
-  clearStats: () => void;
+  setStats: (wins: number, losses: number) => void;
 
   calibrationStep: number;
   setCalibrationStep: (step: number) => void;
@@ -11292,7 +11376,7 @@ export const useWeaverStore = create<WeaverState>((set) => ({
   reset: () => set(WEAVER_RESET)
 }));
 
-export const useOverlayStore = create<OverlayState>((set, get) => ({
+export const useOverlayStore = create<OverlayState>((set) => ({
   ...OVERLAY_RESET,
   wins: 0,
   losses: 0,
@@ -11311,46 +11395,7 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   setAwaitingGesture: (awaiting) => set({ awaitingGesture: awaiting }),
 
   setMenuIndex: (index) => set({ menuIndex: index }),
-  loadStats: () => {
-    try {
-      const raw = localStorage.getItem("silk_stats");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        set({
-          wins: typeof parsed.wins === "number" ? parsed.wins : 0,
-          losses: typeof parsed.losses === "number" ? parsed.losses : 0
-        });
-      }
-    } catch (e) {
-      console.warn("Failed to load local stats", e);
-    }
-  },
-  recordWin: () => {
-    const nextWins = get().wins + 1;
-    set({ wins: nextWins });
-    try {
-      localStorage.setItem("silk_stats", JSON.stringify({ wins: nextWins, losses: get().losses }));
-    } catch (e) {
-      console.warn("Failed to save stats", e);
-    }
-  },
-  recordLoss: () => {
-    const nextLosses = get().losses + 1;
-    set({ losses: nextLosses });
-    try {
-      localStorage.setItem("silk_stats", JSON.stringify({ wins: get().wins, losses: nextLosses }));
-    } catch (e) {
-      console.warn("Failed to save stats", e);
-    }
-  },
-  clearStats: () => {
-    set({ wins: 0, losses: 0 });
-    try {
-      localStorage.setItem("silk_stats", JSON.stringify({ wins: 0, losses: 0 }));
-    } catch (e) {
-      console.warn("Failed to clear stats", e);
-    }
-  },
+  setStats: (wins, losses) => set({ wins, losses }),
 
   setCalibrationStep: (step) => set({ calibrationStep: step }),
 
