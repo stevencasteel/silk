@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 11:20:51 PM
+ [SYSTEM] Generated: 5/28/2026, 11:23:18 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -123,6 +123,7 @@
 │   │   ├── havok/
 │   │   │   └── HavokPhysicsSystem.ts
 │   │   └── systems/
+│   │       ├── CollisionRegistry.ts
 │   │       ├── CollisionResolutionSystem.ts
 │   │       ├── EnvironmentClampingSystem.ts
 │   │       └── KinematicIntegrationSystem.ts
@@ -10375,6 +10376,44 @@ export class HavokPhysicsSystem implements ISystem {
 
 
 
+● ./src/physics/systems/CollisionRegistry.ts
+────────────────────────────────────────────────────
+import { SystemContext } from "../../core/engine/SystemContext";
+import { EntityId } from "../../core/ecs/Entity";
+
+export interface CollisionDetails {
+  damage?: number;
+  dx?: number;
+  dy?: number;
+}
+
+export type CollisionHandler = (
+  entityA: EntityId,
+  entityB: EntityId,
+  context: SystemContext,
+  details?: CollisionDetails
+) => void;
+
+export class CollisionRegistry {
+  private static handlers = new Map<string, CollisionHandler>();
+
+  public static register(layerA: string, layerB: string, handler: CollisionHandler): void {
+    const key = this.getKey(layerA, layerB);
+    this.handlers.set(key, handler);
+  }
+
+  public static getHandler(layerA: string, layerB: string): CollisionHandler | undefined {
+    const key = this.getKey(layerA, layerB);
+    return this.handlers.get(key);
+  }
+
+  private static getKey(a: string, b: string): string {
+    return a < b ? `${a}:${b}` : `${b}:${a}`;
+  }
+}
+
+
+
 ● ./src/physics/systems/CollisionResolutionSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
@@ -10388,6 +10427,7 @@ import {
   HurtboxComponent,
   CollisionResponseComponent
 } from "../../core/ecs/Components";
+import { CollisionRegistry } from "./CollisionRegistry";
 import * as BABYLON from "@babylonjs/core";
 
 export class CollisionResolutionSystem implements ISystem {
@@ -10395,12 +10435,37 @@ export class CollisionResolutionSystem implements ISystem {
 
   constructor(private context: SystemContext) {}
 
+  public init(): void {
+    // Register baseline default handler for Hitbox vs Hurtbox
+    CollisionRegistry.register("HITBOX", "HURTBOX", (_hbId, hubId, context, details) => {
+      const responses = context.stores.get<CollisionResponseComponent>("collisionResponse");
+      const response = responses.get(hubId);
+      if (response && response.onHit && details) {
+        response.onHit(
+          details.damage ?? 0,
+          "PLAYER_FLING",
+          details.dx ?? 0,
+          details.dy ?? 0,
+          context
+        );
+      }
+    });
+
+    // Register baseline default handler for Projectiles overlapping Player
+    CollisionRegistry.register("PROJECTILE", "PLAYER", (projId, playerId, context) => {
+      const responses = context.stores.get<CollisionResponseComponent>("collisionResponse");
+      const response = responses.get(projId);
+      if (response && response.onOverlap) {
+        response.onOverlap(playerId, context);
+      }
+    });
+  }
+
   public update(dt: number): void {
     void dt;
     const transforms = this.context.stores.get<TransformComponent>("transform");
-    const responses = this.context.stores.get<CollisionResponseComponent>("collisionResponse");
 
-    // 1. Resolve Hitbox and Hurtbox collisions (Delegated to responses)
+    // 1. Resolve Hitbox and Hurtbox collisions
     const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
     const hurtboxes = this.context.stores.get<HurtboxComponent>("hurtbox");
 
@@ -10418,35 +10483,39 @@ export class CollisionResolutionSystem implements ISystem {
         if (!hubTrans) continue;
 
         const dist = getDistance2D(hbTrans.x, hbTrans.y, hubTrans.x, hubTrans.y);
-        const combinedRadius = hb.radius + hub.radius;
+        const combinedRadius = hb.radius + hb.radius;
 
         if (dist < combinedRadius) {
           const dx = hubTrans.x - hbTrans.x;
           const dy = hubTrans.y - hbTrans.y;
           const len = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
-          const response = responses.get(hubId);
-          if (response && response.onHit) {
-            response.onHit(hb.damage, "PLAYER_FLING", dx / len, dy / len, this.context);
+          const handler = CollisionRegistry.getHandler("HITBOX", "HURTBOX");
+          if (handler) {
+            handler(hbId, hubId, this.context, {
+              damage: hb.damage,
+              dx: dx / len,
+              dy: dy / len
+            });
           }
         }
       }
     }
 
-    // 2. Resolve Projectile Dynamic Overlaps (Delegated to responses)
+    // 2. Resolve Projectile Dynamic Overlaps
     const projectiles = this.context.stores.get<ProjectileComponent>("projectile");
     for (const [projId, pComp] of projectiles.entries()) {
       if (!pComp.isActive || pComp.isStuckOnWall) continue;
 
-      const response = responses.get(projId);
-      if (response && response.layer === "PROJECTILE" && response.onOverlap) {
-        const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
-        const pMesh = this.context.visualRegistry.getTransformNode(
-          this.context.refs.player
-        ) as BABYLON.AbstractMesh;
+      const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
+      const pMesh = this.context.visualRegistry.getTransformNode(
+        this.context.refs.player
+      ) as BABYLON.AbstractMesh;
 
-        if (mesh && pMesh && mesh.intersectsMesh(pMesh, false)) {
-          response.onOverlap(this.context.refs.player, this.context);
+      if (mesh && pMesh && mesh.intersectsMesh(pMesh, false)) {
+        const handler = CollisionRegistry.getHandler("PROJECTILE", "PLAYER");
+        if (handler) {
+          handler(projId, this.context.refs.player, this.context);
         }
       }
     }
