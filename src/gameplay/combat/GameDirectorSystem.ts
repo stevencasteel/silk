@@ -5,7 +5,7 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
-import { HASH_PREFIX } from "../../core/utils/EngineUtils";
+import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -14,7 +14,7 @@ export class GameDirectorSystem implements ISystem {
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
   
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
   private cinematicTimer = 0.0;
@@ -29,7 +29,7 @@ export class GameDirectorSystem implements ISystem {
   ) {}
 
   public init(): void {
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         console.log("[GameDirectorSystem] PLAYER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
@@ -54,7 +54,7 @@ export class GameDirectorSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         console.log("[GameDirectorSystem] WEAVER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
@@ -72,7 +72,7 @@ export class GameDirectorSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
         if (payload.hp === 1 && this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
           console.log("[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo...");
@@ -179,7 +179,6 @@ export class GameDirectorSystem implements ISystem {
 
   public dispose(): void {
     window.removeEventListener("keydown", this.handleKeyDown);
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
   }
 }

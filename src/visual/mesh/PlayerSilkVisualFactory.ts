@@ -1,4 +1,4 @@
-import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
 
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -16,15 +16,7 @@ export function decoratePlayerSilkVisual(
     childMeshes[i].dispose();
   }
 
-  scene.lights.forEach((light) => {
-    const shadowGen = light.getShadowGenerator();
-    if (shadowGen) {
-      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (mesh: BABYLON.AbstractMesh) => void };
-      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
-        concreteGen.removeShadowCaster(pMesh);
-      }
-    }
-  });
+  removeMeshFromShadows(pMesh, scene);
 
   const innerBody = BABYLON.MeshBuilder.CreateCapsule(
     "player_inner_body",
@@ -74,7 +66,7 @@ export function decoratePlayerSilkVisual(
   silkMat.sheen.isEnabled = true;
   silkMat.sheen.intensity = 0.95;
   silkMat.sheen.roughness = 0.05;
-  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0); // Neutral white sheen reflection
+  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0); 
   silkMat.emissiveColor = new BABYLON.Color3(0.1, 0.0, 0.2);
   silkMat.enableSpecularAntiAliasing = true;
   silkMat.forceIrradianceInFragment = true;

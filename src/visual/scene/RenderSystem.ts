@@ -5,6 +5,7 @@ import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { VisualRegistry } from "./VisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem {
@@ -14,7 +15,7 @@ export class RenderSystem implements ISystem {
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
   private pipeline: BABYLON.DefaultRenderingPipeline | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -169,21 +170,21 @@ export class RenderSystem implements ISystem {
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 45.0;
         }
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 25.0;
         }
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
         if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
           if (this.pipeline) {
@@ -192,7 +193,7 @@ export class RenderSystem implements ISystem {
         }
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 0.0;
@@ -226,8 +227,7 @@ export class RenderSystem implements ISystem {
 
   public dispose(): void {
     window.removeEventListener("resize", this.handleResize);
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     this.visualRegistry.clear();
     if (this.scene) this.scene.dispose();
     if (this.engine) this.engine.dispose();

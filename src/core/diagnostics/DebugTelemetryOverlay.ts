@@ -4,12 +4,13 @@ import { Profiler } from "./Profiler";
 import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
 import { SystemContext } from "../engine/SystemContext";
+import { SubscriptionTracker } from "../utils/EngineUtils";
 
 export class DebugTelemetryOverlay implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private overlay: HTMLElement | null = null;
   private sysText: HTMLElement | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private isGameOver: boolean = false;
   private isPaused: boolean = false;
 
@@ -34,25 +35,25 @@ export class DebugTelemetryOverlay implements ISystem {
     this.overlay.appendChild(this.sysText);
     root.appendChild(this.overlay);
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
         if (this.overlay) this.overlay.style.display = "block";
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
         this.isGameOver = true;
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.isGameOver = false;
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
         this.isPaused = isPaused;
       })
@@ -110,8 +111,7 @@ export class DebugTelemetryOverlay implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
   }
 }

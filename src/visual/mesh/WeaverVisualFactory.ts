@@ -1,4 +1,4 @@
-import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
 
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
@@ -107,15 +107,7 @@ export function decorateWeaverVisual(
     childMeshes[i].dispose();
   }
 
-  scene.lights.forEach((light) => {
-    const shadowGen = light.getShadowGenerator();
-    if (shadowGen) {
-      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (mesh: BABYLON.AbstractMesh) => void };
-      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
-        concreteGen.removeShadowCaster(wMesh);
-      }
-    }
-  });
+  removeMeshFromShadows(wMesh, scene);
 
   const textureGen = new ProceduralTextureGenerator();
 

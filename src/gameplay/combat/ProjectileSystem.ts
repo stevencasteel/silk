@@ -35,7 +35,6 @@ export class ProjectileSystem implements ISystem {
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
 
-  // Reusable scratch fields to prevent dynamic GC allocations in the physics update loop
   private readonly _velocityTickScratch = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
@@ -44,23 +43,12 @@ export class ProjectileSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    this.projMatActive = new BABYLON.PBRMaterial("projectileMatActive", scene);
-    this.projMatActive.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
-    this.projMatActive.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
-    this.projMatActive.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
-    this.projMatActive.sheen.isEnabled = true;
-    this.projMatActive.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
-
+    this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive", scene);
     const noisePlugin = new ProjectileNoisePlugin(this.projMatActive);
     (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
       noisePlugin;
 
-    this.projMatStuck = new BABYLON.PBRMaterial("projectileMatStuck", scene);
-    this.projMatStuck.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
-    this.projMatStuck.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
-    this.projMatStuck.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
-    this.projMatStuck.sheen.isEnabled = true;
-    this.projMatStuck.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+    this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
 
     if (scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
@@ -107,6 +95,16 @@ export class ProjectileSystem implements ISystem {
       this.clearAll();
       this.noiseTime = 0.0;
     });
+  }
+
+  private createBaseProjectileMaterial(name: string, scene: BABYLON.Scene): BABYLON.PBRMaterial {
+    const mat = new BABYLON.PBRMaterial(name, scene);
+    mat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
+    mat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
+    mat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
+    mat.sheen.isEnabled = true;
+    mat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+    return mat;
   }
 
   private spawnProjectile(x: number, y: number, tx: number, ty: number): void {
@@ -186,7 +184,6 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       if (!p.isStuck) {
-        // Zero allocation displacement using static scratch vector scaling
         p.fallbackVelocity.scaleToRef(dt, this._velocityTickScratch);
         p.mesh.position.addInPlace(this._velocityTickScratch);
 
@@ -219,7 +216,6 @@ export class ProjectileSystem implements ISystem {
                 y: p.mesh.position.y,
                 isWall: false
               });
-              // High-Juice: Smash projectile triggers high-power directional camera shake matching impact angle
               this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                 amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
                 duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,

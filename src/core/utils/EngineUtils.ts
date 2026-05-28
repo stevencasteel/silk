@@ -183,3 +183,15 @@ export class ColorCache {
     this.cache.clear();
   }
 }
+
+export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON.Scene): void {
+  scene.lights.forEach((light) => {
+    const shadowGen = light.getShadowGenerator();
+    if (shadowGen) {
+      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (m: BABYLON.AbstractMesh) => void };
+      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
+        concreteGen.removeShadowCaster(mesh);
+      }
+    }
+  });
+}
