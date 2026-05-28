@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 11:40:41 PM
+ [SYSTEM] Generated: 5/28/2026, 11:45:32 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1140,7 +1140,8 @@ import {
   ParticleEmitterComponent,
   HitboxComponent,
   HurtboxComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  BoundaryConstraintComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -1216,6 +1217,7 @@ export class CompositionRoot {
     const hitboxes = new ComponentStore<HitboxComponent>();
     const hurtboxes = new ComponentStore<HurtboxComponent>();
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
+    const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1257,6 +1259,7 @@ export class CompositionRoot {
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
     registerStore("particleRequest", particleRequests);
+    registerStore("boundaryConstraint", boundaryConstraints);
 
     const visualRegistry = new VisualRegistry();
 
@@ -1395,6 +1398,9 @@ export class AudioDirectorSystem implements ISystem {
   private hitComboCount = 0;
   private lastHitTime = 0;
   private toneModule: typeof import("tone") | null = null;
+  private lastConfirmTime = 0;
+  private lastTickTime = 0;
+  private lastAlarmTime = 0;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -1410,22 +1416,34 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("mousedown", this.gestureTriggerRef);
 
     this.windowTickListener = () => {
-      if (this.initialized && this.sfxRegistry?.tickSynth) {
-        this.sfxRegistry.tickSynth.triggerAttackRelease("E6", "32n");
+      if (this.initialized && this.sfxRegistry?.tickSynth && this.toneModule) {
+        const nowMs = performance.now();
+        if (nowMs - this.lastTickTime > 30) {
+          this.lastTickTime = nowMs;
+          this.sfxRegistry.tickSynth.triggerAttackRelease("E6", "32n", this.toneModule.now());
+        }
       }
     };
     window.addEventListener("silk-stats-tick", this.windowTickListener);
 
     this.windowConfirmListener = () => {
-      if (this.initialized && this.sfxRegistry?.confirmSynth) {
-        this.sfxRegistry.confirmSynth.triggerAttackRelease("C6", "16n");
+      if (this.initialized && this.sfxRegistry?.confirmSynth && this.toneModule) {
+        const nowMs = performance.now();
+        if (nowMs - this.lastConfirmTime > 50) {
+          this.lastConfirmTime = nowMs;
+          this.sfxRegistry.confirmSynth.triggerAttackRelease("C6", "16n", this.toneModule.now());
+        }
       }
     };
     window.addEventListener("silk-play-confirm", this.windowConfirmListener);
 
     this.windowTensionAlarmListener = () => {
-      if (this.initialized && this.sfxRegistry?.tensionAlarmSynth && Math.random() < 0.1) {
-        this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease("F6", "32n");
+      if (this.initialized && this.sfxRegistry?.tensionAlarmSynth && this.toneModule && Math.random() < 0.1) {
+        const nowMs = performance.now();
+        if (nowMs - this.lastAlarmTime > 80) {
+          this.lastAlarmTime = nowMs;
+          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease("F6", "32n", this.toneModule.now());
+        }
       }
     };
     window.addEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
@@ -1516,7 +1534,7 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.handleStateChange(payload.state);
+          this.tensionSynth.handleStateChange(payload.state, payload.audioParams);
         }
       })
     );
@@ -2008,20 +2026,16 @@ export class TensionSynthesizer {
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
-  public handleStateChange(state: string): void {
+  public handleStateChange(_state: string, audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }): void {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
     const now = this.toneModule.now();
-    const presets = AUDIO_PRESETS.WEAVER;
 
-    if (state.includes("BERSERK")) {
-      this.fmOsc.frequency.setTargetAtTime(presets.DRONE_BERSERK_FREQ, now, 0.5);
-      this.lfo.frequency.setTargetAtTime(presets.LFO_BERSERK_HZ, now, 0.5);
-      this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_BERSERK, now, 0.5);
-    } else if (state === "WEAVER DEFEATED") {
-      this.fmOsc.frequency.setTargetAtTime(presets.DRONE_DEFEATED_FREQ, now, 0.5);
-      this.lfo.frequency.setTargetAtTime(presets.LFO_DEFEATED_HZ, now, 0.5);
-      this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_DEFEATED, now, 0.5);
+    if (audioParams) {
+      this.fmOsc.frequency.setTargetAtTime(audioParams.baseFreq, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(audioParams.lfoHz, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(audioParams.harmonicity, now, 0.5);
     } else {
+      const presets = AUDIO_PRESETS.WEAVER;
       this.fmOsc.frequency.setTargetAtTime(presets.DRONE_BASE_FREQ, now, 0.5);
       this.lfo.frequency.setTargetAtTime(presets.LFO_NORMAL_HZ, now, 0.5);
       this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_NORMAL, now, 0.5);
@@ -2661,6 +2675,14 @@ export interface CollisionResponseComponent {
     context: unknown
   ) => void;
   onOverlap?: (otherId: number, context: unknown) => void;
+}
+
+
+export interface BoundaryConstraintComponent {
+  isActive: boolean;
+  limitX: number;
+  layer: "PLAYER" | "PROJECTILE";
+  onBoundaryHit?: (id: number, side: "LEFT" | "RIGHT", currentX: number) => void;
 }
 
 
@@ -3505,7 +3527,7 @@ export interface GameEventMap {
   [GameEvent.PLAYER_STATE_CHANGE]: { state: string; launchPower?: number };
   [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
   [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
-  [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string };
+  [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string; audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number } };
   [GameEvent.WEAVER_DAMAGED]: { amount: number; source: string };
   [GameEvent.WEAVER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.WEAVER_DIED]: void;
@@ -4074,7 +4096,9 @@ import {
   HitboxComponent,
   PlayerCosmeticComponent,
   WeaverCosmeticComponent,
-  CollisionResponseComponent
+  CollisionResponseComponent,
+  BoundaryConstraintComponent,
+  CollisionStateComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { createWeaverVisualMesh } from "../visual/mesh/WeaverVisualFactory";
@@ -4321,6 +4345,24 @@ export class EntityAssembler {
       springDamping: 14,
       rotationAngle: 0.0,
       slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR
+    });
+
+    context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(playerId, {
+      isActive: true,
+      limitX: ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X,
+      layer: "PLAYER",
+      onBoundaryHit: (id: number, side: "LEFT" | "RIGHT") => {
+        const colStore = context.stores.get<CollisionStateComponent>("collisionState");
+        const pCol = colStore.get(id);
+        const pTrans = context.stores.get<TransformComponent>("transform").get(id);
+        if (pCol && pTrans) {
+          pCol.isWallClinging = true;
+          pCol.wallNormalX = side === "RIGHT" ? -1 : 1;
+          pCol.lastHitType = "WALL";
+          pCol.hitPointX = side === "RIGHT" ? ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X : -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+          pCol.hitPointY = pTrans.y;
+        }
+      }
     });
 
     context.stores.get<CollisionResponseComponent>("collisionResponse").add(playerId, {
@@ -4959,6 +5001,8 @@ import {
   WeaverAIComponent,
   CollisionResponseComponent,
   TraversalStateComponent,
+  BoundaryConstraintComponent,
+  CollisionStateComponent,
   InvulnerabilityComponent,
   ParticleRequestComponent
 } from "../../core/ecs/Components";
@@ -5056,6 +5100,47 @@ export class ProjectileSystem implements ISystem {
         lifeTime: 0.0,
         fallbackX: 0.0,
         fallbackY: 0.0
+      });
+
+      this.context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(projId, {
+        isActive: true,
+        limitX: ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X,
+        layer: "PROJECTILE",
+        onBoundaryHit: (id: number, side: "LEFT" | "RIGHT", currentX: number) => {
+          const pComp = this.context.stores.get<ProjectileComponent>("projectile").get(id);
+          if (pComp && !pComp.isStuck) {
+            const projTrans = this.context.stores.get<TransformComponent>("transform").get(id);
+            const projCol = this.context.stores.get<CollisionStateComponent>("collisionState").get(id);
+            if (projTrans && projCol) {
+              pComp.isStuck = true;
+              pComp.isStuckOnWall = true;
+              projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X - 0.05);
+
+              projCol.isWallClinging = true;
+              projCol.wallNormalX = side === "RIGHT" ? -1 : 1;
+              projCol.lastHitType = "WALL";
+              projCol.hitPointX = projTrans.x;
+              projCol.hitPointY = projTrans.y;
+
+              const mesh = this.context.visualRegistry.getTransformNode(id) as BABYLON.Mesh;
+              if (mesh) {
+                mesh.scaling.set(0.24, 1.45, 1.45);
+                mesh.position.x = projTrans.x;
+                mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+                const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+                if (stuckMat) {
+                  mesh.material = stuckMat;
+                }
+              }
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: projTrans.x,
+                y: projTrans.y,
+                isWall: true
+              });
+            }
+          }
+        }
       });
 
       this.context.stores.get<CollisionResponseComponent>("collisionResponse").add(projId, {
@@ -8176,6 +8261,7 @@ export type WeaverStateType = "PATROLLING" | "STRIKING" | "ASCENDING" | "DEFEATE
 export interface IWeaverState {
   readonly type: WeaverStateType;
   readonly name: string;
+  readonly audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number };
   readonly hue: string;
   enter(ctx: SystemContext): void;
   exit(ctx: SystemContext): void;
@@ -8323,9 +8409,19 @@ export class WeaverBrainSystem implements ISystem {
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
     }
+    const baseParams = this.activeState?.audioParams;
+    let audioParams = baseParams;
+    if (isBerserk && baseParams && this.activeState?.type === "PATROLLING") {
+      audioParams = {
+        baseFreq: 110,
+        lfoHz: 4.0,
+        harmonicity: 2.5
+      };
+    }
     this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: finalName,
-      hue: hue
+      hue: hue,
+      audioParams
     });
   }
 
@@ -8752,6 +8848,7 @@ export class WeaverAscendingState implements IWeaverState {
   public readonly type: WeaverStateType = "ASCENDING";
   public readonly name = "ASCENDING TO CEILING";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
+  public readonly audioParams = { baseFreq: 55, lfoHz: 0.2, harmonicity: 1.5 };
 
   public enter(ctx: SystemContext): void {
     void ctx;
@@ -8812,6 +8909,7 @@ export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
   public readonly name = "WEAVER DEFEATED";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
+  public readonly audioParams = { baseFreq: 30, lfoHz: 0.05, harmonicity: 1.0 };
 
   public enter(ctx: SystemContext): void {
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
@@ -8872,6 +8970,7 @@ export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";
   public readonly name = "PATROLLING CEILING";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+  public readonly audioParams = { baseFreq: 55, lfoHz: 0.2, harmonicity: 1.5 };
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 
@@ -9001,6 +9100,7 @@ export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
   public readonly name = "WEAVER STRIKE";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+  public readonly audioParams = { baseFreq: 55, lfoHz: 0.2, harmonicity: 1.5 };
   private strikeCount = 0;
   private maxStrikes = 2;
   private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
@@ -10437,15 +10537,11 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TransformComponent,
   CollisionStateComponent,
-  ProjectileComponent
+  BoundaryConstraintComponent
 } from "../../core/ecs/Components";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
-import { GameEvent } from "../../core/events/GameEvents";
-import * as BABYLON from "@babylonjs/core";
 
 export class EnvironmentClampingSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
 
   constructor(private context: SystemContext) {}
 
@@ -10453,6 +10549,7 @@ export class EnvironmentClampingSystem implements ISystem {
     void dt;
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const collisionStore = this.context.stores.get<CollisionStateComponent>("collisionState");
+    const constraints = this.context.stores.get<BoundaryConstraintComponent>("boundaryConstraint");
 
     for (const [id] of transforms.entries()) {
       if (!collisionStore.has(id)) {
@@ -10468,68 +10565,27 @@ export class EnvironmentClampingSystem implements ISystem {
       }
     }
 
-    const pId = this.context.refs.player;
-    const pTrans = transforms.get(pId);
-    const pCol = collisionStore.get(pId);
-    if (pTrans && pCol) {
-      const hitRight = pTrans.x > this.WALL_LIMIT_X;
-      const hitLeft = pTrans.x < -this.WALL_LIMIT_X;
+    for (const [id, constraint] of constraints.entries()) {
+      if (!constraint.isActive) continue;
 
-      if (hitRight) {
-        pCol.isWallClinging = true;
-        pCol.wallNormalX = -1;
-        pCol.lastHitType = "WALL";
-        pCol.hitPointX = this.WALL_LIMIT_X;
-        pCol.hitPointY = pTrans.y;
-      } else if (hitLeft) {
-        pCol.isWallClinging = true;
-        pCol.wallNormalX = 1;
-        pCol.lastHitType = "WALL";
-        pCol.hitPointX = -this.WALL_LIMIT_X;
-        pCol.hitPointY = pTrans.y;
+      const trans = transforms.get(id);
+      if (!trans) continue;
+
+      const hitRight = trans.x >= constraint.limitX;
+      const hitLeft = trans.x <= -constraint.limitX;
+
+      if (hitRight || hitLeft) {
+        const hitSide = hitRight ? "RIGHT" : "LEFT";
+        if (constraint.onBoundaryHit) {
+          constraint.onBoundaryHit(id, hitSide, trans.x);
+        }
       } else {
-        pCol.isWallClinging = false;
-        pCol.wallNormalX = 0;
-      }
-    }
-
-    const projectiles = this.context.stores.get<ProjectileComponent>("projectile");
-    for (const [id, pComp] of projectiles.entries()) {
-      if (!pComp.isActive || pComp.isStuck) continue;
-
-      const projTrans = transforms.get(id);
-      const projCol = collisionStore.get(id);
-      if (projTrans && projCol) {
-        const hitRight = projTrans.x >= this.WALL_LIMIT_X;
-        const hitLeft = projTrans.x <= -this.WALL_LIMIT_X;
-
-        if (hitRight || hitLeft) {
-          pComp.isStuck = true;
-          pComp.isStuckOnWall = true;
-          projTrans.x = Math.sign(projTrans.x) * (this.WALL_LIMIT_X - 0.05);
-
-          projCol.isWallClinging = true;
-          projCol.wallNormalX = hitRight ? -1 : 1;
-          projCol.lastHitType = "WALL";
-          projCol.hitPointX = projTrans.x;
-          projCol.hitPointY = projTrans.y;
-
-          const mesh = this.context.visualRegistry.getTransformNode(id) as BABYLON.Mesh;
-          if (mesh) {
-            mesh.scaling.set(0.24, 1.45, 1.45);
-            mesh.position.x = projTrans.x;
-            mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-            const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
-            if (stuckMat) {
-              mesh.material = stuckMat;
-            }
+        if (constraint.layer === "PLAYER") {
+          const pCol = collisionStore.get(id);
+          if (pCol) {
+            pCol.isWallClinging = false;
+            pCol.wallNormalX = 0;
           }
-
-          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-            x: projTrans.x,
-            y: projTrans.y,
-            isWall: true
-          });
         }
       }
     }
