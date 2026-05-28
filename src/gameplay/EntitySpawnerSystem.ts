@@ -15,7 +15,9 @@ import {
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
-  WeaverSweepComponent
+  WeaverSweepComponent,
+  HitboxComponent,
+  HurtboxComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { createWeaverVisualMesh } from "../visual/mesh/WeaverVisualFactory";
@@ -115,6 +117,22 @@ export class EntitySpawnerSystem implements ISystem {
       phase: "SWEEP",
       timer: 0.0,
       direction: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X >= 0 ? 1 : -1
+    });
+
+    // Attach passive hitbox/hurtbox components
+    this.context.stores.get<HurtboxComponent>("hurtbox").add(weaverId, {
+      ownerId: weaverId,
+      isActive: true,
+      radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
+      layer: "WEAVER"
+    });
+
+    this.context.stores.get<HitboxComponent>("hitbox").add(weaverId, {
+      ownerId: weaverId,
+      isActive: false, // Activated dynamically during STRIKING state
+      radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
+      damage: GAMEPLAY_TUNING.COMBAT.WEAVER_CONTACT_DAMAGE,
+      targetLayer: "PLAYER"
     });
 
     this.context.refs.weaver = weaverId;
@@ -229,6 +247,23 @@ export class EntitySpawnerSystem implements ISystem {
     });
 
     this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
+
+    // Attach passive hitbox/hurtbox components
+    this.context.stores.get<HurtboxComponent>("hurtbox").add(playerId, {
+      ownerId: playerId,
+      isActive: true,
+      radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+      layer: "PLAYER"
+    });
+
+    this.context.stores.get<HitboxComponent>("hitbox").add(playerId, {
+      ownerId: playerId,
+      isActive: false, // Activated dynamically during LAUNCHING traversal state
+      radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+      damage: GAMEPLAY_TUNING.COMBAT.PLAYER_FLING_DAMAGE,
+      targetLayer: "WEAVER"
+    });
+
     this.context.refs.player = playerId;
 
     if (existingNode) {

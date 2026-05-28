@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 4:52:16 PM
+ [SYSTEM] Generated: 5/28/2026, 4:55:51 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1089,7 +1089,9 @@ import {
   WeaverSweepComponent,
   CollisionStateComponent,
   TetherStrainComponent,
-  ParticleEmitterComponent
+  ParticleEmitterComponent,
+  HitboxComponent,
+  HurtboxComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -1149,6 +1151,8 @@ export class CompositionRoot {
     const collisionStates = new ComponentStore<CollisionStateComponent>();
     const tetherStrains = new ComponentStore<TetherStrainComponent>();
     const particleEmitters = new ComponentStore<ParticleEmitterComponent>();
+    const hitboxes = new ComponentStore<HitboxComponent>();
+    const hurtboxes = new ComponentStore<HurtboxComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1178,6 +1182,8 @@ export class CompositionRoot {
     registerStore("collisionState", collisionStates);
     registerStore("tetherStrain", tetherStrains);
     registerStore("particleEmitter", particleEmitters);
+    registerStore("hitbox", hitboxes);
+    registerStore("hurtbox", hurtboxes);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
 
@@ -2469,6 +2475,23 @@ export interface ParticleEmitterComponent {
   colorB: number;
 }
 
+export interface HitboxComponent {
+  ownerId: number;
+  isActive: boolean;
+  radius: number;
+  damage: number;
+  targetLayer: "PLAYER" | "WEAVER" | "BOTH";
+  knockbackX?: number;
+  knockbackY?: number;
+}
+
+export interface HurtboxComponent {
+  ownerId: number;
+  isActive: boolean;
+  radius: number;
+  layer: "PLAYER" | "WEAVER";
+}
+
 
 
 ● ./src/core/ecs/EcsWorld.ts
@@ -3729,7 +3752,9 @@ import {
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
-  WeaverSweepComponent
+  WeaverSweepComponent,
+  HitboxComponent,
+  HurtboxComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { createWeaverVisualMesh } from "../visual/mesh/WeaverVisualFactory";
@@ -3829,6 +3854,22 @@ export class EntitySpawnerSystem implements ISystem {
       phase: "SWEEP",
       timer: 0.0,
       direction: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X >= 0 ? 1 : -1
+    });
+
+    // Attach passive hitbox/hurtbox components
+    this.context.stores.get<HurtboxComponent>("hurtbox").add(weaverId, {
+      ownerId: weaverId,
+      isActive: true,
+      radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
+      layer: "WEAVER"
+    });
+
+    this.context.stores.get<HitboxComponent>("hitbox").add(weaverId, {
+      ownerId: weaverId,
+      isActive: false, // Activated dynamically during STRIKING state
+      radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
+      damage: GAMEPLAY_TUNING.COMBAT.WEAVER_CONTACT_DAMAGE,
+      targetLayer: "PLAYER"
     });
 
     this.context.refs.weaver = weaverId;
@@ -3943,6 +3984,23 @@ export class EntitySpawnerSystem implements ISystem {
     });
 
     this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
+
+    // Attach passive hitbox/hurtbox components
+    this.context.stores.get<HurtboxComponent>("hurtbox").add(playerId, {
+      ownerId: playerId,
+      isActive: true,
+      radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+      layer: "PLAYER"
+    });
+
+    this.context.stores.get<HitboxComponent>("hitbox").add(playerId, {
+      ownerId: playerId,
+      isActive: false, // Activated dynamically during LAUNCHING traversal state
+      radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+      damage: GAMEPLAY_TUNING.COMBAT.PLAYER_FLING_DAMAGE,
+      targetLayer: "WEAVER"
+    });
+
     this.context.refs.player = playerId;
 
     if (existingNode) {
@@ -4010,14 +4068,12 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import {
   TransformComponent,
   WeaverAIComponent,
-  TetherComponent,
   TraversalStateComponent,
   KinematicTargetComponent,
-  InvulnerabilityComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  HitboxComponent
 } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { GameEvent } from "../../core/events/GameEvents";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -4039,6 +4095,27 @@ export class CombatSystem implements ISystem {
     const wTrans = transforms.get(this.context.refs.weaver);
     if (!pTrans || !wTrans) return;
 
+    // Toggle active state of hitboxes based on gameplay context
+    const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
+    const pHb = hitboxes.get(this.context.refs.player);
+    const wHb = hitboxes.get(this.context.refs.weaver);
+
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
+    const pTrav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+
+    const tuning = GAMEPLAY_TUNING.COMBAT;
+
+    if (pHb && pTrav) {
+      pHb.isActive = pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD;
+    }
+    if (wHb && wAI) {
+      wHb.isActive = wAI.state === "STRIKING";
+    }
+
     const dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
     const distSq = dist * dist;
 
@@ -4050,71 +4127,17 @@ export class CombatSystem implements ISystem {
     const dx = pTrans.x - wTrans.x;
     const dy = pTrans.y - wTrans.y;
 
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
-      .get(this.context.refs.weaver);
-    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const pTrav = this.context.stores
-      .get<TraversalStateComponent>("traversal")
-      .get(this.context.refs.player);
-    const pIframe = this.context.stores
-      .get<InvulnerabilityComponent>("iframe")
-      .get(this.context.refs.player);
     const pVel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
       .get(this.context.refs.player);
 
-    if (!wAI || !tether || !pTrav || !pIframe || !pVel) return;
+    if (!pVel) return;
 
-    const tuning = GAMEPLAY_TUNING.COMBAT;
+    // If neither entity is in an active damage state, resolve passive physical overlapping pushback
+    const pActiveDamage = pHb ? pHb.isActive : false;
+    const wActiveDamage = wHb ? wHb.isActive : false;
 
-    if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD) {
-      this.context.commands.dispatch({
-        type: "DAMAGE_REQUEST",
-        targetId: this.context.refs.weaver,
-        amount: tuning.PLAYER_FLING_DAMAGE,
-        source: "PLAYER_FLING"
-      });
-
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-        amplitude: 1.4,
-        duration: 0.55,
-        dirX: dx / dist,
-        dirY: dy / dist
-      });
-
-      pVel.x = (dx / dist) * tuning.REBOUND_FORCE;
-      pVel.y = (dy / dist) * tuning.REBOUND_FORCE;
-      pTrav.state = "AIRBORNE";
-      pTrav.launchPower = 0;
-      pTrav.launchTimer = 0;
-      return;
-    }
-
-    const weaverIsHostile = wAI.state === "STRIKING";
-    if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
-      const kbX = (dx / dist) * tuning.KNOCKBACK_FORCE_X;
-      const kbY = (dy / dist) * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y;
-
-      this.context.commands.dispatch({
-        type: "DAMAGE_REQUEST",
-        targetId: this.context.refs.player,
-        amount: tuning.WEAVER_CONTACT_DAMAGE,
-        source: "WEAVER",
-        knockbackX: kbX,
-        knockbackY: kbY
-      });
-
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-        amplitude: 0.5,
-        duration: 0.3,
-        dirX: dx / dist,
-        dirY: dy / dist
-      });
-      return;
-    }
-
-    if (dist < this.COMBINED_RADIUS_THRESHOLD) {
+    if (!pActiveDamage && !wActiveDamage) {
       const overlap = this.COMBINED_RADIUS_THRESHOLD - dist;
       const nx = dx / dist;
       const ny = dy / dist;
@@ -9570,12 +9593,17 @@ export class HavokPhysicsSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
+import { getDistance2D } from "../../core/utils/EngineUtils";
 import {
   TransformComponent,
   CollisionStateComponent,
-  ProjectileComponent
+  ProjectileComponent,
+  HitboxComponent,
+  HurtboxComponent,
+  InvulnerabilityComponent,
+  TraversalStateComponent
 } from "../../core/ecs/Components";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -9666,6 +9694,93 @@ export class CollisionResolutionSystem implements ISystem {
             y: projTrans.y,
             isWall: true
           });
+        }
+      }
+    }
+
+    // Resolve component-driven Hitbox-to-Hurtbox overlaps
+    const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
+    const hurtboxes = this.context.stores.get<HurtboxComponent>("hurtbox");
+    const iframes = this.context.stores.get<InvulnerabilityComponent>("iframe");
+
+    for (const [hbId, hb] of hitboxes.entries()) {
+      if (!hb.isActive) continue;
+
+      const hbTrans = transforms.get(hbId);
+      if (!hbTrans) continue;
+
+      for (const [hubId, hub] of hurtboxes.entries()) {
+        if (!hub.isActive || hb.ownerId === hub.ownerId) continue;
+
+        // Verify layer alignment
+        if (hb.targetLayer !== "BOTH" && hb.targetLayer !== hub.layer) continue;
+
+        const hubTrans = transforms.get(hubId);
+        if (!hubTrans) continue;
+
+        const dist = getDistance2D(hbTrans.x, hbTrans.y, hubTrans.x, hubTrans.y);
+        const combinedRadius = hb.radius + hub.radius;
+
+        if (dist < combinedRadius) {
+          const dx = hubTrans.x - hbTrans.x;
+          const dy = hubTrans.y - hbTrans.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+          if (hub.layer === "PLAYER") {
+            const pIframe = iframes.get(hubId);
+            if (pIframe && pIframe.timeRemaining <= 0) {
+              const tuning = GAMEPLAY_TUNING.COMBAT;
+              const kbX = (dx / len) * tuning.KNOCKBACK_FORCE_X;
+              const kbY = (dy / len) * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y;
+
+              this.context.commands.dispatch({
+                type: "DAMAGE_REQUEST",
+                targetId: hubId,
+                amount: hb.damage,
+                source: "WEAVER",
+                knockbackX: kbX,
+                knockbackY: kbY
+              });
+
+              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: 0.5,
+                duration: 0.3,
+                dirX: dx / len,
+                dirY: dy / len
+              });
+            }
+          } else if (hub.layer === "WEAVER") {
+            const tuning = GAMEPLAY_TUNING.COMBAT;
+            this.context.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: hubId,
+              amount: hb.damage,
+              source: "PLAYER_FLING"
+            });
+
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: 1.4,
+              duration: 0.55,
+              dirX: dx / len,
+              dirY: dy / len
+            });
+
+            // Rebound player using command system
+            this.context.commands.dispatch({
+              type: "APPLY_IMPULSE",
+              entityId: hb.ownerId,
+              x: -(dx / len) * tuning.REBOUND_FORCE,
+              y: -(dy / len) * tuning.REBOUND_FORCE,
+              z: 0
+            });
+
+            const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(hb.ownerId);
+            if (trav) {
+              trav.state = "AIRBORNE";
+              trav.launchPower = 0;
+              trav.launchTimer = 0;
+            }
+          }
         }
       }
     }

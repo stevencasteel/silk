@@ -26,7 +26,9 @@ import {
   WeaverSweepComponent,
   CollisionStateComponent,
   TetherStrainComponent,
-  ParticleEmitterComponent
+  ParticleEmitterComponent,
+  HitboxComponent,
+  HurtboxComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -86,6 +88,8 @@ export class CompositionRoot {
     const collisionStates = new ComponentStore<CollisionStateComponent>();
     const tetherStrains = new ComponentStore<TetherStrainComponent>();
     const particleEmitters = new ComponentStore<ParticleEmitterComponent>();
+    const hitboxes = new ComponentStore<HitboxComponent>();
+    const hurtboxes = new ComponentStore<HurtboxComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -115,6 +119,8 @@ export class CompositionRoot {
     registerStore("collisionState", collisionStates);
     registerStore("tetherStrain", tetherStrains);
     registerStore("particleEmitter", particleEmitters);
+    registerStore("hitbox", hitboxes);
+    registerStore("hurtbox", hurtboxes);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
 

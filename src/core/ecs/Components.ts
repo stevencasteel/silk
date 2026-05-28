@@ -161,3 +161,20 @@ export interface ParticleEmitterComponent {
   colorG: number;
   colorB: number;
 }
+
+export interface HitboxComponent {
+  ownerId: number;
+  isActive: boolean;
+  radius: number;
+  damage: number;
+  targetLayer: "PLAYER" | "WEAVER" | "BOTH";
+  knockbackX?: number;
+  knockbackY?: number;
+}
+
+export interface HurtboxComponent {
+  ownerId: number;
+  isActive: boolean;
+  radius: number;
+  layer: "PLAYER" | "WEAVER";
+}

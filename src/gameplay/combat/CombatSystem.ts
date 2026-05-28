@@ -5,14 +5,12 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import {
   TransformComponent,
   WeaverAIComponent,
-  TetherComponent,
   TraversalStateComponent,
   KinematicTargetComponent,
-  InvulnerabilityComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  HitboxComponent
 } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { GameEvent } from "../../core/events/GameEvents";
 
 export class CombatSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -34,6 +32,27 @@ export class CombatSystem implements ISystem {
     const wTrans = transforms.get(this.context.refs.weaver);
     if (!pTrans || !wTrans) return;
 
+    // Toggle active state of hitboxes based on gameplay context
+    const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
+    const pHb = hitboxes.get(this.context.refs.player);
+    const wHb = hitboxes.get(this.context.refs.weaver);
+
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
+    const pTrav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+
+    const tuning = GAMEPLAY_TUNING.COMBAT;
+
+    if (pHb && pTrav) {
+      pHb.isActive = pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD;
+    }
+    if (wHb && wAI) {
+      wHb.isActive = wAI.state === "STRIKING";
+    }
+
     const dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
     const distSq = dist * dist;
 
@@ -45,71 +64,17 @@ export class CombatSystem implements ISystem {
     const dx = pTrans.x - wTrans.x;
     const dy = pTrans.y - wTrans.y;
 
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
-      .get(this.context.refs.weaver);
-    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const pTrav = this.context.stores
-      .get<TraversalStateComponent>("traversal")
-      .get(this.context.refs.player);
-    const pIframe = this.context.stores
-      .get<InvulnerabilityComponent>("iframe")
-      .get(this.context.refs.player);
     const pVel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
       .get(this.context.refs.player);
 
-    if (!wAI || !tether || !pTrav || !pIframe || !pVel) return;
+    if (!pVel) return;
 
-    const tuning = GAMEPLAY_TUNING.COMBAT;
+    // If neither entity is in an active damage state, resolve passive physical overlapping pushback
+    const pActiveDamage = pHb ? pHb.isActive : false;
+    const wActiveDamage = wHb ? wHb.isActive : false;
 
-    if (pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD) {
-      this.context.commands.dispatch({
-        type: "DAMAGE_REQUEST",
-        targetId: this.context.refs.weaver,
-        amount: tuning.PLAYER_FLING_DAMAGE,
-        source: "PLAYER_FLING"
-      });
-
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-        amplitude: 1.4,
-        duration: 0.55,
-        dirX: dx / dist,
-        dirY: dy / dist
-      });
-
-      pVel.x = (dx / dist) * tuning.REBOUND_FORCE;
-      pVel.y = (dy / dist) * tuning.REBOUND_FORCE;
-      pTrav.state = "AIRBORNE";
-      pTrav.launchPower = 0;
-      pTrav.launchTimer = 0;
-      return;
-    }
-
-    const weaverIsHostile = wAI.state === "STRIKING";
-    if (pIframe.timeRemaining <= 0 && weaverIsHostile) {
-      const kbX = (dx / dist) * tuning.KNOCKBACK_FORCE_X;
-      const kbY = (dy / dist) * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y;
-
-      this.context.commands.dispatch({
-        type: "DAMAGE_REQUEST",
-        targetId: this.context.refs.player,
-        amount: tuning.WEAVER_CONTACT_DAMAGE,
-        source: "WEAVER",
-        knockbackX: kbX,
-        knockbackY: kbY
-      });
-
-      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-        amplitude: 0.5,
-        duration: 0.3,
-        dirX: dx / dist,
-        dirY: dy / dist
-      });
-      return;
-    }
-
-    if (dist < this.COMBINED_RADIUS_THRESHOLD) {
+    if (!pActiveDamage && !wActiveDamage) {
       const overlap = this.COMBINED_RADIUS_THRESHOLD - dist;
       const nx = dx / dist;
       const ny = dy / dist;

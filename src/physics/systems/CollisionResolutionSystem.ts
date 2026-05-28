@@ -1,12 +1,17 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
+import { getDistance2D } from "../../core/utils/EngineUtils";
 import {
   TransformComponent,
   CollisionStateComponent,
-  ProjectileComponent
+  ProjectileComponent,
+  HitboxComponent,
+  HurtboxComponent,
+  InvulnerabilityComponent,
+  TraversalStateComponent
 } from "../../core/ecs/Components";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -97,6 +102,93 @@ export class CollisionResolutionSystem implements ISystem {
             y: projTrans.y,
             isWall: true
           });
+        }
+      }
+    }
+
+    // Resolve component-driven Hitbox-to-Hurtbox overlaps
+    const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
+    const hurtboxes = this.context.stores.get<HurtboxComponent>("hurtbox");
+    const iframes = this.context.stores.get<InvulnerabilityComponent>("iframe");
+
+    for (const [hbId, hb] of hitboxes.entries()) {
+      if (!hb.isActive) continue;
+
+      const hbTrans = transforms.get(hbId);
+      if (!hbTrans) continue;
+
+      for (const [hubId, hub] of hurtboxes.entries()) {
+        if (!hub.isActive || hb.ownerId === hub.ownerId) continue;
+
+        // Verify layer alignment
+        if (hb.targetLayer !== "BOTH" && hb.targetLayer !== hub.layer) continue;
+
+        const hubTrans = transforms.get(hubId);
+        if (!hubTrans) continue;
+
+        const dist = getDistance2D(hbTrans.x, hbTrans.y, hubTrans.x, hubTrans.y);
+        const combinedRadius = hb.radius + hub.radius;
+
+        if (dist < combinedRadius) {
+          const dx = hubTrans.x - hbTrans.x;
+          const dy = hubTrans.y - hbTrans.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+          if (hub.layer === "PLAYER") {
+            const pIframe = iframes.get(hubId);
+            if (pIframe && pIframe.timeRemaining <= 0) {
+              const tuning = GAMEPLAY_TUNING.COMBAT;
+              const kbX = (dx / len) * tuning.KNOCKBACK_FORCE_X;
+              const kbY = (dy / len) * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y;
+
+              this.context.commands.dispatch({
+                type: "DAMAGE_REQUEST",
+                targetId: hubId,
+                amount: hb.damage,
+                source: "WEAVER",
+                knockbackX: kbX,
+                knockbackY: kbY
+              });
+
+              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: 0.5,
+                duration: 0.3,
+                dirX: dx / len,
+                dirY: dy / len
+              });
+            }
+          } else if (hub.layer === "WEAVER") {
+            const tuning = GAMEPLAY_TUNING.COMBAT;
+            this.context.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: hubId,
+              amount: hb.damage,
+              source: "PLAYER_FLING"
+            });
+
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: 1.4,
+              duration: 0.55,
+              dirX: dx / len,
+              dirY: dy / len
+            });
+
+            // Rebound player using command system
+            this.context.commands.dispatch({
+              type: "APPLY_IMPULSE",
+              entityId: hb.ownerId,
+              x: -(dx / len) * tuning.REBOUND_FORCE,
+              y: -(dy / len) * tuning.REBOUND_FORCE,
+              z: 0
+            });
+
+            const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(hb.ownerId);
+            if (trav) {
+              trav.state = "AIRBORNE";
+              trav.launchPower = 0;
+              trav.launchTimer = 0;
+            }
+          }
         }
       }
     }
