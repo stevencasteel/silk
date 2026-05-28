@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 2:40:23 PM
+ [SYSTEM] Generated: 5/28/2026, 2:51:53 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3207,7 +3207,7 @@ export interface GameEventMap {
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
   [GameEvent.PLAYER_DIED]: void;
-  [GameEvent.PLAYER_STATE_CHANGE]: { state: string };
+  [GameEvent.PLAYER_STATE_CHANGE]: { state: string; launchPower?: number };
   [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
   [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string };
@@ -4945,7 +4945,23 @@ export class JuiceSystem implements ISystem {
       p.mesh.position.z += p.velocity.z * dt;
 
       const ratio = p.lifeRemaining / p.maxLife;
-      p.mesh.scaling.set(ratio, ratio, ratio);
+
+      // Velocity-Aligned Spark Stream Particles
+      const speed = p.velocity.length();
+      if (speed > 10.0) {
+        if (!p.mesh.rotationQuaternion) {
+          p.mesh.rotationQuaternion = new BABYLON.Quaternion();
+        }
+        const angle = Math.atan2(p.velocity.y, p.velocity.x) - Math.PI / 2;
+        BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, p.mesh.rotationQuaternion);
+        const stretch = 1.0 + (speed / 10.0) * 0.5;
+        p.mesh.scaling.set(0.25 * ratio, 2.0 * stretch * ratio, 0.25 * ratio);
+      } else {
+        if (p.mesh.rotationQuaternion) {
+          p.mesh.rotationQuaternion.set(0, 0, 0, 1);
+        }
+        p.mesh.scaling.set(ratio, ratio, ratio);
+      }
     }
 
     if (this.playerState === "LAUNCHING") {
@@ -6263,7 +6279,10 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
-      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
+      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { 
+        state: trav.state,
+        launchPower: trav.launchPower
+      });
     }
   }
 
@@ -6420,13 +6439,15 @@ export class PlayerKinematicsSystem implements ISystem {
             if (pressingIn) {
               const transforms = this.context.stores.get<TransformComponent>("transform");
               const pTrans = transforms.get(this.context.refs.player);
+
+              // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
               if (pTrans) {
-                if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-                if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-                if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-                pTrans.scaleVelX += -10.0;
-                pTrans.scaleVelY += 12.0;
-                pTrans.scaleVelZ += -2.0;
+                pTrans.scaleX = 0.72;
+                pTrans.scaleY = 1.22;
+                pTrans.scaleZ = 1.0;
+                pTrans.scaleVelX = 0;
+                pTrans.scaleVelY = 0;
+                pTrans.scaleVelZ = 0;
               }
 
               trav.state = "WALL_SLIDING";
@@ -6467,13 +6488,15 @@ export class PlayerKinematicsSystem implements ISystem {
           y: target.y,
           wallNormalX: -wallDir
         });
+
+        // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
         if (pTrans) {
-          if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-          if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-          if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-          pTrans.scaleVelX += -10.0;
-          pTrans.scaleVelY += 12.0;
-          pTrans.scaleVelZ += -2.0;
+          pTrans.scaleX = 0.72;
+          pTrans.scaleY = 1.22;
+          pTrans.scaleZ = 1.0;
+          pTrans.scaleVelX = 0;
+          pTrans.scaleVelY = 0;
+          pTrans.scaleVelZ = 0;
         }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
@@ -6569,6 +6592,15 @@ export class PlayerKinematicsSystem implements ISystem {
     trav.launchTimer = tuning.LAUNCH_DURATION;
     trav.launchPower = powerScale;
     trav.wallDir = 0;
+
+    // Fling Launch Stretch Impulse: apply a strong scaling impulse proportional to launch power
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const pTrans = transforms.get(this.context.refs.player);
+    if (pTrans) {
+      pTrans.scaleVelY = powerScale * 15.0;
+      pTrans.scaleVelX = -powerScale * 7.5;
+      pTrans.scaleVelZ = -powerScale * 7.5;
+    }
 
     let shakeAmp = 0.25 + powerScale * 0.35;
     let shakeDur = 0.2;
@@ -6715,13 +6747,15 @@ export class VerticalBoundarySystem implements ISystem {
           this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
           const transforms = this.context.stores.get<TransformComponent>("transform");
           const pTrans = transforms.get(this.context.refs.player);
+          
+          // Tactical Heavy Boundary Squash on floor limit
           if (pTrans) {
-            if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-            if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-            if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-            pTrans.scaleVelY += -16.0;
-            pTrans.scaleVelX += 8.0;
-            pTrans.scaleVelZ += 8.0;
+            pTrans.scaleX = 1.22;
+            pTrans.scaleY = 0.72;
+            pTrans.scaleZ = 1.22;
+            pTrans.scaleVelX = 0;
+            pTrans.scaleVelY = 0;
+            pTrans.scaleVelZ = 0;
           }
         }
         target.y = minY;
@@ -10819,7 +10853,8 @@ export class CameraSystem implements ISystem {
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
 
-      const decay = this.shakeDuration > 0 ? this.shakeTimer / this.shakeDuration : 0;
+      // Update linear decay to quadratic exponential decay
+      const decay = this.shakeDuration > 0 ? Math.pow(this.shakeTimer / this.shakeDuration, 2) : 0;
       const currentIntensity = this.shakeIntensity * decay;
 
       const noiseValX = this.noise(this.noiseTime) * currentIntensity;
@@ -12571,6 +12606,16 @@ export class RenderSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 25.0;
+        }
+      })
+    );
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
+        // High-Power Fling launch: spike chromatic aberration based on release power
+        if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
+          if (this.pipeline) {
+            this.pipeline.chromaticAberration.aberrationAmount = 20.0 * payload.launchPower;
+          }
         }
       })
     );

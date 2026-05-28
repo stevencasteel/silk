@@ -190,6 +190,16 @@ export class RenderSystem implements ISystem {
       })
     );
     this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
+        // High-Power Fling launch: spike chromatic aberration based on release power
+        if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
+          if (this.pipeline) {
+            this.pipeline.chromaticAberration.aberrationAmount = 20.0 * payload.launchPower;
+          }
+        }
+      })
+    );
+    this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 0.0;

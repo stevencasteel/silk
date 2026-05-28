@@ -31,7 +31,7 @@ export interface GameEventMap {
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
   [GameEvent.PLAYER_DIED]: void;
-  [GameEvent.PLAYER_STATE_CHANGE]: { state: string };
+  [GameEvent.PLAYER_STATE_CHANGE]: { state: string; launchPower?: number };
   [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
   [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string };

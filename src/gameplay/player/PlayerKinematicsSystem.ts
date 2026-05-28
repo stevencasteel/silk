@@ -211,7 +211,10 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
-      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { state: trav.state });
+      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { 
+        state: trav.state,
+        launchPower: trav.launchPower
+      });
     }
   }
 
@@ -368,13 +371,15 @@ export class PlayerKinematicsSystem implements ISystem {
             if (pressingIn) {
               const transforms = this.context.stores.get<TransformComponent>("transform");
               const pTrans = transforms.get(this.context.refs.player);
+
+              // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
               if (pTrans) {
-                if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-                if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-                if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-                pTrans.scaleVelX += -10.0;
-                pTrans.scaleVelY += 12.0;
-                pTrans.scaleVelZ += -2.0;
+                pTrans.scaleX = 0.72;
+                pTrans.scaleY = 1.22;
+                pTrans.scaleZ = 1.0;
+                pTrans.scaleVelX = 0;
+                pTrans.scaleVelY = 0;
+                pTrans.scaleVelZ = 0;
               }
 
               trav.state = "WALL_SLIDING";
@@ -415,13 +420,15 @@ export class PlayerKinematicsSystem implements ISystem {
           y: target.y,
           wallNormalX: -wallDir
         });
+
+        // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
         if (pTrans) {
-          if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-          if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-          if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-          pTrans.scaleVelX += -10.0;
-          pTrans.scaleVelY += 12.0;
-          pTrans.scaleVelZ += -2.0;
+          pTrans.scaleX = 0.72;
+          pTrans.scaleY = 1.22;
+          pTrans.scaleZ = 1.0;
+          pTrans.scaleVelX = 0;
+          pTrans.scaleVelY = 0;
+          pTrans.scaleVelZ = 0;
         }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
@@ -517,6 +524,15 @@ export class PlayerKinematicsSystem implements ISystem {
     trav.launchTimer = tuning.LAUNCH_DURATION;
     trav.launchPower = powerScale;
     trav.wallDir = 0;
+
+    // Fling Launch Stretch Impulse: apply a strong scaling impulse proportional to launch power
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const pTrans = transforms.get(this.context.refs.player);
+    if (pTrans) {
+      pTrans.scaleVelY = powerScale * 15.0;
+      pTrans.scaleVelX = -powerScale * 7.5;
+      pTrans.scaleVelZ = -powerScale * 7.5;
+    }
 
     let shakeAmp = 0.25 + powerScale * 0.35;
     let shakeDur = 0.2;

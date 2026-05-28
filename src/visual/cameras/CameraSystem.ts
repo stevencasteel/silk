@@ -76,7 +76,8 @@ export class CameraSystem implements ISystem {
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
 
-      const decay = this.shakeDuration > 0 ? this.shakeTimer / this.shakeDuration : 0;
+      // Update linear decay to quadratic exponential decay
+      const decay = this.shakeDuration > 0 ? Math.pow(this.shakeTimer / this.shakeDuration, 2) : 0;
       const currentIntensity = this.shakeIntensity * decay;
 
       const noiseValX = this.noise(this.noiseTime) * currentIntensity;

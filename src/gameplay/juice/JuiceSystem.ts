@@ -424,7 +424,23 @@ export class JuiceSystem implements ISystem {
       p.mesh.position.z += p.velocity.z * dt;
 
       const ratio = p.lifeRemaining / p.maxLife;
-      p.mesh.scaling.set(ratio, ratio, ratio);
+
+      // Velocity-Aligned Spark Stream Particles
+      const speed = p.velocity.length();
+      if (speed > 10.0) {
+        if (!p.mesh.rotationQuaternion) {
+          p.mesh.rotationQuaternion = new BABYLON.Quaternion();
+        }
+        const angle = Math.atan2(p.velocity.y, p.velocity.x) - Math.PI / 2;
+        BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, p.mesh.rotationQuaternion);
+        const stretch = 1.0 + (speed / 10.0) * 0.5;
+        p.mesh.scaling.set(0.25 * ratio, 2.0 * stretch * ratio, 0.25 * ratio);
+      } else {
+        if (p.mesh.rotationQuaternion) {
+          p.mesh.rotationQuaternion.set(0, 0, 0, 1);
+        }
+        p.mesh.scaling.set(ratio, ratio, ratio);
+      }
     }
 
     if (this.playerState === "LAUNCHING") {

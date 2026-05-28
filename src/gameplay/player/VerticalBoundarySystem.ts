@@ -64,13 +64,15 @@ export class VerticalBoundarySystem implements ISystem {
           this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
           const transforms = this.context.stores.get<TransformComponent>("transform");
           const pTrans = transforms.get(this.context.refs.player);
+          
+          // Tactical Heavy Boundary Squash on floor limit
           if (pTrans) {
-            if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-            if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-            if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-            pTrans.scaleVelY += -16.0;
-            pTrans.scaleVelX += 8.0;
-            pTrans.scaleVelZ += 8.0;
+            pTrans.scaleX = 1.22;
+            pTrans.scaleY = 0.72;
+            pTrans.scaleZ = 1.22;
+            pTrans.scaleVelX = 0;
+            pTrans.scaleVelY = 0;
+            pTrans.scaleVelZ = 0;
           }
         }
         target.y = minY;
