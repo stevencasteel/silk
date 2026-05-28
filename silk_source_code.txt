@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 11:51:00 PM
+ [SYSTEM] Generated: 5/28/2026, 11:52:05 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1436,11 +1436,20 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("silk-play-confirm", this.windowConfirmListener);
 
     this.windowTensionAlarmListener = () => {
-      if (this.initialized && this.sfxRegistry?.tensionAlarmSynth && this.toneModule && Math.random() < 0.1) {
+      if (
+        this.initialized &&
+        this.sfxRegistry?.tensionAlarmSynth &&
+        this.toneModule &&
+        Math.random() < 0.1
+      ) {
         const nowMs = performance.now();
         if (nowMs - this.lastAlarmTime > 80) {
           this.lastAlarmTime = nowMs;
-          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease("F6", "32n", this.toneModule.now());
+          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease(
+            "F6",
+            "32n",
+            this.toneModule.now()
+          );
         }
       }
     };
@@ -2024,7 +2033,10 @@ export class TensionSynthesizer {
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
-  public handleStateChange(_state: string, audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }): void {
+  public handleStateChange(
+    _state: string,
+    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }
+  ): void {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
     const now = this.toneModule.now();
 
@@ -2674,7 +2686,6 @@ export interface CollisionResponseComponent {
   ) => void;
   onOverlap?: (otherId: number, context: unknown) => void;
 }
-
 
 export interface BoundaryConstraintComponent {
   isActive: boolean;
@@ -3525,7 +3536,11 @@ export interface GameEventMap {
   [GameEvent.PLAYER_STATE_CHANGE]: { state: string; launchPower?: number };
   [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
   [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
-  [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string; audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number } };
+  [GameEvent.WEAVER_STATE_CHANGE]: {
+    state: string;
+    hue: string;
+    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number };
+  };
   [GameEvent.WEAVER_DAMAGED]: { amount: number; source: string };
   [GameEvent.WEAVER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.WEAVER_DIED]: void;
@@ -4357,7 +4372,10 @@ export class EntityAssembler {
           pCol.isWallClinging = true;
           pCol.wallNormalX = side === "RIGHT" ? -1 : 1;
           pCol.lastHitType = "WALL";
-          pCol.hitPointX = side === "RIGHT" ? ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X : -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+          pCol.hitPointX =
+            side === "RIGHT"
+              ? ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X
+              : -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
           pCol.hitPointY = pTrans.y;
         }
       }
@@ -5108,7 +5126,9 @@ export class ProjectileSystem implements ISystem {
           const pComp = this.context.stores.get<ProjectileComponent>("projectile").get(id);
           if (pComp && !pComp.isStuck) {
             const projTrans = this.context.stores.get<TransformComponent>("transform").get(id);
-            const projCol = this.context.stores.get<CollisionStateComponent>("collisionState").get(id);
+            const projCol = this.context.stores
+              .get<CollisionStateComponent>("collisionState")
+              .get(id);
             if (projTrans && projCol) {
               pComp.isStuck = true;
               pComp.isStuckOnWall = true;
@@ -5623,9 +5643,13 @@ export class PlayerSparkStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    const color = new BABYLON.Color3(
+      colors.PLAYER_SPARK.r,
+      colors.PLAYER_SPARK.g,
+      colors.PLAYER_SPARK.b
+    );
     const count = this.count ?? config.COUNT;
-    
+
     const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
       const theta = Math.random() * 2.0 * Math.PI;
@@ -5649,7 +5673,11 @@ export class WeaverSparkStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+    const color = new BABYLON.Color3(
+      colors.WEAVER_SPARK.r,
+      colors.WEAVER_SPARK.g,
+      colors.WEAVER_SPARK.b
+    );
     const count = this.count ?? config.COUNT;
 
     const tempVel = new BABYLON.Vector3();
@@ -5673,7 +5701,11 @@ export class LandingDustStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
+    const color = new BABYLON.Color3(
+      colors.LANDING_DUST.r,
+      colors.LANDING_DUST.g,
+      colors.LANDING_DUST.b
+    );
     const count = config.COUNT;
 
     const tempVel = new BABYLON.Vector3();
@@ -5718,7 +5750,11 @@ export class WebSplatStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    const color = new BABYLON.Color3(
+      colors.PROJECTILE_SPLAT.r,
+      colors.PROJECTILE_SPLAT.g,
+      colors.PROJECTILE_SPLAT.b
+    );
     const count = config.COUNT;
 
     const tempVel = new BABYLON.Vector3();
@@ -5737,7 +5773,6 @@ export class WebSplatStrategy implements IParticleEmitterStrategy {
   }
 }
 
-
 export class LaunchTrailStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
@@ -5754,7 +5789,11 @@ export class LaunchTrailStrategy implements IParticleEmitterStrategy {
     const tempVel = new BABYLON.Vector3(vx, vy, vz);
     const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
 
-    const color = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    const color = new BABYLON.Color3(
+      colors.PLAYER_SPARK.r,
+      colors.PLAYER_SPARK.g,
+      colors.PLAYER_SPARK.b
+    );
     context.emitRawParticle(tempPos, tempVel, life, color);
   }
 }
@@ -7143,7 +7182,6 @@ export class TutorialSystem implements ISystem {
   private reeledUp = false;
   private reeledDown = false;
 
-  private lastTetherLength = 0.0;
   private _tracker = new SubscriptionTracker();
 
   constructor(private context: SystemContext) {}
@@ -7156,7 +7194,6 @@ export class TutorialSystem implements ISystem {
         this.step2Completed = false;
         this.reeledUp = false;
         this.reeledDown = false;
-        this.lastTetherLength = 0.0;
       })
     );
 
@@ -7177,29 +7214,6 @@ export class TutorialSystem implements ISystem {
           overlayStore.setCalibrationStep(1);
           dispatchUIFeedback("silk-play-confirm");
         }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
-        const overlayStore = useOverlayStore.getState();
-        if (this.lastTetherLength > 0.0) {
-          const delta = maxLength - this.lastTetherLength;
-          if (overlayStore.calibrationStep === 1) {
-            if (delta < -0.01) {
-              this.reeledUp = true;
-            } else if (delta > 0.01) {
-              this.reeledDown = true;
-            }
-
-            if (!this.step1Completed && this.reeledUp && this.reeledDown) {
-              this.step1Completed = true;
-              overlayStore.setCalibrationStep(2);
-              dispatchUIFeedback("silk-play-confirm");
-            }
-          }
-        }
-        this.lastTetherLength = maxLength;
       })
     );
   }
@@ -12848,7 +12862,7 @@ export class ArenaGeometry {
       const backdropPanel = backdropPanelBase.createInstance(`backdropPanel_${i}`);
       backdropPanel.position.set(bandOffset, panelY, backdropZ - 0.22);
       backdropPanel.scaling.set(panelWidth, panelHeight, panelDepth);
-      
+
       backdropPanel.metadata = { type: "scrolling_backdrop_panel", index: i, initialY: panelY };
 
       if (i % 3 !== 1) {
@@ -12860,7 +12874,7 @@ export class ArenaGeometry {
         );
         seam.scaling.set(panelWidth * (0.32 + Math.abs(Math.cos(i * 1.7)) * 0.24), 0.035, 0.12);
         seam.rotation.z = Math.sin(i * 1.9) * 0.34;
-        
+
         seam.metadata = { type: "scrolling_backdrop_gash", index: i, initialY: seam.position.y };
       }
     }
@@ -12878,7 +12892,7 @@ export class ArenaGeometry {
         0.14
       );
       scratch.rotation.z = Math.sin(i * 2.61) * 0.92;
-      
+
       scratch.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
     }
 
@@ -12899,13 +12913,13 @@ export class ArenaGeometry {
       const lp = panelBase.createInstance(`leftPanel_${i}`);
       lp.position.set(-wallX + wallThickness / 2 - 0.02, panelY, 0);
       lp.scaling.set(panelWidth, panelHeight, panelDepth);
-      
+
       lp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
 
       const rp = panelBase.createInstance(`rightPanel_${i}`);
       rp.position.set(wallX - wallThickness / 2 + 0.02, panelY, 0);
       rp.scaling.set(panelWidth, panelHeight, panelDepth);
-      
+
       rp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
     }
 
@@ -12920,13 +12934,13 @@ export class ArenaGeometry {
       const leftRib = ribBase.createInstance(`leftRib_${i}`);
       leftRib.position.set(-wallX + wallThickness / 2, ribY, 0);
       leftRib.scaling.set(1.0, ribHeight, ribDepth);
-      
+
       leftRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
 
       const rightRib = ribBase.createInstance(`rightRib_${i}`);
       rightRib.position.set(wallX - wallThickness / 2, ribY, 0);
       rightRib.scaling.set(1.0, ribHeight, ribDepth);
-      
+
       rightRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
     }
 
@@ -14888,17 +14902,23 @@ export class VisualStateDressingSystem implements ISystem {
       wTrans.prevScaleZ = wTrans.scaleZ!;
 
       const displacementX = wTrans.scaleX! - cosmetic.targetScaleX;
-      const accelerationX = -cosmetic.springStiffness * displacementX - cosmetic.springDamping * (wTrans.scaleVelX ?? 0.0);
+      const accelerationX =
+        -cosmetic.springStiffness * displacementX -
+        cosmetic.springDamping * (wTrans.scaleVelX ?? 0.0);
       wTrans.scaleVelX = (wTrans.scaleVelX ?? 0.0) + accelerationX * dt;
       wTrans.scaleX = wTrans.scaleX! + wTrans.scaleVelX * dt;
 
       const displacementY = wTrans.scaleY! - cosmetic.targetScaleY;
-      const accelerationY = -cosmetic.springStiffness * displacementY - cosmetic.springDamping * (wTrans.scaleVelY ?? 0.0);
+      const accelerationY =
+        -cosmetic.springStiffness * displacementY -
+        cosmetic.springDamping * (wTrans.scaleVelY ?? 0.0);
       wTrans.scaleVelY = (wTrans.scaleVelY ?? 0.0) + accelerationY * dt;
       wTrans.scaleY = wTrans.scaleY! + wTrans.scaleVelY * dt;
 
       const displacementZ = wTrans.scaleZ! - cosmetic.targetScaleZ;
-      const accelerationZ = -cosmetic.springStiffness * displacementZ - cosmetic.springDamping * (wTrans.scaleVelZ ?? 0.0);
+      const accelerationZ =
+        -cosmetic.springStiffness * displacementZ -
+        cosmetic.springDamping * (wTrans.scaleVelZ ?? 0.0);
       wTrans.scaleVelZ = (wTrans.scaleVelZ ?? 0.0) + accelerationZ * dt;
       wTrans.scaleZ = wTrans.scaleZ! + wTrans.scaleVelZ * dt;
 
