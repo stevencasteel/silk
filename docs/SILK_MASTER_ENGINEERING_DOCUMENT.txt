@@ -68,7 +68,7 @@ SILK starts in the vertical portrait arena immediately without title screens.
   The state machine is evaluated by WeaverBrainSystem, which delegates runtime 
   updates to isolated single-responsibility state classes:
   1. SWEEPING (WeaverSweepingState - Red): Dormant patrol. Fires projectiles.
-  2. DASHING (WeaverDashingState - Orange/Red/Cyan): Triggered by damage. 
+  2. DASHING (WeaverDashingState - Orange/Red/White): Triggered by damage. 
      Prep, Thrust, and Recover sub-phases.
   3. RETURNING (WeaverReturningState - Gray): Ascends back to patrol line.
   4. DEFEATED (WeaverDefeatedState - Dark): Triggers 2-Layer procedural shatter.

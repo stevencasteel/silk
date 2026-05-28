@@ -92,13 +92,13 @@ export function decoratePlayerSilkVisual(
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
   bandMat.metallic = 0.95;
   bandMat.roughness = 0.06;
-  bandMat.albedoColor = new BABYLON.Color3(0.0, 0.94, 1.0); 
+  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
 
   textureGen.generatePBRTextures("silkBand", scene, {
     resolution: 256,
     noiseScale: 30.0,
     bumpStrength: 2.8,
-    baseColor: new BABYLON.Color3(0.0, 0.94, 1.0),
+    baseColor: new BABYLON.Color3(1.0, 1.0, 1.0),
     roughnessMin: 0.04,
     roughnessMax: 0.1,
     metallic: 0.95

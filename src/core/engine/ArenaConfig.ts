@@ -55,7 +55,7 @@ export const ARENA_CONFIG = {
   ENTITY_COLORS: {
     WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 }, // Saturated Deep Violet Base
     PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 }, // Mirror-Chrome Albedo
-    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } // Neon Pink Sheen
+    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } // Pink Sheen
   },
   ENTITY_SPAWNER: {
     WEAVER_INITIAL_VELOCITY_X: 4.5,
@@ -199,9 +199,9 @@ export const VISUAL_JUICE_CONFIG = {
   WEAVER_COLORS: {
     SWEEPING: "121212", // Low baseline emissive (exposes raw silver mecha-chrome during patrol)
     DASH_PREP: "dffe00", // Telegraph is Sulfur Yellow
-    DASH_THRUST: "ff007f", // Lunges are Neon Pink
-    DASH_RECOVER: "ff007f", // Strike Recovery is Neon Pink
-    RETURNING: "ff007f", // Ascent Return is Neon Pink
+    DASH_THRUST: "ff007f", // Lunges are Pink
+    DASH_RECOVER: "ff007f", // Strike Recovery is Pink
+    RETURNING: "ff007f", // Ascent Return is Pink
     DEFEATED: "000000" // Saturated Black Defeated
   },
   MATERIALS: {
@@ -241,11 +241,11 @@ export const VISUAL_JUICE_CONFIG = {
   PARTICLES: {
     DRAG: 0.92,
     COLORS: {
-      PLAYER_SPARK: { r: 0.0, g: 0.94, b: 1.0 },
+      PLAYER_SPARK: { r: 1.0, g: 1.0, b: 1.0 },
       WEAVER_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
       LANDING_DUST: { r: 0.87, g: 0.99, b: 0.0 },
       WALL_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
-      PROJECTILE_SPLAT: { r: 0.0, g: 0.94, b: 1.0 }
+      PROJECTILE_SPLAT: { r: 1.0, g: 1.0, b: 1.0 }
     },
     BURST: {
       PLAYER: {
@@ -336,7 +336,7 @@ export const VISUAL_JUICE_CONFIG = {
       MULT_B: 0.5
     },
     PLAYER_EMISSIVE_LAUNCH: {
-      R: 0.0,
+      R: 0.95,
       G: 0.95,
       B: 0.95
     },

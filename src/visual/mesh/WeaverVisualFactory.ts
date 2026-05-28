@@ -197,7 +197,7 @@ export function decorateWeaverVisual(
   legMat._shearPlugin = shearPluginLeg;
 
   const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);
-  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5); // Neon Pink eyes
+  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5); // Pink eyes
   eyeMat.disableLighting = true;
 
   const abdomen = BABYLON.MeshBuilder.CreateSphere(

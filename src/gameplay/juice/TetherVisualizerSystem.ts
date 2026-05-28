@@ -51,8 +51,8 @@ export class TetherVisualizerSystem implements ISystem {
     this.tetherMat.sheen.intensity = 0.95;
     this.tetherMat.sheen.roughness = 0.05;
     this.tetherMat.emissiveIntensity = 4.0; // High gloss glowing liquid look
-    this.tetherMat.albedoColor = new BABYLON.Color3(0.0, 0.94, 1.0); // Neon Cyan default
-    this.tetherMat.emissiveColor = new BABYLON.Color3(0.0, 0.45, 0.5);
+    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); // White default
+    this.tetherMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
     this.tetherMat.disableLighting = false;
 
     this.tetherMesh = BABYLON.MeshBuilder.CreateTube(
@@ -219,15 +219,14 @@ export class TetherVisualizerSystem implements ISystem {
         instance: this.tetherMesh
       });
 
-      // Airbrush Square Color Spectrum transitions
-      let r = 0.0;
-      let g = 0.94;
-      let b = 1.0; // Cyan Default
+      let r = 1.0;
+      let g = 1.0;
+      let b = 1.0; // White Default
 
       if (tension >= 1.0) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; // Neon Pink Warning
+        b = 0.5; // Pink Warning
       } else if (tension >= 0.75) {
         r = 1.0;
         g = 0.0;
@@ -237,9 +236,9 @@ export class TetherVisualizerSystem implements ISystem {
         g = 0.99;
         b = 0.0; // Sulfur Yellow Sweet Spot
       } else if (tension < 0.4) {
-        r = 0.0;
-        g = 0.94;
-        b = 1.0; // Clean Cyan
+        r = 1.0;
+        g = 1.0;
+        b = 1.0; // Clean White
       }
 
       this.tetherMat.albedoColor.set(r, g, b);

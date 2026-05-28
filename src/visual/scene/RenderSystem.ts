@@ -72,7 +72,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirLight.intensity = 1.65;
-    dirLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     dirLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const dirFillLight = new BABYLON.DirectionalLight(
@@ -81,7 +81,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirFillLight.intensity = 1.35;
-    dirFillLight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     dirFillLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
     dirFillLight.setEnabled(true);
 
@@ -103,7 +103,7 @@ export class RenderSystem implements ISystem {
     );
     rightPointLight.intensity = 1.45;
     rightPointLight.range = 34.0;
-    rightPointLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    rightPointLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     rightPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
     rightPointLight.setEnabled(true);
 
@@ -127,7 +127,7 @@ export class RenderSystem implements ISystem {
     );
     leftUplight.intensity = 1.95;
     leftUplight.range = 32.0;
-    leftUplight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    leftUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     leftUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const rightUplight = new BABYLON.PointLight(
@@ -137,7 +137,7 @@ export class RenderSystem implements ISystem {
     );
     rightUplight.intensity = 1.95;
     rightUplight.range = 32.0;
-    rightUplight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    rightUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     rightUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
