@@ -63,9 +63,60 @@ export class ArenaGeometry {
     verticalGrooveMaterial.roughness = 0.98;
     verticalGrooveMaterial.metallic = 0.0;
 
+    const backdropMaterial = new BABYLON.PBRMaterial("shaftBackdropMat", this.scene);
+    backdropMaterial.metallic = 0.0;
+    backdropMaterial.roughness = 0.94;
+    backdropMaterial.albedoColor = new BABYLON.Color3(0.026, 0.03, 0.037);
+
+    textureGen.generatePBRTextures("shaftBackdropConcrete", this.scene, {
+      resolution: 1024,
+      noiseScale: 12.0,
+      bumpStrength: 3.1,
+      baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
+      roughnessMin: 0.82,
+      roughnessMax: 0.99,
+      metallic: 0.0,
+      ridgeStrength: 0.16,
+      ridgeScale: 0.34,
+      ridgeDirectionX: 0.65,
+      ridgeDirectionY: 1.0,
+      colorVariation: 0.2
+    }).then((backdropTexs) => {
+      backdropMaterial.albedoTexture = backdropTexs.albedo;
+      backdropMaterial.bumpTexture = backdropTexs.normal;
+      backdropMaterial.metallicTexture = backdropTexs.orm;
+      backdropMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
+      backdropMaterial.useRoughnessFromMetallicTextureGreen = true;
+      backdropMaterial.useMetallnessFromMetallicTextureBlue = true;
+      backdropMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      backdropMaterial.enableSpecularAntiAliasing = true;
+      backdropMaterial.forceIrradianceInFragment = true;
+    });
+
+    const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
+    backdropPanelMaterial.metallic = 0.05;
+    backdropPanelMaterial.roughness = 0.88;
+    backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
+
+    const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
+    gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
+    gashMaterial.roughness = 1.0;
+    gashMaterial.metallic = 0.0;
+
     const wallThickness = 2.0;
     const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
     const wallX = ARENA_CONFIG.HORIZONTAL.WALL_GEOMETRY_X;
+    const backdropWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH * 1.92;
+    const backdropZ = 2.35;
+
+    const backWall = BABYLON.MeshBuilder.CreateBox(
+      "shaftBackdropWall",
+      { width: backdropWidth, height: wallHeight, depth: 0.36 },
+      this.scene
+    );
+    backWall.position.set(0, wallHeight * 0.1, backdropZ);
+    backWall.material = backdropMaterial;
+    backWall.receiveShadows = true;
 
     const leftWall = BABYLON.MeshBuilder.CreateBox(
       "leftWall",
@@ -118,6 +169,68 @@ export class ArenaGeometry {
     );
     ribBase.material = verticalGrooveMaterial;
     ribBase.isVisible = false;
+
+    const backdropPanelBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase.material = backdropPanelMaterial;
+    backdropPanelBase.isVisible = false;
+
+    const backdropGashBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropGashBase",
+      { width: 1.0, height: 1.0, depth: 0.1 },
+      this.scene
+    );
+    backdropGashBase.material = gashMaterial;
+    backdropGashBase.isVisible = false;
+
+    const backdropPanelCount = 28;
+    const backdropPanelSpacing = wallHeight / backdropPanelCount;
+    for (let i = 0; i < backdropPanelCount; i++) {
+      const panelY = (i - backdropPanelCount / 2) * backdropPanelSpacing + wallHeight * 0.1;
+      const bandOffset = Math.sin(i * 2.17) * backdropWidth * 0.16;
+      const panelWidth = backdropWidth * (0.28 + Math.abs(Math.sin(i * 1.31)) * 0.24);
+      const panelHeight = backdropPanelSpacing * (0.62 + Math.abs(Math.cos(i * 0.93)) * 0.42);
+      const panelDepth = 0.09 + Math.abs(Math.sin(i * 4.73)) * 0.07;
+
+      const backdropPanel = backdropPanelBase.createInstance(`backdropPanel_${i}`);
+      backdropPanel.position.set(bandOffset, panelY, backdropZ - 0.22);
+      backdropPanel.scaling.set(panelWidth, panelHeight, panelDepth);
+      backdropPanel.receiveShadows = true;
+      backdropPanel.metadata = { type: "scrolling_backdrop_panel", index: i, initialY: panelY };
+
+      if (i % 3 !== 1) {
+        const seam = backdropGashBase.createInstance(`backdropPanelSeam_${i}`);
+        seam.position.set(
+          bandOffset + Math.sin(i * 5.1) * panelWidth * 0.38,
+          panelY + Math.cos(i * 2.9) * panelHeight * 0.24,
+          backdropZ - 0.285
+        );
+        seam.scaling.set(panelWidth * (0.32 + Math.abs(Math.cos(i * 1.7)) * 0.24), 0.035, 0.12);
+        seam.rotation.z = Math.sin(i * 1.9) * 0.34;
+        seam.receiveShadows = false;
+        seam.metadata = { type: "scrolling_backdrop_gash", index: i, initialY: seam.position.y };
+      }
+    }
+
+    const gashCount = 34;
+    const gashSpacing = wallHeight / gashCount;
+    for (let i = 0; i < gashCount; i++) {
+      const scratchY = (i - gashCount / 2) * gashSpacing + wallHeight * 0.1;
+      const scratchX = Math.sin(i * 3.83) * backdropWidth * 0.43;
+      const scratch = backdropGashBase.createInstance(`backdropGash_${i}`);
+      scratch.position.set(scratchX, scratchY, backdropZ - 0.31);
+      scratch.scaling.set(
+        0.06 + Math.abs(Math.sin(i * 1.41)) * 0.08,
+        0.75 + Math.abs(Math.cos(i * 2.37)) * 1.15,
+        0.14
+      );
+      scratch.rotation.z = Math.sin(i * 2.61) * 0.92;
+      scratch.receiveShadows = false;
+      scratch.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
+    }
 
     const panelCount = 20;
     const panelSpacing = wallHeight / panelCount;

@@ -57,30 +57,32 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 0.95;
+    this.scene.environmentIntensity = 0.82;
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
       new BABYLON.Vector3(0, 1, 0),
       this.scene
     );
-    ambientLight.intensity = 0.18;
+    ambientLight.intensity = 0.12;
 
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.35, -0.75, 0.55),
       this.scene
     );
-    dirLight.intensity = 1.65;
-    dirLight.specular = new BABYLON.Color3(0.6, 0.6, 0.65);
+    dirLight.intensity = 1.25;
+    dirLight.diffuse = new BABYLON.Color3(0.78, 0.84, 0.92);
+    dirLight.specular = new BABYLON.Color3(0.48, 0.52, 0.6);
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
       new BABYLON.Vector3(0.35, -0.75, 0.55),
       this.scene
     );
-    dirFillLight.intensity = 1.35;
-    dirFillLight.specular = new BABYLON.Color3(0.4, 0.4, 0.45);
+    dirFillLight.intensity = 0.72;
+    dirFillLight.diffuse = new BABYLON.Color3(0.48, 0.55, 0.64);
+    dirFillLight.specular = new BABYLON.Color3(0.25, 0.28, 0.34);
     dirFillLight.setEnabled(true);
 
     const leftPointLight = new BABYLON.PointLight(
@@ -88,10 +90,10 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(-13.5, 14.0, -1.0),
       this.scene
     );
-    leftPointLight.intensity = 1.35;
-    leftPointLight.range = 35.0;
-    leftPointLight.diffuse = new BABYLON.Color3(0.5, 0.6, 0.7);
-    leftPointLight.specular = new BABYLON.Color3(0.2, 0.2, 0.25);
+    leftPointLight.intensity = 1.1;
+    leftPointLight.range = 34.0;
+    leftPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
+    leftPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
     leftPointLight.setEnabled(true);
 
     const rightPointLight = new BABYLON.PointLight(
@@ -99,11 +101,44 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(13.5, 14.0, -1.0),
       this.scene
     );
-    rightPointLight.intensity = 1.35;
-    rightPointLight.range = 35.0;
-    rightPointLight.diffuse = new BABYLON.Color3(0.5, 0.6, 0.7);
-    rightPointLight.specular = new BABYLON.Color3(0.2, 0.2, 0.25);
+    rightPointLight.intensity = 1.1;
+    rightPointLight.range = 34.0;
+    rightPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
+    rightPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
     rightPointLight.setEnabled(true);
+
+    const lowerBackLight = new BABYLON.SpotLight(
+      "shaftLowerBackUplight",
+      new BABYLON.Vector3(0.0, -8.5, -7.5),
+      new BABYLON.Vector3(0.0, 1.0, 0.55),
+      Math.PI * 0.42,
+      2.8,
+      this.scene
+    );
+    lowerBackLight.intensity = 3.2;
+    lowerBackLight.range = 58.0;
+    lowerBackLight.diffuse = new BABYLON.Color3(0.34, 0.46, 0.62);
+    lowerBackLight.specular = new BABYLON.Color3(0.24, 0.32, 0.42);
+
+    const leftUplight = new BABYLON.PointLight(
+      "leftShaftUplight",
+      new BABYLON.Vector3(-10.5, -9.0, -4.2),
+      this.scene
+    );
+    leftUplight.intensity = 1.75;
+    leftUplight.range = 32.0;
+    leftUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
+    leftUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
+
+    const rightUplight = new BABYLON.PointLight(
+      "rightShaftUplight",
+      new BABYLON.Vector3(10.5, -9.0, -4.2),
+      this.scene
+    );
+    rightUplight.intensity = 1.75;
+    rightUplight.range = 32.0;
+    rightUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
+    rightUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera

@@ -130,10 +130,14 @@ export class ParallaxScrollSystem implements ISystem {
 
     const leftWall = scene.getMeshByName("leftWall");
     const rightWall = scene.getMeshByName("rightWall");
+    const backdropWall = scene.getMeshByName("shaftBackdropWall");
     if (leftWall && rightWall) {
       const defaultWallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
       leftWall.position.y = defaultWallY + cameraYOffset;
       rightWall.position.y = defaultWallY + cameraYOffset;
+      if (backdropWall) {
+        backdropWall.position.y = defaultWallY + cameraYOffset;
+      }
     }
 
     if (!this.cachedScrollables) {
