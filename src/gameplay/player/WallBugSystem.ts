@@ -11,7 +11,7 @@ export class WallBugSystem implements ISystem {
   readonly initPhase = InitPhase.Gameplay;
 
   private spawnTimer = 0.0;
-  private readonly spawnInterval = 10.0; // Spawns every 10 seconds
+  private readonly spawnInterval = 5.0; // Increased frequency (spawns every 5 seconds)
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
@@ -33,14 +33,14 @@ export class WallBugSystem implements ISystem {
     this.eyeMaterial.emissiveColor = new BABYLON.Color3(1.0, 0.55, 0.0);
     this.eyeMaterial.disableLighting = true;
 
-    // Trigger instant spawn on game start
-    this.spawnTimer = this.spawnInterval;
+    // Reset spawn timer to 0.0 to wait a beat after the game starts
+    this.spawnTimer = 0.0;
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearAllBugs();
-        // Trigger instant spawn on game reset
-        this.spawnTimer = this.spawnInterval;
+        // Reset spawn timer to 0.0 to wait a beat after resets
+        this.spawnTimer = 0.0;
       })
     );
   }
@@ -53,7 +53,8 @@ export class WallBugSystem implements ISystem {
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
     const activeCount = Array.from(bugStore.entries()).filter(([, b]) => b.state !== "INACTIVE").length;
 
-    if (this.spawnTimer >= this.spawnInterval && activeCount < 2) {
+    // Increased active bug limit to 3 for more consistent crawling columns
+    if (this.spawnTimer >= this.spawnInterval && activeCount < 3) {
       this.spawnTimer = 0.0;
       this.spawnBug();
     }
@@ -86,16 +87,42 @@ export class WallBugSystem implements ISystem {
 
       const node = this.context.visualRegistry.getTransformNode(id);
       if (node) {
-        const phase = performance.now() * 0.001 * 9.5; 
+        if (!node.metadata) {
+          node.metadata = {};
+        }
+        let bugPhase = node.metadata.gaitPhase ?? 0.0;
+        // Leg speed scales directly with crawl movement + scrolling
+        const legFrequency = (currentScrollSpeed + bug.speed) * 0.85; 
+        bugPhase += legFrequency * dt;
+        node.metadata.gaitPhase = bugPhase;
+
         node.getChildren().forEach((child) => {
           if (child.name.startsWith("leg_joint_left")) {
             const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
             const childTrans = child as BABYLON.TransformNode;
-            childTrans.rotation.z = -0.28 + Math.sin(phase + index) * 0.25;
+            // Main joint crawl oscillation
+            childTrans.rotation.z = Math.sin(bugPhase + index * 1.5) * 0.22;
+
+            // Animate intermediate tibia joint out of phase
+            childTrans.getChildren().forEach((subChild) => {
+              if (subChild.name.startsWith("tibia_joint_left")) {
+                const subTrans = subChild as BABYLON.TransformNode;
+                subTrans.rotation.z = Math.PI / 4 + Math.cos(bugPhase + index * 1.5) * 0.32;
+              }
+            });
           } else if (child.name.startsWith("leg_joint_right")) {
             const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
             const childTrans = child as BABYLON.TransformNode;
-            childTrans.rotation.z = 0.28 - Math.sin(phase + index) * 0.25;
+            // Main joint crawl oscillation
+            childTrans.rotation.z = -Math.sin(bugPhase + index * 1.5) * 0.22;
+
+            // Animate intermediate tibia joint out of phase
+            childTrans.getChildren().forEach((subChild) => {
+              if (subChild.name.startsWith("tibia_joint_right")) {
+                const subTrans = subChild as BABYLON.TransformNode;
+                subTrans.rotation.z = -Math.PI / 4 - Math.cos(bugPhase + index * 1.5) * 0.32;
+              }
+            });
           }
         });
       }
@@ -176,35 +203,81 @@ export class WallBugSystem implements ISystem {
     for (let leg = 0; leg < 4; leg++) {
       const legY = -2.0 + leg * 1.35;
 
-      // Left Legs
+      // Left Leg Hierarchy (jointL -> coxaL -> tibiaJointL -> tibiaL -> footL)
       const jointL = new BABYLON.TransformNode(`leg_joint_left_${id}_${leg}`, scene);
       jointL.position.set(-0.45, legY, 0);
       jointL.parent = bugRoot;
 
       const coxaL = BABYLON.MeshBuilder.CreateCylinder(
         `coxaL_${id}_${leg}`,
-        { height: 0.9, diameterTop: 0.12, diameterBottom: 0.08, tessellation: 6 },
+        { height: 0.7, diameterTop: 0.11, diameterBottom: 0.08, tessellation: 6 },
         scene
       );
-      coxaL.position.set(-0.45, 0, 0);
+      coxaL.position.set(-0.35, 0, 0);
       coxaL.rotation.z = Math.PI / 2;
       coxaL.material = this.bugMaterial;
       coxaL.parent = jointL;
 
-      // Right Legs
+      const tibiaJointL = new BABYLON.TransformNode(`tibia_joint_left_${id}_${leg}`, scene);
+      tibiaJointL.position.set(-0.7, 0, 0);
+      tibiaJointL.rotation.z = Math.PI / 4;
+      tibiaJointL.parent = jointL;
+
+      const tibiaL = BABYLON.MeshBuilder.CreateCylinder(
+        `tibiaL_${id}_${leg}`,
+        { height: 0.6, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
+        scene
+      );
+      tibiaL.position.set(0, -0.3, 0);
+      tibiaL.material = this.bugMaterial;
+      tibiaL.parent = tibiaJointL;
+
+      const footL = BABYLON.MeshBuilder.CreateSphere(
+        `footL_${id}_${leg}`,
+        { diameterX: 0.14, diameterY: 0.18, diameterZ: 0.14 },
+        scene
+      );
+      footL.position.set(0, -0.6, 0);
+      footL.material = this.eyeMaterial;
+      footL.parent = tibiaJointL;
+
+      // Right Leg Hierarchy (jointR -> coxaR -> tibiaJointR -> tibiaR -> footR)
       const jointR = new BABYLON.TransformNode(`leg_joint_right_${id}_${leg}`, scene);
       jointR.position.set(0.45, legY, 0);
       jointR.parent = bugRoot;
 
       const coxaR = BABYLON.MeshBuilder.CreateCylinder(
         `coxaR_${id}_${leg}`,
-        { height: 0.9, diameterTop: 0.12, diameterBottom: 0.08, tessellation: 6 },
+        { height: 0.7, diameterTop: 0.11, diameterBottom: 0.08, tessellation: 6 },
         scene
       );
-      coxaR.position.set(0.45, 0, 0);
+      coxaR.position.set(0.35, 0, 0);
       coxaR.rotation.z = -Math.PI / 2;
       coxaR.material = this.bugMaterial;
       coxaR.parent = jointR;
+
+      const tibiaJointR = new BABYLON.TransformNode(`tibia_joint_right_${id}_${leg}`, scene);
+      tibiaJointR.position.set(0.7, 0, 0);
+      tibiaJointR.rotation.z = -Math.PI / 4;
+      tibiaJointR.parent = jointR;
+
+      const tibiaR = BABYLON.MeshBuilder.CreateCylinder(
+        `tibiaR_${id}_${leg}`,
+        { height: 0.6, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
+        scene
+      );
+      tibiaR.position.set(0, -0.3, 0);
+      tibiaR.material = this.bugMaterial;
+      tibiaR.parent = tibiaJointR;
+
+      const footR = BABYLON.MeshBuilder.CreateSphere(
+        `footR_${id}_${leg}`,
+        { diameterX: 0.14, diameterY: 0.18, diameterZ: 0.14 },
+        scene
+      );
+      footR.position.set(0, -0.6, 0);
+      footR.material = this.eyeMaterial;
+      footR.parent = tibiaJointR;
     }
 
     bugRoot.position.set(startX, startY, 0);

@@ -254,11 +254,21 @@ export class PlayerKinematicsSystem implements ISystem {
         }
 
         const halfW = bug.width / 2;
+        const halfH = bug.height / 2;
+
         target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
 
-        // Slow, controlled drift relative to body to simulate clinging and riding
-        const slideSpeed = 1.35; 
-        trav.stickyWallYOffset -= slideSpeed * dt;
+        // Control climb or slide relative to the bug with vertical input
+        let slideSpeed = 0.0;
+        if (input.y > 0) {
+          slideSpeed = 5.0; // Climb up the bug
+        } else if (input.y < 0) {
+          slideSpeed = -5.0; // Slide down the bug
+        }
+        trav.stickyWallYOffset += slideSpeed * dt;
+        
+        // Clamp position so player stays strictly on the crawling bug unless they let go or fling
+        trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
 
         const finalY = bugTrans.y + trav.stickyWallYOffset;
 
@@ -276,8 +286,9 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         target.y = finalY;
 
+        // Player's velocity matches the bug speed exactly, modified by local climbing
         vel.x = 0;
-        vel.y = -(currentScrollSpeed + bug.speed + slideSpeed);
+        vel.y = -(currentScrollSpeed + bug.speed - slideSpeed);
 
         // Scale passive tension delta by ratio: 1.0 + (bug speed / background scroll speed)
         const speedScale = 1.0 + (bug.speed / Math.max(1.0, currentScrollSpeed));
@@ -289,19 +300,10 @@ export class PlayerKinematicsSystem implements ISystem {
         const stretchRatio = stretch / TENSION_STRETCH_RANGE;
         tether.tension += stretchRatio * dt;
 
-        const halfH = bug.height / 2;
-        if (Math.abs(trav.stickyWallYOffset) > halfH + ARENA_CONFIG.ENTITY.PLAYER_RADIUS) {
-          // Player drifted off bottom limit
-          trav.state = "AIRBORNE";
-          trav.stickyEntityId = -1;
-          trav.wallDir = 0;
-          this.wasWallSliding = false;
-        } else {
-          this.wasWallSliding = true;
-          if (input.jump) {
-            this.triggerFling(vel, tether, target, trav);
-            input.jump = false;
-          }
+        this.wasWallSliding = true;
+        if (input.jump) {
+          this.triggerFling(vel, tether, target, trav);
+          input.jump = false;
         }
       }
       this.lastCameraYOffset = cameraYOffset;
@@ -396,7 +398,7 @@ export class PlayerKinematicsSystem implements ISystem {
               target.x = trav.stickyWallX;
               target.y = nextY;
               vel.x = 0;
-              vel.y = -(currentScrollSpeed + bug.speed + 6.2);
+              vel.y = -(currentScrollSpeed + bug.speed);
               this.wasWallSliding = true;
 
               this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
