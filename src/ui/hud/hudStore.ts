@@ -19,12 +19,6 @@ export interface WeaverState {
   reset: () => void;
 }
 
-export interface TetherState {
-  tetherTension: number;
-  setTetherTension: (tension: number) => void;
-  reset: () => void;
-}
-
 export interface OverlayState {
   bootStatus: string;
   traversalHint: string;
@@ -37,7 +31,6 @@ export interface OverlayState {
   isPaused: boolean;
   awaitingGesture: boolean;
   
-  // High-Polish Box-Battle Style Persistent Stats & Keyboard Navigation
   wins: number;
   losses: number;
   menuIndex: number;
@@ -47,8 +40,7 @@ export interface OverlayState {
   loadStats: () => void;
   clearStats: () => void;
 
-  // Sequential Calibration Step
-  calibrationStep: number; // 0: Cling, 1: Reel, 2: Fling, 3: Completed
+  calibrationStep: number;
   setCalibrationStep: (step: number) => void;
 
   setBootStatus: (status: string) => void;
@@ -62,7 +54,6 @@ export interface OverlayState {
 
 const PLAYER_RESET = { playerHp: 5, playerMaxHp: 5, currentState: "AIRBORNE" };
 const WEAVER_RESET = { weaverHp: 100, weaverMaxHp: 100, weaverState: "SWEEPING", weaverHue: "rgb(239, 68, 68)" };
-const TETHER_RESET = { tetherTension: 0.0 };
 const OVERLAY_RESET = {
   bootStatus: "READY",
   traversalHint: "",
@@ -90,12 +81,6 @@ export const useWeaverStore = create<WeaverState>((set) => ({
   setWeaverHealth: (hp, maxHp) => set({ weaverHp: hp, weaverMaxHp: maxHp }),
   setWeaverState: (state, hue) => set({ weaverState: state, weaverHue: hue }),
   reset: () => set(WEAVER_RESET)
-}));
-
-export const useTetherStore = create<TetherState>((set) => ({
-  ...TETHER_RESET,
-  setTetherTension: (tension) => set({ tetherTension: tension }),
-  reset: () => set(TETHER_RESET)
 }));
 
 export const useOverlayStore = create<OverlayState>((set, get) => ({
@@ -165,6 +150,5 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
 export function resetAllStores(): void {
   usePlayerStore.getState().reset();
   useWeaverStore.getState().reset();
-  useTetherStore.getState().reset();
   useOverlayStore.getState().reset();
 }

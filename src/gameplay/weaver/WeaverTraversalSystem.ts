@@ -26,7 +26,6 @@ export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
   private sweepStates = new Map<number, SweepState>();
 
-  // Reusable scratch objects to completely prevent dynamic GC allocations in update loops
   private readonly _targetQuat = new BABYLON.Quaternion();
   private readonly _currentQuat = new BABYLON.Quaternion();
   private readonly _raycastResult = new BABYLON.PhysicsRaycastResult();
@@ -109,7 +108,7 @@ export class WeaverTraversalSystem implements ISystem {
             }
           }
         } else {
-          const fallbackLimit = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          const fallbackLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (nextX >= fallbackLimit) {
             nextX = fallbackLimit;
             hitWallNormal = -1;
@@ -223,7 +222,7 @@ export class WeaverTraversalSystem implements ISystem {
         wallNormalX = -1;
       }
     } else {
-      const wallLimitFallback = 15.0 - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const wallLimitFallback = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
       if (target.x > wallLimitFallback && (!sState || sState.phase !== "HOLD")) {
         target.x = wallLimitFallback;
         if (vel.x > 0) vel.x = 0;
@@ -335,19 +334,19 @@ export class WeaverTraversalSystem implements ISystem {
       }
 
       const stiffness = 120;
-    const damping = 22;
+      const damping = 22;
 
-    const springX = solveSpringDamper(trans.scaleX!, targetScaleX, trans.scaleVelX!, dt, stiffness, damping);
-    trans.scaleX = springX.value;
-    trans.scaleVelX = springX.velocity;
+      const springX = solveSpringDamper(trans.scaleX!, targetScaleX, trans.scaleVelX!, dt, stiffness, damping);
+      trans.scaleX = springX.value;
+      trans.scaleVelX = springX.velocity;
 
-    const springY = solveSpringDamper(trans.scaleY!, targetScaleY, trans.scaleVelY!, dt, stiffness, damping);
-    trans.scaleY = springY.value;
-    trans.scaleVelY = springY.velocity;
+      const springY = solveSpringDamper(trans.scaleY!, targetScaleY, trans.scaleVelY!, dt, stiffness, damping);
+      trans.scaleY = springY.value;
+      trans.scaleVelY = springY.velocity;
 
-    const springZ = solveSpringDamper(trans.scaleZ!, targetScaleZ, trans.scaleVelZ!, dt, stiffness, damping);
-    trans.scaleZ = springZ.value;
-    trans.scaleVelZ = springZ.velocity;
+      const springZ = solveSpringDamper(trans.scaleZ!, targetScaleZ, trans.scaleVelZ!, dt, stiffness, damping);
+      trans.scaleZ = springZ.value;
+      trans.scaleVelZ = springZ.velocity;
 
       this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(

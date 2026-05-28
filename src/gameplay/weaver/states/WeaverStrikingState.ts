@@ -1,6 +1,6 @@
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
@@ -60,7 +60,7 @@ export class WeaverStrikingState implements IWeaverState {
       this.targetPos.y = playerTrans.y;
     } else {
       this.targetPos.x = 0;
-      this.targetPos.y = 14;
+      this.targetPos.y = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     }
   }
 

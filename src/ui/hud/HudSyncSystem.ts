@@ -10,7 +10,6 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   usePlayerStore,
   useWeaverStore,
-  useTetherStore,
   useOverlayStore,
   resetAllStores
 } from "./hudStore";
@@ -25,7 +24,6 @@ export class HudSyncSystem implements ISystem {
   private reeledUp = false;
   private reeledDown = false;
 
-  // Strict state guards to prevent multi-trigger static/nasty sounds on rapid frame ticks
   private step0Completed = false;
   private step1Completed = false;
   private step2Completed = false;
@@ -45,7 +43,6 @@ export class HudSyncSystem implements ISystem {
   private registerSubscriptions(): void {
     const playerStore = usePlayerStore.getState();
     const weaverStore = useWeaverStore.getState();
-    const tetherStore = useTetherStore.getState();
     const overlayStore = useOverlayStore.getState();
 
     this.subscriptions.push(
@@ -57,9 +54,7 @@ export class HudSyncSystem implements ISystem {
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
-        tetherStore.setTetherTension(tension);
 
-        // Step 0 Calibration: Complete step only after sticking to the wall up to 50% tension
         if (!this.step0Completed && overlayStore.calibrationStep === 0 && this.currentState === "WALL_SLIDING" && tension >= 0.5) {
           this.step0Completed = true;
           overlayStore.setCalibrationStep(1);
@@ -70,7 +65,6 @@ export class HudSyncSystem implements ISystem {
           }
         }
 
-        // React Bypass: Dispatch custom event directly into the window thread for instant direct DOM updates
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
         window.dispatchEvent(evt);
       })
@@ -78,7 +72,6 @@ export class HudSyncSystem implements ISystem {
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
-        // Active Calibration: Check physical delta as a secondary check
         if (this.lastTetherLength > 0.0) {
           const delta = maxLength - this.lastTetherLength;
           if (overlayStore.calibrationStep === 1) {
@@ -100,12 +93,6 @@ export class HudSyncSystem implements ISystem {
           }
         }
         this.lastTetherLength = maxLength;
-      })
-    );
-
-    this.subscriptions.push(
-      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
-        // Visual/Audio tick feedback
       })
     );
 
@@ -136,21 +123,18 @@ export class HudSyncSystem implements ISystem {
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
-        console.log("[HudSyncSystem] GAME_OVER received! Dispatched showing DEFEATED overlay.");
         overlayStore.recordLoss();
         overlayStore.showOverlay("DEFEATED", "rgb(239, 68, 68)", "The line was severed.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        console.log("[HudSyncSystem] GAME_WIN received! Dispatched showing VICTORY overlay.");
         overlayStore.recordWin();
         overlayStore.showOverlay("VICTORY", "rgb(16, 185, 129)", "The shaft is clear.");
       })
     );
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        console.log("[HudSyncSystem] GAME_RESET received! Resetting stores.");
         resetAllStores();
         overlayStore.loadStats();
         this.lastTetherLength = 0.0;
@@ -174,12 +158,10 @@ export class HudSyncSystem implements ISystem {
     );
   }
 
-  // Continuous frame updates reading exact, zero-latency physical components directly from ECS
   public update(dt: number): void {
     void dt;
     const overlayStore = useOverlayStore.getState();
 
-    // Failsafe Step 1 check (reeling in both directions):
     if (overlayStore.calibrationStep === 1) {
       const inputStore = this.context.stores.get<InputIntentComponent>("input");
       const input = inputStore.get(this.context.refs.player);
@@ -202,7 +184,6 @@ export class HudSyncSystem implements ISystem {
       }
     }
 
-    // Failsafe Step 2 check (launching with >= 60% power):
     if (overlayStore.calibrationStep === 2) {
       const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
       const pTrav = travStore.get(this.context.refs.player);

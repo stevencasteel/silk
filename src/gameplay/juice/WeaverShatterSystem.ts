@@ -20,7 +20,6 @@ export class WeaverShatterSystem implements ISystem {
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
 
-  // Reusable scratch fields to completely eliminate dynamic GC allocations in update loops
   private readonly _linearVelocityScratch = new BABYLON.Vector3();
   private readonly _angularVelocityScratch = new BABYLON.Vector3();
 
@@ -61,12 +60,58 @@ export class WeaverShatterSystem implements ISystem {
     );
   }
 
+  private registerDebrisShard(
+    mesh: BABYLON.Mesh,
+    pos: BABYLON.Vector3,
+    centroid: BABYLON.Vector3,
+    outward: BABYLON.Vector3,
+    activeMat: BABYLON.Material,
+    speedMult: number,
+    lifeMult: number
+  ): void {
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
+
+    mesh.rotationQuaternion = null;
+    mesh.rotation.set(
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2
+    );
+
+    mesh.position = pos.add(centroid).add(outward.scale(0.35));
+    mesh.material = activeMat;
+
+    if (this.context.visualRegistry.registerShadowCaster) {
+      this.context.visualRegistry.registerShadowCaster(mesh);
+    } else {
+      mesh.receiveShadows = true;
+    }
+
+    const speed =
+      config.VELOCITY_Y_MIN +
+      Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * speedMult;
+    const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
+    const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
+    const vz = (Math.random() - 0.5) * 1.5;
+
+    const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
+    const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
+    const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
+
+    this.activeDebrisList.push({
+      mesh,
+      body: null,
+      velocity: new BABYLON.Vector3(vx, vy, vz),
+      angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
+      lifeRemaining: config.LIFE * lifeMult
+    });
+  }
+
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
     const weaverMesh = this.context.visualRegistry.getTransformNode(
       this.context.refs.weaver
     ) as BABYLON.Mesh | null;
-    const activeMat = weaverMesh?.material || this.debrisMat;
-    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
+    const activeMat = (weaverMesh?.material || this.debrisMat!) as BABYLON.Material;
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere(
@@ -109,17 +154,17 @@ export class WeaverShatterSystem implements ISystem {
           shellPos[i1 * 3],
           shellPos[i1 * 3 + 1],
           shellPos[i1 * 3 + 2]
-        );
+                );
         const p2 = new BABYLON.Vector3(
           shellPos[i2 * 3],
           shellPos[i2 * 3 + 1],
           shellPos[i2 * 3 + 2]
-        );
+                );
         const p3 = new BABYLON.Vector3(
           shellPos[i3 * 3],
           shellPos[i3 * 3 + 1],
           shellPos[i3 * 3 + 2]
-        );
+                );
         const centroid = p1
           .add(p2)
           .add(p3)
@@ -144,34 +189,15 @@ export class WeaverShatterSystem implements ISystem {
         vertexData.applyToMesh(customMesh);
         customMesh.convertToFlatShadedMesh();
 
-        customMesh.rotationQuaternion = null;
-        customMesh.rotation.set(
-          Math.random() * Math.PI * 2,
-          Math.random() * Math.PI * 2,
-          Math.random() * Math.PI * 2
+        this.registerDebrisShard(
+          customMesh,
+          pos,
+          centroid,
+          outward,
+          activeMat,
+          1.5,
+          0.8 + Math.random() * 0.4
         );
-
-        customMesh.position = pos.add(centroid).add(outward.scale(0.35));
-        customMesh.material = activeMat;
-
-        const speed =
-          config.VELOCITY_Y_MIN +
-          Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 1.5;
-        const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
-        const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
-        const vz = (Math.random() - 0.5) * 1.5;
-
-        const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
-        const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
-        const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
-
-        this.activeDebrisList.push({
-          mesh: customMesh,
-          body: null,
-          velocity: new BABYLON.Vector3(vx, vy, vz),
-          angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
-          lifeRemaining: config.LIFE * (0.8 + Math.random() * 0.4)
-        });
       }
     }
     proxyShell.dispose();
@@ -276,40 +302,15 @@ export class WeaverShatterSystem implements ISystem {
       vertexData.applyToMesh(customMesh);
       customMesh.convertToFlatShadedMesh();
 
-      customMesh.rotationQuaternion = null;
-      customMesh.rotation.set(
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2
+      this.registerDebrisShard(
+        customMesh,
+        pos,
+        centroid,
+        outward,
+        activeMat,
+        0.8,
+        0.9 + Math.random() * 0.3
       );
-
-      customMesh.position = pos.add(centroid).add(outward.scale(0.35));
-      customMesh.material = activeMat;
-
-      if (this.context.visualRegistry.registerShadowCaster) {
-        this.context.visualRegistry.registerShadowCaster(customMesh);
-      } else {
-        customMesh.receiveShadows = true;
-      }
-
-      const speed =
-        config.VELOCITY_Y_MIN +
-        Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * 0.8;
-      const vx = outward.x * speed + (Math.random() - 0.5) * 5.0;
-      const vy = outward.y * speed + (Math.random() - 0.5) * 5.0;
-      const vz = (Math.random() - 0.5) * 1.5;
-
-      const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
-      const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
-      const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
-
-      this.activeDebrisList.push({
-        mesh: customMesh,
-        body: null,
-        velocity: new BABYLON.Vector3(vx, vy, vz),
-        angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
-        lifeRemaining: config.LIFE * (0.9 + Math.random() * 0.3)
-      });
     }
   }
 
