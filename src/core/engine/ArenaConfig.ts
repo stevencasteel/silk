@@ -11,8 +11,8 @@ export const CANONICAL_UNITS = {
     JUICE_PARTICLE: -18.0
   },
   TETHER_STRAIN: {
-    OVERLOAD_LIMIT: 1.0,
-    SNAP_LIMIT: 1.3,
+    OVERLOAD_LIMIT: 0.8,
+    SNAP_LIMIT: 1.0,
     SNAP_DELAY_SECONDS: 2.6
   },
   SCROLL_MAPPING: {
@@ -53,9 +53,9 @@ export const ARENA_CONFIG = {
     PLAYER_CAPSULE_SUBDIVISIONS: 3
   },
   ENTITY_COLORS: {
-    WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 }, // Saturated Deep Violet Base
-    PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 }, // Mirror-Chrome Albedo
-    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } // Pink Sheen
+    WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 }, 
+    PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 }, 
+    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } 
   },
   ENTITY_SPAWNER: {
     WEAVER_INITIAL_VELOCITY_X: 4.5,
@@ -197,12 +197,12 @@ export const WEAVER_AI_TUNING = {
 
 export const VISUAL_JUICE_CONFIG = {
   WEAVER_COLORS: {
-    SWEEPING: "121212", // Low baseline emissive (exposes raw silver mecha-chrome during patrol)
-    DASH_PREP: "dffe00", // Telegraph is Sulfur Yellow
-    DASH_THRUST: "ff007f", // Lunges are Pink
-    DASH_RECOVER: "ff007f", // Strike Recovery is Pink
-    RETURNING: "ff007f", // Ascent Return is Pink
-    DEFEATED: "000000" // Saturated Black Defeated
+    SWEEPING: "121212", 
+    DASH_PREP: "dffe00", 
+    DASH_THRUST: "ff007f", 
+    DASH_RECOVER: "ff007f", 
+    RETURNING: "ff007f", 
+    DEFEATED: "000000" 
   },
   MATERIALS: {
     WEAVER: {

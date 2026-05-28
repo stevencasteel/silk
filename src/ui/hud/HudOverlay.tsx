@@ -19,7 +19,6 @@ export const HudOverlay: React.FC = () => {
   );
   const { weaverHp, weaverMaxHp } = weaverState;
 
-  // React Bypass DOM Element Refs for High-Frequency Tension updates
   const tensionBarFillRef = useRef<HTMLDivElement | null>(null);
   const tensionTextValRef = useRef<HTMLSpanElement | null>(null);
 
@@ -101,11 +100,10 @@ export const HudOverlay: React.FC = () => {
     setTickerLosses(0);
   }, [clearStats]);
 
-  // Hooking the high-frequency event stream to bypass the React rendering tree
   useEffect(() => {
     const handleTensionTick = (e: Event) => {
       const tensionVal = (e as CustomEvent).detail.tension;
-      const snapLimit = 1.3;
+      const snapLimit = 1.0; 
       const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
       const displayPercent = Math.round(clamped * 100);
       const scaleX = clamped / snapLimit;

@@ -97,7 +97,6 @@ export class TetherVisualizerSystem implements ISystem {
     this.tetherMeshPlayer.setEnabled(false);
   }
 
-  // Update loop handles snapping timeline calculation to prevent monitor frame-rate dependencies
   public update(dt: number): void {
     const tethers = this.context.stores.get<TetherComponent>("tether");
     const tether = tethers.get(this.context.refs.player);
@@ -144,7 +143,8 @@ export class TetherVisualizerSystem implements ISystem {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
-      const tension = Math.max(0, Math.min(1.3, tether.tension));
+      // Cap at exactly 1.0 (100% tension limit)
+      const tension = Math.max(0, Math.min(1.0, tether.tension));
       const reelConfig = GAMEPLAY_TUNING.REEL;
       const isSweetSpot = tension >= reelConfig.SWEET_SPOT_MIN && tension <= reelConfig.SWEET_SPOT_MAX;
 
