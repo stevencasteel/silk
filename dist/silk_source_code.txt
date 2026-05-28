@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 5:45:12 PM
+ [SYSTEM] Generated: 5/28/2026, 5:58:39 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1116,6 +1116,8 @@ import { EntityRefs } from "../core/ecs/EntityRefs";
 import { StoreContainer } from "../core/ecs/StoreContainer";
 import { SystemContext } from "../core/engine/SystemContext";
 import {
+  PlayerCosmeticComponent,
+  WeaverCosmeticComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -1211,6 +1213,9 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
+    const playerCosmetics = new ComponentStore<PlayerCosmeticComponent>();
+    const weaverCosmetics = new ComponentStore<WeaverCosmeticComponent>();
+
     const storeContainer = new StoreContainer();
 
     const registerStore = <T>(key: string, store: ComponentStore<T>) => {
@@ -1218,6 +1223,8 @@ export class CompositionRoot {
       storeContainer.register(key, store);
     };
 
+    registerStore("playerCosmetic", playerCosmetics);
+    registerStore("weaverCosmetic", weaverCosmetics);
     registerStore("transform", transforms);
     registerStore("velocity", velocities);
     registerStore("target", targets);
@@ -1451,7 +1458,10 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.impactSynth?.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+          this.sfxRegistry.impactSynth?.triggerAttackRelease(
+            presets.DAMAGED_NOTE,
+            presets.DAMAGED_DURATION
+          );
           this.sfxRegistry.noiseSynth?.triggerAttackRelease(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
@@ -1567,7 +1577,10 @@ export class AudioDirectorSystem implements ISystem {
     if (!this.sfxRegistry) return;
 
     if (this.sfxRegistry.impactSynth) {
-      this.sfxRegistry.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+      this.sfxRegistry.impactSynth.triggerAttackRelease(
+        presets.DEATH_NOTE_1,
+        presets.DEATH_NOTE_1_DURATION
+      );
       this.sfxRegistry.impactSynth.triggerAttackRelease(
         presets.DEATH_NOTE_2,
         presets.DEATH_NOTE_2_DURATION,
@@ -2594,6 +2607,34 @@ export interface ParticleRequestComponent {
   wallNormalX?: number;
 }
 
+export interface PlayerCosmeticComponent {
+  emissiveR: number;
+  emissiveG: number;
+  emissiveB: number;
+  targetScaleX: number;
+  targetScaleY: number;
+  targetScaleZ: number;
+  springStiffness: number;
+  springDamping: number;
+  rotationAngle: number;
+  slerpFactor: number;
+}
+
+export interface WeaverCosmeticComponent {
+  emissiveHue: string;
+  targetScaleX: number;
+  targetScaleY: number;
+  targetScaleZ: number;
+  springStiffness: number;
+  springDamping: number;
+  wobbleAngle: number;
+  rotationAngle: number;
+  rotationSpeed: number;
+  gaitAmplitude: number;
+  gaitFrequency: number;
+  gaitTuck: number;
+}
+
 
 
 ● ./src/core/ecs/EcsWorld.ts
@@ -3155,7 +3196,7 @@ export class ArenaProfileService {
 
   public static getActiveProfile(): ArenaProfile {
     const factor = Math.min(1.0, this.currentAltitude / 1000.0);
-    
+
     return {
       scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE + factor * 6.0,
       projectileSpeed: 15.0 + factor * 8.0,
@@ -3319,7 +3360,7 @@ export class SpatialPartitionService {
   public static readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
   public static readonly FLOOR_Y = ARENA_CONFIG.VERTICAL.FLOOR_Y;
   public static readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
-  
+
   public static clampX(x: number, radius: number): number {
     const limit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - radius;
     return Math.max(-limit, Math.min(limit, x));
@@ -3988,6 +4029,8 @@ export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON
 import { SystemContext } from "../core/engine/SystemContext";
 import { EntityId } from "../core/ecs/Entity";
 import {
+  PlayerCosmeticComponent,
+  WeaverCosmeticComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -4063,6 +4106,21 @@ export class EntityAssembler {
 
     context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
     context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
+
+    context.stores.get<WeaverCosmeticComponent>("weaverCosmetic").add(weaverId, {
+      emissiveHue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
+      targetScaleX: 1.0,
+      targetScaleY: 1.0,
+      targetScaleZ: 1.0,
+      springStiffness: 120,
+      springDamping: 22,
+      wobbleAngle: 0.0,
+      rotationAngle: 0.0,
+      rotationSpeed: 12.0,
+      gaitAmplitude: 0.12,
+      gaitFrequency: 8.0,
+      gaitTuck: 0.0
+    });
 
     context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
       isGrounded: false,
@@ -4160,9 +4218,7 @@ export class EntityAssembler {
       scaleVelZ: 0.0
     });
 
-    context.stores
-      .get<KinematicVelocityComponent>("velocity")
-      .add(playerId, { x: 0, y: 0, z: 0 });
+    context.stores.get<KinematicVelocityComponent>("velocity").add(playerId, { x: 0, y: 0, z: 0 });
     context.stores
       .get<KinematicTargetComponent>("target")
       .add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
@@ -4186,6 +4242,19 @@ export class EntityAssembler {
     });
     context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
     context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+
+    context.stores.get<PlayerCosmeticComponent>("playerCosmetic").add(playerId, {
+      emissiveR: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R,
+      emissiveG: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.G,
+      emissiveB: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.B,
+      targetScaleX: 1.0,
+      targetScaleY: 1.0,
+      targetScaleZ: 1.0,
+      springStiffness: 220,
+      springDamping: 14,
+      rotationAngle: 0.0,
+      slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR
+    });
 
     context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",
@@ -4667,7 +4736,12 @@ export class GameDirectorSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { HealthComponent, InvulnerabilityComponent, TransformComponent, ParticleRequestComponent } from "../../core/ecs/Components";
+import {
+  HealthComponent,
+  InvulnerabilityComponent,
+  TransformComponent,
+  ParticleRequestComponent
+} from "../../core/ecs/Components";
 import { DamageRequestCommand } from "./CombatCommands";
 import { GameEvent } from "../../core/events/GameEvents";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
@@ -5120,10 +5194,7 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import {
-  VISUAL_JUICE_CONFIG,
-  CANONICAL_UNITS
-} from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -5386,15 +5457,25 @@ export class JuiceSystem implements ISystem {
     const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
     for (const [id, req] of reqStore.entries()) {
       this._particleOriginScratch.set(req.x, req.y, req.z);
-      
+
       if (req.type === "PLAYER_SPARK") {
         const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
         this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
-        this.spawnBurst(this._particleOriginScratch, this._colorScratch, req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER.COUNT, VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER);
+        this.spawnBurst(
+          this._particleOriginScratch,
+          this._colorScratch,
+          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER.COUNT,
+          VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER
+        );
       } else if (req.type === "WEAVER_SPARK") {
         const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
         this._colorScratch.set(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
-        this.spawnBurst(this._particleOriginScratch, this._colorScratch, req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER.COUNT, VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER);
+        this.spawnBurst(
+          this._particleOriginScratch,
+          this._colorScratch,
+          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER.COUNT,
+          VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER
+        );
       } else if (req.type === "LANDING_DUST") {
         this.spawnLandingDust(this._particleOriginScratch);
       } else if (req.type === "WALL_SPARK") {
@@ -6389,12 +6470,8 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TransformComponent,
-  TetherComponent,
-  TraversalStateComponent,
-  KinematicTargetComponent,
-  KinematicVelocityComponent
+  PlayerCosmeticComponent
 } from "../../core/ecs/Components";
-import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
@@ -6409,80 +6486,38 @@ export class PlayerAnimationSystem implements ISystem {
     const pTrans = this.context.stores
       .get<TransformComponent>("transform")
       .get(this.context.refs.player);
-    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const trav = this.context.stores
-      .get<TraversalStateComponent>("traversal")
-      .get(this.context.refs.player);
-    const target = this.context.stores
-      .get<KinematicTargetComponent>("target")
-      .get(this.context.refs.player);
-    const vel = this.context.stores
-      .get<KinematicVelocityComponent>("velocity")
+    const cosmetic = this.context.stores
+      .get<PlayerCosmeticComponent>("playerCosmetic")
       .get(this.context.refs.player);
 
-    if (!pTrans || !tether || !trav || !target || !vel) return;
+    if (!pTrans || !cosmetic) return;
 
     pTrans.prevScaleX = pTrans.scaleX!;
     pTrans.prevScaleY = pTrans.scaleY!;
     pTrans.prevScaleZ = pTrans.scaleZ!;
 
-    const tuning = GAMEPLAY_TUNING.PLAYER;
-
-    let targetScaleX: number;
-    let targetScaleY: number;
-    let targetScaleZ: number;
-
-    if (trav.state === "LAUNCHING") {
-      const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
-      targetScaleY = 1.0 + stretchFactor;
-      targetScaleX = 1.0 - stretchFactor * 0.5;
-      targetScaleZ = 1.0 - stretchFactor * 0.5;
-    } else if (trav.state === "WALL_SLIDING") {
-      targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
-      targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
-      targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
-    } else {
-      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-      const stretchFactor = Math.min(
-        tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
-        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) *
-          tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
-      );
-      targetScaleY = 1.0 + stretchFactor;
-      targetScaleX = 1.0 - stretchFactor * 0.5;
-      targetScaleZ = 1.0 - stretchFactor * 0.5;
-    }
-
-    solveScaleSpring(pTrans, targetScaleX, targetScaleY, targetScaleZ, dt, 220, 14);
+    solveScaleSpring(
+      pTrans,
+      cosmetic.targetScaleX,
+      cosmetic.targetScaleY,
+      cosmetic.targetScaleZ,
+      dt,
+      cosmetic.springStiffness,
+      cosmetic.springDamping
+    );
 
     pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
 
-    let rotDx = 0;
-    let rotDy = 1;
-
-    if (trav.state === "LAUNCHING") {
-      const vx = vel.x;
-      const vy = vel.y;
-      if (vx * vx + vy * vy > 1.0) {
-        rotDx = vx;
-        rotDy = vy;
-      }
-    } else if (trav.state === "AIRBORNE") {
-      rotDx = tether.anchorX - target.x;
-      rotDy = tether.anchorY - target.y;
-    }
-
-    const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
-    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, targetAngle, this._targetQuat);
+    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, cosmetic.rotationAngle, this._targetQuat);
 
     this._currentQuat.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
 
     BABYLON.Quaternion.SlerpToRef(
       this._currentQuat,
       this._targetQuat,
-      tuning.SLERP_FACTOR,
+      cosmetic.slerpFactor,
       this._currentQuat
     );
 
@@ -6735,8 +6770,12 @@ export class TetherReelingSystem implements ISystem {
 
   public update(dt: number): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
 
     if (!tether || !input || !trav) return;
 
@@ -7042,7 +7081,7 @@ export class VerticalBoundarySystem implements ISystem {
       } else {
         if (vel.y < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
           this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
-          
+
           // Spawn landing particles purely via ECS component
           const reqId = this.context.world.create();
           const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
@@ -7317,8 +7356,10 @@ import {
   TraversalStateComponent,
   InputIntentComponent,
   StickySurfaceComponent,
-  TransformComponent
+  TransformComponent,
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
@@ -7346,6 +7387,31 @@ export class PlayerAirborneState implements IPlayerState {
     if (!target || !vel || !tether || !input || !trav) return null;
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
+
+    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+    if (cosmetic) {
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      const stretchFactor = Math.min(
+        tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
+        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * 
+          tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
+      );
+      cosmetic.targetScaleY = 1.0 + stretchFactor;
+      cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
+      cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
+      cosmetic.springStiffness = 220;
+      cosmetic.springDamping = 14;
+
+      const rotDx = tether.anchorX - target.x;
+      const rotDy = tether.anchorY - target.y;
+      cosmetic.rotationAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
+      cosmetic.slerpFactor = tuning.SLERP_FACTOR;
+
+      cosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;
+      cosmetic.emissiveG = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.G;
+      cosmetic.emissiveB = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.B;
+    }
 
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
     vel.x += input.x * tuning.SWING_STEER_FORCE * dt;
@@ -7468,8 +7534,10 @@ import {
   TraversalStateComponent,
   InputIntentComponent,
   StickySurfaceComponent,
-  TransformComponent
+  TransformComponent,
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
@@ -7496,6 +7564,26 @@ export class PlayerLaunchingState implements IPlayerState {
     if (!target || !vel || !tether || !input || !trav) return null;
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
+
+    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+    if (cosmetic) {
+      const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
+      cosmetic.targetScaleY = 1.0 + stretchFactor;
+      cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
+      cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
+      cosmetic.springStiffness = 220;
+      cosmetic.springDamping = 14;
+
+      const vx = vel.x;
+      const vy = vel.y;
+      cosmetic.rotationAngle = vx * vx + vy * vy > 1.0 ? -Math.atan2(vx, vy) : 0;
+      cosmetic.slerpFactor = tuning.SLERP_FACTOR;
+
+      cosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_LAUNCH.R;
+      cosmetic.emissiveG = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_LAUNCH.G;
+      cosmetic.emissiveB = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_LAUNCH.B;
+    }
 
     trav.launchTimer -= dt;
     vel.x += input.x * tuning.LAUNCH_STEER_FORCE * dt;
@@ -7771,8 +7859,10 @@ import {
   TraversalStateComponent,
   InputIntentComponent,
   StickySurfaceComponent,
-  TransformComponent
+  TransformComponent,
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
@@ -7798,6 +7888,29 @@ export class PlayerWallSlidingState implements IPlayerState {
     const trav = ctx.stores.get<TraversalStateComponent>("traversal").get(ctx.refs.player);
 
     if (!target || !vel || !tether || !input || !trav) return null;
+
+    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+    if (cosmetic) {
+      const tuning = GAMEPLAY_TUNING.PLAYER;
+      cosmetic.targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
+      cosmetic.targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
+      cosmetic.targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
+      cosmetic.springStiffness = 220;
+      cosmetic.springDamping = 14;
+
+      cosmetic.rotationAngle = 0;
+      cosmetic.slerpFactor = tuning.SLERP_FACTOR;
+
+      cosmetic.emissiveR = 
+        VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.BASE_R + 
+        Math.min(1.0, tether.tension) * VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.RANGE_R;
+      cosmetic.emissiveG = 
+        VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.BASE_G + 
+        (1.0 - Math.min(1.0, tether.tension)) * VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.RANGE_G;
+      cosmetic.emissiveB = 
+        (1.0 - Math.min(1.0, tether.tension)) * VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.MULT_B;
+    }
 
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const reelConfig = GAMEPLAY_TUNING.REEL;
@@ -8115,7 +8228,12 @@ export class WeaverBrainSystem implements ISystem {
 
 ● ./src/gameplay/weaver/WeaverSweepHelper.ts
 ────────────────────────────────────────────────────
-import { WeaverSweepComponent, HealthComponent, KinematicVelocityComponent, TransformComponent } from "../../core/ecs/Components";
+import {
+  WeaverSweepComponent,
+  HealthComponent,
+  KinematicVelocityComponent,
+  TransformComponent
+} from "../../core/ecs/Components";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 
 export class WeaverSweepHelper {
@@ -8194,7 +8312,8 @@ import {
   KinematicTargetComponent,
   WeaverAIComponent,
   HealthComponent,
-  WeaverSweepComponent
+  WeaverSweepComponent,
+  WeaverCosmeticComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -8421,6 +8540,27 @@ export class WeaverTraversalSystem implements ISystem {
         target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS - 15.0);
       }
     }
+
+    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(this.context.refs.weaver) : undefined;
+    if (cosmetic && ai) {
+      if (ai.state !== "DEFEATED") {
+        if (trav.isWallClinging) {
+          const breath = ai.state === "PATROLLING" ? Math.sin(ai.timeInState * 10.0) * 0.015 : 0.0;
+          cosmetic.targetScaleX = 0.75 + breath;
+          cosmetic.targetScaleY = 1.15 - breath * 0.5;
+          cosmetic.targetScaleZ = 1.15 - breath * 0.5;
+          cosmetic.wobbleAngle = 0.0;
+          cosmetic.rotationAngle = 0.0;
+        } else if (trav.isGrounded) {
+          cosmetic.targetScaleY = 0.75;
+          cosmetic.targetScaleX = 1.15;
+          cosmetic.targetScaleZ = 1.15;
+          cosmetic.wobbleAngle = 0.0;
+          cosmetic.rotationAngle = 0.0;
+        }
+      }
+    }
   }
 }
 
@@ -8435,7 +8575,7 @@ import {
   VISUAL_JUICE_CONFIG
 } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { TransformComponent, WeaverAIComponent } from "../../../core/ecs/Components";
+import { TransformComponent, WeaverAIComponent, WeaverCosmeticComponent } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverAscendingState implements IWeaverState {
@@ -8457,6 +8597,22 @@ export class WeaverAscendingState implements IWeaverState {
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
 
     if (wTrans && ai) {
+      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+      if (cosmetic) {
+        cosmetic.emissiveHue = ai.hue;
+        cosmetic.targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
+        cosmetic.targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
+        cosmetic.targetScaleZ = 1.0;
+        cosmetic.springStiffness = 120;
+        cosmetic.springDamping = 22;
+        cosmetic.wobbleAngle = 0.0;
+        cosmetic.rotationAngle = 0.0;
+        cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+        cosmetic.gaitAmplitude = 0.055;
+        cosmetic.gaitFrequency = 7.5;
+        cosmetic.gaitTuck = 0.28;
+      }
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
       if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {
@@ -8477,9 +8633,9 @@ export class WeaverAscendingState implements IWeaverState {
 ────────────────────────────────────────────────────
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, WEAVER_AI_TUNING } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { WeaverAIComponent } from "../../../core/ecs/Components";
+import { WeaverAIComponent, WeaverCosmeticComponent } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverDefeatedState implements IWeaverState {
@@ -8492,6 +8648,23 @@ export class WeaverDefeatedState implements IWeaverState {
     if (ai) {
       ai.desiredVelocityX = 0;
       ai.desiredVelocityY = 0;
+
+      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+      if (cosmetic) {
+        cosmetic.emissiveHue = ai.hue;
+        cosmetic.targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        cosmetic.targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        cosmetic.targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        cosmetic.springStiffness = 120;
+        cosmetic.springDamping = 22;
+        cosmetic.wobbleAngle = 0.0;
+        cosmetic.rotationAngle = 0.0;
+        cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+        cosmetic.gaitAmplitude = 0.0;
+        cosmetic.gaitFrequency = 5.0;
+        cosmetic.gaitTuck = 0.82;
+      }
     }
     ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
   }
@@ -8520,7 +8693,9 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   HealthComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  WeaverCosmeticComponent,
+  KinematicVelocityComponent
 } from "../../../core/ecs/Components";
 
 export class WeaverPatrollingState implements IWeaverState {
@@ -8555,6 +8730,31 @@ export class WeaverPatrollingState implements IWeaverState {
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (!aiComp) return null;
+
+    const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
+    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+    if (cosmetic && wVel) {
+      const speed = Math.abs(wVel.x);
+      const speedScale = Math.min(1.45, Math.max(0.45, speed / 4.5));
+      cosmetic.emissiveHue = aiComp.hue;
+      const pulse = Math.sin(aiComp.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) * WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
+      cosmetic.targetScaleX = 1.0 + pulse;
+      cosmetic.targetScaleY = 1.0 - pulse;
+      cosmetic.targetScaleZ = 1.0;
+      cosmetic.springStiffness = 120;
+      cosmetic.springDamping = 22;
+
+      const rollAngle = -wVel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
+      const mathAngle = Math.sin(aiComp.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
+      cosmetic.wobbleAngle = mathAngle;
+      cosmetic.rotationAngle = rollAngle;
+      cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+
+      cosmetic.gaitAmplitude = 0.13 * speedScale;
+      cosmetic.gaitFrequency = 7.2 + speed * 0.75;
+      cosmetic.gaitTuck = 0.0;
+    }
 
     this.shootTimer += dt;
     const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
@@ -8617,7 +8817,9 @@ import {
   TransformComponent,
   HealthComponent,
   WeaverTraversalComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  WeaverCosmeticComponent,
+  KinematicVelocityComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
 
@@ -8715,6 +8917,43 @@ export class WeaverStrikingState implements IWeaverState {
     this.phaseTimer -= dt;
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (!aiComp) return null;
+
+    const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
+    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+    if (cosmetic && wVel) {
+      cosmetic.emissiveHue = aiComp.hue;
+      const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
+      if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
+        cosmetic.targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
+        cosmetic.targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
+        cosmetic.targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+        const wobbleFreq = 12.0;
+        const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - aiComp.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+        cosmetic.wobbleAngle = Math.sin(aiComp.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+        cosmetic.rotationAngle = 0.0;
+        cosmetic.gaitAmplitude = 0.035;
+        cosmetic.gaitFrequency = 13.0;
+        cosmetic.gaitTuck = 0.72;
+      } else {
+        const stretch = Math.min(
+          WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+          (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) * 
+            WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+        );
+        cosmetic.targetScaleY = 1.0 + stretch;
+        cosmetic.targetScaleX = 1.0 - stretch * 0.5;
+        cosmetic.targetScaleZ = 1.0 - stretch * 0.5;
+        cosmetic.wobbleAngle = 0.0;
+        cosmetic.rotationAngle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+        cosmetic.gaitAmplitude = 0.055;
+        cosmetic.gaitFrequency = 8.5;
+        cosmetic.gaitTuck = -0.42;
+      }
+      cosmetic.springStiffness = 120;
+      cosmetic.springDamping = 22;
+      cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+    }
 
     if (this.currentPhase === "PREP") {
       const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
@@ -14060,11 +14299,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  WeaverAIComponent,
-  KinematicVelocityComponent,
-  WallBugComponent
+  WallBugComponent,
+  WeaverCosmeticComponent
 } from "../../core/ecs/Components";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface CachedWeaverParts {
@@ -14089,12 +14326,12 @@ export class LegJointAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
+    const cosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
       .get(this.context.refs.weaver);
 
-    if (wAI) {
-      const target = this.resolveWeaverGaitTargets(wAI);
+    if (cosmetic) {
+      const target = this.resolveWeaverGaitTargets(cosmetic);
       const blend = 1.0 - Math.exp(-dt * 8.0);
       this.gaitAmp += (target.amp - this.gaitAmp) * blend;
       this.gaitFreq += (target.freq - this.gaitFreq) * blend;
@@ -14179,11 +14416,11 @@ export class LegJointAnimationSystem implements ISystem {
 
   private dressWeaverLegs(): void {
     const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
+    const cosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
       .get(this.context.refs.weaver);
 
-    if (wNode && wAI) {
+    if (wNode && cosmetic) {
       const mesh = wNode as BABYLON.AbstractMesh;
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
@@ -14300,8 +14537,8 @@ export class LegJointAnimationSystem implements ISystem {
         const lift = liftWave * this.gaitAmp * 1.2;
 
         this._footLocalTarget.copyFrom(baseFootLocal);
-        this._footLocalTarget.x += sweep * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        this._footLocalTarget.y += lift * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        this._footLocalTarget.x += sweep * 4.4;
+        this._footLocalTarget.y += lift * 4.4;
 
         BABYLON.Vector3.TransformCoordinatesToRef(
           this._footLocalTarget,
@@ -14309,9 +14546,9 @@ export class LegJointAnimationSystem implements ISystem {
           this._footWorldTarget
         );
 
-        const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
-        const ceilingY = ARENA_CONFIG.VERTICAL.CEILING_Y;
-        const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+        const wallLimit = 15.0;
+        const ceilingY = 38.0;
+        const floorY = -8.0;
 
         const checkMargin = 0.55;
         if (this._footWorldTarget.x > wallLimit - checkMargin) {
@@ -14358,39 +14595,16 @@ export class LegJointAnimationSystem implements ISystem {
     }
   }
 
-  private resolveWeaverGaitTargets(wAI: WeaverAIComponent): {
+  private resolveWeaverGaitTargets(cosmetic: WeaverCosmeticComponent): {
     amp: number;
     freq: number;
     tuck: number;
   } {
-    if (wAI.state === "STRIKING" || wAI.state.includes("WEAVER STRIKE")) {
-      const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-      const wVel = velStore.get(this.context.refs.weaver);
-      const speed = wVel ? Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y) : 0;
-
-      if (speed < 0.1) {
-        return { amp: 0.035, freq: 13.0, tuck: 0.72 };
-      }
-      return { amp: 0.055, freq: 8.5, tuck: -0.42 };
-    }
-
-    if (wAI.state === "PATROLLING" || wAI.state.includes("PATROLLING")) {
-      const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-      const wVel = velStore.get(this.context.refs.weaver);
-      const speed = wVel ? Math.abs(wVel.x) : 4.5;
-      const speedScale = Math.min(1.45, Math.max(0.45, speed / 4.5));
-      return { amp: 0.13 * speedScale, freq: 7.2 + speed * 0.75, tuck: 0.0 };
-    }
-
-    if (wAI.state === "ASCENDING" || wAI.state.includes("ASCENDING")) {
-      return { amp: 0.055, freq: 7.5, tuck: 0.28 };
-    }
-
-    if (wAI.state === "DEFEATED" || wAI.state.includes("DEFEATED")) {
-      return { amp: 0.0, freq: 5.0, tuck: 0.82 };
-    }
-
-    return { amp: 0.09, freq: 7.5, tuck: 0.12 };
+    return {
+      amp: cosmetic.gaitAmplitude,
+      freq: cosmetic.gaitFrequency,
+      tuck: cosmetic.gaitTuck
+    };
   }
 }
 
@@ -14579,17 +14793,17 @@ export class ParallaxScrollSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { ColorCache, solveScaleSpring } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
-import { VISUAL_JUICE_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TetherComponent,
   TraversalStateComponent,
-  WeaverAIComponent,
-  KinematicVelocityComponent,
   TransformComponent,
-  WeaverTraversalComponent
+  PlayerCosmeticComponent,
+  WeaverCosmeticComponent,
+  WeaverAIComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -14620,11 +14834,9 @@ export class VisualStateDressingSystem implements ISystem {
       .get(this.context.refs.weaver);
     const transStore = this.context.stores.get<TransformComponent>("transform");
     const wTrans = transStore.get(this.context.refs.weaver);
-    const wTrav = this.context.stores
-      .get<WeaverTraversalComponent>("weaverTraversal")
+    const cosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
       .get(this.context.refs.weaver);
-    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-    const wVel = velStore.get(this.context.refs.weaver);
 
     if (wAI) {
       wAI.damageShearTime += dt;
@@ -14633,90 +14845,33 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    if (wTrans && wAI && wTrav && wVel) {
+    if (wTrans && cosmetic) {
       wTrans.prevScaleX = wTrans.scaleX!;
       wTrans.prevScaleY = wTrans.scaleY!;
       wTrans.prevScaleZ = wTrans.scaleZ!;
 
-      let targetScaleX = 1.0;
-      let targetScaleY = 1.0;
-      let targetScaleZ = 1.0;
+      solveScaleSpring(
+        wTrans,
+        cosmetic.targetScaleX,
+        cosmetic.targetScaleY,
+        cosmetic.targetScaleZ,
+        dt,
+        cosmetic.springStiffness,
+        cosmetic.springDamping
+      );
 
       this._weaverTargetQuat.set(0, 0, 0, 1);
-
-      if (wAI.state === "DEFEATED") {
-        targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
-        targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
-        targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
-        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-      } else if (wTrav.isWallClinging) {
-        const breath = wAI.state === "PATROLLING" ? Math.sin(wAI.timeInState * 10.0) * 0.015 : 0.0;
-        targetScaleX = 0.75 + breath;
-        targetScaleY = 1.15 - breath * 0.5;
-        targetScaleZ = 1.15 - breath * 0.5;
-        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-      } else if (wTrav.isGrounded) {
-        targetScaleY = 0.75;
-        targetScaleX = 1.15;
-        targetScaleZ = 1.15;
-        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-      } else {
-        if (wAI.state === "PATROLLING") {
-          const pulse =
-            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
-            WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
-          targetScaleX = 1.0 + pulse;
-          targetScaleY = 1.0 - pulse;
-
-          const rollAngle = -wVel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-          const MathAngle =
-            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
-            WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(
-            MathAngle,
-            0,
-            rollAngle,
-            this._weaverTargetQuat
-          );
-        } else if (wAI.state === "STRIKING") {
-          const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
-          if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
-            targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
-            targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
-            targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
-
-            const wobbleFreq = 12.0;
-            const wobbleAmp =
-              0.08 * Math.max(0.0, 1.0 - wAI.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-            const wobbleAngle = Math.sin(wAI.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._weaverTargetQuat);
-          } else {
-            const stretch = Math.min(
-              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
-                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
-            );
-            targetScaleY = 1.0 + stretch;
-            targetScaleX = 1.0 - stretch * 0.5;
-            targetScaleZ = 1.0 - stretch * 0.5;
-
-            const angle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
-            BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, this._weaverTargetQuat);
-          }
-        } else if (wAI.state === "ASCENDING") {
-          targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
-          targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-        }
+      if (cosmetic.rotationAngle !== 0) {
+        BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, cosmetic.rotationAngle, this._weaverTargetQuat);
+      } else if (cosmetic.wobbleAngle !== 0) {
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, cosmetic.wobbleAngle, this._weaverTargetQuat);
       }
-
-      solveScaleSpring(wTrans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
 
       this._weaverCurrentQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
       BABYLON.Quaternion.SlerpToRef(
         this._weaverCurrentQuat,
         this._weaverTargetQuat,
-        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
+        cosmetic.rotationSpeed * dt,
         this._weaverCurrentQuat
       );
       wTrans.qx = this._weaverCurrentQuat.x;
@@ -14738,10 +14893,16 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
+    const pCosmetic = this.context.stores
+      .get<PlayerCosmeticComponent>("playerCosmetic")
+      .get(this.context.refs.player);
+    const wCosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
+      .get(this.context.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-    if (pNode && tether && trav) {
+    if (pNode && tether && trav && pCosmetic) {
       const mesh = pNode as BABYLON.AbstractMesh;
 
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
@@ -14758,12 +14919,24 @@ export class VisualStateDressingSystem implements ISystem {
       });
 
       pbrMaterials.forEach((mat) => {
-        this.updatePlayerEmissive(mat, tether.tension, trav.state);
+        this._targetEmissiveColor.set(pCosmetic.emissiveR, pCosmetic.emissiveG, pCosmetic.emissiveB);
+        BABYLON.Color3.LerpToRef(
+          this.currentEmissiveColor,
+          this._targetEmissiveColor,
+          emissive.PLAYER_LERP_RATE,
+          this.currentEmissiveColor
+        );
+
+        mat.emissiveColor.set(
+          this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
+          this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
+          this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
+        );
       });
     }
 
     const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    if (wNode && wAI) {
+    if (wNode && wAI && wCosmetic) {
       const mesh = wNode as BABYLON.AbstractMesh;
 
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
@@ -14783,7 +14956,7 @@ export class VisualStateDressingSystem implements ISystem {
         emissive.WEAVER_EMISSIVE_PULSE_BASE +
         Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
-      const cachedColor = ColorCache.getColor(wAI.hue);
+      const cachedColor = ColorCache.getColor(wCosmetic.emissiveHue);
 
       pbrMaterials.forEach((pbrMat) => {
         let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
@@ -14868,46 +15041,6 @@ export class VisualStateDressingSystem implements ISystem {
     node.position.y = baseY + Math.abs(sway) * 0.035;
     node.position.z = baseZ + bobZ;
     node.rotation.z = sway * rotationScale;
-  }
-
-  private updatePlayerEmissive(mat: BABYLON.PBRMaterial, tension: number, state: string): void {
-    let targetR: number;
-    let targetG: number;
-    let targetB: number;
-
-    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
-
-    if (state === "WALL_SLIDING") {
-      targetR =
-        emissive.PLAYER_EMISSIVE_SLIDE.BASE_R +
-        Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
-      targetG =
-        emissive.PLAYER_EMISSIVE_SLIDE.BASE_G +
-        (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
-      targetB = (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.MULT_B;
-    } else if (state === "LAUNCHING") {
-      targetR = emissive.PLAYER_EMISSIVE_LAUNCH.R;
-      targetG = emissive.PLAYER_EMISSIVE_LAUNCH.G;
-      targetB = emissive.PLAYER_EMISSIVE_LAUNCH.B;
-    } else {
-      targetR = emissive.PLAYER_EMISSIVE_DEFAULT.R;
-      targetG = emissive.PLAYER_EMISSIVE_DEFAULT.G;
-      targetB = emissive.PLAYER_EMISSIVE_DEFAULT.B;
-    }
-
-    this._targetEmissiveColor.set(targetR, targetG, targetB);
-    BABYLON.Color3.LerpToRef(
-      this.currentEmissiveColor,
-      this._targetEmissiveColor,
-      emissive.PLAYER_LERP_RATE,
-      this.currentEmissiveColor
-    );
-
-    mat.emissiveColor.set(
-      this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
-    );
   }
 }
 

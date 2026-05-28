@@ -8,7 +8,8 @@ import {
   KinematicTargetComponent,
   WeaverAIComponent,
   HealthComponent,
-  WeaverSweepComponent
+  WeaverSweepComponent,
+  WeaverCosmeticComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -233,6 +234,27 @@ export class WeaverTraversalSystem implements ISystem {
     if (trans) {
       if (isPatrolling && sState && sState.phase === "HOLD") {
         target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS - 15.0);
+      }
+    }
+
+    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(this.context.refs.weaver) : undefined;
+    if (cosmetic && ai) {
+      if (ai.state !== "DEFEATED") {
+        if (trav.isWallClinging) {
+          const breath = ai.state === "PATROLLING" ? Math.sin(ai.timeInState * 10.0) * 0.015 : 0.0;
+          cosmetic.targetScaleX = 0.75 + breath;
+          cosmetic.targetScaleY = 1.15 - breath * 0.5;
+          cosmetic.targetScaleZ = 1.15 - breath * 0.5;
+          cosmetic.wobbleAngle = 0.0;
+          cosmetic.rotationAngle = 0.0;
+        } else if (trav.isGrounded) {
+          cosmetic.targetScaleY = 0.75;
+          cosmetic.targetScaleX = 1.15;
+          cosmetic.targetScaleZ = 1.15;
+          cosmetic.wobbleAngle = 0.0;
+          cosmetic.rotationAngle = 0.0;
+        }
       }
     }
   }

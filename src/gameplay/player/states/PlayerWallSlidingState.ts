@@ -7,8 +7,10 @@ import {
   TraversalStateComponent,
   InputIntentComponent,
   StickySurfaceComponent,
-  TransformComponent
+  TransformComponent,
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
@@ -34,6 +36,29 @@ export class PlayerWallSlidingState implements IPlayerState {
     const trav = ctx.stores.get<TraversalStateComponent>("traversal").get(ctx.refs.player);
 
     if (!target || !vel || !tether || !input || !trav) return null;
+
+    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+    if (cosmetic) {
+      const tuning = GAMEPLAY_TUNING.PLAYER;
+      cosmetic.targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
+      cosmetic.targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
+      cosmetic.targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
+      cosmetic.springStiffness = 220;
+      cosmetic.springDamping = 14;
+
+      cosmetic.rotationAngle = 0;
+      cosmetic.slerpFactor = tuning.SLERP_FACTOR;
+
+      cosmetic.emissiveR = 
+        VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.BASE_R + 
+        Math.min(1.0, tether.tension) * VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.RANGE_R;
+      cosmetic.emissiveG = 
+        VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.BASE_G + 
+        (1.0 - Math.min(1.0, tether.tension)) * VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.RANGE_G;
+      cosmetic.emissiveB = 
+        (1.0 - Math.min(1.0, tether.tension)) * VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.MULT_B;
+    }
 
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const reelConfig = GAMEPLAY_TUNING.REEL;

@@ -2,11 +2,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  WeaverAIComponent,
-  KinematicVelocityComponent,
-  WallBugComponent
+  WallBugComponent,
+  WeaverCosmeticComponent
 } from "../../core/ecs/Components";
-import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface CachedWeaverParts {
@@ -31,12 +29,12 @@ export class LegJointAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
+    const cosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
       .get(this.context.refs.weaver);
 
-    if (wAI) {
-      const target = this.resolveWeaverGaitTargets(wAI);
+    if (cosmetic) {
+      const target = this.resolveWeaverGaitTargets(cosmetic);
       const blend = 1.0 - Math.exp(-dt * 8.0);
       this.gaitAmp += (target.amp - this.gaitAmp) * blend;
       this.gaitFreq += (target.freq - this.gaitFreq) * blend;
@@ -121,11 +119,11 @@ export class LegJointAnimationSystem implements ISystem {
 
   private dressWeaverLegs(): void {
     const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
+    const cosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
       .get(this.context.refs.weaver);
 
-    if (wNode && wAI) {
+    if (wNode && cosmetic) {
       const mesh = wNode as BABYLON.AbstractMesh;
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
@@ -242,8 +240,8 @@ export class LegJointAnimationSystem implements ISystem {
         const lift = liftWave * this.gaitAmp * 1.2;
 
         this._footLocalTarget.copyFrom(baseFootLocal);
-        this._footLocalTarget.x += sweep * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        this._footLocalTarget.y += lift * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        this._footLocalTarget.x += sweep * 4.4;
+        this._footLocalTarget.y += lift * 4.4;
 
         BABYLON.Vector3.TransformCoordinatesToRef(
           this._footLocalTarget,
@@ -251,9 +249,9 @@ export class LegJointAnimationSystem implements ISystem {
           this._footWorldTarget
         );
 
-        const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
-        const ceilingY = ARENA_CONFIG.VERTICAL.CEILING_Y;
-        const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+        const wallLimit = 15.0;
+        const ceilingY = 38.0;
+        const floorY = -8.0;
 
         const checkMargin = 0.55;
         if (this._footWorldTarget.x > wallLimit - checkMargin) {
@@ -300,38 +298,15 @@ export class LegJointAnimationSystem implements ISystem {
     }
   }
 
-  private resolveWeaverGaitTargets(wAI: WeaverAIComponent): {
+  private resolveWeaverGaitTargets(cosmetic: WeaverCosmeticComponent): {
     amp: number;
     freq: number;
     tuck: number;
   } {
-    if (wAI.state === "STRIKING" || wAI.state.includes("WEAVER STRIKE")) {
-      const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-      const wVel = velStore.get(this.context.refs.weaver);
-      const speed = wVel ? Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y) : 0;
-
-      if (speed < 0.1) {
-        return { amp: 0.035, freq: 13.0, tuck: 0.72 };
-      }
-      return { amp: 0.055, freq: 8.5, tuck: -0.42 };
-    }
-
-    if (wAI.state === "PATROLLING" || wAI.state.includes("PATROLLING")) {
-      const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-      const wVel = velStore.get(this.context.refs.weaver);
-      const speed = wVel ? Math.abs(wVel.x) : 4.5;
-      const speedScale = Math.min(1.45, Math.max(0.45, speed / 4.5));
-      return { amp: 0.13 * speedScale, freq: 7.2 + speed * 0.75, tuck: 0.0 };
-    }
-
-    if (wAI.state === "ASCENDING" || wAI.state.includes("ASCENDING")) {
-      return { amp: 0.055, freq: 7.5, tuck: 0.28 };
-    }
-
-    if (wAI.state === "DEFEATED" || wAI.state.includes("DEFEATED")) {
-      return { amp: 0.0, freq: 5.0, tuck: 0.82 };
-    }
-
-    return { amp: 0.09, freq: 7.5, tuck: 0.12 };
+    return {
+      amp: cosmetic.gaitAmplitude,
+      freq: cosmetic.gaitFrequency,
+      tuck: cosmetic.gaitTuck
+    };
   }
 }

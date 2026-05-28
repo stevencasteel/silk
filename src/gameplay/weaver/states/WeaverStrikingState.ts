@@ -10,7 +10,9 @@ import {
   TransformComponent,
   HealthComponent,
   WeaverTraversalComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  WeaverCosmeticComponent,
+  KinematicVelocityComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
 
@@ -108,6 +110,43 @@ export class WeaverStrikingState implements IWeaverState {
     this.phaseTimer -= dt;
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (!aiComp) return null;
+
+    const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
+    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+    if (cosmetic && wVel) {
+      cosmetic.emissiveHue = aiComp.hue;
+      const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
+      if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
+        cosmetic.targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
+        cosmetic.targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
+        cosmetic.targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+        const wobbleFreq = 12.0;
+        const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - aiComp.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+        cosmetic.wobbleAngle = Math.sin(aiComp.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+        cosmetic.rotationAngle = 0.0;
+        cosmetic.gaitAmplitude = 0.035;
+        cosmetic.gaitFrequency = 13.0;
+        cosmetic.gaitTuck = 0.72;
+      } else {
+        const stretch = Math.min(
+          WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+          (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) * 
+            WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+        );
+        cosmetic.targetScaleY = 1.0 + stretch;
+        cosmetic.targetScaleX = 1.0 - stretch * 0.5;
+        cosmetic.targetScaleZ = 1.0 - stretch * 0.5;
+        cosmetic.wobbleAngle = 0.0;
+        cosmetic.rotationAngle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+        cosmetic.gaitAmplitude = 0.055;
+        cosmetic.gaitFrequency = 8.5;
+        cosmetic.gaitTuck = -0.42;
+      }
+      cosmetic.springStiffness = 120;
+      cosmetic.springDamping = 22;
+      cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+    }
 
     if (this.currentPhase === "PREP") {
       const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;

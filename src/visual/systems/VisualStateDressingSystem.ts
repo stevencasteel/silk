@@ -1,16 +1,16 @@
 import { ColorCache, solveScaleSpring } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
-import { VISUAL_JUICE_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TetherComponent,
   TraversalStateComponent,
-  WeaverAIComponent,
-  KinematicVelocityComponent,
   TransformComponent,
-  WeaverTraversalComponent
+  PlayerCosmeticComponent,
+  WeaverCosmeticComponent,
+  WeaverAIComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -41,11 +41,9 @@ export class VisualStateDressingSystem implements ISystem {
       .get(this.context.refs.weaver);
     const transStore = this.context.stores.get<TransformComponent>("transform");
     const wTrans = transStore.get(this.context.refs.weaver);
-    const wTrav = this.context.stores
-      .get<WeaverTraversalComponent>("weaverTraversal")
+    const cosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
       .get(this.context.refs.weaver);
-    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-    const wVel = velStore.get(this.context.refs.weaver);
 
     if (wAI) {
       wAI.damageShearTime += dt;
@@ -54,90 +52,33 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    if (wTrans && wAI && wTrav && wVel) {
+    if (wTrans && cosmetic) {
       wTrans.prevScaleX = wTrans.scaleX!;
       wTrans.prevScaleY = wTrans.scaleY!;
       wTrans.prevScaleZ = wTrans.scaleZ!;
 
-      let targetScaleX = 1.0;
-      let targetScaleY = 1.0;
-      let targetScaleZ = 1.0;
+      solveScaleSpring(
+        wTrans,
+        cosmetic.targetScaleX,
+        cosmetic.targetScaleY,
+        cosmetic.targetScaleZ,
+        dt,
+        cosmetic.springStiffness,
+        cosmetic.springDamping
+      );
 
       this._weaverTargetQuat.set(0, 0, 0, 1);
-
-      if (wAI.state === "DEFEATED") {
-        targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
-        targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
-        targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
-        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-      } else if (wTrav.isWallClinging) {
-        const breath = wAI.state === "PATROLLING" ? Math.sin(wAI.timeInState * 10.0) * 0.015 : 0.0;
-        targetScaleX = 0.75 + breath;
-        targetScaleY = 1.15 - breath * 0.5;
-        targetScaleZ = 1.15 - breath * 0.5;
-        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-      } else if (wTrav.isGrounded) {
-        targetScaleY = 0.75;
-        targetScaleX = 1.15;
-        targetScaleZ = 1.15;
-        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-      } else {
-        if (wAI.state === "PATROLLING") {
-          const pulse =
-            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
-            WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
-          targetScaleX = 1.0 + pulse;
-          targetScaleY = 1.0 - pulse;
-
-          const rollAngle = -wVel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-          const MathAngle =
-            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
-            WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(
-            MathAngle,
-            0,
-            rollAngle,
-            this._weaverTargetQuat
-          );
-        } else if (wAI.state === "STRIKING") {
-          const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
-          if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
-            targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
-            targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
-            targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
-
-            const wobbleFreq = 12.0;
-            const wobbleAmp =
-              0.08 * Math.max(0.0, 1.0 - wAI.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-            const wobbleAngle = Math.sin(wAI.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._weaverTargetQuat);
-          } else {
-            const stretch = Math.min(
-              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
-                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
-            );
-            targetScaleY = 1.0 + stretch;
-            targetScaleX = 1.0 - stretch * 0.5;
-            targetScaleZ = 1.0 - stretch * 0.5;
-
-            const angle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
-            BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, this._weaverTargetQuat);
-          }
-        } else if (wAI.state === "ASCENDING") {
-          targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
-          targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
-        }
+      if (cosmetic.rotationAngle !== 0) {
+        BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, cosmetic.rotationAngle, this._weaverTargetQuat);
+      } else if (cosmetic.wobbleAngle !== 0) {
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, cosmetic.wobbleAngle, this._weaverTargetQuat);
       }
-
-      solveScaleSpring(wTrans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
 
       this._weaverCurrentQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
       BABYLON.Quaternion.SlerpToRef(
         this._weaverCurrentQuat,
         this._weaverTargetQuat,
-        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
+        cosmetic.rotationSpeed * dt,
         this._weaverCurrentQuat
       );
       wTrans.qx = this._weaverCurrentQuat.x;
@@ -159,10 +100,16 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
+    const pCosmetic = this.context.stores
+      .get<PlayerCosmeticComponent>("playerCosmetic")
+      .get(this.context.refs.player);
+    const wCosmetic = this.context.stores
+      .get<WeaverCosmeticComponent>("weaverCosmetic")
+      .get(this.context.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-    if (pNode && tether && trav) {
+    if (pNode && tether && trav && pCosmetic) {
       const mesh = pNode as BABYLON.AbstractMesh;
 
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
@@ -179,12 +126,24 @@ export class VisualStateDressingSystem implements ISystem {
       });
 
       pbrMaterials.forEach((mat) => {
-        this.updatePlayerEmissive(mat, tether.tension, trav.state);
+        this._targetEmissiveColor.set(pCosmetic.emissiveR, pCosmetic.emissiveG, pCosmetic.emissiveB);
+        BABYLON.Color3.LerpToRef(
+          this.currentEmissiveColor,
+          this._targetEmissiveColor,
+          emissive.PLAYER_LERP_RATE,
+          this.currentEmissiveColor
+        );
+
+        mat.emissiveColor.set(
+          this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
+          this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
+          this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
+        );
       });
     }
 
     const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    if (wNode && wAI) {
+    if (wNode && wAI && wCosmetic) {
       const mesh = wNode as BABYLON.AbstractMesh;
 
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
@@ -204,7 +163,7 @@ export class VisualStateDressingSystem implements ISystem {
         emissive.WEAVER_EMISSIVE_PULSE_BASE +
         Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
-      const cachedColor = ColorCache.getColor(wAI.hue);
+      const cachedColor = ColorCache.getColor(wCosmetic.emissiveHue);
 
       pbrMaterials.forEach((pbrMat) => {
         let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
@@ -289,45 +248,5 @@ export class VisualStateDressingSystem implements ISystem {
     node.position.y = baseY + Math.abs(sway) * 0.035;
     node.position.z = baseZ + bobZ;
     node.rotation.z = sway * rotationScale;
-  }
-
-  private updatePlayerEmissive(mat: BABYLON.PBRMaterial, tension: number, state: string): void {
-    let targetR: number;
-    let targetG: number;
-    let targetB: number;
-
-    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
-
-    if (state === "WALL_SLIDING") {
-      targetR =
-        emissive.PLAYER_EMISSIVE_SLIDE.BASE_R +
-        Math.min(1.0, tension) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_R;
-      targetG =
-        emissive.PLAYER_EMISSIVE_SLIDE.BASE_G +
-        (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.RANGE_G;
-      targetB = (1.0 - Math.min(1.0, tension)) * emissive.PLAYER_EMISSIVE_SLIDE.MULT_B;
-    } else if (state === "LAUNCHING") {
-      targetR = emissive.PLAYER_EMISSIVE_LAUNCH.R;
-      targetG = emissive.PLAYER_EMISSIVE_LAUNCH.G;
-      targetB = emissive.PLAYER_EMISSIVE_LAUNCH.B;
-    } else {
-      targetR = emissive.PLAYER_EMISSIVE_DEFAULT.R;
-      targetG = emissive.PLAYER_EMISSIVE_DEFAULT.G;
-      targetB = emissive.PLAYER_EMISSIVE_DEFAULT.B;
-    }
-
-    this._targetEmissiveColor.set(targetR, targetG, targetB);
-    BABYLON.Color3.LerpToRef(
-      this.currentEmissiveColor,
-      this._targetEmissiveColor,
-      emissive.PLAYER_LERP_RATE,
-      this.currentEmissiveColor
-    );
-
-    mat.emissiveColor.set(
-      this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
-    );
   }
 }

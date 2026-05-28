@@ -197,3 +197,31 @@ export interface ParticleRequestComponent {
   count?: number;
   wallNormalX?: number;
 }
+
+export interface PlayerCosmeticComponent {
+  emissiveR: number;
+  emissiveG: number;
+  emissiveB: number;
+  targetScaleX: number;
+  targetScaleY: number;
+  targetScaleZ: number;
+  springStiffness: number;
+  springDamping: number;
+  rotationAngle: number;
+  slerpFactor: number;
+}
+
+export interface WeaverCosmeticComponent {
+  emissiveHue: string;
+  targetScaleX: number;
+  targetScaleY: number;
+  targetScaleZ: number;
+  springStiffness: number;
+  springDamping: number;
+  wobbleAngle: number;
+  rotationAngle: number;
+  rotationSpeed: number;
+  gaitAmplitude: number;
+  gaitFrequency: number;
+  gaitTuck: number;
+}

@@ -7,8 +7,10 @@ import {
   TraversalStateComponent,
   InputIntentComponent,
   StickySurfaceComponent,
-  TransformComponent
+  TransformComponent,
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
@@ -35,6 +37,26 @@ export class PlayerLaunchingState implements IPlayerState {
     if (!target || !vel || !tether || !input || !trav) return null;
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
+
+    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+    if (cosmetic) {
+      const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
+      cosmetic.targetScaleY = 1.0 + stretchFactor;
+      cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
+      cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
+      cosmetic.springStiffness = 220;
+      cosmetic.springDamping = 14;
+
+      const vx = vel.x;
+      const vy = vel.y;
+      cosmetic.rotationAngle = vx * vx + vy * vy > 1.0 ? -Math.atan2(vx, vy) : 0;
+      cosmetic.slerpFactor = tuning.SLERP_FACTOR;
+
+      cosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_LAUNCH.R;
+      cosmetic.emissiveG = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_LAUNCH.G;
+      cosmetic.emissiveB = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_LAUNCH.B;
+    }
 
     trav.launchTimer -= dt;
     vel.x += input.x * tuning.LAUNCH_STEER_FORCE * dt;

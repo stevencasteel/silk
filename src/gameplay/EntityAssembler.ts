@@ -1,6 +1,8 @@
 import { SystemContext } from "../core/engine/SystemContext";
 import { EntityId } from "../core/ecs/Entity";
 import {
+  PlayerCosmeticComponent,
+  WeaverCosmeticComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -76,6 +78,21 @@ export class EntityAssembler {
 
     context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
     context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
+
+    context.stores.get<WeaverCosmeticComponent>("weaverCosmetic").add(weaverId, {
+      emissiveHue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
+      targetScaleX: 1.0,
+      targetScaleY: 1.0,
+      targetScaleZ: 1.0,
+      springStiffness: 120,
+      springDamping: 22,
+      wobbleAngle: 0.0,
+      rotationAngle: 0.0,
+      rotationSpeed: 12.0,
+      gaitAmplitude: 0.12,
+      gaitFrequency: 8.0,
+      gaitTuck: 0.0
+    });
 
     context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
       isGrounded: false,
@@ -197,6 +214,19 @@ export class EntityAssembler {
     });
     context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
     context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+
+    context.stores.get<PlayerCosmeticComponent>("playerCosmetic").add(playerId, {
+      emissiveR: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R,
+      emissiveG: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.G,
+      emissiveB: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.B,
+      targetScaleX: 1.0,
+      targetScaleY: 1.0,
+      targetScaleZ: 1.0,
+      springStiffness: 220,
+      springDamping: 14,
+      rotationAngle: 0.0,
+      slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR
+    });
 
     context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",

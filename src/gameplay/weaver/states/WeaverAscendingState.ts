@@ -5,7 +5,7 @@ import {
   VISUAL_JUICE_CONFIG
 } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { TransformComponent, WeaverAIComponent } from "../../../core/ecs/Components";
+import { TransformComponent, WeaverAIComponent, WeaverCosmeticComponent } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverAscendingState implements IWeaverState {
@@ -27,6 +27,22 @@ export class WeaverAscendingState implements IWeaverState {
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
 
     if (wTrans && ai) {
+      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+      if (cosmetic) {
+        cosmetic.emissiveHue = ai.hue;
+        cosmetic.targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
+        cosmetic.targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
+        cosmetic.targetScaleZ = 1.0;
+        cosmetic.springStiffness = 120;
+        cosmetic.springDamping = 22;
+        cosmetic.wobbleAngle = 0.0;
+        cosmetic.rotationAngle = 0.0;
+        cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+        cosmetic.gaitAmplitude = 0.055;
+        cosmetic.gaitFrequency = 7.5;
+        cosmetic.gaitTuck = 0.28;
+      }
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
       if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {

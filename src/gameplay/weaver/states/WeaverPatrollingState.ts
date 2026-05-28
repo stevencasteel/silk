@@ -9,7 +9,9 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   HealthComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  WeaverCosmeticComponent,
+  KinematicVelocityComponent
 } from "../../../core/ecs/Components";
 
 export class WeaverPatrollingState implements IWeaverState {
@@ -44,6 +46,31 @@ export class WeaverPatrollingState implements IWeaverState {
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (!aiComp) return null;
+
+    const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
+    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+    if (cosmetic && wVel) {
+      const speed = Math.abs(wVel.x);
+      const speedScale = Math.min(1.45, Math.max(0.45, speed / 4.5));
+      cosmetic.emissiveHue = aiComp.hue;
+      const pulse = Math.sin(aiComp.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) * WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
+      cosmetic.targetScaleX = 1.0 + pulse;
+      cosmetic.targetScaleY = 1.0 - pulse;
+      cosmetic.targetScaleZ = 1.0;
+      cosmetic.springStiffness = 120;
+      cosmetic.springDamping = 22;
+
+      const rollAngle = -wVel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
+      const mathAngle = Math.sin(aiComp.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
+      cosmetic.wobbleAngle = mathAngle;
+      cosmetic.rotationAngle = rollAngle;
+      cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+
+      cosmetic.gaitAmplitude = 0.13 * speedScale;
+      cosmetic.gaitFrequency = 7.2 + speed * 0.75;
+      cosmetic.gaitTuck = 0.0;
+    }
 
     this.shootTimer += dt;
     const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;

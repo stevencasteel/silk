@@ -7,8 +7,10 @@ import {
   TraversalStateComponent,
   InputIntentComponent,
   StickySurfaceComponent,
-  TransformComponent
+  TransformComponent,
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
@@ -36,6 +38,31 @@ export class PlayerAirborneState implements IPlayerState {
     if (!target || !vel || !tether || !input || !trav) return null;
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
+
+    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+    if (cosmetic) {
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      const stretchFactor = Math.min(
+        tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
+        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * 
+          tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
+      );
+      cosmetic.targetScaleY = 1.0 + stretchFactor;
+      cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
+      cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
+      cosmetic.springStiffness = 220;
+      cosmetic.springDamping = 14;
+
+      const rotDx = tether.anchorX - target.x;
+      const rotDy = tether.anchorY - target.y;
+      cosmetic.rotationAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
+      cosmetic.slerpFactor = tuning.SLERP_FACTOR;
+
+      cosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;
+      cosmetic.emissiveG = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.G;
+      cosmetic.emissiveB = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.B;
+    }
 
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
     vel.x += input.x * tuning.SWING_STEER_FORCE * dt;

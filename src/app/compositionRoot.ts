@@ -8,6 +8,8 @@ import { EntityRefs } from "../core/ecs/EntityRefs";
 import { StoreContainer } from "../core/ecs/StoreContainer";
 import { SystemContext } from "../core/engine/SystemContext";
 import {
+  PlayerCosmeticComponent,
+  WeaverCosmeticComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -103,6 +105,9 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
+    const playerCosmetics = new ComponentStore<PlayerCosmeticComponent>();
+    const weaverCosmetics = new ComponentStore<WeaverCosmeticComponent>();
+
     const storeContainer = new StoreContainer();
 
     const registerStore = <T>(key: string, store: ComponentStore<T>) => {
@@ -110,6 +115,8 @@ export class CompositionRoot {
       storeContainer.register(key, store);
     };
 
+    registerStore("playerCosmetic", playerCosmetics);
+    registerStore("weaverCosmetic", weaverCosmetics);
     registerStore("transform", transforms);
     registerStore("velocity", velocities);
     registerStore("target", targets);

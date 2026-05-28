@@ -1,8 +1,8 @@
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, WEAVER_AI_TUNING } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { WeaverAIComponent } from "../../../core/ecs/Components";
+import { WeaverAIComponent, WeaverCosmeticComponent } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverDefeatedState implements IWeaverState {
@@ -15,6 +15,23 @@ export class WeaverDefeatedState implements IWeaverState {
     if (ai) {
       ai.desiredVelocityX = 0;
       ai.desiredVelocityY = 0;
+
+      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
+      if (cosmetic) {
+        cosmetic.emissiveHue = ai.hue;
+        cosmetic.targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        cosmetic.targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        cosmetic.targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        cosmetic.springStiffness = 120;
+        cosmetic.springDamping = 22;
+        cosmetic.wobbleAngle = 0.0;
+        cosmetic.rotationAngle = 0.0;
+        cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+        cosmetic.gaitAmplitude = 0.0;
+        cosmetic.gaitFrequency = 5.0;
+        cosmetic.gaitTuck = 0.82;
+      }
     }
     ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
   }
