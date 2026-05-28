@@ -1,5 +1,5 @@
 import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
-
+import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -92,6 +92,64 @@ function createWeaverMaterial(
   mat._shearPlugin = shearPlugin;
 
   return mat;
+}
+
+export function createWeaverVisualMesh(
+  scene: BABYLON.Scene,
+  radius: number,
+  subdivisions: number,
+  registerShadowCaster?: (mesh: BABYLON.AbstractMesh) => void
+): BABYLON.Mesh {
+  const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
+    "weaverVisual",
+    { radius, subdivisions },
+    scene
+  );
+
+  if (radius > 0) {
+    const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    if (positions) {
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i];
+        const y = positions[i + 1];
+        const z = positions[i + 2];
+        if (y < 0) {
+          const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
+          if (r_sphere > 0.001) {
+            const r_cone = radius * (1.0 + y / radius);
+            const scaleFactor = r_cone / r_sphere;
+            positions[i] = x * scaleFactor;
+            positions[i + 2] = z * scaleFactor;
+          } else {
+            positions[i] = 0;
+            positions[i + 2] = 0;
+          }
+        }
+      }
+      wMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+      const normals: number[] = [];
+      const indices = wMesh.getIndices();
+      if (indices) {
+        BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+        wMesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
+      }
+    }
+  }
+
+  const wc = ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO;
+  const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
+  wMat.albedoColor = new BABYLON.Color3(wc.r, wc.g, wc.b);
+  wMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.METALLIC;
+  wMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.ROUGHNESS;
+  wMat.clearCoat.isEnabled = true;
+  wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
+  wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
+  wMesh.material = wMat;
+  const shearPlugin = new RasterShearPlugin(wMat);
+  (wMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin = shearPlugin;
+
+  decorateWeaverVisual(scene, wMesh, radius, registerShadowCaster);
+  return wMesh;
 }
 
 export function decorateWeaverVisual(

@@ -1,7 +1,39 @@
 import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
-
+import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
+
+export function createPlayerVisualMesh(
+  scene: BABYLON.Scene,
+  height: number,
+  radius: number,
+  subdivisions: number
+): BABYLON.Mesh {
+  const pMesh = BABYLON.MeshBuilder.CreateCapsule(
+    "playerVisual",
+    {
+      height,
+      radius,
+      subdivisions
+    },
+    scene
+  );
+
+  const pc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_ALBEDO;
+  const pMat = new BABYLON.PBRMaterial("playerMat", scene);
+  pMat.albedoColor = new BABYLON.Color3(pc.r, pc.g, pc.b);
+  pMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.METALLIC;
+  pMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.ROUGHNESS;
+  pMat.sheen.isEnabled = true;
+  pMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_INTENSITY;
+  pMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_ROUGHNESS;
+  const psc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_SHEEN;
+  pMat.sheen.color = new BABYLON.Color3(psc.r, psc.g, psc.b);
+  pMesh.material = pMat;
+
+  decoratePlayerSilkVisual(scene, pMesh, height, radius);
+  return pMesh;
+}
 
 export function decoratePlayerSilkVisual(
   scene: BABYLON.Scene,

@@ -1,4 +1,3 @@
-import { RasterShearPlugin } from "../visual/lighting/RasterShearPlugin";
 import { ISystem } from "../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
 import { EntityId } from "../core/ecs/Entity";
@@ -19,8 +18,8 @@ import {
   WeaverSweepComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
-import { decorateWeaverVisual } from "../visual/mesh/WeaverVisualFactory";
-import { decoratePlayerSilkVisual } from "../visual/mesh/PlayerSilkVisualFactory";
+import { createWeaverVisualMesh } from "../visual/mesh/WeaverVisualFactory";
+import { createPlayerVisualMesh } from "../visual/mesh/PlayerSilkVisualFactory";
 import * as BABYLON from "@babylonjs/core";
 
 export class EntitySpawnerSystem implements ISystem {
@@ -129,59 +128,16 @@ export class EntitySpawnerSystem implements ISystem {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
-      "weaverVisual",
-      { radius: radius, subdivisions: ARENA_CONFIG.ENTITY.WEAVER_ICOSPHERE_SUBDIVISIONS },
-      scene
-    );
-
-    if (radius > 0) {
-      const positions = wMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
-      if (positions) {
-        for (let i = 0; i < positions.length; i += 3) {
-          const x = positions[i];
-          const y = positions[i + 1];
-          const z = positions[i + 2];
-          if (y < 0) {
-            const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
-            if (r_sphere > 0.001) {
-              const r_cone = radius * (1.0 + y / radius);
-              const scaleFactor = r_cone / r_sphere;
-              positions[i] = x * scaleFactor;
-              positions[i + 2] = z * scaleFactor;
-            } else {
-              positions[i] = 0;
-              positions[i + 2] = 0;
-            }
-          }
-        }
-        wMesh.setVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
-        const normals: number[] = [];
-        const indices = wMesh.getIndices();
-        if (indices) {
-          BABYLON.VertexData.ComputeNormals(positions, indices, normals);
-          wMesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
-        }
-      }
-    }
-
-    const wc = ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO;
-    const wMat = new BABYLON.PBRMaterial("weaverMat", scene);
-    wMat.albedoColor = new BABYLON.Color3(wc.r, wc.g, wc.b);
-    wMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.METALLIC;
-    wMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.ROUGHNESS;
-    wMat.clearCoat.isEnabled = true;
-    wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
-    wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
-    wMesh.material = wMat;
-    const shearPlugin = new RasterShearPlugin(wMat);
-    (wMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin = shearPlugin;
-
     const regCaster = this.context.visualRegistry.registerShadowCaster
       ? (m: BABYLON.AbstractMesh) => this.context.visualRegistry.registerShadowCaster!(m)
       : undefined;
 
-    decorateWeaverVisual(scene, wMesh, radius, regCaster);
+    const wMesh = createWeaverVisualMesh(
+      scene,
+      radius,
+      ARENA_CONFIG.ENTITY.WEAVER_ICOSPHERE_SUBDIVISIONS,
+      regCaster
+    );
 
     this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
@@ -283,32 +239,11 @@ export class EntitySpawnerSystem implements ISystem {
       return playerId;
     }
 
-    const pMesh = BABYLON.MeshBuilder.CreateCapsule(
-      "playerVisual",
-      {
-        height: ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
-        radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
-        subdivisions: ARENA_CONFIG.ENTITY.PLAYER_CAPSULE_SUBDIVISIONS
-      },
-      scene
-    );
-    const pc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_ALBEDO;
-    const pMat = new BABYLON.PBRMaterial("playerMat", scene);
-    pMat.albedoColor = new BABYLON.Color3(pc.r, pc.g, pc.b);
-    pMat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.METALLIC;
-    pMat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.ROUGHNESS;
-    pMat.sheen.isEnabled = true;
-    pMat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_INTENSITY;
-    pMat.sheen.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PLAYER.SHEEN_ROUGHNESS;
-    const psc = ARENA_CONFIG.ENTITY_COLORS.PLAYER_SHEEN;
-    pMat.sheen.color = new BABYLON.Color3(psc.r, psc.g, psc.b);
-    pMesh.material = pMat;
-
-    decoratePlayerSilkVisual(
+    const pMesh = createPlayerVisualMesh(
       scene,
-      pMesh,
       ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
-      ARENA_CONFIG.ENTITY.PLAYER_RADIUS
+      ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+      ARENA_CONFIG.ENTITY.PLAYER_CAPSULE_SUBDIVISIONS
     );
 
     this.context.visualRegistry.registerTransformNode(playerId, pMesh);
