@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 7:57:46 PM
+ [SYSTEM] Generated: 5/28/2026, 8:05:00 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -68,6 +68,8 @@
 │   │   │   └── RafScheduler.ts
 │   │   ├── systems/
 │   │   │   └── SystemManager.ts
+│   │   ├── utils/
+│   │   │   └── EngineUtils.ts
 │   │   └── sourceCodeManifest.ts
 │   ├── gameplay/
 │   │   ├── combat/
@@ -3447,6 +3449,83 @@ export class SystemManager {
 
 
 
+● ./src/core/utils/EngineUtils.ts
+────────────────────────────────────────────────────
+import * as BABYLON from "@babylonjs/core";
+
+export function solveSpringDamper(
+  current: number,
+  target: number,
+  velocity: number,
+  dt: number,
+  stiffness: number,
+  damping: number
+): { value: number; velocity: number } {
+  const displacement = current - target;
+  const acceleration = -stiffness * displacement - damping * velocity;
+  const nextVelocity = velocity + acceleration * dt;
+  const nextValue = current + nextVelocity * dt;
+  return { value: nextValue, velocity: nextVelocity };
+}
+
+export function getWeaverStingerTip(
+  weaverX: number,
+  weaverY: number,
+  weaverZ: number,
+  qx: number,
+  qy: number,
+  qz: number,
+  qw: number,
+  radius: number,
+  scaleMultiplier: number = 1.18
+): BABYLON.Vector3 {
+  const localTip = new BABYLON.Vector3(0, -radius * scaleMultiplier, 0);
+  const q = new BABYLON.Quaternion(qx, qy, qz, qw);
+  const worldTipOffset = new BABYLON.Vector3();
+  localTip.rotateByQuaternionToRef(q, worldTipOffset);
+  return new BABYLON.Vector3(
+    weaverX + worldTipOffset.x,
+    weaverY + worldTipOffset.y,
+    weaverZ + worldTipOffset.z
+  );
+}
+
+export function configurePBRTextures(
+  material: BABYLON.PBRMaterial,
+  textures: {
+    albedo: BABYLON.BaseTexture;
+    normal: BABYLON.BaseTexture;
+    orm: BABYLON.BaseTexture;
+  }
+): void {
+  material.albedoTexture = textures.albedo;
+  material.bumpTexture = textures.normal;
+  material.metallicTexture = textures.orm;
+  material.useAmbientOcclusionFromMetallicTextureRed = true;
+  material.useRoughnessFromMetallicTextureGreen = true;
+  material.useMetallnessFromMetallicTextureBlue = true;
+  material.useRoughnessFromMetallicTextureAlpha = false;
+}
+
+export class ColorCache {
+  private static cache = new Map<string, BABYLON.Color3>();
+
+  public static getColor(hex: string): BABYLON.Color3 {
+    let color = this.cache.get(hex);
+    if (!color) {
+      color = BABYLON.Color3.FromHexString(hex);
+      this.cache.set(hex, color);
+    }
+    return color;
+  }
+
+  public static clear(): void {
+    this.cache.clear();
+  }
+}
+
+
+
 ● ./src/gameplay/EntitySpawnerSystem.ts
 ────────────────────────────────────────────────────
 import { RasterShearPlugin } from "../visual/lighting/RasterShearPlugin";
@@ -5021,6 +5100,7 @@ export class JuiceSystem implements ISystem {
 
 ● ./src/gameplay/juice/TetherVisualizerSystem.ts
 ────────────────────────────────────────────────────
+import { getWeaverStingerTip } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
@@ -5158,11 +5238,22 @@ export class TetherVisualizerSystem implements ISystem {
       this.scratchPlayer.set(px, py, 0);
 
       const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-      if (wNode) {
-        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const localTip = new BABYLON.Vector3(0, -radius * 1.18, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
-      } else {
+    if (wNode) {
+      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+      const tip = getWeaverStingerTip(
+        wNode.position.x,
+        wNode.position.y,
+        wNode.position.z,
+        rot.x,
+        rot.y,
+        rot.z,
+        rot.w,
+        radius,
+        1.18
+      );
+      this.scratchAnchor.copyFrom(tip);
+    } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
@@ -5312,11 +5403,22 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
       const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-      if (wNode) {
-        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const localTip = new BABYLON.Vector3(0, -radius, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
-      } else {
+    if (wNode) {
+      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+      const tip = getWeaverStingerTip(
+        wNode.position.x,
+        wNode.position.y,
+        wNode.position.z,
+        rot.x,
+        rot.y,
+        rot.z,
+        rot.w,
+        radius,
+        1.0
+      );
+      this.scratchAnchor.copyFrom(tip);
+    } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
@@ -5877,6 +5979,7 @@ export class WeaverShatterSystem implements ISystem {
 
 ● ./src/gameplay/player/PlayerAnimationSystem.ts
 ────────────────────────────────────────────────────
+import { solveSpringDamper } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -5946,21 +6049,17 @@ export class PlayerAnimationSystem implements ISystem {
     const stiffness = 220;
     const damping = 14;
 
-    const dispX = pTrans.scaleX! - targetScaleX;
-    const dispY = pTrans.scaleY! - targetScaleY;
-    const dispZ = pTrans.scaleZ! - targetScaleZ;
+    const springX = solveSpringDamper(pTrans.scaleX!, targetScaleX, pTrans.scaleVelX!, dt, stiffness, damping);
+    pTrans.scaleX = springX.value;
+    pTrans.scaleVelX = springX.velocity;
 
-    const accelX = -stiffness * dispX - damping * pTrans.scaleVelX!;
-    const accelY = -stiffness * dispY - damping * pTrans.scaleVelY!;
-    const accelZ = -stiffness * dispZ - damping * pTrans.scaleVelZ!;
+    const springY = solveSpringDamper(pTrans.scaleY!, targetScaleY, pTrans.scaleVelY!, dt, stiffness, damping);
+    pTrans.scaleY = springY.value;
+    pTrans.scaleVelY = springY.velocity;
 
-    pTrans.scaleVelX! += accelX * dt;
-    pTrans.scaleVelY! += accelY * dt;
-    pTrans.scaleVelZ! += accelZ * dt;
-
-    pTrans.scaleX! += pTrans.scaleVelX! * dt;
-    pTrans.scaleY! += pTrans.scaleVelY! * dt;
-    pTrans.scaleZ! += pTrans.scaleVelZ! * dt;
+    const springZ = solveSpringDamper(pTrans.scaleZ!, targetScaleZ, pTrans.scaleVelZ!, dt, stiffness, damping);
+    pTrans.scaleZ = springZ.value;
+    pTrans.scaleVelZ = springZ.velocity;
 
     pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
@@ -6063,7 +6162,7 @@ export class PlayerInputSystem implements ISystem {
 
 ● ./src/gameplay/player/PlayerKinematicsSystem.ts
 ────────────────────────────────────────────────────
-import * as BABYLON from "@babylonjs/core";
+import { getWeaverStingerTip } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -6094,11 +6193,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
   private lastCameraYOffset = 0.0;
   private wasWallSliding = false;
-
-  // Reusable scratch fields to prevent GC allocation in hot loops
-  private readonly _stingerTipLocal = new BABYLON.Vector3();
-  private readonly _weaverQuat = new BABYLON.Quaternion();
-  private readonly _stingerTipWorld = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
 
@@ -6158,13 +6252,20 @@ export class PlayerKinematicsSystem implements ISystem {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    this._stingerTipLocal.set(0, -radius * 1.18, 0);
-    this._weaverQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-    this._stingerTipLocal.rotateByQuaternionToRef(this._weaverQuat, this._stingerTipWorld);
-
-    tether.anchorX = wTrans.x + this._stingerTipWorld.x;
-    tether.anchorY = wTrans.y + this._stingerTipWorld.y;
-    tether.anchorZ = wTrans.z + this._stingerTipWorld.z;
+    const tipWorld = getWeaverStingerTip(
+      wTrans.x,
+      wTrans.y,
+      wTrans.z,
+      wTrans.qx,
+      wTrans.qy,
+      wTrans.qz,
+      wTrans.qw,
+      radius,
+      1.18
+    );
+    tether.anchorX = tipWorld.x;
+    tether.anchorY = tipWorld.y;
+    tether.anchorZ = tipWorld.z;
 
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
@@ -7322,6 +7423,7 @@ export class WeaverBrainSystem implements ISystem {
 
 ● ./src/gameplay/weaver/WeaverTraversalSystem.ts
 ────────────────────────────────────────────────────
+import { solveSpringDamper } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -7658,23 +7760,19 @@ export class WeaverTraversalSystem implements ISystem {
       }
 
       const stiffness = 120;
-      const damping = 22;
+    const damping = 22;
 
-      const dispX = trans.scaleX! - targetScaleX;
-      const dispY = trans.scaleY! - targetScaleY;
-      const dispZ = trans.scaleZ! - targetScaleZ;
+    const springX = solveSpringDamper(trans.scaleX!, targetScaleX, trans.scaleVelX!, dt, stiffness, damping);
+    trans.scaleX = springX.value;
+    trans.scaleVelX = springX.velocity;
 
-      const accelX = -stiffness * dispX - damping * trans.scaleVelX!;
-      const accelY = -stiffness * dispY - damping * trans.scaleVelY!;
-      const accelZ = -stiffness * dispZ - damping * trans.scaleVelZ!;
+    const springY = solveSpringDamper(trans.scaleY!, targetScaleY, trans.scaleVelY!, dt, stiffness, damping);
+    trans.scaleY = springY.value;
+    trans.scaleVelY = springY.velocity;
 
-      trans.scaleVelX! += accelX * dt;
-      trans.scaleVelY! += accelY * dt;
-      trans.scaleVelZ! += accelZ * dt;
-
-      trans.scaleX! += trans.scaleVelX! * dt;
-      trans.scaleY! += trans.scaleVelY! * dt;
-      trans.scaleZ! += trans.scaleVelZ! * dt;
+    const springZ = solveSpringDamper(trans.scaleZ!, targetScaleZ, trans.scaleVelZ!, dt, stiffness, damping);
+    trans.scaleZ = springZ.value;
+    trans.scaleVelZ = springZ.velocity;
 
       this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(
@@ -7799,6 +7897,7 @@ export class WeaverDefeatedState implements IWeaverState {
 
 ● ./src/gameplay/weaver/states/WeaverPatrollingState.ts
 ────────────────────────────────────────────────────
+import { getWeaverStingerTip } from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -7808,7 +7907,6 @@ import {
   HealthComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
-import * as BABYLON from "@babylonjs/core";
 
 const HASH = String.fromCharCode(35);
 
@@ -7818,11 +7916,6 @@ export class WeaverPatrollingState implements IWeaverState {
   public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
   private shootTimer = 0.0;
   private hasTelegraphed = false;
-
-  // Reusable scratch objects to completely prevent dynamic GC allocations during active firing updates
-  private readonly _stingerTipLocal = new BABYLON.Vector3();
-  private readonly _weaverQuat = new BABYLON.Quaternion();
-  private readonly _stingerTipWorld = new BABYLON.Vector3();
 
   public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
@@ -7881,16 +7974,24 @@ export class WeaverPatrollingState implements IWeaverState {
 
       if (playerTrans && wTrans) {
         const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        this._stingerTipLocal.set(0, -radius, 0);
-        this._weaverQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-        this._stingerTipLocal.rotateByQuaternionToRef(this._weaverQuat, this._stingerTipWorld);
+    const tipWorld = getWeaverStingerTip(
+      wTrans.x,
+      wTrans.y,
+      wTrans.z,
+      wTrans.qx,
+      wTrans.qy,
+      wTrans.qz,
+      wTrans.qw,
+      radius,
+      1.0
+    );
 
-        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-          x: wTrans.x + this._stingerTipWorld.x,
-          y: wTrans.y + this._stingerTipWorld.y,
-          tx: playerTrans.x,
-          ty: playerTrans.y
-        });
+    ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+      x: tipWorld.x,
+      y: tipWorld.y,
+      tx: playerTrans.x,
+      ty: playerTrans.y
+    });
       }
     }
     return null;
@@ -10934,6 +11035,7 @@ export class CameraSystem implements ISystem {
 
 ● ./src/visual/lighting/LightingSystem.ts
 ────────────────────────────────────────────────────
+import { ColorCache } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -11057,8 +11159,7 @@ export class LightingSystem implements ISystem {
   }
 
   private setWeaverPhaseHue(colorHex: string): void {
-    // Standardize using Babylon’s robust built-in Hex string parser
-    this.targetColor.copyFrom(BABYLON.Color3.FromHexString(colorHex));
+    this.targetColor.copyFrom(ColorCache.getColor(colorHex));
   }
 
   public dispose(): void {
@@ -11284,6 +11385,7 @@ export class RasterShearPlugin extends MaterialPluginBase {
 
 ● ./src/visual/mesh/ArenaGeometry.ts
 ────────────────────────────────────────────────────
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -11308,13 +11410,7 @@ export class ArenaGeometry {
       roughnessMax: 0.98,
       metallic: 0.0
     }).then((wallTexs) => {
-      wallMaterial.albedoTexture = wallTexs.albedo;
-      wallMaterial.bumpTexture = wallTexs.normal;
-      wallMaterial.metallicTexture = wallTexs.orm;
-      wallMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-      wallMaterial.useRoughnessFromMetallicTextureGreen = true;
-      wallMaterial.useMetallnessFromMetallicTextureBlue = true;
-      wallMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      configurePBRTextures(wallMaterial, wallTexs);
       wallMaterial.enableSpecularAntiAliasing = true;
       wallMaterial.forceIrradianceInFragment = true;
     });
@@ -11333,13 +11429,7 @@ export class ArenaGeometry {
       roughnessMax: 0.75,
       metallic: 0.2
     }).then((panelTexs) => {
-      panelMaterial.albedoTexture = panelTexs.albedo;
-      panelMaterial.bumpTexture = panelTexs.normal;
-      panelMaterial.metallicTexture = panelTexs.orm;
-      panelMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-      panelMaterial.useRoughnessFromMetallicTextureGreen = true;
-      panelMaterial.useMetallnessFromMetallicTextureBlue = true;
-      panelMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      configurePBRTextures(panelMaterial, panelTexs);
       panelMaterial.enableSpecularAntiAliasing = true;
       panelMaterial.forceIrradianceInFragment = true;
     });
@@ -11368,13 +11458,7 @@ export class ArenaGeometry {
       ridgeDirectionY: 1.0,
       colorVariation: 0.2
     }).then((backdropTexs) => {
-      backdropMaterial.albedoTexture = backdropTexs.albedo;
-      backdropMaterial.bumpTexture = backdropTexs.normal;
-      backdropMaterial.metallicTexture = backdropTexs.orm;
-      backdropMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-      backdropMaterial.useRoughnessFromMetallicTextureGreen = true;
-      backdropMaterial.useMetallnessFromMetallicTextureBlue = true;
-      backdropMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      configurePBRTextures(backdropMaterial, backdropTexs);
       backdropMaterial.enableSpecularAntiAliasing = true;
       backdropMaterial.forceIrradianceInFragment = true;
     });
@@ -11604,6 +11688,7 @@ export class ArenaGeometry {
 
 ● ./src/visual/mesh/PlayerSilkVisualFactory.ts
 ────────────────────────────────────────────────────
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
@@ -11674,13 +11759,7 @@ export function decoratePlayerSilkVisual(
     roughnessMax: 0.12,
     metallic: 0.92
   }).then((silkTexs) => {
-    silkMat.albedoTexture = silkTexs.albedo;
-    silkMat.bumpTexture = silkTexs.normal;
-    silkMat.metallicTexture = silkTexs.orm;
-    silkMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    silkMat.useRoughnessFromMetallicTextureGreen = true;
-    silkMat.useMetallnessFromMetallicTextureBlue = true;
-    silkMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(silkMat, silkTexs);
   });
 
   silkMat.sheen.isEnabled = true;
@@ -11709,13 +11788,7 @@ export function decoratePlayerSilkVisual(
     roughnessMax: 0.1,
     metallic: 0.95
   }).then((bandTexs) => {
-    bandMat.albedoTexture = bandTexs.albedo;
-    bandMat.bumpTexture = bandTexs.normal;
-    bandMat.metallicTexture = bandTexs.orm;
-    bandMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    bandMat.useRoughnessFromMetallicTextureGreen = true;
-    bandMat.useMetallnessFromMetallicTextureBlue = true;
-    bandMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(bandMat, bandTexs);
   });
 
   bandMat.sheen.isEnabled = true;
@@ -11774,6 +11847,7 @@ export function decoratePlayerSilkVisual(
 
 ● ./src/visual/mesh/WeaverVisualFactory.ts
 ────────────────────────────────────────────────────
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -11884,13 +11958,7 @@ export function decorateWeaverVisual(
     ridgeDirectionY: 1.0,
     colorVariation: 0.16
   }).then((carapaceTexs) => {
-    carapaceMat.albedoTexture = carapaceTexs.albedo;
-    carapaceMat.bumpTexture = carapaceTexs.normal;
-    carapaceMat.metallicTexture = carapaceTexs.orm;
-    carapaceMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    carapaceMat.useRoughnessFromMetallicTextureGreen = true;
-    carapaceMat.useMetallnessFromMetallicTextureBlue = true;
-    carapaceMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(carapaceMat, carapaceTexs);
   });
 
   carapaceMat.clearCoat.isEnabled = true;
@@ -11921,13 +11989,7 @@ export function decorateWeaverVisual(
     ridgeDirectionY: 1.0,
     colorVariation: 0.18
   }).then((shellTexs) => {
-    shellMat.albedoTexture = shellTexs.albedo;
-    shellMat.bumpTexture = shellTexs.normal;
-    shellMat.metallicTexture = shellTexs.orm;
-    shellMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    shellMat.useRoughnessFromMetallicTextureGreen = true;
-    shellMat.useMetallnessFromMetallicTextureBlue = true;
-    shellMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(shellMat, shellTexs);
   });
 
   shellMat.clearCoat.isEnabled = true;
@@ -11958,13 +12020,7 @@ export function decorateWeaverVisual(
     ridgeDirectionY: 1.0,
     colorVariation: 0.12
   }).then((legTexs) => {
-    legMat.albedoTexture = legTexs.albedo;
-    legMat.bumpTexture = legTexs.normal;
-    legMat.metallicTexture = legTexs.orm;
-    legMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    legMat.useRoughnessFromMetallicTextureGreen = true;
-    legMat.useMetallnessFromMetallicTextureBlue = true;
-    legMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(legMat, legTexs);
   });
   legMat.enableSpecularAntiAliasing = true;
   legMat.forceIrradianceInFragment = true;
@@ -12914,6 +12970,7 @@ export class ParallaxScrollSystem implements ISystem {
 
 ● ./src/visual/systems/VisualStateDressingSystem.ts
 ────────────────────────────────────────────────────
+import { ColorCache } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
@@ -12941,7 +12998,6 @@ export class VisualStateDressingSystem implements ISystem {
   private currentEmissiveR = 0.05;
   private currentEmissiveG = 0.15;
   private currentEmissiveB = 0.05;
-  private colorCache = new Map<string, BABYLON.Color3>();
   private visualClock = 0.0;
   private gaitClock = 0.0;
   private gaitAmp = 0.12;
@@ -13065,12 +13121,7 @@ export class VisualStateDressingSystem implements ISystem {
         emissive.WEAVER_EMISSIVE_PULSE_BASE +
         Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
-      let cachedColor = this.colorCache.get(wAI.hue);
-      if (!cachedColor) {
-        // Standardize using Babylon’s robust built-in Hex string parser
-        cachedColor = BABYLON.Color3.FromHexString(wAI.hue);
-        this.colorCache.set(wAI.hue, cachedColor);
-      }
+      const cachedColor = ColorCache.getColor(wAI.hue);
 
       pbrMaterials.forEach((pbrMat) => {
         let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
@@ -13079,9 +13130,9 @@ export class VisualStateDressingSystem implements ISystem {
         }
 
         pbrMat.emissiveColor.set(
-          cachedColor!.r * scale + pulse * 0.12,
-          cachedColor!.g * scale,
-          cachedColor!.b * scale
+          cachedColor.r * scale + pulse * 0.12,
+          cachedColor.g * scale,
+          cachedColor.b * scale
         );
 
         const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
