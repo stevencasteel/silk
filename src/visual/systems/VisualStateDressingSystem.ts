@@ -1,16 +1,14 @@
-import { ColorCache, solveScaleSpring } from "../../core/utils/EngineUtils";
+import { ColorCache } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  TetherComponent,
-  TraversalStateComponent,
-  TransformComponent,
   PlayerCosmeticComponent,
   WeaverCosmeticComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  TransformComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -39,11 +37,8 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const transStore = this.context.stores.get<TransformComponent>("transform");
-    const wTrans = transStore.get(this.context.refs.weaver);
-    const cosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
+    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
 
     if (wAI) {
       wAI.damageShearTime += dt;
@@ -52,20 +47,28 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    if (wTrans && cosmetic) {
+    for (const [id, cosmetic] of cosmeticStore.entries()) {
+      const wTrans = transformStore.get(id);
+      if (!wTrans) continue;
+
       wTrans.prevScaleX = wTrans.scaleX!;
       wTrans.prevScaleY = wTrans.scaleY!;
       wTrans.prevScaleZ = wTrans.scaleZ!;
 
-      solveScaleSpring(
-        wTrans,
-        cosmetic.targetScaleX,
-        cosmetic.targetScaleY,
-        cosmetic.targetScaleZ,
-        dt,
-        cosmetic.springStiffness,
-        cosmetic.springDamping
-      );
+      const displacementX = wTrans.scaleX! - cosmetic.targetScaleX;
+      const accelerationX = -cosmetic.springStiffness * displacementX - cosmetic.springDamping * (wTrans.scaleVelX ?? 0.0);
+      wTrans.scaleVelX = (wTrans.scaleVelX ?? 0.0) + accelerationX * dt;
+      wTrans.scaleX = wTrans.scaleX! + wTrans.scaleVelX * dt;
+
+      const displacementY = wTrans.scaleY! - cosmetic.targetScaleY;
+      const accelerationY = -cosmetic.springStiffness * displacementY - cosmetic.springDamping * (wTrans.scaleVelY ?? 0.0);
+      wTrans.scaleVelY = (wTrans.scaleVelY ?? 0.0) + accelerationY * dt;
+      wTrans.scaleY = wTrans.scaleY! + wTrans.scaleVelY * dt;
+
+      const displacementZ = wTrans.scaleZ! - cosmetic.targetScaleZ;
+      const accelerationZ = -cosmetic.springStiffness * displacementZ - cosmetic.springDamping * (wTrans.scaleVelZ ?? 0.0);
+      wTrans.scaleVelZ = (wTrans.scaleVelZ ?? 0.0) + accelerationZ * dt;
+      wTrans.scaleZ = wTrans.scaleZ! + wTrans.scaleVelZ * dt;
 
       this._weaverTargetQuat.set(0, 0, 0, 1);
       if (cosmetic.rotationAngle !== 0) {
@@ -102,25 +105,18 @@ export class VisualStateDressingSystem implements ISystem {
   }
 
   private updateAestheticDressing(): void {
-    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const trav = this.context.stores
-      .get<TraversalStateComponent>("traversal")
-      .get(this.context.refs.player);
+    const pCosmetics = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const wCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const pCosmetic = this.context.stores
-      .get<PlayerCosmeticComponent>("playerCosmetic")
-      .get(this.context.refs.player);
-    const wCosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
-    const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-    if (pNode && tether && trav && pCosmetic) {
-      const mesh = pNode as BABYLON.AbstractMesh;
+    for (const [id, pCosmetic] of pCosmetics.entries()) {
+      const pNode = this.context.visualRegistry.getTransformNode(id);
+      if (!pNode) continue;
 
+      const mesh = pNode as BABYLON.AbstractMesh;
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);
@@ -155,10 +151,11 @@ export class VisualStateDressingSystem implements ISystem {
       });
     }
 
-    const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    if (wNode && wAI && wCosmetic) {
-      const mesh = wNode as BABYLON.AbstractMesh;
+    for (const [id, wCosmetic] of wCosmetics.entries()) {
+      const wNode = this.context.visualRegistry.getTransformNode(id);
+      if (!wNode) continue;
 
+      const mesh = wNode as BABYLON.AbstractMesh;
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);
@@ -190,11 +187,13 @@ export class VisualStateDressingSystem implements ISystem {
           cachedColor.b * scale
         );
 
-        const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
-          ._shearPlugin;
-        if (shearPlugin) {
-          shearPlugin.shearIntensity = wAI.damageShearIntensity;
-          shearPlugin.shearTime = wAI.damageShearTime;
+        if (wAI) {
+          const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+            ._shearPlugin;
+          if (shearPlugin) {
+            shearPlugin.shearIntensity = wAI.damageShearIntensity;
+            shearPlugin.shearTime = wAI.damageShearTime;
+          }
         }
       });
 

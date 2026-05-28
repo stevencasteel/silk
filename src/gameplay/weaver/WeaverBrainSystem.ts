@@ -5,10 +5,6 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WeaverPatrollingState } from "./states/WeaverPatrollingState";
-import { WeaverStrikingState } from "./states/WeaverStrikingState";
-import { WeaverAscendingState } from "./states/WeaverAscendingState";
-import { WeaverDefeatedState } from "./states/WeaverDefeatedState";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -18,11 +14,10 @@ export class WeaverBrainSystem implements ISystem {
   private unsubReset: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
-  constructor(private context: SystemContext) {
-    this.states.set("PATROLLING", new WeaverPatrollingState());
-    this.states.set("STRIKING", new WeaverStrikingState());
-    this.states.set("ASCENDING", new WeaverAscendingState());
-    this.states.set("DEFEATED", new WeaverDefeatedState());
+  constructor(private context: SystemContext) {}
+
+  public registerState(state: IWeaverState): void {
+    this.states.set(state.type, state);
   }
 
   public init(): void {
@@ -58,15 +53,16 @@ export class WeaverBrainSystem implements ISystem {
       .get(this.context.refs.weaver);
     if (aiComp) {
       const startState = "PATROLLING" as WeaverStateType;
-      const stateObj = this.states.get(startState) || this.states.get("PATROLLING")!;
+      const stateObj = this.states.get(startState);
+      if (stateObj) {
+        aiComp.state = stateObj.type;
+        aiComp.hue = stateObj.hue;
+        aiComp.timeInState = 0;
 
-      aiComp.state = stateObj.type;
-      aiComp.hue = stateObj.hue;
-      aiComp.timeInState = 0;
-
-      this.activeState = stateObj;
-      this.activeState.enter(this.context);
-      this.publishStateChangeEvent(stateObj.name, stateObj.hue);
+        this.activeState = stateObj;
+        this.activeState.enter(this.context);
+        this.publishStateChangeEvent(stateObj.name, stateObj.hue);
+      }
     }
     this.pendingTransition = null;
   }

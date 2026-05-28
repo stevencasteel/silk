@@ -1,16 +1,8 @@
 import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
-import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { GameEvent } from "../../core/events/GameEvents";
-import {
-  TransformComponent,
-  TetherComponent,
-  TraversalStateComponent,
-  ParticleEmitterComponent,
-  ParticleRequestComponent
-} from "../../core/ecs/Components";
+import { ParticleRequestComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 import { IParticleEmitContext } from "./ParticleStrategies";
 
@@ -29,10 +21,7 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
   private poolSize = 64;
   private nextPoolIndex = 0;
   private parentNode: BABYLON.TransformNode | null = null;
-  private _tracker = new SubscriptionTracker();
-  private playerState: string = "AIRBORNE";
 
-  private readonly _colorScratch = new BABYLON.Color3();
   private readonly _particleOriginScratch = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
@@ -60,18 +49,6 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
         active: false
       });
     }
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
-        this.playerState = payload.state;
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-        this.playerState = "AIRBORNE";
-      })
-    );
   }
 
   public emitRawParticle(
@@ -96,77 +73,10 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
     this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
   }
 
-  private spawnLaunchTrail(position: BABYLON.Vector3): void {
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
-
-    const tempPos = position.clone();
-    tempPos.x += (Math.random() - 0.5) * trail.OFFSET_X;
-    tempPos.y += (Math.random() - 0.5) * trail.OFFSET_Y;
-
-    const vx = (Math.random() - 0.5) * trail.VELOCITY_X_MAX;
-    const vy = (Math.random() - 0.5) * trail.VELOCITY_Y_MAX;
-    const vz = (Math.random() - 0.5) * trail.VELOCITY_Z_MAX;
-
-    const tempVel = new BABYLON.Vector3(vx, vy, vz);
-    const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
-
-    this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
-    this.emitRawParticle(tempPos, tempVel, life, this._colorScratch);
-  }
-
-  private emitWallSlideSparks(
-    pTrans: TransformComponent,
-    pTether: TetherComponent,
-    pTrav: TraversalStateComponent,
-    dt: number
-  ): void {
-    const wallX = pTrav.wallDir * pTrans.x;
-    this._particleOriginScratch.set(wallX, pTrans.y, 0);
-
-    const tension = Math.max(0, pTether.tension);
-    const baseChance = 0.15;
-    const tensionBonus = tension * 0.85;
-    const totalChance = Math.min(1.0, baseChance + tensionBonus);
-
-    const ticks = Math.max(1, Math.round(dt * 60.0));
-    for (let t = 0; t < ticks; t++) {
-      if (Math.random() < totalChance) {
-        this.spawnSingleSlideSpark(this._particleOriginScratch, pTrav.wallNormalX, tension);
-      }
-    }
-  }
-
-  private spawnSingleSlideSpark(
-    position: BABYLON.Vector3,
-    wallNormalX: number,
-    tension: number
-  ): void {
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const speedMult = 1.0 + tension * 1.5;
-    const vx = wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
-    const vy = (Math.random() - 0.2) * 4.0 * speedMult;
-    const vz = (Math.random() - 0.5) * 1.5;
-
-    const tempVel = new BABYLON.Vector3(vx, vy, vz);
-    const life = 0.15 + Math.random() * 0.25;
-
-    if (tension > 0.8) {
-      this._colorScratch.set(1.0, 0.95, 0.8);
-    } else if (tension > 0.4) {
-      this._colorScratch.set(1.0, 0.65, 0.15);
-    } else {
-      this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
-    }
-
-    this.emitRawParticle(position, tempVel, life, this._colorScratch);
-  }
-
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
 
-    // Dynamic Polymorphic Processing (OCP Compliance)
     const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
     for (const [id, req] of reqStore.entries()) {
       if (req.strategy) {
@@ -213,39 +123,9 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
         p.mesh.scaling.set(ratio, ratio, ratio);
       }
     }
-
-    if (this.playerState === "LAUNCHING") {
-      const playerNode = this.context.visualRegistry.getTransformNode(
-        this.context.refs.player
-      ) as BABYLON.Mesh | null;
-      if (playerNode) {
-        this.spawnLaunchTrail(playerNode.position);
-      }
-    }
-
-    const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
-    const transformStore = this.context.stores.get<TransformComponent>("transform");
-    const tetherStore = this.context.stores.get<TetherComponent>("tether");
-    const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
-
-    for (const [id, emitter] of emitterStore.entries()) {
-      if (!emitter.isActive) continue;
-
-      const trans = transformStore.get(id);
-      if (!trans) continue;
-
-      if (emitter.emitterType === "SLIDING_SPARKS") {
-        const tether = tetherStore.get(id);
-        const trav = traversalStore.get(id);
-        if (tether && trav) {
-          this.emitWallSlideSparks(trans, tether, trav, dt);
-        }
-      }
-    }
   }
 
   public dispose(): void {
-    this._tracker.clear();
     if (this.parentNode) {
       this.parentNode.dispose();
     }

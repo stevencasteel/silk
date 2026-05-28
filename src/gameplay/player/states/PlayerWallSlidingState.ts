@@ -8,7 +8,8 @@ import {
   InputIntentComponent,
   StickySurfaceComponent,
   TransformComponent,
-  PlayerCosmeticComponent
+  PlayerCosmeticComponent,
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
@@ -16,6 +17,7 @@ import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig"
 import { PlayerStateUtils } from "./PlayerStateUtils";
 import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
+import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerWallSlidingState implements IPlayerState {
   public readonly type: TraversalState = "WALL_SLIDING";
@@ -64,6 +66,17 @@ export class PlayerWallSlidingState implements IPlayerState {
 
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const reelConfig = GAMEPLAY_TUNING.REEL;
+
+    const sparkReqId = ctx.world.create();
+    const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      reqStore.add(sparkReqId, {
+        strategy: new WallSlideSparksStrategy(trav.wallNormalX, tether.tension, dt),
+        x: trav.wallDir * target.x,
+        y: target.y,
+        z: 0
+      });
+    }
 
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");

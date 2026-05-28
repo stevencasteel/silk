@@ -13,9 +13,6 @@ import {
 } from "../../core/ecs/Components";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { IPlayerState } from "./IPlayerState";
-import { PlayerAirborneState } from "./states/PlayerAirborneState";
-import { PlayerWallSlidingState } from "./states/PlayerWallSlidingState";
-import { PlayerLaunchingState } from "./states/PlayerLaunchingState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -27,10 +24,10 @@ export class PlayerKinematicsSystem implements ISystem {
   private tensionPayload = { tension: 0.0 };
   private lengthPayload = { length: 0.0, maxLength: 0.0 };
 
-  constructor(private context: SystemContext) {
-    this.states.set("AIRBORNE", new PlayerAirborneState());
-    this.states.set("WALL_SLIDING", new PlayerWallSlidingState());
-    this.states.set("LAUNCHING", new PlayerLaunchingState());
+  constructor(private context: SystemContext) {}
+
+  public registerState(state: IPlayerState): void {
+    this.states.set(state.type, state);
   }
 
   public init(): void {

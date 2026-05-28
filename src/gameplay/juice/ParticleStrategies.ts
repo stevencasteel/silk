@@ -133,3 +133,64 @@ export class WebSplatStrategy implements IParticleEmitterStrategy {
     }
   }
 }
+
+
+export class LaunchTrailStrategy implements IParticleEmitterStrategy {
+  public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+    const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
+
+    const tempPos = position.clone();
+    tempPos.x += (Math.random() - 0.5) * trail.OFFSET_X;
+    tempPos.y += (Math.random() - 0.5) * trail.OFFSET_Y;
+
+    const vx = (Math.random() - 0.5) * trail.VELOCITY_X_MAX;
+    const vy = (Math.random() - 0.5) * trail.VELOCITY_Y_MAX;
+    const vz = (Math.random() - 0.5) * trail.VELOCITY_Z_MAX;
+
+    const tempVel = new BABYLON.Vector3(vx, vy, vz);
+    const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
+
+    const color = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    context.emitRawParticle(tempPos, tempVel, life, color);
+  }
+}
+
+export class WallSlideSparksStrategy implements IParticleEmitterStrategy {
+  constructor(
+    private wallNormalX: number,
+    private tension: number,
+    private dt: number
+  ) {}
+
+  public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+    const baseChance = 0.15;
+    const tensionBonus = this.tension * 0.85;
+    const totalChance = Math.min(1.0, baseChance + tensionBonus);
+
+    const ticks = Math.max(1, Math.round(this.dt * 60.0));
+    for (let t = 0; t < ticks; t++) {
+      if (Math.random() < totalChance) {
+        const speedMult = 1.0 + this.tension * 1.5;
+        const vx = this.wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
+        const vy = (Math.random() - 0.2) * 4.0 * speedMult;
+        const vz = (Math.random() - 0.5) * 1.5;
+
+        const tempVel = new BABYLON.Vector3(vx, vy, vz);
+        const life = 0.15 + Math.random() * 0.25;
+
+        let color: BABYLON.Color3;
+        if (this.tension > 0.8) {
+          color = new BABYLON.Color3(1.0, 0.95, 0.8);
+        } else if (this.tension > 0.4) {
+          color = new BABYLON.Color3(1.0, 0.65, 0.15);
+        } else {
+          color = new BABYLON.Color3(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
+        }
+
+        context.emitRawParticle(position, tempVel, life, color);
+      }
+    }
+  }
+}

@@ -26,12 +26,15 @@ export class LegJointAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const cosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
+    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    let firstCosmetic: WeaverCosmeticComponent | undefined;
+    for (const [, cosmetic] of weaverCosmetics.entries()) {
+      firstCosmetic = cosmetic;
+      break;
+    }
 
-    if (cosmetic) {
-      const target = this.resolveWeaverGaitTargets(cosmetic);
+    if (firstCosmetic) {
+      const target = this.resolveWeaverGaitTargets(firstCosmetic);
       const blend = 1.0 - Math.exp(-dt * 8.0);
       this.gaitAmp += (target.amp - this.gaitAmp) * blend;
       this.gaitFreq += (target.freq - this.gaitFreq) * blend;
@@ -115,12 +118,12 @@ export class LegJointAnimationSystem implements ISystem {
   }
 
   private dressWeaverLegs(): void {
-    const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    const cosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
+    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
 
-    if (wNode && cosmetic) {
+    for (const [id] of weaverCosmetics.entries()) {
+      const wNode = this.context.visualRegistry.getTransformNode(id);
+      if (!wNode) continue;
+
       const mesh = wNode as BABYLON.AbstractMesh;
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {

@@ -47,10 +47,17 @@ import { ProfilePersistenceSystem } from "../core/systems/ProfilePersistenceSyst
 import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/player/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/weaver/WeaverBrainSystem";
+import { WeaverPatrollingState } from "../gameplay/weaver/states/WeaverPatrollingState";
+import { WeaverStrikingState } from "../gameplay/weaver/states/WeaverStrikingState";
+import { WeaverAscendingState } from "../gameplay/weaver/states/WeaverAscendingState";
+import { WeaverDefeatedState } from "../gameplay/weaver/states/WeaverDefeatedState";
 import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem";
 import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
+import { PlayerAirborneState } from "../gameplay/player/states/PlayerAirborneState";
+import { PlayerWallSlidingState } from "../gameplay/player/states/PlayerWallSlidingState";
+import { PlayerLaunchingState } from "../gameplay/player/states/PlayerLaunchingState";
 import { TetherReelingSystem } from "../gameplay/player/TetherReelingSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
@@ -168,6 +175,9 @@ export class CompositionRoot {
     const collisionResolutionSystem = new CollisionResolutionSystem(context);
 
     const playerKinematics = new PlayerKinematicsSystem(context);
+    playerKinematics.registerState(new PlayerAirborneState());
+    playerKinematics.registerState(new PlayerWallSlidingState());
+    playerKinematics.registerState(new PlayerLaunchingState());
     const tetherReeling = new TetherReelingSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
@@ -184,6 +194,10 @@ export class CompositionRoot {
     const spawner = new EntitySpawnerSystem(context);
 
     const weaverBrain = new WeaverBrainSystem(context);
+    weaverBrain.registerState(new WeaverPatrollingState());
+    weaverBrain.registerState(new WeaverStrikingState());
+    weaverBrain.registerState(new WeaverAscendingState());
+    weaverBrain.registerState(new WeaverDefeatedState());
     const weaverActionSystem = new WeaverActionSystem(context);
     const weaverTraversalSystem = new WeaverTraversalSystem(context);
 

@@ -8,13 +8,15 @@ import {
   InputIntentComponent,
   StickySurfaceComponent,
   TransformComponent,
-  PlayerCosmeticComponent
+  PlayerCosmeticComponent,
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
+import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerLaunchingState implements IPlayerState {
   public readonly type: TraversalState = "LAUNCHING";
@@ -154,6 +156,17 @@ export class PlayerLaunchingState implements IPlayerState {
 
     target.x = nextX;
     target.y = nextY;
+
+    const reqId = ctx.world.create();
+    const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      reqStore.add(reqId, {
+        strategy: new LaunchTrailStrategy(),
+        x: target.x,
+        y: target.y,
+        z: 0
+      });
+    }
 
     if (trav.launchTimer <= 0) {
       trav.state = "AIRBORNE";
