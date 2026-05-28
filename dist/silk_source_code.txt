@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 3:52:34 PM
+ [SYSTEM] Generated: 5/28/2026, 4:02:05 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -544,7 +544,6 @@ export default defineConfig([
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-syntax-highlighter": "^15.6.1",
     "tone": "^15.1.22",
     "zustand": "^5.0.13"
   },
@@ -553,7 +552,6 @@ export default defineConfig([
     "@types/node": "^24.12.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -1264,6 +1262,7 @@ export class AudioDirectorSystem implements ISystem {
   private windowConfirmListener: (() => void) | null = null;
   private windowTensionAlarmListener: (() => void) | null = null;
   private initialized: boolean = false;
+  private isBooting: boolean = false;
 
   private broker: EventBroker;
   private _tracker = new SubscriptionTracker();
@@ -1523,11 +1522,13 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   private bootAudioEngine(): void {
-    if (this.initialized) return;
+    if (this.initialized || this.isBooting) return;
+    this.isBooting = true;
     import("tone").then((Tone) => {
       this.toneModule = Tone;
       Tone.start().then(() => {
         this.initialized = true;
+        this.isBooting = false;
 
         Tone.getDestination().mute = false;
 
@@ -2300,6 +2301,7 @@ export interface KinematicVelocityComponent {
   y: number;
   z: number;
 }
+
 export interface KinematicTargetComponent {
   x: number;
   y: number;
@@ -2328,7 +2330,7 @@ export interface HealthComponent {
 export interface InputIntentComponent {
   x: number;
   y: number;
-  }
+}
 
 export interface WeaverAIComponent {
   state: string;
@@ -2342,9 +2344,11 @@ export interface WeaverAIComponent {
 export interface PlayerTag {
   readonly tag?: "player";
 }
+
 export interface WeaverTag {
   readonly tag?: "weaver";
 }
+
 export interface InvulnerabilityComponent {
   timeRemaining: number;
 }
@@ -3767,7 +3771,7 @@ export class EntitySpawnerSystem implements ISystem {
           const y = positions[i + 1];
           const z = positions[i + 2];
           if (y < 0) {
-            const r_sphere = Math.sqrt(radius * radius - y * y);
+            const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
             if (r_sphere > 0.001) {
               const r_cone = radius * (1.0 + y / radius);
               const scaleFactor = r_cone / r_sphere;
@@ -5598,8 +5602,6 @@ export class WeaverShatterSystem implements ISystem {
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
 
-  private readonly _linearVelocityScratch = new BABYLON.Vector3();
-  private readonly _angularVelocityScratch = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
 
@@ -5917,17 +5919,6 @@ export class WeaverShatterSystem implements ISystem {
         this.activeDebrisList.splice(i, 1);
       } else {
         if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
-          if (d.body) {
-            d.body.getLinearVelocityToRef(this._linearVelocityScratch);
-            d.velocity.copyFrom(this._linearVelocityScratch);
-
-            d.body.getAngularVelocityToRef(this._angularVelocityScratch);
-            d.angularVelocity.copyFrom(this._angularVelocityScratch);
-
-            if (d.body.shape) d.body.shape.dispose();
-            d.body.dispose();
-            d.body = null;
-          }
           const ratio = d.lifeRemaining / config.SCALE_DECAY_TIME;
           d.mesh.scaling.set(ratio, ratio, ratio);
         }
@@ -6036,6 +6027,10 @@ export class WeaverShatterSystem implements ISystem {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     this.clearDebris();
+    if (this.debrisMat) {
+      this.debrisMat.dispose();
+      this.debrisMat = null;
+    }
   }
 }
 
@@ -8869,6 +8864,40 @@ body,
 .backdrop-wipe-gesture {
   background: rgba(5, 5, 6, 0.25) !important;
   backdrop-filter: blur(2px) !important;
+}
+
+/* ==========================================================================
+   PROJECT SILK - RESTORED NEOMORPHIC KEYCAP STYLES
+   ========================================================================== */
+.keycap-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f1218;
+  color: #718096;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    -1px -1px 3px rgba(255, 255, 255, 0.01),
+    2px 2px 5px rgba(0, 0, 0, 0.8),
+    inset 1px 1px 0px rgba(255, 255, 255, 0.03);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 9px;
+  font-weight: bold;
+  transition: all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+  text-align: center;
+}
+
+.keycap-used {
+  border-color: var(--signal-green);
+  color: #ffffff;
+  background: #0c0e12;
+  box-shadow: 
+    0 0 8px rgba(34, 197, 94, 0.25),
+    inset 0 0 3px rgba(34, 197, 94, 0.15),
+    2px 2px 5px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 4px var(--signal-green-glow);
 }
 
 

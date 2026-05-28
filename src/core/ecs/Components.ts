@@ -29,6 +29,7 @@ export interface KinematicVelocityComponent {
   y: number;
   z: number;
 }
+
 export interface KinematicTargetComponent {
   x: number;
   y: number;
@@ -57,7 +58,7 @@ export interface HealthComponent {
 export interface InputIntentComponent {
   x: number;
   y: number;
-  }
+}
 
 export interface WeaverAIComponent {
   state: string;
@@ -71,9 +72,11 @@ export interface WeaverAIComponent {
 export interface PlayerTag {
   readonly tag?: "player";
 }
+
 export interface WeaverTag {
   readonly tag?: "weaver";
 }
+
 export interface InvulnerabilityComponent {
   timeRemaining: number;
 }

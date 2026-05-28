@@ -20,8 +20,6 @@ export class WeaverShatterSystem implements ISystem {
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
 
-  private readonly _linearVelocityScratch = new BABYLON.Vector3();
-  private readonly _angularVelocityScratch = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
 
@@ -339,17 +337,6 @@ export class WeaverShatterSystem implements ISystem {
         this.activeDebrisList.splice(i, 1);
       } else {
         if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
-          if (d.body) {
-            d.body.getLinearVelocityToRef(this._linearVelocityScratch);
-            d.velocity.copyFrom(this._linearVelocityScratch);
-
-            d.body.getAngularVelocityToRef(this._angularVelocityScratch);
-            d.angularVelocity.copyFrom(this._angularVelocityScratch);
-
-            if (d.body.shape) d.body.shape.dispose();
-            d.body.dispose();
-            d.body = null;
-          }
           const ratio = d.lifeRemaining / config.SCALE_DECAY_TIME;
           d.mesh.scaling.set(ratio, ratio, ratio);
         }
@@ -458,5 +445,9 @@ export class WeaverShatterSystem implements ISystem {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     this.clearDebris();
+    if (this.debrisMat) {
+      this.debrisMat.dispose();
+      this.debrisMat = null;
+    }
   }
 }

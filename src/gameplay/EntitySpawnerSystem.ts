@@ -136,7 +136,7 @@ export class EntitySpawnerSystem implements ISystem {
           const y = positions[i + 1];
           const z = positions[i + 2];
           if (y < 0) {
-            const r_sphere = Math.sqrt(radius * radius - y * y);
+            const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
             if (r_sphere > 0.001) {
               const r_cone = radius * (1.0 + y / radius);
               const scaleFactor = r_cone / r_sphere;

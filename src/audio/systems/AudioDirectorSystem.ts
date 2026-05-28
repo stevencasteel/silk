@@ -23,6 +23,7 @@ export class AudioDirectorSystem implements ISystem {
   private windowConfirmListener: (() => void) | null = null;
   private windowTensionAlarmListener: (() => void) | null = null;
   private initialized: boolean = false;
+  private isBooting: boolean = false;
 
   private broker: EventBroker;
   private _tracker = new SubscriptionTracker();
@@ -282,11 +283,13 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   private bootAudioEngine(): void {
-    if (this.initialized) return;
+    if (this.initialized || this.isBooting) return;
+    this.isBooting = true;
     import("tone").then((Tone) => {
       this.toneModule = Tone;
       Tone.start().then(() => {
         this.initialized = true;
+        this.isBooting = false;
 
         Tone.getDestination().mute = false;
 
