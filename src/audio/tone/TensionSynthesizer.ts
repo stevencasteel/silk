@@ -181,7 +181,10 @@ export class TensionSynthesizer {
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
-  public handleStateChange(_state: string, audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }): void {
+  public handleStateChange(
+    _state: string,
+    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }
+  ): void {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
     const now = this.toneModule.now();
 

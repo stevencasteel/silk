@@ -16,7 +16,6 @@ export class TutorialSystem implements ISystem {
   private reeledUp = false;
   private reeledDown = false;
 
-  private lastTetherLength = 0.0;
   private _tracker = new SubscriptionTracker();
 
   constructor(private context: SystemContext) {}
@@ -29,7 +28,6 @@ export class TutorialSystem implements ISystem {
         this.step2Completed = false;
         this.reeledUp = false;
         this.reeledDown = false;
-        this.lastTetherLength = 0.0;
       })
     );
 
@@ -50,29 +48,6 @@ export class TutorialSystem implements ISystem {
           overlayStore.setCalibrationStep(1);
           dispatchUIFeedback("silk-play-confirm");
         }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
-        const overlayStore = useOverlayStore.getState();
-        if (this.lastTetherLength > 0.0) {
-          const delta = maxLength - this.lastTetherLength;
-          if (overlayStore.calibrationStep === 1) {
-            if (delta < -0.01) {
-              this.reeledUp = true;
-            } else if (delta > 0.01) {
-              this.reeledDown = true;
-            }
-
-            if (!this.step1Completed && this.reeledUp && this.reeledDown) {
-              this.step1Completed = true;
-              overlayStore.setCalibrationStep(2);
-              dispatchUIFeedback("silk-play-confirm");
-            }
-          }
-        }
-        this.lastTetherLength = maxLength;
       })
     );
   }

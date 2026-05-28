@@ -34,7 +34,11 @@ export interface GameEventMap {
   [GameEvent.PLAYER_STATE_CHANGE]: { state: string; launchPower?: number };
   [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
   [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
-  [GameEvent.WEAVER_STATE_CHANGE]: { state: string; hue: string; audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number } };
+  [GameEvent.WEAVER_STATE_CHANGE]: {
+    state: string;
+    hue: string;
+    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number };
+  };
   [GameEvent.WEAVER_DAMAGED]: { amount: number; source: string };
   [GameEvent.WEAVER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.WEAVER_DIED]: void;

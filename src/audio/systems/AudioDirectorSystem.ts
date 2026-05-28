@@ -68,11 +68,20 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("silk-play-confirm", this.windowConfirmListener);
 
     this.windowTensionAlarmListener = () => {
-      if (this.initialized && this.sfxRegistry?.tensionAlarmSynth && this.toneModule && Math.random() < 0.1) {
+      if (
+        this.initialized &&
+        this.sfxRegistry?.tensionAlarmSynth &&
+        this.toneModule &&
+        Math.random() < 0.1
+      ) {
         const nowMs = performance.now();
         if (nowMs - this.lastAlarmTime > 80) {
           this.lastAlarmTime = nowMs;
-          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease("F6", "32n", this.toneModule.now());
+          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease(
+            "F6",
+            "32n",
+            this.toneModule.now()
+          );
         }
       }
     };

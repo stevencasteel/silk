@@ -281,7 +281,10 @@ export class EntityAssembler {
           pCol.isWallClinging = true;
           pCol.wallNormalX = side === "RIGHT" ? -1 : 1;
           pCol.lastHitType = "WALL";
-          pCol.hitPointX = side === "RIGHT" ? ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X : -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+          pCol.hitPointX =
+            side === "RIGHT"
+              ? ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X
+              : -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
           pCol.hitPointY = pTrans.y;
         }
       }

@@ -20,9 +20,13 @@ export class PlayerSparkStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    const color = new BABYLON.Color3(
+      colors.PLAYER_SPARK.r,
+      colors.PLAYER_SPARK.g,
+      colors.PLAYER_SPARK.b
+    );
     const count = this.count ?? config.COUNT;
-    
+
     const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
       const theta = Math.random() * 2.0 * Math.PI;
@@ -46,7 +50,11 @@ export class WeaverSparkStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+    const color = new BABYLON.Color3(
+      colors.WEAVER_SPARK.r,
+      colors.WEAVER_SPARK.g,
+      colors.WEAVER_SPARK.b
+    );
     const count = this.count ?? config.COUNT;
 
     const tempVel = new BABYLON.Vector3();
@@ -70,7 +78,11 @@ export class LandingDustStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
+    const color = new BABYLON.Color3(
+      colors.LANDING_DUST.r,
+      colors.LANDING_DUST.g,
+      colors.LANDING_DUST.b
+    );
     const count = config.COUNT;
 
     const tempVel = new BABYLON.Vector3();
@@ -115,7 +127,11 @@ export class WebSplatStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const color = new BABYLON.Color3(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    const color = new BABYLON.Color3(
+      colors.PROJECTILE_SPLAT.r,
+      colors.PROJECTILE_SPLAT.g,
+      colors.PROJECTILE_SPLAT.b
+    );
     const count = config.COUNT;
 
     const tempVel = new BABYLON.Vector3();
@@ -134,7 +150,6 @@ export class WebSplatStrategy implements IParticleEmitterStrategy {
   }
 }
 
-
 export class LaunchTrailStrategy implements IParticleEmitterStrategy {
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
@@ -151,7 +166,11 @@ export class LaunchTrailStrategy implements IParticleEmitterStrategy {
     const tempVel = new BABYLON.Vector3(vx, vy, vz);
     const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
 
-    const color = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    const color = new BABYLON.Color3(
+      colors.PLAYER_SPARK.r,
+      colors.PLAYER_SPARK.g,
+      colors.PLAYER_SPARK.b
+    );
     context.emitRawParticle(tempPos, tempVel, life, color);
   }
 }

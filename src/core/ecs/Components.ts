@@ -237,7 +237,6 @@ export interface CollisionResponseComponent {
   onOverlap?: (otherId: number, context: unknown) => void;
 }
 
-
 export interface BoundaryConstraintComponent {
   isActive: boolean;
   limitX: number;

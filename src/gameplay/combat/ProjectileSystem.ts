@@ -121,7 +121,9 @@ export class ProjectileSystem implements ISystem {
           const pComp = this.context.stores.get<ProjectileComponent>("projectile").get(id);
           if (pComp && !pComp.isStuck) {
             const projTrans = this.context.stores.get<TransformComponent>("transform").get(id);
-            const projCol = this.context.stores.get<CollisionStateComponent>("collisionState").get(id);
+            const projCol = this.context.stores
+              .get<CollisionStateComponent>("collisionState")
+              .get(id);
             if (projTrans && projCol) {
               pComp.isStuck = true;
               pComp.isStuckOnWall = true;
