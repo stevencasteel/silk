@@ -1,4 +1,4 @@
-import { getWeaverStingerTip } from "../../core/utils/EngineUtils";
+import { getWeaverStingerTip, getDistance2D } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -103,9 +103,7 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.anchorY = tipWorld.y;
     tether.anchorZ = tipWorld.z;
 
-    const dx = target.x - tether.anchorX;
-    const dy = target.y - tether.anchorY;
-    tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWallSliding = trav.state === "WALL_SLIDING";
@@ -177,7 +175,7 @@ export class PlayerKinematicsSystem implements ISystem {
         if (input.y > 0 && tether.isAttached) {
           const dxVal = tether.anchorX - target.x;
           const dyVal = tether.anchorY - target.y;
-          const dist = Math.sqrt(dxVal * dxVal + dyVal * dyVal) || 1.0;
+          const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
           const pullForce = 15.0;
           vel.x += (dxVal / dist) * pullForce * dt;
           vel.y += (dyVal / dist) * pullForce * dt;
@@ -198,9 +196,7 @@ export class PlayerKinematicsSystem implements ISystem {
       this.enforcePendulumConstraint(target, vel, tether);
     }
 
-    const finalDx = target.x - tether.anchorX;
-    const finalDy = target.y - tether.anchorY;
-    tether.currentLength = Math.sqrt(finalDx * finalDx + finalDy * finalDy) || 1.0;
+    tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     this.updateTensionMeter(dt, tether, trav, input);
 
@@ -218,6 +214,15 @@ export class PlayerKinematicsSystem implements ISystem {
         launchPower: trav.launchPower
       });
     }
+  }
+
+  private applyWallImpactSquash(pTrans: TransformComponent): void {
+    pTrans.scaleX = 0.72;
+    pTrans.scaleY = 1.22;
+    pTrans.scaleZ = 1.0;
+    pTrans.scaleVelX = 0;
+    pTrans.scaleVelY = 0;
+    pTrans.scaleVelZ = 0;
   }
 
   private resolveWallContact(
@@ -273,14 +278,10 @@ export class PlayerKinematicsSystem implements ISystem {
           slideSpeed = -5.0;
         }
         trav.stickyWallYOffset += slideSpeed * dt;
-        
         trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
 
         const finalY = bugTrans.y + trav.stickyWallYOffset;
-
-        const dx = target.x - tether.anchorX;
-        const dy = finalY - tether.anchorY;
-        const requiredLength = Math.sqrt(dx * dx + dy * dy);
+        const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
         if (input.y <= 0 && requiredLength > tether.maxLength) {
           const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
@@ -304,7 +305,6 @@ export class PlayerKinematicsSystem implements ISystem {
         tether.tension += stretchRatio * dt;
 
         this.wasWallSliding = true;
-        
       }
       this.lastCameraYOffset = cameraYOffset;
       return;
@@ -321,7 +321,6 @@ export class PlayerKinematicsSystem implements ISystem {
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
-
       vel.x = 0;
       vel.y = -currentScrollSpeed;
 
@@ -331,10 +330,7 @@ export class PlayerKinematicsSystem implements ISystem {
       }
 
       const finalY = target.y + vel.y * dt + cameraDeltaY;
-
-      const dx = target.x - tether.anchorX;
-      const dy = finalY - tether.anchorY;
-      const requiredLength = Math.sqrt(dx * dx + dy * dy);
+      const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
       if (input.y <= 0 && requiredLength > tether.maxLength) {
         const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
@@ -345,8 +341,6 @@ export class PlayerKinematicsSystem implements ISystem {
       }
       target.y = finalY;
       this.wasWallSliding = true;
-
-      
       this.lastCameraYOffset = cameraYOffset;
       return;
     }
@@ -374,14 +368,8 @@ export class PlayerKinematicsSystem implements ISystem {
               const transforms = this.context.stores.get<TransformComponent>("transform");
               const pTrans = transforms.get(this.context.refs.player);
 
-              // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
               if (pTrans) {
-                pTrans.scaleX = 0.72;
-                pTrans.scaleY = 1.22;
-                pTrans.scaleZ = 1.0;
-                pTrans.scaleVelX = 0;
-                pTrans.scaleVelY = 0;
-                pTrans.scaleVelZ = 0;
+                this.applyWallImpactSquash(pTrans);
               }
 
               trav.state = "WALL_SLIDING";
@@ -423,14 +411,8 @@ export class PlayerKinematicsSystem implements ISystem {
           wallNormalX: -wallDir
         });
 
-        // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
         if (pTrans) {
-          pTrans.scaleX = 0.72;
-          pTrans.scaleY = 1.22;
-          pTrans.scaleZ = 1.0;
-          pTrans.scaleVelX = 0;
-          pTrans.scaleVelY = 0;
-          pTrans.scaleVelZ = 0;
+          this.applyWallImpactSquash(pTrans);
         }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
@@ -439,7 +421,6 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.stickyEntityId = -1;
 
         target.x = wallDir * this.WALL_LIMIT_X;
-
         vel.x = 0;
         vel.y = -currentScrollSpeed;
 
@@ -449,10 +430,7 @@ export class PlayerKinematicsSystem implements ISystem {
         }
 
         const finalY = target.y + vel.y * dt + cameraDeltaY;
-
-        const dx = target.x - tether.anchorX;
-        const dy = finalY - tether.anchorY;
-        const requiredLength = Math.sqrt(dx * dx + dy * dy);
+        const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
         if (input.y <= 0 && requiredLength > tether.maxLength) {
           const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
@@ -509,7 +487,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     const dx = tether.anchorX - target.x;
     const dy = tether.anchorY - target.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const tensionPower = Math.min(1.0, storedTension);
     const reelBonus = tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
@@ -527,7 +505,6 @@ export class PlayerKinematicsSystem implements ISystem {
     trav.launchPower = powerScale;
     trav.wallDir = 0;
 
-    // Fling Launch Stretch Impulse: apply a strong scaling impulse proportional to launch power
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(this.context.refs.player);
     if (pTrans) {
@@ -562,7 +539,7 @@ export class PlayerKinematicsSystem implements ISystem {
   ) {
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const activeMaxLength = tether.maxLength;
 

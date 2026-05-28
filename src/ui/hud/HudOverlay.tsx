@@ -6,6 +6,68 @@ import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 
+interface CalibrationStepMeta {
+  successTitle: string;
+  activeTitle: string;
+  subtitle: string;
+  renderKeys: (useWasd: boolean, isLeft: boolean, isRight: boolean, isUp: boolean, isDown: boolean) => React.ReactNode;
+}
+
+const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
+  0: {
+    successTitle: "1. Cling Successful!",
+    activeTitle: "1. Cling to a Wall",
+    subtitle: "Hold direction against a wall to stick",
+    renderKeys: (useWasd, isLeft, isRight) => (
+      <>
+        <motion.span
+          animate={isLeft ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isLeft ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "A" : "◀"}
+        </motion.span>
+        <motion.span
+          animate={isRight ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isRight ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "D" : "▶"}
+        </motion.span>
+      </>
+    )
+  },
+  1: {
+    successTitle: "2. Tether Adjusted!",
+    activeTitle: "2. Adjust Silk Tether",
+    subtitle: "Press up/down to change length",
+    renderKeys: (useWasd, _, __, isUp, isDown) => (
+      <>
+        <motion.span
+          animate={isUp ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isUp ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "W" : "▲"}
+        </motion.span>
+        <motion.span
+          animate={isDown ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isDown ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "S" : "▼"}
+        </motion.span>
+      </>
+    )
+  },
+  2: {
+    successTitle: "3. Fling Successful!",
+    activeTitle: "3. Let Go to Fling",
+    subtitle: "Release key under tension to launch",
+    renderKeys: () => (
+      <span className="keycap-box" style={{ padding: "3px 8px" }}>
+        RELEASE KEY
+      </span>
+    )
+  }
+};
+
 export const HudOverlay: React.FC = () => {
   const playerState = usePlayerStore(
     useShallow((s) => ({ playerHp: s.playerHp }))
@@ -72,7 +134,6 @@ export const HudOverlay: React.FC = () => {
   const pressedKeys = useInputStore((state) => state.keysPressed);
   const [useWasd, setUseWasd] = useState<boolean>(false);
 
-  // Decoupled displayed steps to handle the visual success latency
   const [displayedStep, setDisplayedStep] = useState<number>(calibrationStep);
   const [stepSuccess, setStepSuccess] = useState<boolean>(false);
 
@@ -118,7 +179,6 @@ export const HudOverlay: React.FC = () => {
     setTickerLosses(0);
   }, [clearStats]);
 
-  // Satisfy transition delays on step progress with deferred macro-tasks
   useEffect(() => {
     let timerA: ReturnType<typeof setTimeout>;
     let timerB: ReturnType<typeof setTimeout>;
@@ -126,11 +186,10 @@ export const HudOverlay: React.FC = () => {
     if (calibrationStep > displayedStep) {
       timerA = setTimeout(() => {
         setStepSuccess(true);
-        
         timerB = setTimeout(() => {
           setDisplayedStep(calibrationStep);
           setStepSuccess(false);
-        }, 1500); // Satisfying 1.5s visual registration delay
+        }, 1500);
       }, 0);
     } else if (calibrationStep < displayedStep) {
       timerA = setTimeout(() => {
@@ -367,6 +426,7 @@ export const HudOverlay: React.FC = () => {
   const isCriticalHp = playerHp === 1 && !overlayVisible;
 
   const activeLedClass = stepSuccess ? "led-green led-elastic-spring" : "led-yellow led-spring-impact";
+  const activeStep = CALIBRATION_STEPS[displayedStep];
 
   return (
     <>
@@ -432,9 +492,9 @@ export const HudOverlay: React.FC = () => {
 
             <div className="header-center" style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}>
               <AnimatePresence mode="wait">
-                {displayedStep === 0 && (
+                {activeStep ? (
                   <motion.div
-                    key="step-0"
+                    key={`step-${displayedStep}`}
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 12 }}
@@ -442,87 +502,17 @@ export const HudOverlay: React.FC = () => {
                     style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      <motion.span 
-                        animate={isLeftPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isLeftPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "A" : "◀"}
-                      </motion.span>
-                      <motion.span 
-                        animate={isRightPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isRightPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "D" : "▶"}
-                      </motion.span>
+                      {activeStep.renderKeys(useWasd, isLeftPressed, isRightPressed, isUpPressed, isDownPressed)}
                       <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
                     </div>
                     <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
-                      {stepSuccess ? "1. Cling Successful!" : "1. Cling to a Wall"}
+                      {stepSuccess ? activeStep.successTitle : activeStep.activeTitle}
                     </span>
                     <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      Hold direction against a wall to stick
+                      {activeStep.subtitle}
                     </span>
                   </motion.div>
-                )}
-
-                {displayedStep === 1 && (
-                  <motion.div
-                    key="step-1"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      <motion.span 
-                        animate={isUpPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isUpPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "W" : "▲"}
-                      </motion.span>
-                      <motion.span 
-                        animate={isDownPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isDownPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "S" : "▼"}
-                      </motion.span>
-                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
-                    </div>
-                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
-                      {stepSuccess ? "2. Tether Adjusted!" : "2. Adjust Silk Tether"}
-                    </span>
-                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      Press up/down to change length
-                    </span>
-                  </motion.div>
-                )}
-
-                {displayedStep === 2 && (
-                  <motion.div
-                    key="step-2"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      <span className="keycap-box" style={{ padding: "3px 8px" }}>
-                        RELEASE KEY
-                      </span>
-                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
-                    </div>
-                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
-                      {stepSuccess ? "3. Fling Successful!" : "3. Let Go to Fling"}
-                    </span>
-                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      Release key under tension to launch
-                    </span>
-                  </motion.div>
-                )}
-
-                {displayedStep >= 3 && (
+                ) : (
                   <motion.div
                     key="completed"
                     initial={{ opacity: 0, scale: 0.95 }}

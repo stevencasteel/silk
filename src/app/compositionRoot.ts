@@ -76,34 +76,26 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
-    world.registerStore(transforms);
-    world.registerStore(velocities);
-    world.registerStore(targets);
-    world.registerStore(tethers);
-    world.registerStore(healths);
-    world.registerStore(inputs);
-    world.registerStore(weaverAIs);
-    world.registerStore(traversal);
-    world.registerStore(iframes);
-    world.registerStore(weaverTraversal);
-    world.registerStore(wallBugs);
-    world.registerStore(playerTags);
-    world.registerStore(weaverTags);
-
     const storeContainer = new StoreContainer();
-    storeContainer.register("transform", transforms);
-    storeContainer.register("velocity", velocities);
-    storeContainer.register("target", targets);
-    storeContainer.register("tether", tethers);
-    storeContainer.register("health", healths);
-    storeContainer.register("input", inputs);
-    storeContainer.register("weaverAI", weaverAIs);
-    storeContainer.register("traversal", traversal);
-    storeContainer.register("iframe", iframes);
-    storeContainer.register("weaverTraversal", weaverTraversal);
-    storeContainer.register("wallBug", wallBugs);
-    storeContainer.register("playerTag", playerTags);
-    storeContainer.register("weaverTag", weaverTags);
+
+    const registerStore = <T>(key: string, store: ComponentStore<T>) => {
+      world.registerStore(store);
+      storeContainer.register(key, store);
+    };
+
+    registerStore("transform", transforms);
+    registerStore("velocity", velocities);
+    registerStore("target", targets);
+    registerStore("tether", tethers);
+    registerStore("health", healths);
+    registerStore("input", inputs);
+    registerStore("weaverAI", weaverAIs);
+    registerStore("traversal", traversal);
+    registerStore("iframe", iframes);
+    registerStore("weaverTraversal", weaverTraversal);
+    registerStore("wallBug", wallBugs);
+    registerStore("playerTag", playerTags);
+    registerStore("weaverTag", weaverTags);
 
     const visualRegistry = new VisualRegistry();
 

@@ -126,14 +126,12 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized && this.noiseSynth) {
           this.noiseSynth.triggerAttackRelease(presets.DAMAGED_DURATION);
         }
-        // State-driven Audio Coupling: Reset player's swing-charge combo instantly when hit
         this.hitComboCount = 0;
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
-        // State-driven Audio Coupling: Reset player's swing-charge combo instantly on ground contact
         this.hitComboCount = 0;
       })
     );
@@ -221,25 +219,7 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         if (this.initialized) {
-          const presets = AUDIO_PRESETS.WEAVER;
-          if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_1,
-              presets.DEATH_NOTE_1_DURATION
-            );
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_2,
-              presets.DEATH_NOTE_2_DURATION,
-              presets.DEATH_NOTE_2_DELAY
-            );
-          }
-          if (this.noiseSynth) {
-            this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-            this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-            setTimeout(() => {
-              if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-            }, presets.DEATH_NOISE_RESTORE_DELAY);
-          }
+          this.triggerDeathSequence(AUDIO_PRESETS.WEAVER);
         }
       })
     );
@@ -247,28 +227,31 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         if (this.initialized) {
-          const presets = AUDIO_PRESETS.PLAYER;
-          if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_1,
-              presets.DEATH_NOTE_1_DURATION
-            );
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_2,
-              presets.DEATH_NOTE_2_DURATION,
-              presets.DEATH_NOTE_2_DELAY
-            );
-          }
-          if (this.noiseSynth) {
-            this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-            this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-            setTimeout(() => {
-              if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-            }, presets.DEATH_NOISE_RESTORE_DELAY);
-          }
+          this.triggerDeathSequence(AUDIO_PRESETS.PLAYER);
         }
       })
     );
+  }
+
+  private triggerDeathSequence(presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER): void {
+    if (this.impactSynth) {
+      this.impactSynth.triggerAttackRelease(
+        presets.DEATH_NOTE_1,
+        presets.DEATH_NOTE_1_DURATION
+      );
+      this.impactSynth.triggerAttackRelease(
+        presets.DEATH_NOTE_2,
+        presets.DEATH_NOTE_2_DURATION,
+        presets.DEATH_NOTE_2_DELAY
+      );
+    }
+    if (this.noiseSynth) {
+      this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+      this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
+      setTimeout(() => {
+        if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+      }, presets.DEATH_NOISE_RESTORE_DELAY);
+    }
   }
 
   public update(): void {

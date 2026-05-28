@@ -73,7 +73,6 @@ export class RenderSystem implements ISystem {
     );
     dirLight.intensity = 1.65;
     dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
@@ -82,30 +81,32 @@ export class RenderSystem implements ISystem {
     );
     dirFillLight.intensity = 1.35;
     dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
     dirFillLight.setEnabled(true);
 
-    const leftPointLight = new BABYLON.PointLight(
-      "leftPointLight",
-      new BABYLON.Vector3(-13.5, 14.0, -1.0),
-      this.scene
-    );
-    leftPointLight.intensity = 1.45;
-    leftPointLight.range = 34.0;
-    leftPointLight.diffuse = new BABYLON.Color3(0.87, 0.99, 0.0); 
-     
-    leftPointLight.setEnabled(true);
+    const pointLightsConfigs = [
+      {
+        name: "leftPointLight",
+        pos: new BABYLON.Vector3(-13.5, 14.0, -1.0),
+        intensity: 1.45,
+        range: 34.0,
+        diffuse: new BABYLON.Color3(0.87, 0.99, 0.0)
+      },
+      {
+        name: "rightPointLight",
+        pos: new BABYLON.Vector3(13.5, 14.0, -1.0),
+        intensity: 1.45,
+        range: 34.0,
+        diffuse: new BABYLON.Color3(1.0, 1.0, 1.0)
+      }
+    ];
 
-    const rightPointLight = new BABYLON.PointLight(
-      "rightPointLight",
-      new BABYLON.Vector3(13.5, 14.0, -1.0),
-      this.scene
-    );
-    rightPointLight.intensity = 1.45;
-    rightPointLight.range = 34.0;
-    rightPointLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
-    rightPointLight.setEnabled(true);
+    pointLightsConfigs.forEach(cfg => {
+      const pl = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
+      pl.intensity = cfg.intensity;
+      pl.range = cfg.range;
+      pl.diffuse = cfg.diffuse;
+      pl.setEnabled(true);
+    });
 
     const lowerBackLight = new BABYLON.SpotLight(
       "shaftLowerBackUplight",
@@ -118,27 +119,18 @@ export class RenderSystem implements ISystem {
     lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
     lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); 
-     
 
-    const leftUplight = new BABYLON.PointLight(
-      "leftShaftUplight",
-      new BABYLON.Vector3(-10.5, -9.0, -4.2),
-      this.scene
-    );
-    leftUplight.intensity = 1.95;
-    leftUplight.range = 32.0;
-    leftUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
+    const uplightConfigs = [
+      { name: "leftShaftUplight", pos: new BABYLON.Vector3(-10.5, -9.0, -4.2) },
+      { name: "rightShaftUplight", pos: new BABYLON.Vector3(10.5, -9.0, -4.2) }
+    ];
 
-    const rightUplight = new BABYLON.PointLight(
-      "rightShaftUplight",
-      new BABYLON.Vector3(10.5, -9.0, -4.2),
-      this.scene
-    );
-    rightUplight.intensity = 1.95;
-    rightUplight.range = 32.0;
-    rightUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
+    uplightConfigs.forEach(cfg => {
+      const uplight = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
+      uplight.intensity = 1.95;
+      uplight.range = 32.0;
+      uplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
+    });
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -193,7 +185,6 @@ export class RenderSystem implements ISystem {
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
-        // High-Power Fling launch: spike chromatic aberration based on release power
         if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
           if (this.pipeline) {
             this.pipeline.chromaticAberration.aberrationAmount = 20.0 * payload.launchPower;
@@ -221,7 +212,6 @@ export class RenderSystem implements ISystem {
     }
   }
 
-  // Future-proof framework updates wrap rendering frame constraints to satisfy WebGPU/WebGL layout structures
   public render(): void {
     if (this.scene && this.engine) {
       this.engine.beginFrame();
