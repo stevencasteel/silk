@@ -47,6 +47,7 @@ import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem"
 import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
+import { TetherReelingSystem } from "../gameplay/player/TetherReelingSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
@@ -154,6 +155,7 @@ export class CompositionRoot {
     const collisionResolutionSystem = new CollisionResolutionSystem(context);
 
     const playerKinematics = new PlayerKinematicsSystem(context);
+    const tetherReeling = new TetherReelingSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
     const strainCollision = new TetherStrainSystem(context);
@@ -192,6 +194,7 @@ export class CompositionRoot {
     systemManager.register(weaverBrain);
     systemManager.register(weaverActionSystem);
     systemManager.register(playerKinematics);
+    systemManager.register(tetherReeling);
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);

@@ -8,12 +8,11 @@ import {
   KinematicVelocityComponent,
   TraversalStateComponent
 } from "../../core/ecs/Components";
+import { SpatialPartitionService } from "../../core/engine/SpatialPartitionService";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class VerticalBoundarySystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  private readonly FLOOR_Y = ARENA_CONFIG.VERTICAL.FLOOR_Y;
-  private readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
   private readonly PLAYER_HALF_HEIGHT = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
 
   constructor(private context: SystemContext) {}
@@ -39,15 +38,15 @@ export class VerticalBoundarySystem implements ISystem {
     vel: KinematicVelocityComponent,
     trav: TraversalStateComponent
   ): void {
-    const minY = this.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
-    const maxY = this.CEILING_Y - this.PLAYER_HALF_HEIGHT;
+    const minY = SpatialPartitionService.FLOOR_Y + this.PLAYER_HALF_HEIGHT;
+    const maxY = SpatialPartitionService.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     const isWallSliding = trav.state === "WALL_SLIDING";
 
     if (target.y < minY) {
       if (isWallSliding) {
-        const absoluteFloor = this.FLOOR_Y - 70.0;
+        const absoluteFloor = SpatialPartitionService.FLOOR_Y - 70.0;
         if (target.y < absoluteFloor) {
           target.y = absoluteFloor;
           vel.y = Math.max(0, vel.y);

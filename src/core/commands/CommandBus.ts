@@ -10,7 +10,7 @@ export class CommandBus {
   private queueB: ICommand[] = [];
   private activeQueue: ICommand[] = this.queueA;
 
-  public register<T extends ICommand>(type: string, handler: CommandHandler<T>): void {
+  public register<T extends ICommand>(type: T["type"], handler: CommandHandler<T>): void {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, []);
     }

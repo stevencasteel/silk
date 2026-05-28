@@ -3,12 +3,12 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
+import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
 import { usePlayerStore, useWeaverStore, useOverlayStore, resetAllStores } from "./hudStore";
 
 export class HudSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private subscriptions: (() => void)[] = [];
-  private lastHintLevel: "none" | "charging" | "ready" | "maxout" = "none";
   private currentState: string = "AIRBORNE";
 
   constructor(private context: SystemContext) {
@@ -18,9 +18,7 @@ export class HudSyncSystem implements ISystem {
 
   private broker: EventBroker;
 
-  public init(): void {
-    // Stats are now read and verified natively by ProfilePersistenceSystem
-  }
+  public init(): void {}
 
   private registerSubscriptions(): void {
     const playerStore = usePlayerStore.getState();
@@ -35,7 +33,11 @@ export class HudSyncSystem implements ISystem {
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
-        this.updateHint(tension);
+        const stateHints = PlayerStateHints.getHintForState(
+          this.currentState as "AIRBORNE" | "WALL_SLIDING" | "LAUNCHING" | "GROUNDED",
+          tension
+        );
+        overlayStore.setTraversalHint(stateHints.text, stateHints.color, stateHints.opacity);
 
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
         window.dispatchEvent(evt);
@@ -46,10 +48,6 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
         this.currentState = state;
         playerStore.setCurrentState(state);
-
-        if (state !== "WALL_SLIDING") {
-          this.setHint("none");
-        }
       })
     );
     this.subscriptions.push(
@@ -93,39 +91,6 @@ export class HudSyncSystem implements ISystem {
         overlayStore.setBootStatus("READY");
       })
     );
-  }
-
-  private updateHint(tension: number): void {
-    if (this.currentState !== "WALL_SLIDING") return;
-    if (tension >= 1.0) {
-      this.setHint("maxout");
-    } else if (tension >= 0.85) {
-      this.setHint("ready");
-    } else if (tension > 0.02) {
-      this.setHint("charging");
-    } else {
-      this.setHint("none");
-    }
-  }
-
-  private setHint(level: "none" | "charging" | "ready" | "maxout"): void {
-    if (level === this.lastHintLevel) return;
-    this.lastHintLevel = level;
-    const store = useOverlayStore.getState();
-    switch (level) {
-      case "none":
-        store.setTraversalHint("", "rgb(161, 161, 170)", 0);
-        break;
-      case "charging":
-        store.setTraversalHint("HOLD — CHARGING TETHER", "rgb(161, 161, 170)", 1);
-        break;
-      case "ready":
-        store.setTraversalHint("RELEASE CLING TO LAUNCH", "rgb(245, 158, 11)", 1);
-        break;
-      case "maxout":
-        store.setTraversalHint("MAX TENSION — LET GO NOW", "rgb(239, 68, 68)", 1);
-        break;
-    }
   }
 
   public dispose(): void {

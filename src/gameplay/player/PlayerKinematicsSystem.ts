@@ -8,7 +8,6 @@ import {
   KinematicTargetComponent,
   TraversalStateComponent,
   TransformComponent,
-  InputIntentComponent,
   HealthComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
@@ -47,10 +46,6 @@ export class PlayerKinematicsSystem implements ISystem {
         }
       }
     });
-
-    this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-      // Handled centrally by reset event mapping
-    });
   }
 
   public update(dt: number): void {
@@ -64,14 +59,11 @@ export class PlayerKinematicsSystem implements ISystem {
     const wTrans = this.context.stores
       .get<TransformComponent>("transform")
       .get(this.context.refs.weaver);
-    const input = this.context.stores
-      .get<InputIntentComponent>("input")
-      .get(this.context.refs.player);
     const vel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
       .get(this.context.refs.player);
 
-    if (!tether || !target || !trav || !wTrans || !input || !vel) return;
+    if (!tether || !target || !trav || !wTrans || !vel) return;
 
     const pHealth = this.context.stores
       .get<HealthComponent>("health")
@@ -103,47 +95,6 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.anchorZ = tipWorld.z;
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
-
-    const reelConfig = GAMEPLAY_TUNING.REEL;
-    const isWallSliding = trav.state === "WALL_SLIDING";
-
-    if (input.y > 0 && !isWallSliding) {
-      tether.desiredLength -= reelConfig.IN_SPEED * dt;
-      tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2);
-    } else if (input.y < 0 && !isWallSliding) {
-      tether.desiredLength += reelConfig.OUT_SPEED * dt;
-      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5);
-    } else {
-      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
-      const AUTO_SLACK_MARGIN = 2.0;
-      tether.desiredLength = Math.min(
-        tether.desiredLength,
-        tether.currentLength + AUTO_SLACK_MARGIN
-      );
-    }
-    tether.desiredLength = Math.max(
-      reelConfig.MIN_LENGTH,
-      Math.min(reelConfig.MAX_LENGTH, tether.desiredLength)
-    );
-
-    let easeSpeed = 0;
-    if (tether.maxLength > tether.desiredLength) {
-      const resistance = Math.max(0.1, 1.0 - tether.tension);
-      easeSpeed = reelConfig.IN_SPEED * resistance;
-      tether.reelVelocity = -easeSpeed;
-    } else if (tether.maxLength < tether.desiredLength) {
-      easeSpeed = reelConfig.OUT_SPEED;
-      tether.reelVelocity = easeSpeed;
-    } else {
-      tether.reelVelocity = 0;
-    }
-
-    const maxDelta = easeSpeed * dt;
-    if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
-      tether.maxLength = tether.desiredLength;
-    } else {
-      tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
-    }
 
     const stateObj = this.states.get(trav.state);
     if (stateObj) {
