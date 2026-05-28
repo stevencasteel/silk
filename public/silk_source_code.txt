@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 4:23:19 PM
+ [SYSTEM] Generated: 5/28/2026, 4:28:10 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1080,6 +1080,7 @@ import {
   InvulnerabilityComponent,
   WeaverTraversalComponent,
   WallBugComponent,
+  StickySurfaceComponent,
   WeaverSweepComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
@@ -1131,6 +1132,7 @@ export class CompositionRoot {
     const iframes = new ComponentStore<InvulnerabilityComponent>();
     const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
     const wallBugs = new ComponentStore<WallBugComponent>();
+    const stickySurfaces = new ComponentStore<StickySurfaceComponent>();
     const weaverSweep = new ComponentStore<WeaverSweepComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
@@ -1155,6 +1157,7 @@ export class CompositionRoot {
     registerStore("iframe", iframes);
     registerStore("weaverTraversal", weaverTraversal);
     registerStore("wallBug", wallBugs);
+    registerStore("stickySurface", stickySurfaces);
     registerStore("weaverSweep", weaverSweep);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
@@ -2390,6 +2393,13 @@ export interface WallBugComponent {
   speed: number;
   stayDuration: number;
   gaitPhase: number;
+}
+
+export interface StickySurfaceComponent {
+  isActive: boolean;
+  width: number;
+  height: number;
+  speed: number;
 }
 
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
@@ -6264,7 +6274,7 @@ import {
   InputIntentComponent,
   HealthComponent,
   KinematicVelocityComponent,
-  WallBugComponent
+  StickySurfaceComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
@@ -6510,12 +6520,12 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.stickyEntityId !== undefined &&
       trav.stickyEntityId !== -1
     ) {
-      const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
-      const bug = bugStore.get(trav.stickyEntityId);
+      const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
+      const sticky = stickyStore ? stickyStore.get(trav.stickyEntityId) : undefined;
       const bugTransStore = this.context.stores.get<TransformComponent>("transform");
       const bugTrans = bugTransStore.get(trav.stickyEntityId);
 
-      if (!bug || bug.state === "INACTIVE" || !bugTrans || trav.stickyWallYOffset === undefined) {
+      if (!sticky || !sticky.isActive || !bugTrans || trav.stickyWallYOffset === undefined) {
         trav.state = "AIRBORNE";
         trav.stickyEntityId = -1;
         trav.wallDir = 0;
@@ -6529,8 +6539,8 @@ export class PlayerKinematicsSystem implements ISystem {
           return;
         }
 
-        const halfW = bug.width / 2;
-        const halfH = bug.height / 2;
+        const halfW = sticky.width / 2;
+        const halfH = sticky.height / 2;
 
         target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
 
@@ -6556,16 +6566,11 @@ export class PlayerKinematicsSystem implements ISystem {
         target.y = finalY;
 
         vel.x = 0;
-        vel.y = -(currentScrollSpeed + bug.speed - slideSpeed);
+        vel.y = -(currentScrollSpeed + sticky.speed - slideSpeed);
 
-        const speedScale = 1.0 + bug.speed / Math.max(1.0, currentScrollSpeed);
+        const speedScale = 1.0 + sticky.speed / Math.max(1.0, currentScrollSpeed);
         const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
         tether.tension += tensionDelta * dt;
-
-        const TENSION_STRETCH_RANGE = 2.0;
-        const stretch = Math.max(0, requiredLength - tether.maxLength);
-        const stretchRatio = stretch / TENSION_STRETCH_RANGE;
-        tether.tension += stretchRatio * dt;
 
         this.wasWallSliding = true;
       }
@@ -6611,16 +6616,16 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     const bugTransStore = this.context.stores.get<TransformComponent>("transform");
-    if (bugStore) {
-      for (const [bugId, bug] of bugStore.entries()) {
-        if (bug.state === "INACTIVE") continue;
+    if (stickyStore) {
+      for (const [bugId, sticky] of stickyStore.entries()) {
+        if (!sticky.isActive) continue;
         const bugTrans = bugTransStore.get(bugId);
         if (!bugTrans) continue;
 
-        const halfW = bug.width / 2;
-        const halfH = bug.height / 2;
+        const halfW = sticky.width / 2;
+        const halfH = sticky.height / 2;
 
         const distToBugX = nextX - bugTrans.x;
         const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
@@ -6650,7 +6655,7 @@ export class PlayerKinematicsSystem implements ISystem {
               target.x = trav.stickyWallX;
               target.y = nextY;
               vel.x = 0;
-              vel.y = -(currentScrollSpeed + bug.speed);
+              vel.y = -(currentScrollSpeed + sticky.speed);
               this.wasWallSliding = true;
 
               this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
@@ -6987,7 +6992,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, WallBugComponent } from "../../core/ecs/Components";
+import { TransformComponent, WallBugComponent, StickySurfaceComponent } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -7172,6 +7177,13 @@ export class WallBugSystem implements ISystem {
       gaitPhase: 0.0
     });
 
+    this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
+      isActive: true,
+      width: 1.15,
+      height: 7.2,
+      speed: 3.8
+    });
+
     pBug.active = true;
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
@@ -7186,6 +7198,9 @@ export class WallBugSystem implements ISystem {
 
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
     bugStore.remove(pBug.entityId);
+
+    const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
+    stickyStore.remove(pBug.entityId);
 
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     transformStore.remove(pBug.entityId);
@@ -7503,7 +7518,6 @@ export class WeaverBrainSystem implements ISystem {
 
 ● ./src/gameplay/weaver/WeaverTraversalSystem.ts
 ────────────────────────────────────────────────────
-import { solveScaleSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -7523,8 +7537,6 @@ import * as BABYLON from "@babylonjs/core";
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
-  private readonly _targetQuat = new BABYLON.Quaternion();
-  private readonly _currentQuat = new BABYLON.Quaternion();
   private readonly _raycastResult = new BABYLON.PhysicsRaycastResult();
   private readonly _rayStart = new BABYLON.Vector3();
   private readonly _rayEnd = new BABYLON.Vector3();
@@ -7626,9 +7638,11 @@ export class WeaverTraversalSystem implements ISystem {
             wallNormalX: hitWallNormal
           });
 
-          trans.scaleVelX! += -3.5;
-          trans.scaleVelY! += 2.5;
-          trans.scaleVelZ! += 2.5;
+          if (trans.scaleVelX !== undefined) {
+            trans.scaleVelX += -3.5;
+            trans.scaleVelY! += 2.5;
+            trans.scaleVelZ! += 2.5;
+          }
 
           sState.phase = "HOLD";
           sState.timer = 0.22;
@@ -7653,9 +7667,11 @@ export class WeaverTraversalSystem implements ISystem {
           sState.phase = "LAUNCH";
           vel.x = sState.direction * sweepSpeed * 2.0;
 
-          trans.scaleVelX! += 4.5;
-          trans.scaleVelY! += -3.5;
-          trans.scaleVelZ! += -3.5;
+          if (trans.scaleVelX !== undefined) {
+            trans.scaleVelX += 4.5;
+            trans.scaleVelY! += -3.5;
+            trans.scaleVelZ! += -3.5;
+          }
         }
 
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
@@ -7773,95 +7789,8 @@ export class WeaverTraversalSystem implements ISystem {
     trav.wallNormalX = wallNormalX;
 
     if (trans) {
-      trans.prevScaleX = trans.scaleX!;
-      trans.prevScaleY = trans.scaleY!;
-      trans.prevScaleZ = trans.scaleZ!;
-
-      let targetScaleX = 1.0;
-      let targetScaleY = 1.0;
-      let targetScaleZ = 1.0;
-
-      this._targetQuat.set(0, 0, 0, 1);
-
-      if (ai) {
-        if (ai.state === "DEFEATED") {
-          targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-        } else if (trav.isWallClinging) {
-          const breath = ai.state === "PATROLLING" ? Math.sin(ai.timeInState * 10.0) * 0.015 : 0.0;
-          targetScaleX = 0.75 + breath;
-          targetScaleY = 1.15 - breath * 0.5;
-          targetScaleZ = 1.15 - breath * 0.5;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-        } else if (trav.isGrounded) {
-          targetScaleY = 0.75;
-          targetScaleX = 1.15;
-          targetScaleZ = 1.15;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-        } else {
-          if (ai.state === "PATROLLING") {
-            const pulse =
-              Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
-              WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
-            targetScaleX = 1.0 + pulse;
-            targetScaleY = 1.0 - pulse;
-
-            const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-            const MathAngle =
-              Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
-              WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(MathAngle, 0, rollAngle, this._targetQuat);
-          } else if (ai.state === "STRIKING") {
-            const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-            if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
-              targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
-              targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
-              targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
-
-              const wobbleFreq = 12.0;
-              const wobbleAmp =
-                0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-              const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-              BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._targetQuat);
-            } else {
-              const stretch = Math.min(
-                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-                (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
-                  WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
-              );
-              targetScaleY = 1.0 + stretch;
-              targetScaleX = 1.0 - stretch * 0.5;
-              targetScaleZ = 1.0 - stretch * 0.5;
-
-              const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
-              BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, this._targetQuat);
-            }
-          } else if (ai.state === "ASCENDING") {
-            targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
-            targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-          }
-        }
-      }
-
-      solveScaleSpring(trans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
-
-      this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
-      BABYLON.Quaternion.SlerpToRef(
-        this._currentQuat,
-        this._targetQuat,
-        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
-        this._currentQuat
-      );
-      trans.qx = this._currentQuat.x;
-      trans.qy = this._currentQuat.y;
-      trans.qz = this._currentQuat.z;
-      trans.qw = this._currentQuat.w;
-
       if (isPatrolling && sState && sState.phase === "HOLD") {
-        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX! - 15.0);
+        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS - 15.0);
       }
     }
   }
@@ -13298,9 +13227,9 @@ export class ParallaxScrollSystem implements ISystem {
 
 ● ./src/visual/systems/VisualStateDressingSystem.ts
 ────────────────────────────────────────────────────
-import { ColorCache } from "../../core/utils/EngineUtils";
+import { ColorCache, solveScaleSpring } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
-import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -13308,7 +13237,9 @@ import {
   TetherComponent,
   TraversalStateComponent,
   WeaverAIComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  TransformComponent,
+  WeaverTraversalComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -13338,6 +13269,9 @@ export class VisualStateDressingSystem implements ISystem {
   private readonly _targetLocal = new BABYLON.Vector3();
   private readonly _ikResult = { coxaZ: 0, tibiaZ: 0 };
 
+  private readonly _weaverTargetQuat = new BABYLON.Quaternion();
+  private readonly _weaverCurrentQuat = new BABYLON.Quaternion();
+
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
@@ -13346,6 +13280,14 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
+    const transStore = this.context.stores.get<TransformComponent>("transform");
+    const wTrans = transStore.get(this.context.refs.weaver);
+    const wTrav = this.context.stores
+      .get<WeaverTraversalComponent>("weaverTraversal")
+      .get(this.context.refs.weaver);
+    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    const wVel = velStore.get(this.context.refs.weaver);
+
     if (wAI) {
       wAI.damageShearTime += dt;
       if (wAI.damageShearIntensity > 0.0) {
@@ -13357,6 +13299,93 @@ export class VisualStateDressingSystem implements ISystem {
       this.gaitAmp += (target.amp - this.gaitAmp) * blend;
       this.gaitFreq += (target.freq - this.gaitFreq) * blend;
       this.gaitTuck += (target.tuck - this.gaitTuck) * blend;
+    }
+
+    if (wTrans && wAI && wTrav && wVel) {
+      wTrans.prevScaleX = wTrans.scaleX!;
+      wTrans.prevScaleY = wTrans.scaleY!;
+      wTrans.prevScaleZ = wTrans.scaleZ!;
+
+      let targetScaleX = 1.0;
+      let targetScaleY = 1.0;
+      let targetScaleZ = 1.0;
+
+      this._weaverTargetQuat.set(0, 0, 0, 1);
+
+      if (wAI.state === "DEFEATED") {
+        targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+      } else if (wTrav.isWallClinging) {
+        const breath = wAI.state === "PATROLLING" ? Math.sin(wAI.timeInState * 10.0) * 0.015 : 0.0;
+        targetScaleX = 0.75 + breath;
+        targetScaleY = 1.15 - breath * 0.5;
+        targetScaleZ = 1.15 - breath * 0.5;
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+      } else if (wTrav.isGrounded) {
+        targetScaleY = 0.75;
+        targetScaleX = 1.15;
+        targetScaleZ = 1.15;
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+      } else {
+        if (wAI.state === "PATROLLING") {
+          const pulse =
+            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
+          targetScaleX = 1.0 + pulse;
+          targetScaleY = 1.0 - pulse;
+
+          const rollAngle = -wVel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
+          const MathAngle =
+            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(MathAngle, 0, rollAngle, this._weaverTargetQuat);
+        } else if (wAI.state === "STRIKING") {
+          const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
+          if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
+            targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
+            targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
+            targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+
+            const wobbleFreq = 12.0;
+            const wobbleAmp =
+              0.08 * Math.max(0.0, 1.0 - wAI.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+            const wobbleAngle = Math.sin(wAI.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._weaverTargetQuat);
+          } else {
+            const stretch = Math.min(
+              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
+                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+            );
+            targetScaleY = 1.0 + stretch;
+            targetScaleX = 1.0 - stretch * 0.5;
+            targetScaleZ = 1.0 - stretch * 0.5;
+
+            const angle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+            BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, this._weaverTargetQuat);
+          }
+        } else if (wAI.state === "ASCENDING") {
+          targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
+          targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+        }
+      }
+
+      solveScaleSpring(wTrans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
+
+      this._weaverCurrentQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+      BABYLON.Quaternion.SlerpToRef(
+        this._weaverCurrentQuat,
+        this._weaverTargetQuat,
+        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
+        this._weaverCurrentQuat
+      );
+      wTrans.qx = this._weaverCurrentQuat.x;
+      wTrans.qy = this._weaverCurrentQuat.y;
+      wTrans.qz = this._weaverCurrentQuat.z;
+      wTrans.qw = this._weaverCurrentQuat.w;
     }
 
     this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);

@@ -113,6 +113,13 @@ export interface WallBugComponent {
   gaitPhase: number;
 }
 
+export interface StickySurfaceComponent {
+  isActive: boolean;
+  width: number;
+  height: number;
+  speed: number;
+}
+
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
 
 export interface WeaverSweepComponent {

@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, WallBugComponent } from "../../core/ecs/Components";
+import { TransformComponent, WallBugComponent, StickySurfaceComponent } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -187,6 +187,13 @@ export class WallBugSystem implements ISystem {
       gaitPhase: 0.0
     });
 
+    this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
+      isActive: true,
+      width: 1.15,
+      height: 7.2,
+      speed: 3.8
+    });
+
     pBug.active = true;
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
@@ -201,6 +208,9 @@ export class WallBugSystem implements ISystem {
 
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
     bugStore.remove(pBug.entityId);
+
+    const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
+    stickyStore.remove(pBug.entityId);
 
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     transformStore.remove(pBug.entityId);

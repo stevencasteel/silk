@@ -1,4 +1,3 @@
-import { solveScaleSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -18,8 +17,6 @@ import * as BABYLON from "@babylonjs/core";
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
-  private readonly _targetQuat = new BABYLON.Quaternion();
-  private readonly _currentQuat = new BABYLON.Quaternion();
   private readonly _raycastResult = new BABYLON.PhysicsRaycastResult();
   private readonly _rayStart = new BABYLON.Vector3();
   private readonly _rayEnd = new BABYLON.Vector3();
@@ -121,9 +118,11 @@ export class WeaverTraversalSystem implements ISystem {
             wallNormalX: hitWallNormal
           });
 
-          trans.scaleVelX! += -3.5;
-          trans.scaleVelY! += 2.5;
-          trans.scaleVelZ! += 2.5;
+          if (trans.scaleVelX !== undefined) {
+            trans.scaleVelX += -3.5;
+            trans.scaleVelY! += 2.5;
+            trans.scaleVelZ! += 2.5;
+          }
 
           sState.phase = "HOLD";
           sState.timer = 0.22;
@@ -148,9 +147,11 @@ export class WeaverTraversalSystem implements ISystem {
           sState.phase = "LAUNCH";
           vel.x = sState.direction * sweepSpeed * 2.0;
 
-          trans.scaleVelX! += 4.5;
-          trans.scaleVelY! += -3.5;
-          trans.scaleVelZ! += -3.5;
+          if (trans.scaleVelX !== undefined) {
+            trans.scaleVelX += 4.5;
+            trans.scaleVelY! += -3.5;
+            trans.scaleVelZ! += -3.5;
+          }
         }
 
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
@@ -268,95 +269,8 @@ export class WeaverTraversalSystem implements ISystem {
     trav.wallNormalX = wallNormalX;
 
     if (trans) {
-      trans.prevScaleX = trans.scaleX!;
-      trans.prevScaleY = trans.scaleY!;
-      trans.prevScaleZ = trans.scaleZ!;
-
-      let targetScaleX = 1.0;
-      let targetScaleY = 1.0;
-      let targetScaleZ = 1.0;
-
-      this._targetQuat.set(0, 0, 0, 1);
-
-      if (ai) {
-        if (ai.state === "DEFEATED") {
-          targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-        } else if (trav.isWallClinging) {
-          const breath = ai.state === "PATROLLING" ? Math.sin(ai.timeInState * 10.0) * 0.015 : 0.0;
-          targetScaleX = 0.75 + breath;
-          targetScaleY = 1.15 - breath * 0.5;
-          targetScaleZ = 1.15 - breath * 0.5;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-        } else if (trav.isGrounded) {
-          targetScaleY = 0.75;
-          targetScaleX = 1.15;
-          targetScaleZ = 1.15;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-        } else {
-          if (ai.state === "PATROLLING") {
-            const pulse =
-              Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
-              WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
-            targetScaleX = 1.0 + pulse;
-            targetScaleY = 1.0 - pulse;
-
-            const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-            const MathAngle =
-              Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
-              WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(MathAngle, 0, rollAngle, this._targetQuat);
-          } else if (ai.state === "STRIKING") {
-            const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-            if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
-              targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
-              targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
-              targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
-
-              const wobbleFreq = 12.0;
-              const wobbleAmp =
-                0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-              const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-              BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._targetQuat);
-            } else {
-              const stretch = Math.min(
-                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-                (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
-                  WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
-              );
-              targetScaleY = 1.0 + stretch;
-              targetScaleX = 1.0 - stretch * 0.5;
-              targetScaleZ = 1.0 - stretch * 0.5;
-
-              const angle = Math.atan2(vel.y, vel.x) + Math.PI / 2;
-              BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, this._targetQuat);
-            }
-          } else if (ai.state === "ASCENDING") {
-            targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
-            targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._targetQuat);
-          }
-        }
-      }
-
-      solveScaleSpring(trans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
-
-      this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
-      BABYLON.Quaternion.SlerpToRef(
-        this._currentQuat,
-        this._targetQuat,
-        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
-        this._currentQuat
-      );
-      trans.qx = this._currentQuat.x;
-      trans.qy = this._currentQuat.y;
-      trans.qz = this._currentQuat.z;
-      trans.qw = this._currentQuat.w;
-
       if (isPatrolling && sState && sState.phase === "HOLD") {
-        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX! - 15.0);
+        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS - 15.0);
       }
     }
   }

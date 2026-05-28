@@ -1,6 +1,6 @@
-import { ColorCache } from "../../core/utils/EngineUtils";
+import { ColorCache, solveScaleSpring } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
-import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -8,7 +8,9 @@ import {
   TetherComponent,
   TraversalStateComponent,
   WeaverAIComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  TransformComponent,
+  WeaverTraversalComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -38,6 +40,9 @@ export class VisualStateDressingSystem implements ISystem {
   private readonly _targetLocal = new BABYLON.Vector3();
   private readonly _ikResult = { coxaZ: 0, tibiaZ: 0 };
 
+  private readonly _weaverTargetQuat = new BABYLON.Quaternion();
+  private readonly _weaverCurrentQuat = new BABYLON.Quaternion();
+
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
@@ -46,6 +51,14 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
+    const transStore = this.context.stores.get<TransformComponent>("transform");
+    const wTrans = transStore.get(this.context.refs.weaver);
+    const wTrav = this.context.stores
+      .get<WeaverTraversalComponent>("weaverTraversal")
+      .get(this.context.refs.weaver);
+    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    const wVel = velStore.get(this.context.refs.weaver);
+
     if (wAI) {
       wAI.damageShearTime += dt;
       if (wAI.damageShearIntensity > 0.0) {
@@ -57,6 +70,93 @@ export class VisualStateDressingSystem implements ISystem {
       this.gaitAmp += (target.amp - this.gaitAmp) * blend;
       this.gaitFreq += (target.freq - this.gaitFreq) * blend;
       this.gaitTuck += (target.tuck - this.gaitTuck) * blend;
+    }
+
+    if (wTrans && wAI && wTrav && wVel) {
+      wTrans.prevScaleX = wTrans.scaleX!;
+      wTrans.prevScaleY = wTrans.scaleY!;
+      wTrans.prevScaleZ = wTrans.scaleZ!;
+
+      let targetScaleX = 1.0;
+      let targetScaleY = 1.0;
+      let targetScaleZ = 1.0;
+
+      this._weaverTargetQuat.set(0, 0, 0, 1);
+
+      if (wAI.state === "DEFEATED") {
+        targetScaleX = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        targetScaleY = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        targetScaleZ = WEAVER_AI_TUNING.DEFEATED.SCALE;
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+      } else if (wTrav.isWallClinging) {
+        const breath = wAI.state === "PATROLLING" ? Math.sin(wAI.timeInState * 10.0) * 0.015 : 0.0;
+        targetScaleX = 0.75 + breath;
+        targetScaleY = 1.15 - breath * 0.5;
+        targetScaleZ = 1.15 - breath * 0.5;
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+      } else if (wTrav.isGrounded) {
+        targetScaleY = 0.75;
+        targetScaleX = 1.15;
+        targetScaleZ = 1.15;
+        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+      } else {
+        if (wAI.state === "PATROLLING") {
+          const pulse =
+            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.PULSE_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.PULSE_BASE;
+          targetScaleX = 1.0 + pulse;
+          targetScaleY = 1.0 - pulse;
+
+          const rollAngle = -wVel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
+          const MathAngle =
+            Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
+            WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(MathAngle, 0, rollAngle, this._weaverTargetQuat);
+        } else if (wAI.state === "STRIKING") {
+          const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
+          if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
+            targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
+            targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
+            targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+
+            const wobbleFreq = 12.0;
+            const wobbleAmp =
+              0.08 * Math.max(0.0, 1.0 - wAI.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+            const wobbleAngle = Math.sin(wAI.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+            BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._weaverTargetQuat);
+          } else {
+            const stretch = Math.min(
+              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
+                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+            );
+            targetScaleY = 1.0 + stretch;
+            targetScaleX = 1.0 - stretch * 0.5;
+            targetScaleZ = 1.0 - stretch * 0.5;
+
+            const angle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+            BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, this._weaverTargetQuat);
+          }
+        } else if (wAI.state === "ASCENDING") {
+          targetScaleY = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.Y;
+          targetScaleX = WEAVER_AI_TUNING.RETURN.SQUASH_STRETCH.X;
+          BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, 0, this._weaverTargetQuat);
+        }
+      }
+
+      solveScaleSpring(wTrans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
+
+      this._weaverCurrentQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+      BABYLON.Quaternion.SlerpToRef(
+        this._weaverCurrentQuat,
+        this._weaverTargetQuat,
+        WEAVER_AI_TUNING.ANIMATION.LERP_RATE * dt,
+        this._weaverCurrentQuat
+      );
+      wTrans.qx = this._weaverCurrentQuat.x;
+      wTrans.qy = this._weaverCurrentQuat.y;
+      wTrans.qz = this._weaverCurrentQuat.z;
+      wTrans.qw = this._weaverCurrentQuat.w;
     }
 
     this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);

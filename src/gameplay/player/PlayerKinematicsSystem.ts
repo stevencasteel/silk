@@ -11,7 +11,7 @@ import {
   InputIntentComponent,
   HealthComponent,
   KinematicVelocityComponent,
-  WallBugComponent
+  StickySurfaceComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
@@ -257,12 +257,12 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.stickyEntityId !== undefined &&
       trav.stickyEntityId !== -1
     ) {
-      const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
-      const bug = bugStore.get(trav.stickyEntityId);
+      const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
+      const sticky = stickyStore ? stickyStore.get(trav.stickyEntityId) : undefined;
       const bugTransStore = this.context.stores.get<TransformComponent>("transform");
       const bugTrans = bugTransStore.get(trav.stickyEntityId);
 
-      if (!bug || bug.state === "INACTIVE" || !bugTrans || trav.stickyWallYOffset === undefined) {
+      if (!sticky || !sticky.isActive || !bugTrans || trav.stickyWallYOffset === undefined) {
         trav.state = "AIRBORNE";
         trav.stickyEntityId = -1;
         trav.wallDir = 0;
@@ -276,8 +276,8 @@ export class PlayerKinematicsSystem implements ISystem {
           return;
         }
 
-        const halfW = bug.width / 2;
-        const halfH = bug.height / 2;
+        const halfW = sticky.width / 2;
+        const halfH = sticky.height / 2;
 
         target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
 
@@ -303,16 +303,11 @@ export class PlayerKinematicsSystem implements ISystem {
         target.y = finalY;
 
         vel.x = 0;
-        vel.y = -(currentScrollSpeed + bug.speed - slideSpeed);
+        vel.y = -(currentScrollSpeed + sticky.speed - slideSpeed);
 
-        const speedScale = 1.0 + bug.speed / Math.max(1.0, currentScrollSpeed);
+        const speedScale = 1.0 + sticky.speed / Math.max(1.0, currentScrollSpeed);
         const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
         tether.tension += tensionDelta * dt;
-
-        const TENSION_STRETCH_RANGE = 2.0;
-        const stretch = Math.max(0, requiredLength - tether.maxLength);
-        const stretchRatio = stretch / TENSION_STRETCH_RANGE;
-        tether.tension += stretchRatio * dt;
 
         this.wasWallSliding = true;
       }
@@ -358,16 +353,16 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     const bugTransStore = this.context.stores.get<TransformComponent>("transform");
-    if (bugStore) {
-      for (const [bugId, bug] of bugStore.entries()) {
-        if (bug.state === "INACTIVE") continue;
+    if (stickyStore) {
+      for (const [bugId, sticky] of stickyStore.entries()) {
+        if (!sticky.isActive) continue;
         const bugTrans = bugTransStore.get(bugId);
         if (!bugTrans) continue;
 
-        const halfW = bug.width / 2;
-        const halfH = bug.height / 2;
+        const halfW = sticky.width / 2;
+        const halfH = sticky.height / 2;
 
         const distToBugX = nextX - bugTrans.x;
         const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
@@ -397,7 +392,7 @@ export class PlayerKinematicsSystem implements ISystem {
               target.x = trav.stickyWallX;
               target.y = nextY;
               vel.x = 0;
-              vel.y = -(currentScrollSpeed + bug.speed);
+              vel.y = -(currentScrollSpeed + sticky.speed);
               this.wasWallSliding = true;
 
               this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
