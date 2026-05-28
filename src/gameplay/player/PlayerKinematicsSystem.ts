@@ -10,53 +10,50 @@ import {
   TransformComponent,
   InputIntentComponent,
   HealthComponent,
-  KinematicVelocityComponent,
-  StickySurfaceComponent,
-  ParticleEmitterComponent
+  KinematicVelocityComponent
 } from "../../core/ecs/Components";
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
+import { IPlayerState } from "./IPlayerState";
+import { PlayerAirborneState } from "./states/PlayerAirborneState";
+import { PlayerWallSlidingState } from "./states/PlayerWallSlidingState";
+import { PlayerLaunchingState } from "./states/PlayerLaunchingState";
+import { PlayerStateUtils } from "./states/PlayerStateUtils";
 import {
   ARENA_CONFIG,
   CANONICAL_UNITS,
-  GAMEPLAY_TUNING,
-  POST_PROCESSING_PRESETS
+  GAMEPLAY_TUNING
 } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
-  private readonly GRAVITY = CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC;
-  private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-
+  private states = new Map<string, IPlayerState>();
   private lastTraversalState: string = "";
   private tensionPayload = { tension: 0.0 };
   private lengthPayload = { length: 0.0, maxLength: 0.0 };
 
-  private lastCameraYOffset = 0.0;
-  private wasWallSliding = false;
-
-  constructor(private context: SystemContext) {}
+  constructor(private context: SystemContext) {
+    this.states.set("AIRBORNE", new PlayerAirborneState());
+    this.states.set("WALL_SLIDING", new PlayerWallSlidingState());
+    this.states.set("LAUNCHING", new PlayerLaunchingState());
+  }
 
   public init(): void {
-    this.context.commands.register<ApplyImpulseCommand>(
-      "APPLY_IMPULSE",
-      (cmd: ApplyImpulseCommand) => {
-        if (cmd.entityId === this.context.refs.player) {
-          const vel = this.context.stores
-            .get<KinematicVelocityComponent>("velocity")
-            .get(this.context.refs.player);
-          if (vel) {
-            vel.x += cmd.x;
-            vel.y += cmd.y;
-          }
+    this.context.commands.register("APPLY_IMPULSE", (cmd: unknown) => {
+      const impulseCmd = cmd as ApplyImpulseCommand;
+      if (impulseCmd.entityId === this.context.refs.player) {
+        const vel = this.context.stores
+          .get<KinematicVelocityComponent>("velocity")
+          .get(this.context.refs.player);
+        if (vel) {
+          vel.x += impulseCmd.x;
+          vel.y += impulseCmd.y;
         }
       }
-    );
+    });
 
     this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-      this.lastCameraYOffset = 0.0;
-      this.wasWallSliding = false;
+      // Handled centrally by reset event mapping
     });
   }
 
@@ -152,54 +149,16 @@ export class PlayerKinematicsSystem implements ISystem {
       tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
     }
 
-    let nextX = target.x;
-    let nextY = target.y;
-
-    const tuning = GAMEPLAY_TUNING.PLAYER;
-
-    if (trav.state === "LAUNCHING") {
-      trav.launchTimer -= dt;
-      vel.x += input.x * tuning.LAUNCH_STEER_FORCE * dt;
-      vel.y += this.GRAVITY * tuning.LAUNCH_GRAVITY_MULT * dt;
-
-      const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      vel.x *= damp;
-      vel.y *= damp;
-
-      nextX += vel.x * dt;
-      nextY += vel.y * dt;
-
-      if (trav.launchTimer <= 0) {
-        trav.state = "AIRBORNE";
-        trav.wallDir = 0;
+    const stateObj = this.states.get(trav.state);
+    if (stateObj) {
+      const nextState = stateObj.update(this.context, dt);
+      if (nextState) {
+        trav.state = nextState;
       }
-    } else {
-      vel.y += this.GRAVITY * dt;
-
-      if (trav.state === "AIRBORNE") {
-        vel.x += input.x * tuning.SWING_STEER_FORCE * dt;
-        if (input.y > 0 && tether.isAttached) {
-          const dxVal = tether.anchorX - target.x;
-          const dyVal = tether.anchorY - target.y;
-          const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
-          const pullForce = 15.0;
-          vel.x += (dxVal / dist) * pullForce * dt;
-          vel.y += (dyVal / dist) * pullForce * dt;
-        }
-      }
-
-      const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
-      vel.x *= damp;
-      vel.y *= damp;
-
-      nextX += vel.x * dt;
-      nextY += vel.y * dt;
     }
 
-    this.resolveWallContact(nextX, nextY, dt, target, vel, tether, trav, input);
-
     if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
-      this.enforcePendulumConstraint(target, vel, tether);
+      PlayerStateUtils.enforcePendulumConstraint(target, vel, tether);
     }
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
@@ -219,376 +178,6 @@ export class PlayerKinematicsSystem implements ISystem {
         state: trav.state,
         launchPower: trav.launchPower
       });
-    }
-
-    // Toggle ParticleEmitterComponent based on state
-    const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
-    const pId = this.context.refs.player;
-    if (!emitterStore.has(pId)) {
-      emitterStore.add(pId, {
-        emitterType: "NONE",
-        isActive: false,
-        rate: 0.15,
-        colorR: 1.0,
-        colorG: 0.0,
-        colorB: 0.5
-      });
-    }
-    const pEmitter = emitterStore.get(pId)!;
-    if (trav.state === "WALL_SLIDING") {
-      pEmitter.isActive = true;
-      pEmitter.emitterType = "SLIDING_SPARKS";
-    } else {
-      pEmitter.isActive = false;
-      pEmitter.emitterType = "NONE";
-    }
-  }
-
-  private applyWallImpactSquash(pTrans: TransformComponent): void {
-    const squash = GAMEPLAY_TUNING.PLAYER.SQUASH_STRETCH;
-    pTrans.scaleX = squash.SQUASH_WALL_X;
-    pTrans.scaleY = squash.SQUASH_WALL_Y;
-    pTrans.scaleZ = 1.0;
-    pTrans.scaleVelX = 0;
-    pTrans.scaleVelY = 0;
-    pTrans.scaleVelZ = 0;
-  }
-
-  private resolveWallContact(
-    nextX: number,
-    nextY: number,
-    dt: number,
-    target: KinematicTargetComponent,
-    vel: KinematicVelocityComponent,
-    tether: TetherComponent,
-    trav: TraversalStateComponent,
-    input: InputIntentComponent
-  ): void {
-    const hitRight = nextX > this.WALL_LIMIT_X;
-    const hitLeft = nextX < -this.WALL_LIMIT_X;
-    const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
-    const reelConfig = GAMEPLAY_TUNING.REEL;
-
-    const scene = this.context.visualRegistry.getScene();
-    const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_POS.y;
-    const cameraY = scene && scene.activeCamera ? scene.activeCamera.position.y : defaultCameraY;
-    const cameraYOffset = cameraY - defaultCameraY;
-
-    if (
-      trav.state === "WALL_SLIDING" &&
-      trav.stickyEntityId !== undefined &&
-      trav.stickyEntityId !== -1
-    ) {
-      const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
-      const sticky = stickyStore ? stickyStore.get(trav.stickyEntityId) : undefined;
-      const bugTransStore = this.context.stores.get<TransformComponent>("transform");
-      const bugTrans = bugTransStore.get(trav.stickyEntityId);
-
-      if (!sticky || !sticky.isActive || !bugTrans || trav.stickyWallYOffset === undefined) {
-        trav.state = "AIRBORNE";
-        trav.stickyEntityId = -1;
-        trav.wallDir = 0;
-        this.wasWallSliding = false;
-      } else {
-        const stillPressingIn = input.x === trav.wallDir;
-        if (!stillPressingIn) {
-          this.triggerFling(vel, tether, target, trav);
-          this.wasWallSliding = false;
-          this.lastCameraYOffset = cameraYOffset;
-          return;
-        }
-
-        const halfW = sticky.width / 2;
-        const halfH = sticky.height / 2;
-
-        target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-
-        let slideSpeed = 0.0;
-        if (input.y > 0) {
-          slideSpeed = 5.0;
-        } else if (input.y < 0) {
-          slideSpeed = -5.0;
-        }
-        trav.stickyWallYOffset += slideSpeed * dt;
-        trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
-
-        const finalY = bugTrans.y + trav.stickyWallYOffset;
-        const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
-
-        if (input.y <= 0 && requiredLength > tether.maxLength) {
-          const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
-          if (tether.maxLength < maxAllowed) {
-            tether.maxLength = Math.min(maxAllowed, requiredLength);
-            tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
-          }
-        }
-        target.y = finalY;
-
-        vel.x = 0;
-        vel.y = -(currentScrollSpeed + sticky.speed - slideSpeed);
-
-        const speedScale = 1.0 + sticky.speed / Math.max(1.0, currentScrollSpeed);
-        const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
-        tether.tension += tensionDelta * dt;
-
-        this.wasWallSliding = true;
-      }
-      this.lastCameraYOffset = cameraYOffset;
-      return;
-    }
-
-    if (
-      trav.state === "WALL_SLIDING" &&
-      (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)
-    ) {
-      const stillPressingIn = input.x === trav.wallDir;
-
-      if (stillPressingIn === false) {
-        this.triggerFling(vel, tether, target, trav);
-        this.wasWallSliding = false;
-        this.lastCameraYOffset = cameraYOffset;
-        return;
-      }
-
-      target.x = trav.wallDir * this.WALL_LIMIT_X;
-      vel.x = 0;
-      vel.y = -currentScrollSpeed;
-
-      let cameraDeltaY = 0;
-      if (this.wasWallSliding) {
-        cameraDeltaY = cameraYOffset - this.lastCameraYOffset;
-      }
-
-      const finalY = target.y + vel.y * dt + cameraDeltaY;
-      const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
-
-      if (input.y <= 0 && requiredLength > tether.maxLength) {
-        const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
-        if (tether.maxLength < maxAllowed) {
-          tether.maxLength = Math.min(maxAllowed, requiredLength);
-          tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
-        }
-      }
-      target.y = finalY;
-      this.wasWallSliding = true;
-      this.lastCameraYOffset = cameraYOffset;
-      return;
-    }
-
-    const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
-    const bugTransStore = this.context.stores.get<TransformComponent>("transform");
-    if (stickyStore) {
-      for (const [bugId, sticky] of stickyStore.entries()) {
-        if (!sticky.isActive) continue;
-        const bugTrans = bugTransStore.get(bugId);
-        if (!bugTrans) continue;
-
-        const halfW = sticky.width / 2;
-        const halfH = sticky.height / 2;
-
-        const distToBugX = nextX - bugTrans.x;
-        const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
-
-        if (Math.abs(distToBugX) <= contactDist) {
-          if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
-            const bugWallDir = distToBugX > 0 ? -1 : 1;
-            const pressingIn = input.x === bugWallDir;
-
-            if (pressingIn) {
-              const transforms = this.context.stores.get<TransformComponent>("transform");
-              const pTrans = transforms.get(this.context.refs.player);
-
-              if (pTrans) {
-                this.applyWallImpactSquash(pTrans);
-              }
-
-              trav.state = "WALL_SLIDING";
-              trav.wallDir = bugWallDir;
-              trav.wallNormalX = -bugWallDir;
-              trav.wallNormalY = 0;
-              trav.stickyEntityId = bugId;
-              trav.stickyWallX =
-                bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-              trav.stickyWallYOffset = nextY - bugTrans.y;
-
-              target.x = trav.stickyWallX;
-              target.y = nextY;
-              vel.x = 0;
-              vel.y = -(currentScrollSpeed + sticky.speed);
-              this.wasWallSliding = true;
-
-              this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-                x: target.x,
-                y: target.y,
-                wallNormalX: -bugWallDir
-              });
-              this.lastCameraYOffset = cameraYOffset;
-              return;
-            }
-          }
-        }
-      }
-    }
-
-    if (wallDir !== 0) {
-      const pressingIn = input.x === wallDir;
-
-      if (pressingIn) {
-        const transforms = this.context.stores.get<TransformComponent>("transform");
-        const pTrans = transforms.get(this.context.refs.player);
-        this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-          x: target.x,
-          y: target.y,
-          wallNormalX: -wallDir
-        });
-
-        if (pTrans) {
-          this.applyWallImpactSquash(pTrans);
-        }
-        trav.state = "WALL_SLIDING";
-        trav.wallDir = wallDir;
-        trav.wallNormalX = -wallDir;
-        trav.wallNormalY = 0;
-        trav.stickyEntityId = -1;
-
-        target.x = wallDir * this.WALL_LIMIT_X;
-        vel.x = 0;
-        vel.y = -currentScrollSpeed;
-
-        let cameraDeltaY = 0;
-        if (this.wasWallSliding) {
-          cameraDeltaY = cameraYOffset - this.lastCameraYOffset;
-        }
-
-        const finalY = target.y + vel.y * dt + cameraDeltaY;
-        const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
-
-        if (input.y <= 0 && requiredLength > tether.maxLength) {
-          const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
-          if (tether.maxLength < maxAllowed) {
-            tether.maxLength = Math.min(maxAllowed, requiredLength);
-            tether.desiredLength = Math.max(tether.desiredLength, tether.maxLength);
-          }
-        }
-        target.y = finalY;
-        this.wasWallSliding = true;
-      } else {
-        target.x = wallDir * this.WALL_LIMIT_X;
-        target.y = nextY;
-        if (Math.sign(vel.x) === wallDir) {
-          vel.x *= -0.2;
-        }
-        trav.state = "AIRBORNE";
-        trav.wallDir = 0;
-        this.wasWallSliding = false;
-      }
-      this.lastCameraYOffset = cameraYOffset;
-      return;
-    }
-
-    if (trav.state !== "LAUNCHING") {
-      trav.state = "AIRBORNE";
-    }
-    trav.wallDir = 0;
-    target.x = nextX;
-    target.y = nextY;
-    this.wasWallSliding = false;
-    this.lastCameraYOffset = cameraYOffset;
-  }
-
-  private triggerFling(
-    vel: KinematicVelocityComponent,
-    tether: TetherComponent,
-    target: KinematicTargetComponent,
-    trav: TraversalStateComponent
-  ): void {
-    const storedTension = tether.tension;
-    tether.tension = 0.0;
-    const tuning = GAMEPLAY_TUNING.PLAYER;
-    const reelConfig = GAMEPLAY_TUNING.REEL;
-
-    trav.stickyEntityId = -1;
-
-    if (storedTension < tuning.MIN_FLING_TENSION) {
-      trav.state = "AIRBORNE";
-      trav.wallDir = 0;
-      trav.launchPower = 0;
-      return;
-    }
-
-    const dx = tether.anchorX - target.x;
-    const dy = tether.anchorY - target.y;
-    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
-
-    const tensionPower = Math.min(1.0, storedTension);
-    const reelBonus =
-      tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
-    const isSweetSpot =
-      storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
-    const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
-
-    const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
-    const power = powerScale * tuning.FLING_IMPULSE;
-
-    vel.x = (dx / dist) * power;
-    vel.y = (dy / dist) * power;
-
-    trav.state = "LAUNCHING";
-    trav.launchTimer = tuning.LAUNCH_DURATION;
-    trav.launchPower = powerScale;
-    trav.wallDir = 0;
-
-    const transforms = this.context.stores.get<TransformComponent>("transform");
-    const pTrans = transforms.get(this.context.refs.player);
-    if (pTrans) {
-      pTrans.scaleVelY = powerScale * 15.0;
-      pTrans.scaleVelX = -powerScale * 7.5;
-      pTrans.scaleVelZ = -powerScale * 7.5;
-    }
-
-    let shakeAmp = 0.25 + powerScale * 0.35;
-    let shakeDur = 0.2;
-
-    if (storedTension >= CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
-      shakeAmp = 0.85;
-      shakeDur = 0.45;
-    } else if (isSweetSpot) {
-      shakeAmp = 0.5;
-      shakeDur = 0.28;
-    }
-
-    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-      amplitude: shakeAmp,
-      duration: shakeDur,
-      dirX: dx / dist,
-      dirY: dy / dist
-    });
-  }
-
-  private enforcePendulumConstraint(
-    target: KinematicTargetComponent,
-    vel: KinematicVelocityComponent,
-    tether: TetherComponent
-  ) {
-    const dx = target.x - tether.anchorX;
-    const dy = target.y - tether.anchorY;
-    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
-
-    const activeMaxLength = tether.maxLength;
-
-    if (dist > activeMaxLength) {
-      const nx = dx / dist;
-      const ny = dy / dist;
-
-      target.x = tether.anchorX + nx * activeMaxLength;
-      target.y = tether.anchorY + ny * activeMaxLength;
-
-      const dVal = vel.x * nx + vel.y * ny;
-      if (dVal > 0) {
-        vel.x -= dVal * nx;
-        vel.y -= dVal * ny;
-      }
     }
   }
 
