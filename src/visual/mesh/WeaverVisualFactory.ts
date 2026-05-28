@@ -6,6 +6,64 @@ interface CustomPBRMaterial extends BABYLON.PBRMaterial {
   _shearPlugin?: RasterShearPlugin;
 }
 
+interface LegPose {
+  hipX: number;
+  hipY: number;
+  kneeX: number;
+  kneeY: number;
+  footX: number;
+  footY: number;
+  coxaWidth: number;
+  tibiaWidth: number;
+}
+
+function angleFromLocalY(dx: number, dy: number): number {
+  return Math.atan2(-dx, dy);
+}
+
+function createLegSegment(
+  scene: BABYLON.Scene,
+  name: string,
+  length: number,
+  diameterTop: number,
+  diameterBottom: number,
+  material: BABYLON.Material
+): BABYLON.Mesh {
+  const segment = BABYLON.MeshBuilder.CreateCylinder(
+    name,
+    {
+      height: length,
+      diameterTop,
+      diameterBottom,
+      tessellation: 7
+    },
+    scene
+  );
+  segment.bakeTransformIntoVertices(BABYLON.Matrix.Translation(0, length / 2, 0));
+  segment.material = material;
+  return segment;
+}
+
+function createFoot(
+  scene: BABYLON.Scene,
+  name: string,
+  radius: number,
+  material: BABYLON.Material
+): BABYLON.Mesh {
+  const foot = BABYLON.MeshBuilder.CreateSphere(
+    name,
+    {
+      diameterX: radius * 0.11,
+      diameterY: radius * 0.16,
+      diameterZ: radius * 0.09
+    },
+    scene
+  );
+  foot.scaling.set(1.5, 0.8, 0.5);
+  foot.material = material;
+  return foot;
+}
+
 export function decorateWeaverVisual(
   scene: BABYLON.Scene,
   wMesh: BABYLON.Mesh,
@@ -129,10 +187,10 @@ export function decorateWeaverVisual(
 
   const abdomen = BABYLON.MeshBuilder.CreateSphere(
     "weaver_abdomen",
-    { diameterX: radius * 1.1, diameterY: radius * 1.5, diameterZ: radius * 1.1, segments: 16 },
+    { diameterX: radius * 1.3, diameterY: radius * 1.7, diameterZ: radius * 1.0, segments: 16 },
     scene
   );
-  abdomen.position.set(0, -radius * 0.3, radius * 0.1);
+  abdomen.position.set(0, -radius * 0.35, radius * 0.1);
   abdomen.material = shellMat;
   abdomen.parent = wMesh;
 
@@ -167,6 +225,53 @@ export function decorateWeaverVisual(
     }
   }
 
+  const cephalothorax = BABYLON.MeshBuilder.CreateSphere(
+    "weaver_cephalothorax",
+    { diameterX: radius * 1.0, diameterY: radius * 0.9, diameterZ: radius * 0.7 },
+    scene
+  );
+  cephalothorax.position.set(0, radius * 0.12, -radius * 0.05);
+  cephalothorax.material = carapaceMat;
+  cephalothorax.parent = wMesh;
+
+  const markingMat = new BABYLON.StandardMaterial("weaverMarkingMat", scene);
+  markingMat.emissiveColor = new BABYLON.Color3(0.9, 0.15, 0.25);
+  markingMat.disableLighting = true;
+
+  const marking = BABYLON.MeshBuilder.CreateBox(
+    "weaver_dorsal_marking",
+    { width: radius * 0.22, height: radius * 0.6, depth: radius * 0.05 },
+    scene
+  );
+  marking.position.set(0, -radius * 0.2, -radius * 0.45);
+  marking.rotation.x = -0.1;
+  marking.material = markingMat;
+  marking.parent = abdomen;
+
+  const spinneretMat = new BABYLON.PBRMaterial("weaverSpinneretMat", scene);
+  spinneretMat.albedoColor = new BABYLON.Color3(0.05, 0.04, 0.06);
+  spinneretMat.metallic = 0.2;
+  spinneretMat.roughness = 0.8;
+
+  for (let i = 0; i < 2; i++) {
+    const sideSign = i === 0 ? -1 : 1;
+    const spinneret = BABYLON.MeshBuilder.CreateCylinder(
+      `weaver_spinneret_${i}`,
+      {
+        height: radius * 0.2,
+        diameterTop: radius * 0.02,
+        diameterBottom: radius * 0.07,
+        tessellation: 6
+      },
+      scene
+    );
+    spinneret.position.set(sideSign * radius * 0.12, -radius * 1.1, radius * 0.05);
+    spinneret.rotation.x = Math.PI * 0.15;
+    spinneret.rotation.z = -sideSign * Math.PI * 0.05;
+    spinneret.material = spinneretMat;
+    spinneret.parent = abdomen;
+  }
+
   const head = BABYLON.MeshBuilder.CreateSphere(
     "weaver_head",
     { diameterX: radius * 0.9, diameterY: radius * 0.6, diameterZ: radius * 0.8 },
@@ -177,12 +282,12 @@ export function decorateWeaverVisual(
   head.parent = wMesh;
 
   const eyeOffsets = [
-    { x: -0.18, y: -0.15, z: -0.32 },
-    { x: 0.18, y: -0.15, z: -0.32 },
-    { x: -0.08, y: -0.05, z: -0.38 },
-    { x: 0.08, y: -0.05, z: -0.38 },
-    { x: -0.25, y: -0.05, z: -0.28 },
-    { x: 0.25, y: -0.05, z: -0.28 }
+    { x: -0.18, y: 0.05, z: -0.35 },
+    { x: 0.18, y: 0.05, z: -0.35 },
+    { x: -0.08, y: 0.12, z: -0.40 },
+    { x: 0.08, y: 0.12, z: -0.40 },
+    { x: -0.25, y: 0.08, z: -0.32 },
+    { x: 0.25, y: 0.08, z: -0.32 }
   ];
   eyeOffsets.forEach((offset, idx) => {
     const eye = BABYLON.MeshBuilder.CreateSphere(
@@ -195,55 +300,84 @@ export function decorateWeaverVisual(
     eye.parent = head;
   });
 
+  const legPoses: LegPose[] = [
+    { hipX: 0.35, hipY: 0.36, kneeX: 1.05, kneeY: 0.78, footX: 1.72, footY: 1.08, coxaWidth: 0.15, tibiaWidth: 0.07 },
+    { hipX: 0.48, hipY: 0.14, kneeX: 1.22, kneeY: 0.22, footX: 1.95, footY: 0.30, coxaWidth: 0.16, tibiaWidth: 0.075 },
+    { hipX: 0.48, hipY: -0.12, kneeX: 1.22, kneeY: -0.26, footX: 1.92, footY: -0.42, coxaWidth: 0.155, tibiaWidth: 0.07 },
+    { hipX: 0.35, hipY: -0.34, kneeX: 1.00, kneeY: -0.74, footX: 1.66, footY: -1.02, coxaWidth: 0.14, tibiaWidth: 0.065 }
+  ];
+
   for (let side = 0; side < 2; side++) {
     const sideSign = side === 0 ? -1 : 1;
     for (let l = 0; l < 4; l++) {
+      const pose = legPoses[l];
+      const hipX = sideSign * pose.hipX * radius;
+      const hipY = pose.hipY * radius;
+      const kneeX = sideSign * pose.kneeX * radius;
+      const kneeY = pose.kneeY * radius;
+      const footX = sideSign * pose.footX * radius;
+      const footY = pose.footY * radius;
+
       const legRoot = new BABYLON.TransformNode(`leg_root_${sideSign}_${l}`, scene);
       legRoot.parent = wMesh;
-
-      const angleOffset = (l - 1.5) * 0.45;
-      const basePosX = sideSign * radius * 0.45;
-      const basePosY = radius * 0.1 + (l - 1.5) * 0.15 * radius;
-      const basePosZ = (l - 1.5) * 0.25 * radius;
-      legRoot.position.set(basePosX, basePosY, basePosZ);
-
-      const coxaLength = radius * 0.65;
-      const coxa = BABYLON.MeshBuilder.CreateCylinder(
+      legRoot.position.set(hipX, hipY, radius * 0.02);
+      
+      const coxaDx = kneeX - hipX;
+      const coxaDy = kneeY - hipY;
+      const coxaLength = Math.sqrt(coxaDx * coxaDx + coxaDy * coxaDy);
+      
+      const coxa = createLegSegment(
+        scene,
         `coxa_${sideSign}_${l}`,
-        {
-          height: coxaLength,
-          diameterTop: radius * 0.14,
-          diameterBottom: radius * 0.18,
-          tessellation: 6
-        },
-        scene
+        coxaLength,
+        pose.coxaWidth * radius,
+        pose.coxaWidth * radius * 1.2,
+        carapaceMat
       );
-      coxa.position.set(sideSign * coxaLength * 0.45, coxaLength * 0.1, -coxaLength * 0.1);
-      coxa.rotation.y = angleOffset;
-      coxa.rotation.z = sideSign * (Math.PI / 4 + angleOffset * 0.3);
-      coxa.material = carapaceMat;
+      coxa.rotation.z = angleFromLocalY(coxaDx, coxaDy);
       coxa.parent = legRoot;
 
-      const tibiaLength = radius * 0.9;
-      const tibia = BABYLON.MeshBuilder.CreateCylinder(
+      const tibiaDx = footX - kneeX;
+      const tibiaDy = footY - kneeY;
+      const tibiaLength = Math.sqrt(tibiaDx * tibiaDx + tibiaDy * tibiaDy);
+
+      const tibia = createLegSegment(
+        scene,
         `tibia_${sideSign}_${l}`,
-        {
-          height: tibiaLength,
-          diameterTop: radius * 0.04,
-          diameterBottom: radius * 0.12,
-          tessellation: 6
-        },
-        scene
+        tibiaLength,
+        pose.tibiaWidth * radius,
+        pose.tibiaWidth * radius * 1.3,
+        legMat
       );
-      tibia.position.set(sideSign * tibiaLength * 0.35, -tibiaLength * 0.4, 0);
-      tibia.rotation.z = -sideSign * (Math.PI / 3);
-      tibia.material = legMat;
+      tibia.position.set(0, coxaLength, 0);
+      tibia.rotation.z = angleFromLocalY(tibiaDx, tibiaDy) - coxa.rotation.z;
       tibia.parent = coxa;
+
+      const foot = createFoot(scene, `foot_${sideSign}_${l}`, radius, legMat);
+      foot.position.set(0, tibiaLength, 0);
+      foot.parent = tibia;
+
+      legRoot.metadata = {
+        sideSign,
+        index: l,
+        baseRootZ: 0
+      };
+      coxa.metadata = {
+        baseRotationZ: coxa.rotation.z
+      };
+      tibia.metadata = {
+        baseRotationZ: tibia.rotation.z
+      };
     }
   }
 
   wMesh.getChildMeshes().forEach((mesh) => {
-    if (mesh.name.includes("weaver_eye") || mesh.name.includes("spinneret_glow")) {
+    if (
+      mesh.name.includes("weaver_eye") ||
+      mesh.name.includes("spinneret_glow") ||
+      mesh.name.includes("foot_") ||
+      mesh.name.includes("weaver_dorsal_marking")
+    ) {
       mesh.receiveShadows = false;
     } else {
       mesh.receiveShadows = true;

@@ -160,30 +160,41 @@ export class VisualStateDressingSystem implements ISystem {
 
         if (isNaN(sideSign) || isNaN(index)) return;
 
-        // Diagonal alternating gait mapping (L3/R2 step together, R3/L2 step together)
-        const sideOffset = sideSign > 0 ? 0 : Math.PI;
-        const indexOffset = (index % 2) * Math.PI;
+        const sideSignVal = sideSign;
+        const indexVal = index;
+
+        const rootMeta = transNode.metadata as { sideSign?: number; index?: number; baseRootZ?: number } | null;
+        const baseRootZ = rootMeta?.baseRootZ ?? 0;
+
+        const sideOffset = sideSignVal > 0 ? 0 : Math.PI;
+        const indexOffset = (indexVal % 2) * Math.PI;
         const phase = (timeSec * swayFreq) + sideOffset + indexOffset;
 
-        // Coordinated sweep (horizontal) and lift (vertical) out of phase to form elliptical steps
         const sweep = Math.sin(phase) * swayAmp;
-        const lift = Math.cos(phase) * swayAmp * 0.6; // Cosine lift offset creates the elliptical stroke
+        const lift = Math.cos(phase) * swayAmp * 0.4;
 
-        const baseAngle = (index - 1.5) * 0.35;
-        transNode.rotation.y = baseAngle + sweep;
+        // Apply primary gait sweep to rotation.z so legs cycle back and forth on-screen
+        transNode.rotation.z = baseRootZ + sideSignVal * sweep;
+        // Apply minor depth lift to rotation.y to simulate foot clearance
+        transNode.rotation.y = lift * 0.08;
 
-        const coxa = transNode.getChildren()[0] as BABYLON.TransformNode | undefined;
+        const coxa = transNode.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode | undefined;
         if (coxa) {
-          // Profile the coxa base angles so front legs (index 3) angle steeply UP/Forward, rear legs (index 0) angle Down/Back
-          const baseCoxaZ = sideSign * (Math.PI * 0.13 + (3 - index) * 0.09);
-          const coxaTuckAngle = sideSign * tuckFactor * (Math.PI / 6);
-          coxa.rotation.z = baseCoxaZ + coxaTuckAngle + (sideSign * lift);
+          const coxaMeta = coxa.metadata as { baseRotationZ?: number } | null;
+          const baseCoxaZ = coxaMeta?.baseRotationZ ?? coxa.rotation.z;
+          
+          const coxaTuckAngle = sideSignVal * tuckFactor * 0.35;
+          const coxaLift = sideSignVal * lift * 0.3;
+          coxa.rotation.z = baseCoxaZ + coxaTuckAngle + coxaLift;
 
-          const tibia = coxa.getChildren()[0] as BABYLON.TransformNode | undefined;
+          const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode | undefined;
           if (tibia) {
-            const baseTibiaZ = -sideSign * (Math.PI * 0.45); // Standard inward tibia bend
-            const tibiaTuckAngle = -sideSign * tuckFactor * (Math.PI / 4);
-            tibia.rotation.z = baseTibiaZ + tibiaTuckAngle - (sideSign * sweep * 0.35); // Flex tibia in synch with sweep
+            const tibiaMeta = tibia.metadata as { baseRotationZ?: number } | null;
+            const baseTibiaZ = tibiaMeta?.baseRotationZ ?? tibia.rotation.z;
+            
+            const tibiaTuckAngle = -sideSignVal * tuckFactor * 0.45;
+            const tibiaSweep = -sideSignVal * sweep * 0.2;
+            tibia.rotation.z = baseTibiaZ + tibiaTuckAngle + tibiaSweep;
           }
         }
       });
