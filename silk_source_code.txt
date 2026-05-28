@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 8:17:28 PM
+ [SYSTEM] Generated: 5/28/2026, 8:22:31 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3468,6 +3468,44 @@ export function solveSpringDamper(
   return { value: nextValue, velocity: nextVelocity };
 }
 
+export interface ScaleTransformLike {
+  scaleX?: number;
+  scaleY?: number;
+  scaleZ?: number;
+  scaleVelX?: number;
+  scaleVelY?: number;
+  scaleVelZ?: number;
+}
+
+export function solveScaleSpring(
+  trans: ScaleTransformLike,
+  targetX: number,
+  targetY: number,
+  targetZ: number,
+  dt: number,
+  stiffness: number,
+  damping: number
+): void {
+  const sx = trans.scaleX ?? 1.0;
+  const sy = trans.scaleY ?? 1.0;
+  const sz = trans.scaleZ ?? 1.0;
+  const vx = trans.scaleVelX ?? 0.0;
+  const vy = trans.scaleVelY ?? 0.0;
+  const vz = trans.scaleVelZ ?? 0.0;
+
+  const springX = solveSpringDamper(sx, targetX, vx, dt, stiffness, damping);
+  trans.scaleX = springX.value;
+  trans.scaleVelX = springX.velocity;
+
+  const springY = solveSpringDamper(sy, targetY, vy, dt, stiffness, damping);
+  trans.scaleY = springY.value;
+  trans.scaleVelY = springY.velocity;
+
+  const springZ = solveSpringDamper(sz, targetZ, vz, dt, stiffness, damping);
+  trans.scaleZ = springZ.value;
+  trans.scaleVelZ = springZ.velocity;
+}
+
 export function getWeaverStingerTip(
   weaverX: number,
   weaverY: number,
@@ -4645,7 +4683,6 @@ export class JuiceSystem implements ISystem {
   private unsubscribes: (() => void)[] = [];
   private playerState: string = "AIRBORNE";
 
-  // Reusable scratch fields to completely eliminate dynamic GC allocations in update/render loops
   private readonly _colorScratch = new BABYLON.Color3();
   private readonly _particleOriginScratch = new BABYLON.Vector3();
 
@@ -4808,6 +4845,28 @@ export class JuiceSystem implements ISystem {
     );
   }
 
+  private emitRawParticle(
+    position: BABYLON.Vector3,
+    velocity: BABYLON.Vector3,
+    life: number,
+    color: BABYLON.Color3
+  ): void {
+    const particle = this.particlePool[this.nextPoolIndex];
+    particle.mesh.position.copyFrom(position);
+    particle.velocity.copyFrom(velocity);
+    particle.lifeRemaining = life;
+    particle.maxLife = life;
+    particle.active = true;
+    particle.mesh.setEnabled(true);
+
+    const mat = particle.mesh.material as BABYLON.StandardMaterial;
+    if (mat) {
+      mat.emissiveColor.copyFrom(color);
+    }
+
+    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+  }
+
   private spawnBurst(
     position: BABYLON.Vector3,
     color: BABYLON.Color3,
@@ -4822,10 +4881,8 @@ export class JuiceSystem implements ISystem {
       readonly LIFE_MAX: number;
     }
   ): void {
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const theta = Math.random() * 2.0 * Math.PI;
       const speedSpan = settings.VELOCITY_SPEED_MAX - settings.VELOCITY_SPEED_MIN;
       const r = settings.VELOCITY_SPEED_MIN + Math.random() * speedSpan;
@@ -4834,19 +4891,10 @@ export class JuiceSystem implements ISystem {
       const vy = settings.VELOCITY_Y_MIN + Math.random() * ySpan;
       const vz = (Math.random() - 0.5) * settings.VELOCITY_Z_MAX;
 
-      particle.velocity.set(Math.cos(theta) * r, vy, vz);
-      particle.lifeRemaining =
-        settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(Math.cos(theta) * r, vy, vz);
+      const life = settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) {
-        mat.emissiveColor.copyFrom(color);
-      }
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, color);
     }
   }
 
@@ -4855,25 +4903,16 @@ export class JuiceSystem implements ISystem {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
     this._colorScratch.set(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
       const vy = Math.random() * config.VELOCITY_Y_MAX;
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
-      particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining =
-        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(vx, vy, vz);
+      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, this._colorScratch);
     }
   }
 
@@ -4882,26 +4921,17 @@ export class JuiceSystem implements ISystem {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
     this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const xSpan = config.VELOCITY_X_MAX - config.VELOCITY_X_MIN;
       const vx = wallNormalX * (config.VELOCITY_X_MIN + Math.random() * xSpan);
       const vy = (Math.random() - 0.3) * config.VELOCITY_Y_MAX;
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
-      particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining =
-        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(vx, vy, vz);
+      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, this._colorScratch);
     }
   }
 
@@ -4910,55 +4940,38 @@ export class JuiceSystem implements ISystem {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
     this._colorScratch.set(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const angle = Math.random() * Math.PI * 2.0;
       const speed = config.SPEED_MIN + Math.random() * (config.SPEED_MAX - config.SPEED_MIN);
       const vx = Math.cos(angle) * speed;
       const vy = Math.sin(angle) * speed;
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
-      particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining =
-        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(vx, vy, vz);
+      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, this._colorScratch);
     }
   }
 
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
-    const particle = this.particlePool[this.nextPoolIndex];
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
 
-    particle.mesh.position.copyFrom(position);
-    particle.mesh.position.x += (Math.random() - 0.5) * trail.OFFSET_X;
-    particle.mesh.position.y += (Math.random() - 0.5) * trail.OFFSET_Y;
+    const tempPos = position.clone();
+    tempPos.x += (Math.random() - 0.5) * trail.OFFSET_X;
+    tempPos.y += (Math.random() - 0.5) * trail.OFFSET_Y;
 
     const vx = (Math.random() - 0.5) * trail.VELOCITY_X_MAX;
     const vy = (Math.random() - 0.5) * trail.VELOCITY_Y_MAX;
     const vz = (Math.random() - 0.5) * trail.VELOCITY_Z_MAX;
 
-    particle.velocity.set(vx, vy, vz);
-    particle.lifeRemaining = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
-    particle.maxLife = particle.lifeRemaining;
-    particle.active = true;
-    particle.mesh.setEnabled(true);
+    const tempVel = new BABYLON.Vector3(vx, vy, vz);
+    const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
 
-    const mat = particle.mesh.material as BABYLON.StandardMaterial;
-    if (mat) {
-      mat.emissiveColor.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
-    }
-
-    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    this.emitRawParticle(tempPos, tempVel, life, this._colorScratch);
   }
 
   private emitWallSlideSparks(
@@ -4968,7 +4981,6 @@ export class JuiceSystem implements ISystem {
     dt: number
   ): void {
     const wallX = pTrav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    // Direct zero-allocation setting of origin vectors
     this._particleOriginScratch.set(wallX, pTrans.y, 0);
 
     const tension = Math.max(0, pTether.tension);
@@ -4989,33 +5001,24 @@ export class JuiceSystem implements ISystem {
     wallNormalX: number,
     tension: number
   ): void {
-    const particle = this.particlePool[this.nextPoolIndex];
-    particle.mesh.position.copyFrom(position);
-
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const speedMult = 1.0 + tension * 1.5;
     const vx = wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
     const vy = (Math.random() - 0.2) * 4.0 * speedMult;
     const vz = (Math.random() - 0.5) * 1.5;
 
-    particle.velocity.set(vx, vy, vz);
-    particle.lifeRemaining = 0.15 + Math.random() * 0.25;
-    particle.maxLife = particle.lifeRemaining;
-    particle.active = true;
-    particle.mesh.setEnabled(true);
+    const tempVel = new BABYLON.Vector3(vx, vy, vz);
+    const life = 0.15 + Math.random() * 0.25;
 
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const mat = particle.mesh.material as BABYLON.StandardMaterial;
-    if (mat) {
-      if (tension > 0.8) {
-        mat.emissiveColor.set(1.0, 0.95, 0.8);
-      } else if (tension > 0.4) {
-        mat.emissiveColor.set(1.0, 0.65, 0.15);
-      } else {
-        mat.emissiveColor.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
-      }
+    if (tension > 0.8) {
+      this._colorScratch.set(1.0, 0.95, 0.8);
+    } else if (tension > 0.4) {
+      this._colorScratch.set(1.0, 0.65, 0.15);
+    } else {
+      this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
     }
 
-    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    this.emitRawParticle(position, tempVel, life, this._colorScratch);
   }
 
   public update(dt: number): void {
@@ -5042,7 +5045,6 @@ export class JuiceSystem implements ISystem {
 
       const ratio = p.lifeRemaining / p.maxLife;
 
-      // Velocity-Aligned Spark Stream Particles
       const speed = p.velocity.length();
       if (speed > 10.0) {
         if (!p.mesh.rotationQuaternion) {
@@ -5980,7 +5982,7 @@ export class WeaverShatterSystem implements ISystem {
 
 ● ./src/gameplay/player/PlayerAnimationSystem.ts
 ────────────────────────────────────────────────────
-import { solveSpringDamper } from "../../core/utils/EngineUtils";
+import { solveScaleSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -6047,20 +6049,7 @@ export class PlayerAnimationSystem implements ISystem {
       targetScaleZ = 1.0 - stretchFactor * 0.5;
     }
 
-    const stiffness = 220;
-    const damping = 14;
-
-    const springX = solveSpringDamper(pTrans.scaleX!, targetScaleX, pTrans.scaleVelX!, dt, stiffness, damping);
-    pTrans.scaleX = springX.value;
-    pTrans.scaleVelX = springX.velocity;
-
-    const springY = solveSpringDamper(pTrans.scaleY!, targetScaleY, pTrans.scaleVelY!, dt, stiffness, damping);
-    pTrans.scaleY = springY.value;
-    pTrans.scaleVelY = springY.velocity;
-
-    const springZ = solveSpringDamper(pTrans.scaleZ!, targetScaleZ, pTrans.scaleVelZ!, dt, stiffness, damping);
-    pTrans.scaleZ = springZ.value;
-    pTrans.scaleVelZ = springZ.velocity;
+    solveScaleSpring(pTrans, targetScaleX, targetScaleY, targetScaleZ, dt, 220, 14);
 
     pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
@@ -7424,7 +7413,7 @@ export class WeaverBrainSystem implements ISystem {
 
 ● ./src/gameplay/weaver/WeaverTraversalSystem.ts
 ────────────────────────────────────────────────────
-import { solveSpringDamper } from "../../core/utils/EngineUtils";
+import { solveScaleSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -7723,10 +7712,10 @@ export class WeaverTraversalSystem implements ISystem {
             targetScaleY = 1.0 - pulse;
 
             const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-            const yawAngle =
+            const MathAngle =
               Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
               WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, this._targetQuat);
+            BABYLON.Quaternion.RotationYawPitchRollToRef(MathAngle, 0, rollAngle, this._targetQuat);
           } else if (ai.state === "STRIKING") {
             const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
             if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
@@ -7759,20 +7748,7 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
 
-      const stiffness = 120;
-      const damping = 22;
-
-      const springX = solveSpringDamper(trans.scaleX!, targetScaleX, trans.scaleVelX!, dt, stiffness, damping);
-      trans.scaleX = springX.value;
-      trans.scaleVelX = springX.velocity;
-
-      const springY = solveSpringDamper(trans.scaleY!, targetScaleY, trans.scaleVelY!, dt, stiffness, damping);
-      trans.scaleY = springY.value;
-      trans.scaleVelY = springY.velocity;
-
-      const springZ = solveSpringDamper(trans.scaleZ!, targetScaleZ, trans.scaleVelZ!, dt, stiffness, damping);
-      trans.scaleZ = springZ.value;
-      trans.scaleVelZ = springZ.velocity;
+      solveScaleSpring(trans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
 
       this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(
@@ -12945,16 +12921,15 @@ interface CachedWeaverParts {
 export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
-  private currentEmissiveR = 0.05;
-  private currentEmissiveG = 0.15;
-  private currentEmissiveB = 0.05;
+  private currentEmissiveColor = new BABYLON.Color3(0.05, 0.15, 0.05);
+  private readonly _targetEmissiveColor = new BABYLON.Color3();
+  
   private visualClock = 0.0;
   private gaitClock = 0.0;
   private gaitAmp = 0.12;
   private gaitFreq = 8.0;
   private gaitTuck = 0.0;
 
-  // Reusable scratch objects to completely prevent dynamic GC allocations in rendering loops
   private readonly _footLocalTarget = new BABYLON.Vector3();
   private readonly _footWorldTarget = new BABYLON.Vector3();
   private readonly _rootWorldInv = new BABYLON.Matrix();
@@ -13093,7 +13068,6 @@ export class VisualStateDressingSystem implements ISystem {
         }
       });
 
-      // Query cache implementation - dynamically resolves and caches parts once to prevent high-frequency getChildren array allocations
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
         const legRoots = mesh.getChildren((node) => node.name.startsWith("leg_root_"), false) as BABYLON.TransformNode[];
@@ -13345,15 +13319,13 @@ export class VisualStateDressingSystem implements ISystem {
       targetB = emissive.PLAYER_EMISSIVE_DEFAULT.B;
     }
 
-    const lerpRate = emissive.PLAYER_LERP_RATE;
-    this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
-    this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
-    this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
+    this._targetEmissiveColor.set(targetR, targetG, targetB);
+    BABYLON.Color3.LerpToRef(this.currentEmissiveColor, this._targetEmissiveColor, emissive.PLAYER_LERP_RATE, this.currentEmissiveColor);
 
     mat.emissiveColor.set(
-      this.currentEmissiveR * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveG * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveB * emissive.PLAYER_EMISSIVE_SCALE
+      this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
+      this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
+      this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
     );
   }
 }
