@@ -1,9 +1,7 @@
-import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { usePlayerStore, useWeaverStore, useOverlayStore, resetAllStores } from "./hudStore";
 
@@ -12,14 +10,6 @@ export class HudSyncSystem implements ISystem {
   private subscriptions: (() => void)[] = [];
   private lastHintLevel: "none" | "charging" | "ready" | "maxout" = "none";
   private currentState: string = "AIRBORNE";
-
-  private lastTetherLength = 0.0;
-  private reeledUp = false;
-  private reeledDown = false;
-
-  private step0Completed = false;
-  private step1Completed = false;
-  private step2Completed = false;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -48,41 +38,8 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
 
-        if (
-          !this.step0Completed &&
-          overlayStore.calibrationStep === 0 &&
-          this.currentState === "WALL_SLIDING" &&
-          tension >= 0.5
-        ) {
-          this.step0Completed = true;
-          overlayStore.setCalibrationStep(1);
-          dispatchUIFeedback("silk-play-confirm");
-        }
-
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
         window.dispatchEvent(evt);
-      })
-    );
-
-    this.subscriptions.push(
-      this.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
-        if (this.lastTetherLength > 0.0) {
-          const delta = maxLength - this.lastTetherLength;
-          if (overlayStore.calibrationStep === 1) {
-            if (delta < -0.01) {
-              this.reeledUp = true;
-            } else if (delta > 0.01) {
-              this.reeledDown = true;
-            }
-
-            if (!this.step1Completed && this.reeledUp && this.reeledDown) {
-              this.step1Completed = true;
-              overlayStore.setCalibrationStep(2);
-              dispatchUIFeedback("silk-play-confirm");
-            }
-          }
-        }
-        this.lastTetherLength = maxLength;
       })
     );
 
@@ -127,12 +84,6 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         resetAllStores();
         overlayStore.loadStats();
-        this.lastTetherLength = 0.0;
-        this.reeledUp = false;
-        this.reeledDown = false;
-        this.step0Completed = false;
-        this.step1Completed = false;
-        this.step2Completed = false;
       })
     );
     this.subscriptions.push(
@@ -146,41 +97,6 @@ export class HudSyncSystem implements ISystem {
         overlayStore.setBootStatus("READY");
       })
     );
-  }
-
-  public update(dt: number): void {
-    void dt;
-    const overlayStore = useOverlayStore.getState();
-
-    if (overlayStore.calibrationStep === 1) {
-      const inputStore = this.context.stores.get<InputIntentComponent>("input");
-      const input = inputStore.get(this.context.refs.player);
-      if (input) {
-        if (input.y > 0) {
-          this.reeledUp = true;
-        } else if (input.y < 0) {
-          this.reeledDown = true;
-        }
-
-        if (!this.step1Completed && this.reeledUp && this.reeledDown) {
-          this.step1Completed = true;
-          overlayStore.setCalibrationStep(2);
-          dispatchUIFeedback("silk-play-confirm");
-        }
-      }
-    }
-
-    if (overlayStore.calibrationStep === 2) {
-      const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
-      const pTrav = travStore.get(this.context.refs.player);
-      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
-        if (!this.step2Completed) {
-          this.step2Completed = true;
-          overlayStore.setCalibrationStep(3);
-          dispatchUIFeedback("silk-play-confirm");
-        }
-      }
-    }
   }
 
   private updateHint(tension: number): void {

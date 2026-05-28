@@ -40,6 +40,7 @@ import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSyste
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
+import { TutorialSystem } from "../gameplay/player/TutorialSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
 import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
@@ -131,6 +132,7 @@ export class CompositionRoot {
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
     const wallBugSystem = new WallBugSystem(context);
+    const tutorialSystem = new TutorialSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
     const interpolationSystem = new EntityInterpolationSystem(context);
@@ -161,6 +163,7 @@ export class CompositionRoot {
     systemManager.register(weaverTraversalSystem);
     systemManager.register(environmentCollision);
     systemManager.register(wallBugSystem);
+    systemManager.register(tutorialSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
     systemManager.register(dressingSystem);
