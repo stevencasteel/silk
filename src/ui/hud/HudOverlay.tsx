@@ -137,7 +137,7 @@ export const HudOverlay: React.FC = () => {
   const [useWasd, setUseWasd] = useState<boolean>(false);
 
   const [displayedStep, setDisplayedStep] = useState<number>(calibrationStep);
-  const [stepSuccess, setStepSuccess] = useState<boolean>(false);
+  const stepSuccess = calibrationStep > displayedStep;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -182,28 +182,17 @@ export const HudOverlay: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let timerA: ReturnType<typeof setTimeout>;
-    let timerB: ReturnType<typeof setTimeout>;
-
     if (calibrationStep > displayedStep) {
-      timerA = setTimeout(() => {
-        setStepSuccess(true);
-        timerB = setTimeout(() => {
-          setDisplayedStep(calibrationStep);
-          setStepSuccess(false);
-        }, 1500);
-      }, 0);
-    } else if (calibrationStep < displayedStep) {
-      timerA = setTimeout(() => {
+      const timer = setTimeout(() => {
         setDisplayedStep(calibrationStep);
-        setStepSuccess(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    } else if (calibrationStep < displayedStep) {
+      const timer = setTimeout(() => {
+        setDisplayedStep(calibrationStep);
       }, 0);
+      return () => clearTimeout(timer);
     }
-
-    return () => {
-      if (timerA) clearTimeout(timerA);
-      if (timerB) clearTimeout(timerB);
-    };
   }, [calibrationStep, displayedStep]);
 
   useEffect(() => {
