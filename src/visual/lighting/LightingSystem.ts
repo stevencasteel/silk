@@ -12,8 +12,8 @@ export class LightingSystem implements ISystem {
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
-  private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
-  private currentColor = new BABYLON.Color3(0.3, 0.3, 0.4);
+  private targetColor = new BABYLON.Color3(0.0, 0.94, 1.0); 
+  private currentColor = new BABYLON.Color3(0.0, 0.94, 1.0);
 
   private flashTimer = 0.0;
   private isFlashing = false;
@@ -29,10 +29,10 @@ export class LightingSystem implements ISystem {
       new BABYLON.Vector3(0, 5, -5),
       scene
     );
-    this.weaverLight.intensity = 1.35;
+    this.weaverLight.intensity = 2.0; 
     this.weaverLight.range = 18.0;
     this.weaverLight.diffuse = this.currentColor;
-    this.weaverLight.specular = this.currentColor;
+    this.weaverLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     this.weaverKeyLight = new BABYLON.SpotLight(
       "weaverCarapaceKeyLight",
@@ -42,19 +42,19 @@ export class LightingSystem implements ISystem {
       2.4,
       scene
     );
-    this.weaverKeyLight.intensity = 2.15;
+    this.weaverKeyLight.intensity = 3.0; 
     this.weaverKeyLight.range = 28.0;
-    this.weaverKeyLight.diffuse = new BABYLON.Color3(0.78, 0.88, 1.0);
-    this.weaverKeyLight.specular = new BABYLON.Color3(0.95, 0.82, 1.0);
+    this.weaverKeyLight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    this.weaverKeyLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     this.rimLight = new BABYLON.DirectionalLight(
       "rimLight",
       new BABYLON.Vector3(-0.22, 0.28, -0.94),
       scene
     );
-    this.rimLight.intensity = 1.05;
-    this.rimLight.diffuse = new BABYLON.Color3(0.68, 0.86, 1.0);
-    this.rimLight.specular = new BABYLON.Color3(0.82, 0.92, 1.0);
+    this.rimLight.intensity = 1.8;
+    this.rimLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0);
+    this.rimLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     this.unsub = this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
       this.setWeaverPhaseHue(payload.hue);
@@ -109,16 +109,15 @@ export class LightingSystem implements ISystem {
     }
 
     this.weaverLight.diffuse.copyFrom(this.currentColor);
-    this.weaverLight.specular.copyFrom(this.currentColor);
     if (this.weaverKeyLight) {
-      this.weaverKeyLight.intensity = this.isFlashing ? 2.8 : 2.15;
+      this.weaverKeyLight.intensity = this.isFlashing ? 4.5 : 3.0;
     }
   }
 
   private triggerFlash(): void {
     this.isFlashing = true;
     this.flashTimer = 0.6;
-    this.currentColor.set(2.0, 2.0, 2.0);
+    this.currentColor.set(3.0, 3.0, 3.0);
   }
 
   private setWeaverPhaseHue(colorHex: string): void {

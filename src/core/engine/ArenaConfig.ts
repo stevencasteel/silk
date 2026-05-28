@@ -53,9 +53,9 @@ export const ARENA_CONFIG = {
     PLAYER_CAPSULE_SUBDIVISIONS: 3
   },
   ENTITY_COLORS: {
-    WEAVER_ALBEDO: { r: 0.15, g: 0.15, b: 0.18 },
-    PLAYER_ALBEDO: { r: 0.88, g: 0.9, b: 0.92 },
-    PLAYER_SHEEN: { r: 0.95, g: 0.95, b: 1.0 }
+    WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 }, // Saturated Deep Violet Base
+    PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 }, // Mirror-Chrome Albedo
+    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } // Neon Pink Sheen
   },
   ENTITY_SPAWNER: {
     WEAVER_INITIAL_VELOCITY_X: 4.5,
@@ -197,31 +197,31 @@ export const WEAVER_AI_TUNING = {
 
 export const VISUAL_JUICE_CONFIG = {
   WEAVER_COLORS: {
-    SWEEPING: "ef4444",
-    DASH_PREP: "eab308",
-    DASH_THRUST: "ef4444",
-    DASH_RECOVER: "a5f3fc",
-    RETURNING: "4b5563",
-    DEFEATED: "111317"
+    SWEEPING: "121212", // Low baseline emissive (exposes raw silver mecha-chrome during patrol)
+    DASH_PREP: "dffe00", // Telegraph is Sulfur Yellow
+    DASH_THRUST: "ff007f", // Lunges are Neon Pink
+    DASH_RECOVER: "ff007f", // Strike Recovery is Neon Pink
+    RETURNING: "ff007f", // Ascent Return is Neon Pink
+    DEFEATED: "000000" // Saturated Black Defeated
   },
   MATERIALS: {
     WEAVER: {
-      METALLIC: 0.3,
-      ROUGHNESS: 0.5,
-      CLEAR_COAT_INTENSITY: 0.4,
-      CLEAR_COAT_ROUGHNESS: 0.2
+      METALLIC: 0.98,
+      ROUGHNESS: 0.08,
+      CLEAR_COAT_INTENSITY: 0.85,
+      CLEAR_COAT_ROUGHNESS: 0.05
     },
     PLAYER: {
-      METALLIC: 0.0,
-      ROUGHNESS: 0.85,
-      SHEEN_INTENSITY: 0.5,
-      SHEEN_ROUGHNESS: 0.4
+      METALLIC: 0.92,
+      ROUGHNESS: 0.1,
+      SHEEN_INTENSITY: 0.85,
+      SHEEN_ROUGHNESS: 0.15
     },
     PROJECTILE: {
-      METALLIC: 0.0,
-      ROUGHNESS: 0.8,
-      SHEEN_INTENSITY: 0.6,
-      SHEEN_ROUGHNESS: 0.4
+      METALLIC: 0.95,
+      ROUGHNESS: 0.05,
+      SHEEN_INTENSITY: 0.9,
+      SHEEN_ROUGHNESS: 0.1
     }
   },
   TETHER_ROPE: {
@@ -241,11 +241,11 @@ export const VISUAL_JUICE_CONFIG = {
   PARTICLES: {
     DRAG: 0.92,
     COLORS: {
-      PLAYER_SPARK: { r: 0.13, g: 0.77, b: 0.36 },
-      WEAVER_SPARK: { r: 0.93, g: 0.22, b: 0.22 },
-      LANDING_DUST: { r: 0.65, g: 0.65, b: 0.68 },
-      WALL_SPARK: { r: 1.0, g: 0.85, b: 0.35 },
-      PROJECTILE_SPLAT: { r: 0.95, g: 0.95, b: 0.98 }
+      PLAYER_SPARK: { r: 0.0, g: 0.94, b: 1.0 },
+      WEAVER_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
+      LANDING_DUST: { r: 0.87, g: 0.99, b: 0.0 },
+      WALL_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
+      PROJECTILE_SPLAT: { r: 0.0, g: 0.94, b: 1.0 }
     },
     BURST: {
       PLAYER: {
@@ -323,27 +323,27 @@ export const VISUAL_JUICE_CONFIG = {
   EMISSIVE: {
     SCROLL_LERP_FACTOR: 0.15,
     PLAYER_LERP_RATE: 0.18,
-    PLAYER_EMISSIVE_SCALE: 0.2,
-    WEAVER_EMISSIVE_SCALE: 0.4,
-    WEAVER_EMISSIVE_PULSE_BASE: 0.05,
-    WEAVER_EMISSIVE_PULSE_AMP: 0.04,
+    PLAYER_EMISSIVE_SCALE: 0.8,
+    WEAVER_EMISSIVE_SCALE: 0.95,
+    WEAVER_EMISSIVE_PULSE_BASE: 0.1,
+    WEAVER_EMISSIVE_PULSE_AMP: 0.08,
     WEAVER_EMISSIVE_PULSE_FREQ: 0.01,
     PLAYER_EMISSIVE_SLIDE: {
-      BASE_R: 0.1,
-      RANGE_R: 0.9,
-      BASE_G: 0.1,
-      RANGE_G: 0.1,
-      MULT_B: 0.1
+      BASE_R: 0.9,
+      RANGE_R: 0.1,
+      BASE_G: 0.0,
+      RANGE_G: 0.0,
+      MULT_B: 0.5
     },
     PLAYER_EMISSIVE_LAUNCH: {
-      R: 0.9,
-      G: 0.9,
-      B: 0.9
+      R: 0.0,
+      G: 0.95,
+      B: 0.95
     },
     PLAYER_EMISSIVE_DEFAULT: {
-      R: 0.05,
-      G: 0.05,
-      B: 0.05
+      R: 0.1,
+      G: 0.0,
+      B: 0.2
     }
   }
 } as const;
@@ -360,17 +360,17 @@ export const CAMERA_TUNING = {
 export const POST_PROCESSING_PRESETS = {
   RENDERER: {
     SAMPLES: 4,
-    BLOOM_THRESHOLD: 0.72,
-    BLOOM_WEIGHT: 0.85,
-    BLOOM_KERNEL: 48,
-    VIGNETTE_WEIGHT: 2.8,
-    EXPOSURE: 0.95,
-    CONTRAST: 1.35,
-    AMBIENT_LIGHT_INTENSITY: 0.06,
-    DIR_LIGHT_INTENSITY: 2.4,
+    BLOOM_THRESHOLD: 0.45,
+    BLOOM_WEIGHT: 1.35,
+    BLOOM_KERNEL: 64,
+    VIGNETTE_WEIGHT: 3.2,
+    EXPOSURE: 1.05,
+    CONTRAST: 1.45,
+    AMBIENT_LIGHT_INTENSITY: 0.05,
+    DIR_LIGHT_INTENSITY: 2.8,
     SHADOW_MAP_SIZE: 1024,
     SHADOW_BLUR_KERNEL: 16,
-    SHADOW_DARKNESS: 0.72
+    SHADOW_DARKNESS: 0.65
   },
   CAMERA: {
     DEFAULT_POS: { x: 0.0, y: 14.0, z: -38.0 },

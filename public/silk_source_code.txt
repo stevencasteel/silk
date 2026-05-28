@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 11:09:55 AM
+ [SYSTEM] Generated: 5/28/2026, 12:05:02 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2579,9 +2579,9 @@ export const ARENA_CONFIG = {
     PLAYER_CAPSULE_SUBDIVISIONS: 3
   },
   ENTITY_COLORS: {
-    WEAVER_ALBEDO: { r: 0.15, g: 0.15, b: 0.18 },
-    PLAYER_ALBEDO: { r: 0.88, g: 0.9, b: 0.92 },
-    PLAYER_SHEEN: { r: 0.95, g: 0.95, b: 1.0 }
+    WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 }, // Saturated Deep Violet Base
+    PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 }, // Mirror-Chrome Albedo
+    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } // Neon Pink Sheen
   },
   ENTITY_SPAWNER: {
     WEAVER_INITIAL_VELOCITY_X: 4.5,
@@ -2723,31 +2723,31 @@ export const WEAVER_AI_TUNING = {
 
 export const VISUAL_JUICE_CONFIG = {
   WEAVER_COLORS: {
-    SWEEPING: "ef4444",
-    DASH_PREP: "eab308",
-    DASH_THRUST: "ef4444",
-    DASH_RECOVER: "a5f3fc",
-    RETURNING: "4b5563",
-    DEFEATED: "111317"
+    SWEEPING: "121212", // Low baseline emissive (exposes raw silver mecha-chrome during patrol)
+    DASH_PREP: "dffe00", // Telegraph is Sulfur Yellow
+    DASH_THRUST: "ff007f", // Lunges are Neon Pink
+    DASH_RECOVER: "ff007f", // Strike Recovery is Neon Pink
+    RETURNING: "ff007f", // Ascent Return is Neon Pink
+    DEFEATED: "000000" // Saturated Black Defeated
   },
   MATERIALS: {
     WEAVER: {
-      METALLIC: 0.3,
-      ROUGHNESS: 0.5,
-      CLEAR_COAT_INTENSITY: 0.4,
-      CLEAR_COAT_ROUGHNESS: 0.2
+      METALLIC: 0.98,
+      ROUGHNESS: 0.08,
+      CLEAR_COAT_INTENSITY: 0.85,
+      CLEAR_COAT_ROUGHNESS: 0.05
     },
     PLAYER: {
-      METALLIC: 0.0,
-      ROUGHNESS: 0.85,
-      SHEEN_INTENSITY: 0.5,
-      SHEEN_ROUGHNESS: 0.4
+      METALLIC: 0.92,
+      ROUGHNESS: 0.1,
+      SHEEN_INTENSITY: 0.85,
+      SHEEN_ROUGHNESS: 0.15
     },
     PROJECTILE: {
-      METALLIC: 0.0,
-      ROUGHNESS: 0.8,
-      SHEEN_INTENSITY: 0.6,
-      SHEEN_ROUGHNESS: 0.4
+      METALLIC: 0.95,
+      ROUGHNESS: 0.05,
+      SHEEN_INTENSITY: 0.9,
+      SHEEN_ROUGHNESS: 0.1
     }
   },
   TETHER_ROPE: {
@@ -2767,11 +2767,11 @@ export const VISUAL_JUICE_CONFIG = {
   PARTICLES: {
     DRAG: 0.92,
     COLORS: {
-      PLAYER_SPARK: { r: 0.13, g: 0.77, b: 0.36 },
-      WEAVER_SPARK: { r: 0.93, g: 0.22, b: 0.22 },
-      LANDING_DUST: { r: 0.65, g: 0.65, b: 0.68 },
-      WALL_SPARK: { r: 1.0, g: 0.85, b: 0.35 },
-      PROJECTILE_SPLAT: { r: 0.95, g: 0.95, b: 0.98 }
+      PLAYER_SPARK: { r: 0.0, g: 0.94, b: 1.0 },
+      WEAVER_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
+      LANDING_DUST: { r: 0.87, g: 0.99, b: 0.0 },
+      WALL_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
+      PROJECTILE_SPLAT: { r: 0.0, g: 0.94, b: 1.0 }
     },
     BURST: {
       PLAYER: {
@@ -2849,27 +2849,27 @@ export const VISUAL_JUICE_CONFIG = {
   EMISSIVE: {
     SCROLL_LERP_FACTOR: 0.15,
     PLAYER_LERP_RATE: 0.18,
-    PLAYER_EMISSIVE_SCALE: 0.2,
-    WEAVER_EMISSIVE_SCALE: 0.4,
-    WEAVER_EMISSIVE_PULSE_BASE: 0.05,
-    WEAVER_EMISSIVE_PULSE_AMP: 0.04,
+    PLAYER_EMISSIVE_SCALE: 0.8,
+    WEAVER_EMISSIVE_SCALE: 0.95,
+    WEAVER_EMISSIVE_PULSE_BASE: 0.1,
+    WEAVER_EMISSIVE_PULSE_AMP: 0.08,
     WEAVER_EMISSIVE_PULSE_FREQ: 0.01,
     PLAYER_EMISSIVE_SLIDE: {
-      BASE_R: 0.1,
-      RANGE_R: 0.9,
-      BASE_G: 0.1,
-      RANGE_G: 0.1,
-      MULT_B: 0.1
+      BASE_R: 0.9,
+      RANGE_R: 0.1,
+      BASE_G: 0.0,
+      RANGE_G: 0.0,
+      MULT_B: 0.5
     },
     PLAYER_EMISSIVE_LAUNCH: {
-      R: 0.9,
-      G: 0.9,
-      B: 0.9
+      R: 0.0,
+      G: 0.95,
+      B: 0.95
     },
     PLAYER_EMISSIVE_DEFAULT: {
-      R: 0.05,
-      G: 0.05,
-      B: 0.05
+      R: 0.1,
+      G: 0.0,
+      B: 0.2
     }
   }
 } as const;
@@ -2886,17 +2886,17 @@ export const CAMERA_TUNING = {
 export const POST_PROCESSING_PRESETS = {
   RENDERER: {
     SAMPLES: 4,
-    BLOOM_THRESHOLD: 0.72,
-    BLOOM_WEIGHT: 0.85,
-    BLOOM_KERNEL: 48,
-    VIGNETTE_WEIGHT: 2.8,
-    EXPOSURE: 0.95,
-    CONTRAST: 1.35,
-    AMBIENT_LIGHT_INTENSITY: 0.06,
-    DIR_LIGHT_INTENSITY: 2.4,
+    BLOOM_THRESHOLD: 0.45,
+    BLOOM_WEIGHT: 1.35,
+    BLOOM_KERNEL: 64,
+    VIGNETTE_WEIGHT: 3.2,
+    EXPOSURE: 1.05,
+    CONTRAST: 1.45,
+    AMBIENT_LIGHT_INTENSITY: 0.05,
+    DIR_LIGHT_INTENSITY: 2.8,
     SHADOW_MAP_SIZE: 1024,
     SHADOW_BLUR_KERNEL: 16,
-    SHADOW_DARKNESS: 0.72
+    SHADOW_DARKNESS: 0.65
   },
   CAMERA: {
     DEFAULT_POS: { x: 0.0, y: 14.0, z: -38.0 },
@@ -4970,14 +4970,14 @@ export class TetherVisualizerSystem implements ISystem {
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
-    this.tetherMat.metallic = 0.0;
-    this.tetherMat.roughness = 0.6;
+    this.tetherMat.metallic = 0.95; // Mirror metallic liquid strand
+    this.tetherMat.roughness = 0.05;
     this.tetherMat.sheen.isEnabled = true;
-    this.tetherMat.sheen.intensity = 0.8;
-    this.tetherMat.sheen.roughness = 0.3;
-    this.tetherMat.emissiveIntensity = 2.5;
-    this.tetherMat.albedoColor = new BABYLON.Color3(0.6, 0.85, 1.0);
-    this.tetherMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+    this.tetherMat.sheen.intensity = 0.95;
+    this.tetherMat.sheen.roughness = 0.05;
+    this.tetherMat.emissiveIntensity = 4.0; // High gloss glowing liquid look
+    this.tetherMat.albedoColor = new BABYLON.Color3(0.0, 0.94, 1.0); // Neon Cyan default
+    this.tetherMat.emissiveColor = new BABYLON.Color3(0.0, 0.45, 0.5);
     this.tetherMat.disableLighting = false;
 
     this.tetherMesh = BABYLON.MeshBuilder.CreateTube(
@@ -5144,35 +5144,36 @@ export class TetherVisualizerSystem implements ISystem {
         instance: this.tetherMesh
       });
 
-      let r = 0.6;
-      let g = 0.85;
-      let b = 1.0;
+      // Airbrush Square Color Spectrum transitions
+      let r = 0.0;
+      let g = 0.94;
+      let b = 1.0; // Cyan Default
 
       if (tension >= 1.0) {
         r = 1.0;
-        g = 0.15;
-        b = 0.15;
+        g = 0.0;
+        b = 0.5; // Neon Pink Warning
       } else if (tension >= 0.75) {
         r = 1.0;
-        g = 0.55;
-        b = 0.15;
+        g = 0.0;
+        b = 0.5; // Saturated Pink transitioning
       } else if (isSweetSpot) {
-        r = 0.95;
-        g = 0.95;
-        b = 1.0;
+        r = 0.87;
+        g = 0.99;
+        b = 0.0; // Sulfur Yellow Sweet Spot
       } else if (tension < 0.4) {
-        r = 0.65;
-        g = 0.82;
-        b = 0.95;
+        r = 0.0;
+        g = 0.94;
+        b = 1.0; // Clean Cyan
       }
 
       this.tetherMat.albedoColor.set(r, g, b);
 
-      let eBrightness = 0.1 + tension * 0.5 + tether.reelHeat * 0.35;
+      let eBrightness = 0.1 + tension * 0.8 + tether.reelHeat * 0.45;
       if (isSweetSpot) {
-        eBrightness *= 2.2;
+        eBrightness *= 2.8;
       } else if (tension >= 1.0) {
-        eBrightness *= 3.0;
+        eBrightness *= 4.0;
       }
 
       this.tetherMat.emissiveColor.set(
@@ -7538,33 +7539,32 @@ export class WeaverStrikingState implements IWeaverState {
 ● ./src/index.css
 ────────────────────────────────────────────────────
 :root {
-  --bg-void: rgb(5, 5, 6);
-  --bg-surface: rgb(14, 14, 17);
-  --bg-elevated: rgb(22, 22, 26);
-  --border-subtle: rgb(39, 39, 42);
-  --border-strong: rgb(63, 63, 70);
-  --text-main: rgb(244, 244, 245);
-  --text-muted: rgb(161, 161, 170);
-  --accent-tension: rgb(245, 158, 11);
-  --accent-danger: rgb(239, 68, 68);
-  --accent-success: rgb(16, 185, 129);
+  --bg-void: #050209;
+  --bg-surface: #0a0414;
+  --bg-elevated: #150626;
+  --border-subtle: rgba(255, 0, 127, 0.25);
+  --border-strong: #ff007f;
+  --text-main: #00f0ff;
+  --text-muted: #ff007f;
+  --accent-tension: #dffe00;
+  --accent-danger: #ff007f;
+  --accent-success: #00f0ff;
 
-  /* Neomorphic Design Tokens */
-  --void-bg: #07080b;
-  --surface-bg: #0c0e12;
-  --surface-elevated: #141820;
-  --surface-highlight: #1d222d;
-  --signal-green: #22c55e;
-  --signal-green-glow: rgba(34, 197, 94, 0.45);
-  --signal-red: #ef4444;
-  --signal-red-glow: rgba(239, 68, 68, 0.45);
-  --signal-yellow: #eab308;
-  --signal-yellow-glow: rgba(234, 179, 8, 0.45);
+  /* CHROME FLESH APOCRYPHA Palette Tokens */
+  --neon-pink: #ff007f;
+  --neon-cyan: #00f0ff;
+  --sulfur-yellow: #dffe00;
+  --deep-violet: #1a0033;
+  --neon-pink-glow: rgba(255, 0, 127, 0.45);
+  --neon-cyan-glow: rgba(0, 240, 255, 0.45);
+  --sulfur-yellow-glow: rgba(223, 254, 0, 0.45);
 
-  --shadow-light: -4px -4px 12px rgba(255, 255, 255, 0.03);
-  --shadow-dark: 6px 6px 18px rgba(0, 0, 0, 0.75);
-  --shadow-inset-light: inset -2px -2px 6px rgba(255, 255, 255, 0.01);
-  --shadow-inset-dark: inset 3px 3px 10px rgba(0, 0, 0, 0.9);
+  /* Frisket-masking linear sharp shadow styling */
+  --frisket-edge: 1px solid rgba(255, 255, 255, 0.95);
+  --shadow-light: -1px -1px 0px rgba(255, 255, 255, 0.2), inset 1px 1px 0px rgba(255, 255, 255, 0.1);
+  --shadow-dark: 8px 8px 24px rgba(0, 0, 0, 0.9);
+  --shadow-inset-light: inset -1px -1px 0px rgba(255, 255, 255, 0.15);
+  --shadow-inset-dark: inset 4px 4px 12px rgba(0, 0, 0, 0.95);
 }
 
 html,
@@ -7575,6 +7575,12 @@ body,
   width: 100vw;
   height: 100vh;
   background-color: var(--bg-void);
+  background-image: 
+    radial-gradient(at 10% 10%, rgba(26, 0, 51, 0.5) 0px, transparent 50%),
+    radial-gradient(at 90% 90%, rgba(255, 0, 127, 0.15) 0px, transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
   overflow: hidden;
   font-family: "SF Mono", Monaco, Consolas, "Courier New", monospace;
   -webkit-touch-callout: none;
@@ -7594,18 +7600,31 @@ body,
   z-index: 85;
 }
 
-/* Mechanical Cabinet Panels */
+/* Mechanical Cabinet Panels with Industrial Decal lines */
 .cabinet-header-panel {
   width: 100%;
-  height: 52px;
-  background: linear-gradient(180deg, #10121a 0%, #06080c 100%);
-  border-bottom: 2px solid #1c202d;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65);
+  height: 64px;
+  background: linear-gradient(180deg, #120024 0%, #06010c 100%);
+  border-bottom: 2px solid var(--neon-pink);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
   box-sizing: border-box;
+  position: relative;
+}
+
+.cabinet-header-panel::after {
+  content: "CLASSIFIED // DECALS GRID APOCRYPHA [+] SYSTEM LEVEL 09";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 6px;
+  letter-spacing: 0.3em;
+  color: rgba(0, 240, 255, 0.35);
+  font-weight: 900;
 }
 
 .header-left, .header-right {
@@ -7627,7 +7646,7 @@ body,
 .bezel-panel-label {
   font-size: 8px;
   font-weight: 900;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.25em;
   color: var(--text-muted);
   text-transform: uppercase;
 }
@@ -7635,48 +7654,50 @@ body,
 .bezel-panel-val {
   font-size: 10px;
   font-weight: bold;
+  text-shadow: 0 0 6px var(--neon-cyan-glow);
 }
 
 .warn-text {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
-  letter-spacing: 0.25em;
-  color: var(--text-muted);
-  animation: pulse-glow-default 2s infinite alternate;
+  letter-spacing: 0.3em;
+  color: var(--sulfur-yellow);
+  text-shadow: 0 0 8px var(--sulfur-yellow-glow);
+  animation: pulse-glow-default 1.5s infinite alternate;
 }
 
 @keyframes pulse-glow-default {
-  0% { opacity: 0.6; }
-  100% { opacity: 1; text-shadow: 0 0 4px rgba(255, 255, 255, 0.2); }
+  0% { opacity: 0.7; filter: brightness(0.9); }
+  100% { opacity: 1; filter: brightness(1.2); }
 }
 
 .warn-alert {
-  color: var(--accent-danger);
-  animation: pulse-glow-danger 0.4s infinite alternate;
+  color: var(--neon-pink);
+  animation: pulse-glow-danger 0.3s infinite alternate;
 }
 
 @keyframes pulse-glow-danger {
-  0% { opacity: 0.4; }
-  100% { opacity: 1; text-shadow: 0 0 10px var(--accent-danger); }
+  0% { opacity: 0.5; text-shadow: 0 0 2px var(--neon-pink); }
+  100% { opacity: 1; text-shadow: 0 0 14px var(--neon-pink-glow), 0 0 20px var(--neon-pink); }
 }
 
 .warn-launch {
-  color: var(--accent-success);
-  animation: pulse-glow-success 0.4s infinite alternate;
+  color: var(--neon-cyan);
+  animation: pulse-glow-success 0.3s infinite alternate;
 }
 
 @keyframes pulse-glow-success {
-  0% { opacity: 0.4; }
-  100% { opacity: 1; text-shadow: 0 0 10px var(--accent-success); }
+  0% { opacity: 0.5; text-shadow: 0 0 2px var(--neon-cyan); }
+  100% { opacity: 1; text-shadow: 0 0 14px var(--neon-cyan-glow), 0 0 20px var(--neon-cyan); }
 }
 
 /* Mechanical Cabinet Footer */
 .cabinet-footer-panel {
   width: 100%;
-  height: 48px;
-  background: linear-gradient(180deg, #06080c 0%, #10121a 100%);
-  border-top: 2px solid #1c202d;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.65);
+  height: 60px;
+  background: linear-gradient(180deg, #06010c 0%, #120024 100%);
+  border-top: 2px solid var(--neon-cyan);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7701,12 +7722,12 @@ body,
   display: flex;
   gap: 8px;
   font-weight: bold;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
 }
 
 .hud-bottom {
   position: absolute;
-  bottom: 60px;
+  bottom: 74px;
   left: 0;
   right: 0;
   display: flex;
@@ -7730,9 +7751,9 @@ body,
 }
 
 .hp-active {
-  background: var(--accent-success);
-  border-color: var(--accent-success);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+  background: var(--neon-cyan);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan-glow);
 }
 
 .hud-bar-track {
@@ -7748,7 +7769,7 @@ body,
   width: 100%;
   transform: scaleX(0);
   transform-origin: left;
-  background: var(--accent-danger);
+  background: var(--neon-pink);
   transition:
     transform 0.15s ease,
     background-color 0.15s ease;
@@ -7756,22 +7777,24 @@ body,
 
 .hud-hint {
   font-size: 10px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.2em;
   color: var(--text-muted);
   opacity: 0;
   transition: opacity 0.2s ease;
   text-align: center;
-  font-weight: 700;
-  background: rgba(5, 5, 6, 0.8);
-  padding: 4px 12px;
-  border-radius: 4px;
+  font-weight: 900;
+  background: rgba(10, 4, 20, 0.95);
+  border: 1px solid var(--neon-pink);
+  padding: 6px 16px;
+  border-radius: 2px;
+  box-shadow: 0 0 12px rgba(255, 0, 127, 0.25);
 }
 
-/* Master Overlay System */
+/* Master Overlay System with High-Gloss wet look */
 .overlay-root {
   position: absolute;
   inset: 0;
-  background: rgba(5, 5, 6, 0.0);
+  background: rgba(5, 2, 9, 0.0);
   backdrop-filter: blur(0px);
   display: flex;
   flex-direction: column;
@@ -7780,80 +7803,96 @@ body,
   z-index: 99;
   padding: 24px;
   box-sizing: border-box;
-  transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto !important;
 }
 
 .backdrop-wipe-active {
-  background: rgba(5, 5, 6, 0.94) !important;
-  backdrop-filter: blur(12px) !important;
+  background: rgba(10, 4, 20, 0.94) !important;
+  backdrop-filter: blur(16px) !important;
 }
 
-/* Elevated Neomorphic Modals */
+/* Frisket-Stencil sharp edge borders and airbrush glow backing */
 .overlay-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: clamp(24px, 5vmin, 44px) !important;
-  border-radius: 20px !important;
-  background: rgba(12, 14, 18, 0.98) !important;
+  border-radius: 4px !important;
+  background: rgba(13, 3, 28, 0.98) !important;
   width: 90% !important;
   max-width: 440px !important;
   box-sizing: border-box;
   text-align: center;
   transform: scale(0.9);
   opacity: 0;
-  animation: modal-slide-up 0.5s cubic-bezier(0.25, 1.0, 0.25, 1.15) forwards;
-  border: 2px solid rgba(255, 255, 255, 0.02);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85);
+  animation: modal-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  border: 1px solid #ffffff;
+  box-shadow: 
+    -2px -2px 0px rgba(255, 255, 255, 0.95),
+    0 0 35px rgba(26, 0, 51, 0.8),
+    0 15px 50px rgba(0, 0, 0, 0.95);
 }
 
 @keyframes modal-slide-up {
-  0% { transform: scale(0.9); opacity: 0; }
+  0% { transform: scale(0.92); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
 
 .victory-border {
-  border: 2px solid rgba(34, 197, 94, 0.35) !important;
-  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
+  border: 1px solid var(--neon-cyan) !important;
+  box-shadow: 
+    -1px -1px 0px #ffffff,
+    0 0 30px rgba(0, 240, 255, 0.35), 
+    inset 0 0 20px rgba(0, 240, 255, 0.15) !important;
 }
 
 .defeat-border {
-  border: 2px solid rgba(239, 68, 68, 0.35) !important;
-  box-shadow: 0 0 30px rgba(239, 68, 68, 0.15), inset 0 0 20px rgba(239, 68, 68, 0.1) !important;
+  border: 1px solid var(--neon-pink) !important;
+  box-shadow: 
+    -1px -1px 0px #ffffff,
+    0 0 30px rgba(255, 0, 127, 0.35), 
+    inset 0 0 20px rgba(255, 0, 127, 0.15) !important;
 }
 
 .start-screen-modal {
-  border: 2px solid rgba(34, 197, 94, 0.35) !important;
-  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
-  background: rgba(12, 14, 18, 0.98) !important;
-  padding: 40px !important;
+  border: 1px solid var(--neon-cyan) !important;
+  box-shadow: 
+    -1px -1px 0px #ffffff,
+    0 0 30px rgba(0, 240, 255, 0.3), 
+    inset 0 0 20px rgba(0, 240, 255, 0.15) !important;
+  background: rgba(10, 4, 20, 0.98) !important;
 }
 
 .paused-border {
-  border: 2px solid rgba(234, 179, 8, 0.35) !important;
-  box-shadow: 0 0 30px rgba(234, 179, 8, 0.15), inset 0 0 20px rgba(234, 179, 8, 0.1) !important;
-  background: rgba(12, 14, 18, 0.98) !important;
-  padding: 40px !important;
+  border: 1px solid var(--sulfur-yellow) !important;
+  box-shadow: 
+    -1px -1px 0px #ffffff,
+    0 0 30px rgba(223, 254, 0, 0.3), 
+    inset 0 0 20px rgba(223, 254, 0, 0.15) !important;
+  background: rgba(10, 4, 20, 0.98) !important;
 }
 
 .paused-title-glow {
-  text-shadow: 0 0 15px var(--signal-yellow-glow), -2px 0 var(--signal-yellow), 2px 0 #0000ff;
+  text-shadow: 
+    0 0 15px var(--sulfur-yellow-glow), 
+    -2px 0 var(--neon-pink), 
+    2px 0 var(--neon-cyan);
 }
 
 .overlay-title {
-  font-size: 24px;
+  font-size: 26px;
   margin: 0;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.35em;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .overlay-divider {
-  height: 2px;
-  width: 60px;
-  background: rgba(255, 255, 255, 0.08);
+  height: 1px;
+  width: 80px;
+  background: linear-gradient(90deg, transparent, var(--neon-pink), transparent);
   margin: 20px 0;
 }
 
@@ -7861,7 +7900,7 @@ body,
   font-size: 11px;
   color: var(--text-muted);
   margin: 0;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
@@ -7869,13 +7908,13 @@ body,
 .gameover-stat-card {
   width: 100%;
   margin-top: 24px;
-  padding: 16px 20px;
-  background: rgba(7, 8, 11, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
+  padding: 18px 22px;
+  background: rgba(5, 2, 9, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   box-sizing: border-box;
 }
 
@@ -7886,28 +7925,28 @@ body,
 }
 
 .gameover-stat-label {
-  font-size: 11px;
-  color: #718096;
-  font-weight: bold;
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  color: var(--neon-cyan);
+  font-weight: 900;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
 .gameover-stat-value {
-  font-size: 15px;
-  font-weight: bold;
+  font-size: 16px;
+  font-weight: 900;
   font-family: monospace;
 }
 
 /* Box Battle Color Matching Numbers */
 .gameover-stat-win {
-  color: var(--signal-green) !important;
-  text-shadow: 0 0 8px var(--signal-green-glow);
+  color: var(--neon-cyan) !important;
+  text-shadow: 0 0 10px var(--neon-cyan-glow);
 }
 
 .gameover-stat-loss {
-  color: var(--signal-red) !important;
-  text-shadow: 0 0 8px var(--signal-red-glow);
+  color: var(--neon-pink) !important;
+  text-shadow: 0 0 10px var(--neon-pink-glow);
 }
 
 .gameover-btn {
@@ -7915,19 +7954,19 @@ body,
   align-items: center;
   justify-content: center;
   width: 100%;
-  background: #0f1218;
+  background: #110324;
   box-shadow:
-    -2px -2px 6px rgba(255, 255, 255, 0.01),
-    4px 4px 10px rgba(0, 0, 0, 0.8),
-    inset 1px 1px 0px rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+    -1px -1px 0px rgba(255, 255, 255, 0.15),
+    4px 4px 12px rgba(0, 0, 0, 0.9),
+    inset 1px 1px 0px rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
   padding: 16px 24px;
-  border-radius: 8px;
+  border-radius: 2px;
   cursor: pointer;
-  color: #a0aec0;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.15em;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.25em;
   text-transform: uppercase;
   transition: all 0.15s ease;
   outline: none;
@@ -7938,10 +7977,10 @@ body,
 .gameover-inline-arrow {
   display: inline-block;
   font-family: monospace;
-  font-weight: bold;
-  animation: arrow-blink 0.4s infinite alternate;
+  font-weight: 900;
+  animation: arrow-blink 0.35s infinite alternate;
   color: inherit;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -7958,88 +7997,100 @@ body,
 
 .gameover-btn-victory-hover:hover,
 .gameover-btn-victory-focused {
-  background: #0c0e12 !important;
-  border-color: var(--signal-green) !important;
+  background: #001f24 !important;
+  border-color: var(--neon-cyan) !important;
   color: #ffffff !important;
   box-shadow:
-    0 0 15px rgba(34, 197, 94, 0.25),
-    inset 0 0 8px rgba(34, 197, 94, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
+    0 0 18px rgba(0, 240, 255, 0.35),
+    inset 0 0 8px rgba(0, 240, 255, 0.15),
+    4px 4px 14px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6) !important;
 }
 
 .gameover-btn-defeat-hover:hover,
 .gameover-btn-defeat-focused {
-  background: #0c0e12 !important;
-  border-color: var(--signal-red) !important;
+  background: #240012 !important;
+  border-color: var(--neon-pink) !important;
   color: #ffffff !important;
   box-shadow:
-    0 0 15px rgba(239, 68, 68, 0.25),
-    inset 0 0 8px rgba(239, 68, 68, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
+    0 0 18px rgba(255, 0, 127, 0.35),
+    inset 0 0 8px rgba(255, 0, 127, 0.15),
+    4px 4px 14px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(255, 0, 127, 0.6) !important;
 }
 
 .gameover-btn-paused-hover:hover,
 .gameover-btn-paused-focused {
-  background: #0c0e12 !important;
-  border-color: var(--signal-yellow) !important;
+  background: #242200 !important;
+  border-color: var(--sulfur-yellow) !important;
   color: #ffffff !important;
   box-shadow:
-    0 0 15px rgba(234, 179, 8, 0.25),
-    inset 0 0 8px rgba(234, 179, 8, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
+    0 0 18px rgba(223, 254, 0, 0.35),
+    inset 0 0 8px rgba(223, 254, 0, 0.15),
+    4px 4px 14px rgba(0, 0, 0, 0.95) !important;
+  text-shadow: 0 0 8px rgba(223, 254, 0, 0.6) !important;
 }
 
 .gameover-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
-/* LED Matrix System */
+/* LED Matrix System resembling gel buttons */
 .led-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 25%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
   transition: all 0.2s ease;
+  position: relative;
+}
+
+.led-dot::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
 }
 
 .led-green {
-  background: var(--signal-green) !important;
+  background: var(--neon-cyan) !important;
   box-shadow:
-    0 0 8px var(--signal-green),
-    0 0 16px var(--signal-green-glow) !important;
+    0 0 10px var(--neon-cyan),
+    0 0 20px var(--neon-cyan-glow) !important;
 }
 
 .led-red {
-  background: var(--signal-red) !important;
+  background: var(--neon-pink) !important;
   box-shadow:
-    0 0 8px var(--signal-red),
-    0 0 16px var(--signal-red-glow) !important;
+    0 0 10px var(--neon-pink),
+    0 0 20px var(--neon-pink-glow) !important;
 }
 
 .led-yellow {
-  background: var(--signal-yellow) !important;
+  background: var(--sulfur-yellow) !important;
   box-shadow:
-    0 0 8px var(--signal-yellow),
-    0 0 16px var(--signal-yellow-glow) !important;
+    0 0 10px var(--sulfur-yellow),
+    0 0 20px var(--sulfur-yellow-glow) !important;
 }
 
 /* Core Animations */
 @keyframes led-squash-spring {
   0% { transform: scale(1); }
-  25% { transform: scale(1.18, 0.82); filter: brightness(1.2); }
-  60% { transform: scale(0.92, 1.08); }
+  25% { transform: scale(1.22, 0.78); filter: brightness(1.3); }
+  60% { transform: scale(0.9, 1.1); }
   100% { transform: scale(1); }
 }
 .led-spring-impact {
-  animation: led-squash-spring 0.38s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  animation: led-squash-spring 0.38s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 @keyframes led-elastic-pop {
   0% { transform: scale(0.3); opacity: 0; }
-  55% { transform: scale(1.35); filter: brightness(1.3); }
-  80% { transform: scale(0.95); }
+  55% { transform: scale(1.4); filter: brightness(1.35); }
+  80% { transform: scale(0.92); }
   100% { transform: scale(1); opacity: 1; }
 }
 .led-elastic-spring {
@@ -8048,51 +8099,51 @@ body,
 
 @keyframes stress-shiver {
   0%, 100% { transform: translate(0, 0); }
-  20% { transform: translate(-1.2px, 0.8px); filter: brightness(1.15); }
-  40% { transform: translate(1.2px, -0.8px); }
-  60% { transform: translate(-0.8px, -1.2px); }
-  80% { transform: translate(0.8px, 1.2px); }
+  20% { transform: translate(-1.5px, 1px); filter: brightness(1.2); }
+  40% { transform: translate(1.5px, -1px); }
+  60% { transform: translate(-1px, -1.5px); }
+  80% { transform: translate(1px, 1.5px); }
 }
 .hud-stress-shiver {
-  animation: stress-shiver 0.12s infinite linear !important;
+  animation: stress-shiver 0.1s infinite linear !important;
 }
 
 @keyframes text-chromatic-flicker-green {
-  0%, 100% { text-shadow: 0 0 15px rgba(16, 185, 129, 0.6), -2px 0 #00ff00, 2px 0 #0000ff; }
-  50% { text-shadow: 0 0 8px rgba(16, 185, 129, 0.2), -1px 0 #00ff00, 1px 0 #0000ff; filter: brightness(0.95); }
-  92% { text-shadow: 0 0 25px rgba(16, 185, 129, 0.95), -3px 0 #00ff00, 3px 0 #0000ff; filter: brightness(1.1); }
+  0%, 100% { text-shadow: 0 0 15px rgba(0, 240, 255, 0.6), -2px 0 var(--neon-cyan), 2px 0 var(--neon-pink); }
+  50% { text-shadow: 0 0 8px rgba(0, 240, 255, 0.2), -1px 0 var(--neon-cyan), 1px 0 var(--neon-pink); filter: brightness(0.95); }
+  92% { text-shadow: 0 0 25px rgba(0, 240, 255, 0.95), -3px 0 var(--neon-cyan), 3px 0 var(--neon-pink); filter: brightness(1.15); }
 }
 .victory-title-anim {
-  animation: text-chromatic-flicker-green 2.5s infinite ease-in-out;
+  animation: text-chromatic-flicker-green 2s infinite ease-in-out;
 }
 
 @keyframes text-chromatic-flicker-red {
-  0%, 100% { text-shadow: 0 0 15px rgba(239, 68, 68, 0.6), -2px 0 #ff0000, 2px 0 #0000ff; }
-  45% { text-shadow: 0 0 6px rgba(239, 68, 68, 0.2), -1px 0 #ff0000, 1px 0 #0000ff; filter: brightness(0.9); }
-  85% { text-shadow: 0 0 22px rgba(239, 68, 68, 0.95), -4px 0 #ff0000, 4px 0 #0000ff; filter: brightness(1.2); }
+  0%, 100% { text-shadow: 0 0 15px rgba(255, 0, 127, 0.6), -2px 0 var(--neon-pink), 2px 0 var(--neon-cyan); }
+  45% { text-shadow: 0 0 6px rgba(255, 0, 127, 0.2), -1px 0 var(--neon-pink), 1px 0 var(--neon-cyan); filter: brightness(0.9); }
+  85% { text-shadow: 0 0 22px rgba(255, 0, 127, 0.95), -4px 0 var(--neon-pink), 4px 0 var(--neon-cyan); filter: brightness(1.2); }
 }
 .defeat-title-anim {
-  animation: text-chromatic-flicker-red 2.2s infinite ease-in-out;
+  animation: text-chromatic-flicker-red 1.8s infinite ease-in-out;
 }
 
 @keyframes victory-spin-glow {
-  0% { transform: scale(0.3) rotate(0deg); filter: drop-shadow(0 0 5px var(--accent-success)); opacity: 0; }
-  70% { transform: scale(1.1) rotate(370deg); filter: drop-shadow(0 0 20px var(--accent-success)); opacity: 0.9; }
-  100% { transform: scale(1) rotate(360deg); filter: drop-shadow(0 0 10px var(--accent-success)); opacity: 1; }
+  0% { transform: scale(0.3) rotate(0deg); filter: drop-shadow(0 0 5px var(--neon-cyan)); opacity: 0; }
+  70% { transform: scale(1.1) rotate(370deg); filter: drop-shadow(0 0 20px var(--neon-cyan)); opacity: 0.9; }
+  100% { transform: scale(1) rotate(360deg); filter: drop-shadow(0 0 10px var(--neon-cyan)); opacity: 1; }
 }
 .victory-icon-anim {
   animation: victory-spin-glow 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 @keyframes defeat-shiver-glow {
-  0%, 100% { transform: translate(0, 0) scale(1); filter: drop-shadow(0 0 5px var(--accent-danger)); opacity: 1; }
-  20% { transform: translate(-1.5px, 1px) rotate(-1.5deg) scale(1.05); }
-  40% { transform: translate(1.5px, -1px) rotate(2deg); filter: drop-shadow(0 0 16px var(--accent-danger)); }
-  60% { transform: translate(-1.5px, -1px) rotate(-1.5deg); }
-  80% { transform: translate(1.5px, 1.5px) rotate(1deg); }
+  0%, 100% { transform: translate(0, 0) scale(1); filter: drop-shadow(0 0 5px var(--neon-pink)); opacity: 1; }
+  20% { transform: translate(-2px, 1.5px) rotate(-1.5deg) scale(1.05); }
+  40% { transform: translate(2px, -1.5px) rotate(2deg); filter: drop-shadow(0 0 16px var(--neon-pink)); }
+  60% { transform: translate(-2px, -1.5px) rotate(-1.5deg); }
+  80% { transform: translate(2px, 2px) rotate(1deg); }
 }
 .defeat-icon-anim {
-  animation: defeat-shiver-glow 0.22s infinite linear;
+  animation: defeat-shiver-glow 0.2s infinite linear;
 }
 
 @keyframes bounce-short {
@@ -8104,7 +8155,7 @@ body,
 }
 
 .gameover-stat-card {
-  animation: stats-card-entry 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  animation: stats-card-entry 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes stats-card-entry {
@@ -8124,12 +8175,11 @@ body,
   }
 }
 
-
 /* Box Battle Style Structural Overrides */
 .gameover-divider {
   height: 1px;
-  width: 60px;
-  background: rgba(255, 255, 255, 0.08);
+  width: 80px;
+  background: rgba(255, 255, 255, 0.1);
   margin: 20px 0;
 }
 
@@ -8143,49 +8193,16 @@ body,
 
 .neo-btn.gameover-btn {
   flex: 1;
-  padding: 12px 18px;
-  font-size: 13px;
-  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 11px;
+  border-radius: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px; /* Comfortable gap space between icon and text */
-  letter-spacing: 0.1em;
+  gap: 8px;
+  letter-spacing: 0.15em;
   height: auto;
   min-height: 0;
-}
-
-.gameover-btn-victory-focused {
-  background: #0c0e12 !important;
-  border-color: var(--signal-green) !important;
-  color: #ffffff !important;
-  box-shadow:
-    0 0 15px rgba(34, 197, 94, 0.25),
-    inset 0 0 8px rgba(34, 197, 94, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
-}
-
-.gameover-btn-defeat-focused {
-  background: #0c0e12 !important;
-  border-color: var(--signal-red) !important;
-  color: #ffffff !important;
-  box-shadow:
-    0 0 15px rgba(239, 68, 68, 0.25),
-    inset 0 0 8px rgba(239, 68, 68, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
-}
-
-.gameover-btn-paused-focused {
-  background: #0c0e12 !important;
-  border-color: var(--signal-yellow) !important;
-  color: #ffffff !important;
-  box-shadow:
-    0 0 15px rgba(234, 179, 8, 0.25),
-    inset 0 0 8px rgba(234, 179, 8, 0.1),
-    4px 4px 12px rgba(0, 0, 0, 0.95) !important;
-  text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
 }
 
 /* Box Battle style LED Damage Shaking/Decay animation */
@@ -8193,11 +8210,11 @@ body,
   0% {
     transform: translate(2px, 2px) scale(1.3) rotate(5deg);
     filter: brightness(1.9) saturate(2);
-    background: #ef4444;
+    background: var(--neon-pink);
   }
   20% {
     transform: translate(-3px, -2px) scale(1.1) rotate(-8deg);
-    background: #ef4444;
+    background: var(--neon-pink);
   }
   40% {
     transform: translate(-2px, 2px) scale(1) rotate(8deg);
@@ -8214,26 +8231,26 @@ body,
 }
 
 .led-shaking-die {
-  animation: led-shake-die-decay 0.45s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  animation: led-shake-die-decay 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 /* Neomorphic Utility Classes */
 .neo-elevated {
-  background: var(--surface-elevated) !important;
+  background: var(--bg-elevated) !important;
   box-shadow: var(--shadow-light), var(--shadow-dark) !important;
-  border: 1px solid rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 .neo-pressed {
-  background: var(--surface-bg) !important;
+  background: var(--bg-void) !important;
   box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark) !important;
-  border: 1px solid rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(0, 0, 0, 0.5) !important;
 }
 
 /* Progressive blur overlay for seamless immediate startup */
 .backdrop-wipe-gesture {
-  background: rgba(5, 5, 6, 0.25) !important;
-  backdrop-filter: blur(2px) !important;
+  background: rgba(10, 4, 20, 0.35) !important;
+  backdrop-filter: blur(4px) !important;
 }
 
 
@@ -9110,14 +9127,14 @@ export const HudOverlay: React.FC = () => {
   const displayTensionPercent = Math.round(clampedTension * 100);
   const tensionScaleX = clampedTension / snapLimit;
 
-  let tensionBarColor = "rgb(16, 185, 129)";
-  let tensionTextColor = "rgb(244, 244, 245)";
+  let tensionBarColor = "var(--neon-cyan)";
+  let tensionTextColor = "#ffffff";
   if (clampedTension >= 1.0) {
-    tensionBarColor = "rgb(239, 68, 68)";
-    tensionTextColor = "rgb(239, 68, 68)";
+    tensionBarColor = "var(--neon-pink)";
+    tensionTextColor = "var(--neon-pink)";
   } else if (clampedTension >= 0.75) {
-    tensionBarColor = "rgb(245, 158, 11)";
-    tensionTextColor = "rgb(245, 158, 11)";
+    tensionBarColor = "var(--sulfur-yellow)";
+    tensionTextColor = "var(--sulfur-yellow)";
   }
 
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
@@ -9163,9 +9180,9 @@ export const HudOverlay: React.FC = () => {
       ) : (
         <div className="hud-root select-none pointer-events-none">
           <div className={`cabinet-header-panel ${isCriticalHp || hurtShakeActive ? "hud-stress-shiver" : ""}`}>
-            <div className="header-left flex flex-col gap-1.5">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-green)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                <Heart size={13} fill="var(--signal-green)" style={{ color: "var(--signal-green)", flexShrink: 0 }} /> HP
+            <div className="header-left flex flex-col gap-1">
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--neon-cyan)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                [+] <Heart size={11} fill="var(--neon-cyan)" style={{ color: "var(--neon-cyan)", flexShrink: 0 }} /> HP
               </span>
               <div className="hud-hp-row" style={{ display: "flex", gap: "6px" }}>
                 {[...Array(5)].map((_, i) => {
@@ -9176,7 +9193,7 @@ export const HudOverlay: React.FC = () => {
                       className={`led-dot ${isLit ? "led-green" : ""} ${hpAnims[i]}`}
                       style={{
                         border: "1px solid rgba(0,0,0,0.6)",
-                        background: isLit ? undefined : "#07080b",
+                        background: isLit ? undefined : "#0a0414",
                         width: "14px",
                         height: "14px"
                       }}
@@ -9196,30 +9213,30 @@ export const HudOverlay: React.FC = () => {
               )}
             </div>
 
-            <div className="header-right flex flex-col items-end gap-1.5">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-red)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                <Skull size={13} fill="var(--signal-red)" style={{ color: "var(--signal-red)", flexShrink: 0 }} /> BOSS
+            <div className="header-right flex flex-col items-end gap-1">
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--neon-pink)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                <Skull size={11} fill="var(--neon-pink)" style={{ color: "var(--neon-pink)", flexShrink: 0 }} /> BOSS [-]
               </span>
               <div
                 className="neo-pressed"
                 style={{
                   width: "140px",
                   height: "12px",
-                  borderRadius: "6px",
+                  borderRadius: "2px",
                   padding: "2px",
                   boxSizing: "border-box",
                   overflow: "hidden",
-                  background: "#07080b",
-                  border: "1px solid rgba(0,0,0,0.4)"
+                  background: "#0a0414",
+                  border: "1px solid var(--border-subtle)"
                 }}
               >
                 <div
                   className={weaverHp > 0 ? "led-red" : ""}
                   style={{
                     height: "100%",
-                    borderRadius: "4px",
+                    borderRadius: "1px",
                     width: `${(weaverHpRatio * 100).toFixed(1)}%`,
-                    transition: "width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
+                    transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
                   }}
                 />
               </div>
@@ -9239,10 +9256,10 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className={`flex flex-col items-center gap-2 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
+            <div className={`flex flex-col items-center gap-1.5 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
               <div className="flex justify-between w-full font-bold" style={{ padding: "0 4px", alignItems: "center" }}>
-                <span style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>TENSION</span>
-                <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>
+                <span style={{ color: "var(--neon-cyan)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.25em", textTransform: "uppercase" }}>|||||| TENSION</span>
+                <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "13px", fontWeight: "900", letterSpacing: "0.05em" }}>
                   {displayTensionPercent}%
                 </span>
               </div>
@@ -9251,22 +9268,22 @@ export const HudOverlay: React.FC = () => {
                 style={{
                   width: "100%",
                   height: "14px",
-                  borderRadius: "7px",
+                  borderRadius: "2px",
                   padding: "2px",
                   boxSizing: "border-box",
                   overflow: "hidden",
-                  background: "#07080b",
-                  border: "1px solid rgba(0,0,0,0.4)"
+                  background: "#0a0414",
+                  border: "1px solid var(--border-subtle)"
                 }}
               >
                 <div
                   style={{
                     height: "100%",
-                    borderRadius: "5px",
+                    borderRadius: "1px",
                     width: `${(tensionScaleX * 100).toFixed(1)}%`,
-                    transition: "width 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
+                    transition: "width 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
                     background: tensionBarColor,
-                    boxShadow: `0 0 8px ${tensionBarColor}`
+                    boxShadow: `0 0 10px ${tensionBarColor}`
                   }}
                 />
               </div>
@@ -9291,19 +9308,19 @@ export const HudOverlay: React.FC = () => {
                   initial={{ opacity: 0, y: -20, scale: 0.8 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                  className="flex-col-center mb-2"
+                  className="flex flex-col items-center mb-2"
                 >
                   {overlayTitle === "DEFEATED" ? (
                     <Skull
                       size={48}
                       className="defeat-icon-anim"
-                      style={{ color: "var(--accent-danger)", filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))" }}
+                      style={{ color: "var(--neon-pink)", filter: "drop-shadow(0 0 12px var(--neon-pink-glow))" }}
                     />
                   ) : (
                     <Trophy
                       size={48}
                       className="victory-icon-anim"
-                      style={{ color: "var(--accent-success)", filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))" }}
+                      style={{ color: "var(--neon-cyan)", filter: "drop-shadow(0 0 12px var(--neon-cyan-glow))" }}
                     />
                   )}
                   <h1
@@ -9396,10 +9413,10 @@ export const HudOverlay: React.FC = () => {
       {isPaused && !isBooting && !awaitingGesture && (
         <div
           className="overlay-root font-mono pointer-events-auto flex items-center justify-center"
-          style={{ background: "rgba(12, 13, 17, 0.65)" }}
+          style={{ background: "rgba(10, 4, 20, 0.75)" }}
         >
           <div className="flex flex-col items-center justify-center text-center animate-bounce-short">
-            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--accent-tension)" }}>
+            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--sulfur-yellow)" }}>
               PAUSED
             </h1>
             <p className="text-[11px] text-zinc-400 tracking-[0.15em] uppercase mt-2">
@@ -9908,8 +9925,8 @@ export class LightingSystem implements ISystem {
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
-  private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
-  private currentColor = new BABYLON.Color3(0.3, 0.3, 0.4);
+  private targetColor = new BABYLON.Color3(0.0, 0.94, 1.0); 
+  private currentColor = new BABYLON.Color3(0.0, 0.94, 1.0);
 
   private flashTimer = 0.0;
   private isFlashing = false;
@@ -9925,10 +9942,10 @@ export class LightingSystem implements ISystem {
       new BABYLON.Vector3(0, 5, -5),
       scene
     );
-    this.weaverLight.intensity = 1.35;
+    this.weaverLight.intensity = 2.0; 
     this.weaverLight.range = 18.0;
     this.weaverLight.diffuse = this.currentColor;
-    this.weaverLight.specular = this.currentColor;
+    this.weaverLight.specular = new BABYLON.Color3(1.0, 1.0, 1.0); // Neutral specular highlight
 
     this.weaverKeyLight = new BABYLON.SpotLight(
       "weaverCarapaceKeyLight",
@@ -9938,19 +9955,19 @@ export class LightingSystem implements ISystem {
       2.4,
       scene
     );
-    this.weaverKeyLight.intensity = 2.15;
+    this.weaverKeyLight.intensity = 3.0; 
     this.weaverKeyLight.range = 28.0;
-    this.weaverKeyLight.diffuse = new BABYLON.Color3(0.78, 0.88, 1.0);
-    this.weaverKeyLight.specular = new BABYLON.Color3(0.95, 0.82, 1.0);
+    this.weaverKeyLight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    this.weaverKeyLight.specular = new BABYLON.Color3(1.0, 1.0, 1.0); // Neutral specular highlight
 
     this.rimLight = new BABYLON.DirectionalLight(
       "rimLight",
       new BABYLON.Vector3(-0.22, 0.28, -0.94),
       scene
     );
-    this.rimLight.intensity = 1.05;
-    this.rimLight.diffuse = new BABYLON.Color3(0.68, 0.86, 1.0);
-    this.rimLight.specular = new BABYLON.Color3(0.82, 0.92, 1.0);
+    this.rimLight.intensity = 1.8;
+    this.rimLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0);
+    this.rimLight.specular = new BABYLON.Color3(1.0, 1.0, 1.0); // Neutral specular highlight
 
     this.unsub = this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
       this.setWeaverPhaseHue(payload.hue);
@@ -10005,16 +10022,16 @@ export class LightingSystem implements ISystem {
     }
 
     this.weaverLight.diffuse.copyFrom(this.currentColor);
-    this.weaverLight.specular.copyFrom(this.currentColor);
+    // Removed specular color mutation to keep highlight output pristine white
     if (this.weaverKeyLight) {
-      this.weaverKeyLight.intensity = this.isFlashing ? 2.8 : 2.15;
+      this.weaverKeyLight.intensity = this.isFlashing ? 4.5 : 3.0;
     }
   }
 
   private triggerFlash(): void {
     this.isFlashing = true;
     this.flashTimer = 0.6;
-    this.currentColor.set(2.0, 2.0, 2.0);
+    this.currentColor.set(3.0, 3.0, 3.0);
   }
 
   private setWeaverPhaseHue(colorHex: string): void {
@@ -10605,9 +10622,9 @@ export function decoratePlayerSilkVisual(
   );
   innerBody.position.set(0, 0, 0);
   const innerMat = new BABYLON.PBRMaterial("playerInnerMat", scene);
-  innerMat.albedoColor = new BABYLON.Color3(0.08, 0.07, 0.1);
-  innerMat.roughness = 0.85;
-  innerMat.metallic = 0.1;
+  innerMat.albedoColor = new BABYLON.Color3(0.04, 0.01, 0.08); 
+  innerMat.roughness = 0.95;
+  innerMat.metallic = 0.05;
   innerBody.material = innerMat;
   innerBody.parent = pMesh;
 
@@ -10625,18 +10642,18 @@ export function decoratePlayerSilkVisual(
   const textureGen = new ProceduralTextureGenerator();
 
   const silkMat = new BABYLON.PBRMaterial("playerSilkMat", scene);
-  silkMat.metallic = 0.0;
-  silkMat.roughness = 0.85;
-  silkMat.albedoColor = new BABYLON.Color3(0.93, 0.95, 0.96);
+  silkMat.metallic = 0.92; 
+  silkMat.roughness = 0.08;
+  silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0); 
 
   textureGen.generatePBRTextures("silkFiber", scene, {
     resolution: 512,
     noiseScale: 40.0,
     bumpStrength: 3.2,
-    baseColor: new BABYLON.Color3(0.93, 0.95, 0.96),
-    roughnessMin: 0.72,
-    roughnessMax: 0.98,
-    metallic: 0.0
+    baseColor: new BABYLON.Color3(0.95, 0.95, 1.0),
+    roughnessMin: 0.05,
+    roughnessMax: 0.12,
+    metallic: 0.92
   }).then((silkTexs) => {
     silkMat.albedoTexture = silkTexs.albedo;
     silkMat.bumpTexture = silkTexs.normal;
@@ -10648,10 +10665,10 @@ export function decoratePlayerSilkVisual(
   });
 
   silkMat.sheen.isEnabled = true;
-  silkMat.sheen.intensity = 0.8;
-  silkMat.sheen.roughness = 0.45;
-  silkMat.sheen.color = new BABYLON.Color3(0.98, 0.96, 0.9);
-  silkMat.emissiveColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+  silkMat.sheen.intensity = 0.95;
+  silkMat.sheen.roughness = 0.05;
+  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0); // Neutral white sheen reflection
+  silkMat.emissiveColor = new BABYLON.Color3(0.1, 0.0, 0.2);
   silkMat.enableSpecularAntiAliasing = true;
   silkMat.forceIrradianceInFragment = true;
 
@@ -10660,18 +10677,18 @@ export function decoratePlayerSilkVisual(
 
   const bandCount = 7;
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
-  bandMat.metallic = 0.05;
-  bandMat.roughness = 0.9;
-  bandMat.albedoColor = new BABYLON.Color3(0.85, 0.88, 0.9);
+  bandMat.metallic = 0.95;
+  bandMat.roughness = 0.06;
+  bandMat.albedoColor = new BABYLON.Color3(0.0, 0.94, 1.0); 
 
   textureGen.generatePBRTextures("silkBand", scene, {
     resolution: 256,
     noiseScale: 30.0,
     bumpStrength: 2.8,
-    baseColor: new BABYLON.Color3(0.85, 0.88, 0.9),
-    roughnessMin: 0.75,
-    roughnessMax: 0.95,
-    metallic: 0.0
+    baseColor: new BABYLON.Color3(0.0, 0.94, 1.0),
+    roughnessMin: 0.04,
+    roughnessMax: 0.1,
+    metallic: 0.95
   }).then((bandTexs) => {
     bandMat.albedoTexture = bandTexs.albedo;
     bandMat.bumpTexture = bandTexs.normal;
@@ -10683,7 +10700,7 @@ export function decoratePlayerSilkVisual(
   });
 
   bandMat.sheen.isEnabled = true;
-  bandMat.sheen.intensity = 0.6;
+  bandMat.sheen.intensity = 0.85;
   bandMat.enableSpecularAntiAliasing = true;
   bandMat.forceIrradianceInFragment = true;
 
@@ -10830,18 +10847,18 @@ export function decorateWeaverVisual(
   const textureGen = new ProceduralTextureGenerator();
 
   const carapaceMat = new BABYLON.PBRMaterial("carapaceMat", scene) as CustomPBRMaterial;
-  carapaceMat.metallic = 0.45;
-  carapaceMat.roughness = 0.65;
-  carapaceMat.albedoColor = new BABYLON.Color3(0.09, 0.07, 0.11);
+  carapaceMat.metallic = 0.98; // Pure glossy mirror metal
+  carapaceMat.roughness = 0.06; // Highly reflective
+  carapaceMat.albedoColor = new BABYLON.Color3(0.12, 0.0, 0.22); // Deep violet core
 
   textureGen.generatePBRTextures("carapaceShell", scene, {
     resolution: 512,
     noiseScale: 18.0,
     bumpStrength: 1.65,
-    baseColor: new BABYLON.Color3(0.075, 0.055, 0.095),
-    roughnessMin: 0.5,
-    roughnessMax: 0.82,
-    metallic: 0.32,
+    baseColor: new BABYLON.Color3(0.12, 0.0, 0.22),
+    roughnessMin: 0.05,
+    roughnessMax: 0.15,
+    metallic: 0.98,
     ridgeStrength: 0.13,
     ridgeScale: 0.54,
     ridgeDirectionX: 0.25,
@@ -10858,8 +10875,8 @@ export function decorateWeaverVisual(
   });
 
   carapaceMat.clearCoat.isEnabled = true;
-  carapaceMat.clearCoat.intensity = 0.35;
-  carapaceMat.clearCoat.roughness = 0.4;
+  carapaceMat.clearCoat.intensity = 0.95; // Polished clearcoat varnish layer
+  carapaceMat.clearCoat.roughness = 0.02;
   carapaceMat.enableSpecularAntiAliasing = true;
   carapaceMat.forceIrradianceInFragment = true;
 
@@ -10867,18 +10884,18 @@ export function decorateWeaverVisual(
   carapaceMat._shearPlugin = shearPluginCarapace;
 
   const shellMat = new BABYLON.PBRMaterial("carapaceUpperMat", scene) as CustomPBRMaterial;
-  shellMat.metallic = 0.4;
-  shellMat.roughness = 0.7;
-  shellMat.albedoColor = new BABYLON.Color3(0.13, 0.09, 0.18);
+  shellMat.metallic = 0.95;
+  shellMat.roughness = 0.08;
+  shellMat.albedoColor = new BABYLON.Color3(0.2, 0.0, 0.35); // Gelled violet plate
 
   textureGen.generatePBRTextures("carapaceUpper", scene, {
     resolution: 512,
     noiseScale: 16.0,
     bumpStrength: 1.85,
-    baseColor: new BABYLON.Color3(0.12, 0.075, 0.16),
-    roughnessMin: 0.48,
-    roughnessMax: 0.8,
-    metallic: 0.28,
+    baseColor: new BABYLON.Color3(0.2, 0.0, 0.35),
+    roughnessMin: 0.05,
+    roughnessMax: 0.15,
+    metallic: 0.95,
     ridgeStrength: 0.18,
     ridgeScale: 0.48,
     ridgeDirectionX: 0.12,
@@ -10895,8 +10912,8 @@ export function decorateWeaverVisual(
   });
 
   shellMat.clearCoat.isEnabled = true;
-  shellMat.clearCoat.intensity = 0.35;
-  shellMat.clearCoat.roughness = 0.45;
+  shellMat.clearCoat.intensity = 0.95;
+  shellMat.clearCoat.roughness = 0.02;
   shellMat.enableSpecularAntiAliasing = true;
   shellMat.forceIrradianceInFragment = true;
 
@@ -10904,18 +10921,18 @@ export function decorateWeaverVisual(
   shellMat._shearPlugin = shearPluginShell;
 
   const legMat = new BABYLON.PBRMaterial("legMat", scene) as CustomPBRMaterial;
-  legMat.metallic = 0.3;
-  legMat.roughness = 0.75;
-  legMat.albedoColor = new BABYLON.Color3(0.04, 0.03, 0.05);
+  legMat.metallic = 0.98;
+  legMat.roughness = 0.05;
+  legMat.albedoColor = new BABYLON.Color3(0.06, 0.0, 0.1); // Hyper metallic shadow limbs
 
   textureGen.generatePBRTextures("legScratches", scene, {
     resolution: 256,
     noiseScale: 26.0,
     bumpStrength: 1.55,
-    baseColor: new BABYLON.Color3(0.035, 0.03, 0.047),
-    roughnessMin: 0.56,
-    roughnessMax: 0.86,
-    metallic: 0.2,
+    baseColor: new BABYLON.Color3(0.06, 0.0, 0.1),
+    roughnessMin: 0.03,
+    roughnessMax: 0.12,
+    metallic: 0.98,
     ridgeStrength: 0.22,
     ridgeScale: 1.15,
     ridgeDirectionX: 0.08,
@@ -10937,7 +10954,7 @@ export function decorateWeaverVisual(
   legMat._shearPlugin = shearPluginLeg;
 
   const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);
-  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.18, 0.31);
+  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5); // Neon Pink eyes
   eyeMat.disableLighting = true;
 
   const abdomen = BABYLON.MeshBuilder.CreateSphere(
@@ -11381,7 +11398,7 @@ export class RenderSystem implements ISystem {
       stencil: true
     });
     this.scene = new BABYLON.Scene(this.engine);
-    this.scene.clearColor = new BABYLON.Color4(0.008, 0.008, 0.01, 1.0);
+    this.scene.clearColor = new BABYLON.Color4(0.015, 0.005, 0.025, 1.0); // Deep Violet space backing
 
     const preset = POST_PROCESSING_PRESETS;
 
@@ -11408,32 +11425,32 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 0.82;
+    this.scene.environmentIntensity = 1.35; // Raised env intensity for metallic chrome hand reflection matching
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
       new BABYLON.Vector3(0, 1, 0),
       this.scene
     );
-    ambientLight.intensity = 0.12;
+    ambientLight.intensity = 0.08;
 
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.35, -0.75, 0.55),
       this.scene
     );
-    dirLight.intensity = 1.25;
-    dirLight.diffuse = new BABYLON.Color3(0.78, 0.84, 0.92);
-    dirLight.specular = new BABYLON.Color3(0.48, 0.52, 0.6);
+    dirLight.intensity = 1.65;
+    dirLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); // Saturated Cyan Light source
+    dirLight.specular = new BABYLON.Color3(0.0, 0.94, 1.0);
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
       new BABYLON.Vector3(0.35, -0.75, 0.55),
       this.scene
     );
-    dirFillLight.intensity = 0.72;
-    dirFillLight.diffuse = new BABYLON.Color3(0.48, 0.55, 0.64);
-    dirFillLight.specular = new BABYLON.Color3(0.25, 0.28, 0.34);
+    dirFillLight.intensity = 1.35;
+    dirFillLight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); // Saturated Neon Pink Fill
+    dirFillLight.specular = new BABYLON.Color3(1.0, 0.0, 0.5);
     dirFillLight.setEnabled(true);
 
     const leftPointLight = new BABYLON.PointLight(
@@ -11441,10 +11458,10 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(-13.5, 14.0, -1.0),
       this.scene
     );
-    leftPointLight.intensity = 1.1;
+    leftPointLight.intensity = 1.45;
     leftPointLight.range = 34.0;
-    leftPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
-    leftPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
+    leftPointLight.diffuse = new BABYLON.Color3(0.87, 0.99, 0.0); // Saturated Sulfur Yellow highlight gel
+    leftPointLight.specular = new BABYLON.Color3(0.87, 0.99, 0.0);
     leftPointLight.setEnabled(true);
 
     const rightPointLight = new BABYLON.PointLight(
@@ -11452,10 +11469,10 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(13.5, 14.0, -1.0),
       this.scene
     );
-    rightPointLight.intensity = 1.1;
+    rightPointLight.intensity = 1.45;
     rightPointLight.range = 34.0;
-    rightPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
-    rightPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
+    rightPointLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); // Saturated Neon Cyan highlight gel
+    rightPointLight.specular = new BABYLON.Color3(0.0, 0.94, 1.0);
     rightPointLight.setEnabled(true);
 
     const lowerBackLight = new BABYLON.SpotLight(
@@ -11466,30 +11483,30 @@ export class RenderSystem implements ISystem {
       2.8,
       this.scene
     );
-    lowerBackLight.intensity = 3.2;
+    lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
-    lowerBackLight.diffuse = new BABYLON.Color3(0.34, 0.46, 0.62);
-    lowerBackLight.specular = new BABYLON.Color3(0.24, 0.32, 0.42);
+    lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); // Saturated Violet background
+    lowerBackLight.specular = new BABYLON.Color3(0.1, 0.0, 0.25);
 
     const leftUplight = new BABYLON.PointLight(
       "leftShaftUplight",
       new BABYLON.Vector3(-10.5, -9.0, -4.2),
       this.scene
     );
-    leftUplight.intensity = 1.75;
+    leftUplight.intensity = 1.95;
     leftUplight.range = 32.0;
-    leftUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
-    leftUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
+    leftUplight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); // Pink Uplight
+    leftUplight.specular = new BABYLON.Color3(1.0, 0.0, 0.5);
 
     const rightUplight = new BABYLON.PointLight(
       "rightShaftUplight",
       new BABYLON.Vector3(10.5, -9.0, -4.2),
       this.scene
     );
-    rightUplight.intensity = 1.75;
+    rightUplight.intensity = 1.95;
     rightUplight.range = 32.0;
-    rightUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
-    rightUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
+    rightUplight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); // Cyan Uplight
+    rightUplight.specular = new BABYLON.Color3(0.0, 0.94, 1.0);
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -11504,7 +11521,7 @@ export class RenderSystem implements ISystem {
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
     pipeline.imageProcessing.vignetteWeight = preset.RENDERER.VIGNETTE_WEIGHT;
-    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
+    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0.05, 0.0, 0.1, 1); // Dark violet vignette
     pipeline.imageProcessing.exposure = preset.RENDERER.EXPOSURE;
     pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
 

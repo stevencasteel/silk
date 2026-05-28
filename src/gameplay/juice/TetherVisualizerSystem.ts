@@ -45,14 +45,14 @@ export class TetherVisualizerSystem implements ISystem {
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
-    this.tetherMat.metallic = 0.0;
-    this.tetherMat.roughness = 0.6;
+    this.tetherMat.metallic = 0.95; // Mirror metallic liquid strand
+    this.tetherMat.roughness = 0.05;
     this.tetherMat.sheen.isEnabled = true;
-    this.tetherMat.sheen.intensity = 0.8;
-    this.tetherMat.sheen.roughness = 0.3;
-    this.tetherMat.emissiveIntensity = 2.5;
-    this.tetherMat.albedoColor = new BABYLON.Color3(0.6, 0.85, 1.0);
-    this.tetherMat.emissiveColor = new BABYLON.Color3(0.2, 0.45, 0.7);
+    this.tetherMat.sheen.intensity = 0.95;
+    this.tetherMat.sheen.roughness = 0.05;
+    this.tetherMat.emissiveIntensity = 4.0; // High gloss glowing liquid look
+    this.tetherMat.albedoColor = new BABYLON.Color3(0.0, 0.94, 1.0); // Neon Cyan default
+    this.tetherMat.emissiveColor = new BABYLON.Color3(0.0, 0.45, 0.5);
     this.tetherMat.disableLighting = false;
 
     this.tetherMesh = BABYLON.MeshBuilder.CreateTube(
@@ -219,35 +219,36 @@ export class TetherVisualizerSystem implements ISystem {
         instance: this.tetherMesh
       });
 
-      let r = 0.6;
-      let g = 0.85;
-      let b = 1.0;
+      // Airbrush Square Color Spectrum transitions
+      let r = 0.0;
+      let g = 0.94;
+      let b = 1.0; // Cyan Default
 
       if (tension >= 1.0) {
         r = 1.0;
-        g = 0.15;
-        b = 0.15;
+        g = 0.0;
+        b = 0.5; // Neon Pink Warning
       } else if (tension >= 0.75) {
         r = 1.0;
-        g = 0.55;
-        b = 0.15;
+        g = 0.0;
+        b = 0.5; // Saturated Pink transitioning
       } else if (isSweetSpot) {
-        r = 0.95;
-        g = 0.95;
-        b = 1.0;
+        r = 0.87;
+        g = 0.99;
+        b = 0.0; // Sulfur Yellow Sweet Spot
       } else if (tension < 0.4) {
-        r = 0.65;
-        g = 0.82;
-        b = 0.95;
+        r = 0.0;
+        g = 0.94;
+        b = 1.0; // Clean Cyan
       }
 
       this.tetherMat.albedoColor.set(r, g, b);
 
-      let eBrightness = 0.1 + tension * 0.5 + tether.reelHeat * 0.35;
+      let eBrightness = 0.1 + tension * 0.8 + tether.reelHeat * 0.45;
       if (isSweetSpot) {
-        eBrightness *= 2.2;
+        eBrightness *= 2.8;
       } else if (tension >= 1.0) {
-        eBrightness *= 3.0;
+        eBrightness *= 4.0;
       }
 
       this.tetherMat.emissiveColor.set(

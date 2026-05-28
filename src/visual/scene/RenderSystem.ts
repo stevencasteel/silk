@@ -30,7 +30,7 @@ export class RenderSystem implements ISystem {
       stencil: true
     });
     this.scene = new BABYLON.Scene(this.engine);
-    this.scene.clearColor = new BABYLON.Color4(0.008, 0.008, 0.01, 1.0);
+    this.scene.clearColor = new BABYLON.Color4(0.015, 0.005, 0.025, 1.0);
 
     const preset = POST_PROCESSING_PRESETS;
 
@@ -57,32 +57,32 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 0.82;
+    this.scene.environmentIntensity = 1.45; // Emphasize clean environmental reflections on chrome
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
       new BABYLON.Vector3(0, 1, 0),
       this.scene
     );
-    ambientLight.intensity = 0.12;
+    ambientLight.intensity = 0.08;
 
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.35, -0.75, 0.55),
       this.scene
     );
-    dirLight.intensity = 1.25;
-    dirLight.diffuse = new BABYLON.Color3(0.78, 0.84, 0.92);
-    dirLight.specular = new BABYLON.Color3(0.48, 0.52, 0.6);
+    dirLight.intensity = 1.65;
+    dirLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    dirLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
       new BABYLON.Vector3(0.35, -0.75, 0.55),
       this.scene
     );
-    dirFillLight.intensity = 0.72;
-    dirFillLight.diffuse = new BABYLON.Color3(0.48, 0.55, 0.64);
-    dirFillLight.specular = new BABYLON.Color3(0.25, 0.28, 0.34);
+    dirFillLight.intensity = 1.35;
+    dirFillLight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    dirFillLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
     dirFillLight.setEnabled(true);
 
     const leftPointLight = new BABYLON.PointLight(
@@ -90,10 +90,10 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(-13.5, 14.0, -1.0),
       this.scene
     );
-    leftPointLight.intensity = 1.1;
+    leftPointLight.intensity = 1.45;
     leftPointLight.range = 34.0;
-    leftPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
-    leftPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
+    leftPointLight.diffuse = new BABYLON.Color3(0.87, 0.99, 0.0); 
+    leftPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
     leftPointLight.setEnabled(true);
 
     const rightPointLight = new BABYLON.PointLight(
@@ -101,10 +101,10 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(13.5, 14.0, -1.0),
       this.scene
     );
-    rightPointLight.intensity = 1.1;
+    rightPointLight.intensity = 1.45;
     rightPointLight.range = 34.0;
-    rightPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
-    rightPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
+    rightPointLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    rightPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
     rightPointLight.setEnabled(true);
 
     const lowerBackLight = new BABYLON.SpotLight(
@@ -115,30 +115,30 @@ export class RenderSystem implements ISystem {
       2.8,
       this.scene
     );
-    lowerBackLight.intensity = 3.2;
+    lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
-    lowerBackLight.diffuse = new BABYLON.Color3(0.34, 0.46, 0.62);
-    lowerBackLight.specular = new BABYLON.Color3(0.24, 0.32, 0.42);
+    lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); 
+    lowerBackLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const leftUplight = new BABYLON.PointLight(
       "leftShaftUplight",
       new BABYLON.Vector3(-10.5, -9.0, -4.2),
       this.scene
     );
-    leftUplight.intensity = 1.75;
+    leftUplight.intensity = 1.95;
     leftUplight.range = 32.0;
-    leftUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
-    leftUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
+    leftUplight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    leftUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const rightUplight = new BABYLON.PointLight(
       "rightShaftUplight",
       new BABYLON.Vector3(10.5, -9.0, -4.2),
       this.scene
     );
-    rightUplight.intensity = 1.75;
+    rightUplight.intensity = 1.95;
     rightUplight.range = 32.0;
-    rightUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
-    rightUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
+    rightUplight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    rightUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -153,7 +153,7 @@ export class RenderSystem implements ISystem {
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
     pipeline.imageProcessing.vignetteWeight = preset.RENDERER.VIGNETTE_WEIGHT;
-    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
+    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0.05, 0.0, 0.1, 1); 
     pipeline.imageProcessing.exposure = preset.RENDERER.EXPOSURE;
     pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
 

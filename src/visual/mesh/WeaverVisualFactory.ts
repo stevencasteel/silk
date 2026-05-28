@@ -90,18 +90,18 @@ export function decorateWeaverVisual(
   const textureGen = new ProceduralTextureGenerator();
 
   const carapaceMat = new BABYLON.PBRMaterial("carapaceMat", scene) as CustomPBRMaterial;
-  carapaceMat.metallic = 0.45;
-  carapaceMat.roughness = 0.65;
-  carapaceMat.albedoColor = new BABYLON.Color3(0.09, 0.07, 0.11);
+  carapaceMat.metallic = 0.98; // Pure glossy mirror metal
+  carapaceMat.roughness = 0.06; // Highly reflective
+  carapaceMat.albedoColor = new BABYLON.Color3(0.12, 0.0, 0.22); // Deep violet core
 
   textureGen.generatePBRTextures("carapaceShell", scene, {
     resolution: 512,
     noiseScale: 18.0,
     bumpStrength: 1.65,
-    baseColor: new BABYLON.Color3(0.075, 0.055, 0.095),
-    roughnessMin: 0.5,
-    roughnessMax: 0.82,
-    metallic: 0.32,
+    baseColor: new BABYLON.Color3(0.12, 0.0, 0.22),
+    roughnessMin: 0.05,
+    roughnessMax: 0.15,
+    metallic: 0.98,
     ridgeStrength: 0.13,
     ridgeScale: 0.54,
     ridgeDirectionX: 0.25,
@@ -118,8 +118,8 @@ export function decorateWeaverVisual(
   });
 
   carapaceMat.clearCoat.isEnabled = true;
-  carapaceMat.clearCoat.intensity = 0.35;
-  carapaceMat.clearCoat.roughness = 0.4;
+  carapaceMat.clearCoat.intensity = 0.95; // Polished clearcoat varnish layer
+  carapaceMat.clearCoat.roughness = 0.02;
   carapaceMat.enableSpecularAntiAliasing = true;
   carapaceMat.forceIrradianceInFragment = true;
 
@@ -127,18 +127,18 @@ export function decorateWeaverVisual(
   carapaceMat._shearPlugin = shearPluginCarapace;
 
   const shellMat = new BABYLON.PBRMaterial("carapaceUpperMat", scene) as CustomPBRMaterial;
-  shellMat.metallic = 0.4;
-  shellMat.roughness = 0.7;
-  shellMat.albedoColor = new BABYLON.Color3(0.13, 0.09, 0.18);
+  shellMat.metallic = 0.95;
+  shellMat.roughness = 0.08;
+  shellMat.albedoColor = new BABYLON.Color3(0.2, 0.0, 0.35); // Gelled violet plate
 
   textureGen.generatePBRTextures("carapaceUpper", scene, {
     resolution: 512,
     noiseScale: 16.0,
     bumpStrength: 1.85,
-    baseColor: new BABYLON.Color3(0.12, 0.075, 0.16),
-    roughnessMin: 0.48,
-    roughnessMax: 0.8,
-    metallic: 0.28,
+    baseColor: new BABYLON.Color3(0.2, 0.0, 0.35),
+    roughnessMin: 0.05,
+    roughnessMax: 0.15,
+    metallic: 0.95,
     ridgeStrength: 0.18,
     ridgeScale: 0.48,
     ridgeDirectionX: 0.12,
@@ -155,8 +155,8 @@ export function decorateWeaverVisual(
   });
 
   shellMat.clearCoat.isEnabled = true;
-  shellMat.clearCoat.intensity = 0.35;
-  shellMat.clearCoat.roughness = 0.45;
+  shellMat.clearCoat.intensity = 0.95;
+  shellMat.clearCoat.roughness = 0.02;
   shellMat.enableSpecularAntiAliasing = true;
   shellMat.forceIrradianceInFragment = true;
 
@@ -164,18 +164,18 @@ export function decorateWeaverVisual(
   shellMat._shearPlugin = shearPluginShell;
 
   const legMat = new BABYLON.PBRMaterial("legMat", scene) as CustomPBRMaterial;
-  legMat.metallic = 0.3;
-  legMat.roughness = 0.75;
-  legMat.albedoColor = new BABYLON.Color3(0.04, 0.03, 0.05);
+  legMat.metallic = 0.98;
+  legMat.roughness = 0.05;
+  legMat.albedoColor = new BABYLON.Color3(0.06, 0.0, 0.1); // Hyper metallic shadow limbs
 
   textureGen.generatePBRTextures("legScratches", scene, {
     resolution: 256,
     noiseScale: 26.0,
     bumpStrength: 1.55,
-    baseColor: new BABYLON.Color3(0.035, 0.03, 0.047),
-    roughnessMin: 0.56,
-    roughnessMax: 0.86,
-    metallic: 0.2,
+    baseColor: new BABYLON.Color3(0.06, 0.0, 0.1),
+    roughnessMin: 0.03,
+    roughnessMax: 0.12,
+    metallic: 0.98,
     ridgeStrength: 0.22,
     ridgeScale: 1.15,
     ridgeDirectionX: 0.08,
@@ -197,7 +197,7 @@ export function decorateWeaverVisual(
   legMat._shearPlugin = shearPluginLeg;
 
   const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);
-  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.18, 0.31);
+  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5); // Neon Pink eyes
   eyeMat.disableLighting = true;
 
   const abdomen = BABYLON.MeshBuilder.CreateSphere(
