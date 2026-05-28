@@ -84,6 +84,14 @@ export class Engine {
         this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
       })
     );
+    // Micro-Freeze Impact: Satisfying 0.04-second hit-stop when projectile is smashed
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
+        if (!payload.isWall) {
+          this.hitStopTimer = 0.04;
+        }
+      })
+    );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hitStopTimer = 0;

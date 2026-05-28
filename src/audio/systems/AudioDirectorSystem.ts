@@ -125,6 +125,15 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized && this.noiseSynth) {
           this.noiseSynth.triggerAttackRelease(presets.DAMAGED_DURATION);
         }
+        // State-driven Audio Coupling: Reset player's swing-charge combo instantly when hit
+        this.hitComboCount = 0;
+      })
+    );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
+        // State-driven Audio Coupling: Reset player's swing-charge combo instantly on ground contact
+        this.hitComboCount = 0;
       })
     );
 

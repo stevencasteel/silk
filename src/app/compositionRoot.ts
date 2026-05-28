@@ -146,7 +146,7 @@ export class CompositionRoot {
     const projectileSystem = new ProjectileSystem(context);
     const gameDirector = new GameDirectorSystem(context, spawner);
 
-    const hudSystem = new HudSyncSystem(broker);
+    const hudSystem = new HudSyncSystem(context);
 
     const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 

@@ -210,14 +210,21 @@ export class ProjectileSystem implements ISystem {
             const hasIframe = pIframe.timeRemaining > 0;
 
             if (isLaunching) {
+              const dx = p.mesh.position.x - pMesh.position.x;
+              const dy = p.mesh.position.y - pMesh.position.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
               this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
                 x: p.mesh.position.x,
                 y: p.mesh.position.y,
                 isWall: false
               });
+              // High-Juice: Smash projectile triggers high-power directional camera shake matching impact angle
               this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.5,
-                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 0.5
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
+                dirX: dx / dist,
+                dirY: dy / dist
               });
               this.recycleProjectile(p);
               continue;

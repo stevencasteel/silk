@@ -47,6 +47,10 @@ export interface OverlayState {
   loadStats: () => void;
   clearStats: () => void;
 
+  // Sequential Calibration Step
+  calibrationStep: number; // 0: Cling, 1: Reel, 2: Fling, 3: Completed
+  setCalibrationStep: (step: number) => void;
+
   setBootStatus: (status: string) => void;
   setTraversalHint: (text: string, color: string, opacity: number) => void;
   showOverlay: (title: string, color: string, subtitle: string) => void;
@@ -70,7 +74,8 @@ const OVERLAY_RESET = {
   overlaySubtitle: "The shaft is clear.",
   isPaused: false,
   awaitingGesture: false,
-  menuIndex: 0
+  menuIndex: 0,
+  calibrationStep: 0
 };
 
 export const usePlayerStore = create<PlayerState>((set) => ({
@@ -147,6 +152,8 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
       console.warn("Failed to clear stats", e);
     }
   },
+
+  setCalibrationStep: (step) => set({ calibrationStep: step }),
 
   reset: () => set((state) => ({
     ...OVERLAY_RESET,

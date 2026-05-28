@@ -3,6 +3,11 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import {
+  TraversalStateComponent
+} from "../../core/ecs/Components";
+import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { SystemContext } from "../../core/engine/SystemContext";
+import {
   usePlayerStore,
   useWeaverStore,
   useTetherStore,
@@ -16,9 +21,14 @@ export class HudSyncSystem implements ISystem {
   private lastHintLevel: "none" | "charging" | "ready" | "maxout" = "none";
   private currentState: string = "AIRBORNE";
 
-  constructor(private broker: EventBroker) {
+  private lastTetherLength = 0.0;
+
+  constructor(private context: SystemContext) {
+    this.broker = this.context.broker;
     this.registerSubscriptions();
   }
+
+  private broker: EventBroker;
 
   public init(): void {
     const overlayStore = useOverlayStore.getState();
@@ -47,10 +57,66 @@ export class HudSyncSystem implements ISystem {
         window.dispatchEvent(evt);
       })
     );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
+        // Active Calibration: Check if W/S reeling is actively performed while sliding on wall
+        if (this.currentState === "WALL_SLIDING") {
+          const delta = Math.abs(maxLength - this.lastTetherLength);
+          if (delta > 0.01) {
+            if (overlayStore.calibrationStep === 1) {
+              overlayStore.setCalibrationStep(2);
+              try {
+                window.dispatchEvent(new CustomEvent("silk-play-confirm"));
+              } catch (err) {
+                void err;
+              }
+            }
+          }
+          this.lastTetherLength = maxLength;
+        }
+      })
+    );
+
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
+        // Active Calibration: Mark Wall-Cling milestone complete (Step 0 -> Step 1)
+        if (overlayStore.calibrationStep === 0) {
+          overlayStore.setCalibrationStep(1);
+          try {
+            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
+          } catch (err) {
+            void err;
+          }
+        }
+      })
+    );
+
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
         this.currentState = state;
         playerStore.setCurrentState(state);
+
+        // Active Calibration: Detect if player performed a fling transition within sweet spot boundaries
+        if (state === "LAUNCHING") {
+          const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+          const pTrav = travStore.get(this.context.refs.player);
+          if (pTrav) {
+            const reelConfig = GAMEPLAY_TUNING.REEL;
+            const power = pTrav.launchPower;
+            if (overlayStore.calibrationStep === 2) {
+              if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
+                overlayStore.setCalibrationStep(3);
+                try {
+                  window.dispatchEvent(new CustomEvent("silk-play-confirm"));
+                } catch (err) {
+                  void err;
+                }
+              }
+            }
+          }
+        }
+
         if (state !== "WALL_SLIDING") {
           this.setHint("none");
         }
@@ -90,6 +156,7 @@ export class HudSyncSystem implements ISystem {
         console.log("[HudSyncSystem] GAME_RESET received! Resetting stores.");
         resetAllStores();
         overlayStore.loadStats();
+        this.lastTetherLength = 0.0;
       })
     );
     this.subscriptions.push(
