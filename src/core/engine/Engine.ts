@@ -4,8 +4,7 @@ import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
-import { GameDirectorSystem } from "../../gameplay/combat/GameDirectorSystem";
-import { GAMEPLAY_TUNING } from "./ArenaConfig";
+import { EngineTime } from "./EngineTime";
 
 export class Engine {
   private loop: GameLoop;
@@ -14,7 +13,6 @@ export class Engine {
 
   public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
-  private hitStopTimer: number = 0;
   private unsubscribes: (() => void)[] = [];
 
   constructor(
@@ -40,7 +38,6 @@ export class Engine {
     await this.systemManager.initAll();
 
     this.initPauseHandlers();
-    this.initHitStopHandlers();
     this.initGestureHandlers();
 
     this.loop.start();
@@ -49,7 +46,6 @@ export class Engine {
   public stop(): void {
     this.loop.cleanup();
     this.removePauseHandlers();
-    this.removeHitStopHandlers();
     this.systemManager.disposeAll();
   }
 
@@ -73,32 +69,6 @@ export class Engine {
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
-  private initHitStopHandlers(): void {
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
-      })
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        this.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
-      })
-    );
-    // Micro-Freeze Impact: Satisfying 0.04-second hit-stop when projectile is smashed
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
-        if (!payload.isWall) {
-          this.hitStopTimer = 0.04;
-        }
-      })
-    );
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        this.hitStopTimer = 0;
-      })
-    );
-  }
-
   private initGestureHandlers(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
@@ -106,11 +76,6 @@ export class Engine {
         this.isManuallyPaused = false;
       })
     );
-  }
-
-  private removeHitStopHandlers(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
   }
 
   private handleKeyDown = (e: KeyboardEvent): void => {
@@ -142,13 +107,10 @@ export class Engine {
   private update(dt: number): void {
     if (this.isPaused) return;
 
-    let isHitStop = false;
-    if (this.hitStopTimer > 0) {
-      this.hitStopTimer -= dt;
-      isHitStop = true;
-    }
+    EngineTime.update(dt);
+    const isHitStop = EngineTime.isHitStop;
+    const scaledDt = dt * EngineTime.timeScale;
 
-    const scaledDt = dt * GameDirectorSystem.timeScale;
     this.systemManager.updateAll(scaledDt, isHitStop);
   }
 

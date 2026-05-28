@@ -6,10 +6,10 @@ import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { EngineTime } from "../../core/engine/EngineTime";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
-  public static timeScale = 1.0;
 
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
@@ -37,7 +37,7 @@ export class GameDirectorSystem implements ISystem {
           this.activeCinematic = "PLAYER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.6;
-          GameDirectorSystem.timeScale = 0.2;
+          EngineTime.timeScale = 0.2;
 
           const tethers = this.context.stores.get<TetherComponent>("tether");
           const pTether = tethers.get(this.context.refs.player);
@@ -62,7 +62,7 @@ export class GameDirectorSystem implements ISystem {
           this.activeCinematic = "WEAVER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.875;
-          GameDirectorSystem.timeScale = 0.25;
+          EngineTime.timeScale = 0.25;
 
           this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.8,
@@ -80,6 +80,32 @@ export class GameDirectorSystem implements ISystem {
           );
           this.adrenalineTimer = this.ADRENALINE_SURGE_DURATION;
         }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+        EngineTime.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        EngineTime.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
+        if (!payload.isWall) {
+          EngineTime.hitStopTimer = 0.04;
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        EngineTime.hitStopTimer = 0;
       })
     );
 
@@ -127,7 +153,7 @@ export class GameDirectorSystem implements ISystem {
       if (this.cinematicTimer >= this.maxCinematicSimTime) {
         const finishedCinematic = this.activeCinematic;
         this.activeCinematic = "NONE";
-        GameDirectorSystem.timeScale = 1.0;
+        EngineTime.timeScale = 1.0;
 
         if (finishedCinematic === "PLAYER_DEATH") {
           console.log(
@@ -147,9 +173,9 @@ export class GameDirectorSystem implements ISystem {
       if (this.adrenalineTimer > 0) {
         this.adrenalineTimer -= dt;
         const progress = Math.max(0, this.adrenalineTimer / this.ADRENALINE_SURGE_DURATION);
-        GameDirectorSystem.timeScale = 0.45 + (1.0 - progress) * 0.55;
+        EngineTime.timeScale = 0.45 + (1.0 - progress) * 0.55;
       } else {
-        GameDirectorSystem.timeScale = 1.0;
+        EngineTime.timeScale = 1.0;
       }
     }
   }
@@ -160,7 +186,7 @@ export class GameDirectorSystem implements ISystem {
     this.activeCinematic = "NONE";
     this.cinematicTimer = 0.0;
     this.adrenalineTimer = 0.0;
-    GameDirectorSystem.timeScale = 1.0;
+    EngineTime.timeScale = 1.0;
 
     this.spawner.spawnWeaver(this.context.refs.weaver);
     this.spawner.spawnPlayer(this.context.refs.player);
