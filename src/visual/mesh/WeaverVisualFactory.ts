@@ -372,7 +372,10 @@ export function decorateWeaverVisual(
         sideSign,
         index: l,
         baseRootZ: 0,
-        basePositionZ: legRoot.position.z
+        basePositionZ: legRoot.position.z,
+        coxaLength,
+        tibiaLength,
+        baseFootLocal: new BABYLON.Vector3(footX - hipX, footY - hipY, 0)
       };
       coxa.metadata = {
         baseRotationZ: coxa.rotation.z,

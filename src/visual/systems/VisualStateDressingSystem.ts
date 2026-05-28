@@ -1,5 +1,5 @@
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
-import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -50,6 +50,42 @@ export class VisualStateDressingSystem implements ISystem {
 
   public render(): void {
     this.updateAestheticDressing();
+  }
+
+  private solveIK(
+    target: BABYLON.Vector3,
+    L1: number,
+    L2: number,
+    sideSign: number
+  ): { coxaZ: number; tibiaZ: number } {
+    const x = target.x;
+    const y = target.y;
+    const d = Math.sqrt(x * x + y * y);
+
+    const minD = Math.abs(L1 - L2) + 0.01;
+    const maxD = L1 + L2 - 0.01;
+    const dist = Math.max(minD, Math.min(maxD, d));
+
+    const angleTargetLocalY = Math.atan2(-x, y);
+
+    const cosBeta = (L1 * L1 + dist * dist - L2 * L2) / (2 * L1 * dist);
+    const beta = Math.acos(Math.max(-1, Math.min(1, cosBeta)));
+
+    const cosGamma = (L1 * L1 + L2 * L2 - dist * dist) / (2 * L1 * L2);
+    const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma)));
+
+    let coxaZ: number;
+    let tibiaZ: number;
+
+    if (sideSign > 0) {
+      coxaZ = angleTargetLocalY + beta;
+      tibiaZ = -(Math.PI - gamma);
+    } else {
+      coxaZ = angleTargetLocalY - beta;
+      tibiaZ = Math.PI - gamma;
+    }
+
+    return { coxaZ, tibiaZ };
   }
 
   private updateAestheticDressing(): void {
@@ -146,49 +182,117 @@ export class VisualStateDressingSystem implements ISystem {
 
         if (isNaN(sideSign) || isNaN(index)) return;
 
-        const sideSignVal = sideSign;
-        const indexVal = index;
-
         const rootMeta = transNode.metadata as {
           sideSign?: number;
           index?: number;
           baseRootZ?: number;
           basePositionZ?: number;
+          coxaLength?: number;
+          tibiaLength?: number;
+          baseFootLocal?: BABYLON.Vector3;
         } | null;
-        const baseRootZ = rootMeta?.baseRootZ ?? 0;
 
-        const diagonalOffset = (indexVal + (sideSignVal > 0 ? 0 : 1)) % 2 === 0 ? 0 : Math.PI;
-        const rowOffset = indexVal * 0.18;
+        if (
+          !rootMeta ||
+          rootMeta.coxaLength === undefined ||
+          rootMeta.tibiaLength === undefined ||
+          !rootMeta.baseFootLocal
+        ) {
+          const baseRootZ = rootMeta?.baseRootZ ?? 0;
+          const diagonalOffset = (index + (sideSign > 0 ? 0 : 1)) % 2 === 0 ? 0 : Math.PI;
+          const rowOffset = index * 0.18;
+          const phase = this.gaitClock + diagonalOffset + rowOffset;
+
+          const sweep = Math.sin(phase) * this.gaitAmp * (1.0 - Math.abs(this.gaitTuck) * 0.25);
+          const liftWave = (1.0 - Math.cos(phase)) * 0.5;
+          const lift = liftWave * this.gaitAmp;
+
+          transNode.rotation.z = baseRootZ + sideSign * sweep;
+          transNode.rotation.y = 0;
+          transNode.position.z = rootMeta?.basePositionZ ?? transNode.position.z;
+
+          const coxa = transNode.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode | undefined;
+          if (coxa) {
+            const coxaMeta = coxa.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
+            const baseCoxaZ = coxaMeta?.baseRotationZ ?? coxa.rotation.z;
+            const baseCoxaX = coxaMeta?.baseRotationX ?? coxa.rotation.x;
+            
+            const coxaTuckAngle = sideSign * this.gaitTuck * 0.24;
+            const coxaLift = sideSign * lift * 0.16;
+            coxa.rotation.z = baseCoxaZ + coxaTuckAngle + coxaLift;
+            coxa.rotation.x = baseCoxaX;
+
+            const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode | undefined;
+            if (tibia) {
+              const tibiaMeta = tibia.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
+              const baseTibiaZ = tibiaMeta?.baseRotationZ ?? tibia.rotation.z;
+              const baseTibiaX = tibiaMeta?.baseRotationX ?? tibia.rotation.x;
+              
+              const tibiaTuckAngle = -sideSign * this.gaitTuck * 0.34;
+              const tibiaSweep = -sideSign * (sweep * 0.12 + lift * 0.1);
+              tibia.rotation.z = baseTibiaZ + tibiaTuckAngle + tibiaSweep;
+              tibia.rotation.x = baseTibiaX;
+            }
+          }
+          return;
+        }
+
+        const coxaLength = rootMeta.coxaLength;
+        const tibiaLength = rootMeta.tibiaLength;
+        const baseFootLocal = rootMeta.baseFootLocal;
+
+        const diagonalOffset = (index + (sideSign > 0 ? 0 : 1)) % 2 === 0 ? 0 : Math.PI;
+        const rowOffset = index * 0.18;
         const phase = this.gaitClock + diagonalOffset + rowOffset;
 
-        const sweep = Math.sin(phase) * this.gaitAmp * (1.0 - Math.abs(this.gaitTuck) * 0.25);
+        const sweep = Math.sin(phase) * this.gaitAmp * 1.5;
         const liftWave = (1.0 - Math.cos(phase)) * 0.5;
-        const lift = liftWave * this.gaitAmp;
+        const lift = liftWave * this.gaitAmp * 1.2;
 
-        transNode.rotation.z = baseRootZ + sideSignVal * sweep;
+        const footLocalTarget = baseFootLocal.clone();
+        footLocalTarget.x += sweep * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        footLocalTarget.y += lift * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+
+        const footWorldTarget = BABYLON.Vector3.TransformCoordinates(footLocalTarget, mesh.getWorldMatrix());
+
+        const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
+        const ceilingY = ARENA_CONFIG.VERTICAL.CEILING_Y;
+        const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y;
+
+        const checkMargin = 0.55; 
+        if (footWorldTarget.x > wallLimit - checkMargin) {
+          footWorldTarget.x = wallLimit;
+        } else if (footWorldTarget.x < -wallLimit + checkMargin) {
+          footWorldTarget.x = -wallLimit;
+        }
+
+        if (footWorldTarget.y > ceilingY - checkMargin) {
+          footWorldTarget.y = ceilingY;
+        } else if (footWorldTarget.y < floorY + checkMargin) {
+          footWorldTarget.y = floorY;
+        }
+
+        const rootWorldInv = transNode.getWorldMatrix().clone().invert();
+        const targetLocal = BABYLON.Vector3.TransformCoordinates(footWorldTarget, rootWorldInv);
+
+        const ikRotations = this.solveIK(targetLocal, coxaLength, tibiaLength, sideSign);
+
+        transNode.rotation.z = 0; 
         transNode.rotation.y = 0;
-        transNode.position.z = rootMeta?.basePositionZ ?? transNode.position.z;
+        transNode.position.z = rootMeta.basePositionZ ?? transNode.position.z;
 
         const coxa = transNode.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode | undefined;
         if (coxa) {
-          const coxaMeta = coxa.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
-          const baseCoxaZ = coxaMeta?.baseRotationZ ?? coxa.rotation.z;
+          const coxaMeta = coxa.metadata as { baseRotationX?: number } | null;
           const baseCoxaX = coxaMeta?.baseRotationX ?? coxa.rotation.x;
-          
-          const coxaTuckAngle = sideSignVal * this.gaitTuck * 0.24;
-          const coxaLift = sideSignVal * lift * 0.16;
-          coxa.rotation.z = baseCoxaZ + coxaTuckAngle + coxaLift;
+          coxa.rotation.z = ikRotations.coxaZ;
           coxa.rotation.x = baseCoxaX;
 
           const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode | undefined;
           if (tibia) {
-            const tibiaMeta = tibia.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
-            const baseTibiaZ = tibiaMeta?.baseRotationZ ?? tibia.rotation.z;
+            const tibiaMeta = tibia.metadata as { baseRotationX?: number } | null;
             const baseTibiaX = tibiaMeta?.baseRotationX ?? tibia.rotation.x;
-            
-            const tibiaTuckAngle = -sideSignVal * this.gaitTuck * 0.34;
-            const tibiaSweep = -sideSignVal * (sweep * 0.12 + lift * 0.1);
-            tibia.rotation.z = baseTibiaZ + tibiaTuckAngle + tibiaSweep;
+            tibia.rotation.z = ikRotations.tibiaZ;
             tibia.rotation.x = baseTibiaX;
           }
         }
