@@ -1,3 +1,4 @@
+import { IParticleEmitterStrategy } from "../../gameplay/juice/ParticleStrategies";
 export interface TransformComponent {
   x: number;
   y: number;
@@ -190,12 +191,10 @@ export interface HurtboxComponent {
 }
 
 export interface ParticleRequestComponent {
-  type: "PLAYER_SPARK" | "WEAVER_SPARK" | "LANDING_DUST" | "WALL_SPARK" | "PROJECTILE_SPLAT";
+  strategy: IParticleEmitterStrategy;
   x: number;
   y: number;
   z: number;
-  count?: number;
-  wallNormalX?: number;
 }
 
 export interface PlayerCosmeticComponent {

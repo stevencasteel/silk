@@ -12,6 +12,7 @@ import {
   ParticleRequestComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
+import { IParticleEmitContext } from "./ParticleStrategies";
 
 interface PooledParticle {
   mesh: BABYLON.Mesh;
@@ -21,7 +22,7 @@ interface PooledParticle {
   active: boolean;
 }
 
-export class JuiceSystem implements ISystem {
+export class JuiceSystem implements ISystem, IParticleEmitContext {
   readonly phase = SystemPhase.RenderSync;
 
   private particlePool: PooledParticle[] = [];
@@ -73,7 +74,7 @@ export class JuiceSystem implements ISystem {
     );
   }
 
-  private emitRawParticle(
+  public emitRawParticle(
     position: BABYLON.Vector3,
     velocity: BABYLON.Vector3,
     life: number,
@@ -93,98 +94,6 @@ export class JuiceSystem implements ISystem {
     }
 
     this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
-  }
-
-  private spawnBurst(
-    position: BABYLON.Vector3,
-    color: BABYLON.Color3,
-    count: number,
-    settings: {
-      readonly VELOCITY_Y_MIN: number;
-      readonly VELOCITY_Y_MAX: number;
-      readonly VELOCITY_Z_MAX: number;
-      readonly VELOCITY_SPEED_MIN: number;
-      readonly VELOCITY_SPEED_MAX: number;
-      readonly LIFE_MIN: number;
-      readonly LIFE_MAX: number;
-    }
-  ): void {
-    const tempVel = new BABYLON.Vector3();
-    for (let i = 0; i < count; i++) {
-      const theta = Math.random() * 2.0 * Math.PI;
-      const speedSpan = settings.VELOCITY_SPEED_MAX - settings.VELOCITY_SPEED_MIN;
-      const r = settings.VELOCITY_SPEED_MIN + Math.random() * speedSpan;
-
-      const ySpan = settings.VELOCITY_Y_MAX - settings.VELOCITY_Y_MIN;
-      const vy = settings.VELOCITY_Y_MIN + Math.random() * ySpan;
-      const vz = (Math.random() - 0.5) * settings.VELOCITY_Z_MAX;
-
-      tempVel.set(Math.cos(theta) * r, vy, vz);
-      const life = settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
-
-      this.emitRawParticle(position, tempVel, life, color);
-    }
-  }
-
-  private spawnLandingDust(position: BABYLON.Vector3): void {
-    const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const count = config.COUNT;
-    this._colorScratch.set(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
-    const tempVel = new BABYLON.Vector3();
-    for (let i = 0; i < count; i++) {
-      const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
-      const vy = Math.random() * config.VELOCITY_Y_MAX;
-      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
-
-      tempVel.set(vx, vy, vz);
-      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-
-      this.emitRawParticle(position, tempVel, life, this._colorScratch);
-    }
-  }
-
-  private spawnWallSparks(position: BABYLON.Vector3, wallNormalX: number): void {
-    const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.WALL;
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const count = config.COUNT;
-    this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
-    const tempVel = new BABYLON.Vector3();
-    for (let i = 0; i < count; i++) {
-      const xSpan = config.VELOCITY_X_MAX - config.VELOCITY_X_MIN;
-      const vx = wallNormalX * (config.VELOCITY_X_MIN + Math.random() * xSpan);
-      const vy = (Math.random() - 0.3) * config.VELOCITY_Y_MAX;
-      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
-
-      tempVel.set(vx, vy, vz);
-      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-
-      this.emitRawParticle(position, tempVel, life, this._colorScratch);
-    }
-  }
-
-  private spawnWebSplat(position: BABYLON.Vector3): void {
-    const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const count = config.COUNT;
-    this._colorScratch.set(
-      colors.PROJECTILE_SPLAT.r,
-      colors.PROJECTILE_SPLAT.g,
-      colors.PROJECTILE_SPLAT.b
-    );
-    const tempVel = new BABYLON.Vector3();
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2.0;
-      const speed = config.SPEED_MIN + Math.random() * (config.SPEED_MAX - config.SPEED_MIN);
-      const vx = Math.cos(angle) * speed;
-      const vy = Math.sin(angle) * speed;
-      const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
-
-      tempVel.set(vx, vy, vz);
-      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-
-      this.emitRawParticle(position, tempVel, life, this._colorScratch);
-    }
   }
 
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
@@ -257,37 +166,13 @@ export class JuiceSystem implements ISystem {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
 
-    // Passive ECS Component Polling for isolated visual triggers
+    // Dynamic Polymorphic Processing (OCP Compliance)
     const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
     for (const [id, req] of reqStore.entries()) {
-      this._particleOriginScratch.set(req.x, req.y, req.z);
-
-      if (req.type === "PLAYER_SPARK") {
-        const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-        this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
-        this.spawnBurst(
-          this._particleOriginScratch,
-          this._colorScratch,
-          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER.COUNT,
-          VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER
-        );
-      } else if (req.type === "WEAVER_SPARK") {
-        const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-        this._colorScratch.set(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
-        this.spawnBurst(
-          this._particleOriginScratch,
-          this._colorScratch,
-          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER.COUNT,
-          VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER
-        );
-      } else if (req.type === "LANDING_DUST") {
-        this.spawnLandingDust(this._particleOriginScratch);
-      } else if (req.type === "WALL_SPARK") {
-        this.spawnWallSparks(this._particleOriginScratch, req.wallNormalX ?? 1);
-      } else if (req.type === "PROJECTILE_SPLAT") {
-        this.spawnWebSplat(this._particleOriginScratch);
+      if (req.strategy) {
+        this._particleOriginScratch.set(req.x, req.y, req.z);
+        req.strategy.emit(this, this._particleOriginScratch);
       }
-
       this.context.world.destroy(id);
     }
 
