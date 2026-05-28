@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 12:54:45 AM
+ [SYSTEM] Generated: 5/28/2026, 2:42:45 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -10830,20 +10830,6 @@ export function decorateWeaverVisual(
   cephalothorax.material = carapaceMat;
   cephalothorax.parent = wMesh;
 
-  const markingMat = new BABYLON.StandardMaterial("weaverMarkingMat", scene);
-  markingMat.emissiveColor = new BABYLON.Color3(0.9, 0.15, 0.25);
-  markingMat.disableLighting = true;
-
-  const marking = BABYLON.MeshBuilder.CreateBox(
-    "weaver_dorsal_marking",
-    { width: radius * 0.22, height: radius * 0.6, depth: radius * 0.05 },
-    scene
-  );
-  marking.position.set(0, -radius * 0.2, -radius * 0.45);
-  marking.rotation.x = -0.1;
-  marking.material = markingMat;
-  marking.parent = abdomen;
-
   const spinneretMat = new BABYLON.PBRMaterial("weaverSpinneretMat", scene);
   spinneretMat.albedoColor = new BABYLON.Color3(0.05, 0.04, 0.06);
   spinneretMat.metallic = 0.2;
@@ -10861,9 +10847,9 @@ export function decorateWeaverVisual(
       },
       scene
     );
-    spinneret.position.set(sideSign * radius * 0.12, -radius * 1.1, radius * 0.05);
-    spinneret.rotation.x = Math.PI * 0.15;
-    spinneret.rotation.z = -sideSign * Math.PI * 0.05;
+    spinneret.position.set(sideSign * radius * 0.04, -radius * 0.85, 0.0);
+    spinneret.rotation.x = Math.PI * 0.25;
+    spinneret.rotation.z = -sideSign * Math.PI * 0.02;
     spinneret.material = spinneretMat;
     spinneret.parent = abdomen;
   }
@@ -10885,22 +10871,53 @@ export function decorateWeaverVisual(
     { x: -0.25, y: 0.08, z: -0.32 },
     { x: 0.25, y: 0.08, z: -0.32 }
   ];
+
+  const a = radius * 0.45;
+  const b = radius * 0.3;
+  const c = radius * 0.4;
+  const eyeRadius = radius * 0.06;
+
   eyeOffsets.forEach((offset, idx) => {
     const eye = BABYLON.MeshBuilder.CreateSphere(
       `weaver_eye_${idx}`,
-      { diameter: radius * 0.12 },
+      { diameter: eyeRadius * 2.0 },
       scene
     );
-    eye.position.set(offset.x * radius, offset.y * radius, offset.z * radius);
+    
+    const ox = offset.x * radius;
+    const oy = offset.y * radius;
+    const oz = offset.z * radius;
+    
+    const sum = (ox * ox) / (a * a) + (oy * oy) / (b * b) + (oz * oz) / (c * c);
+    const k = 1.0 / Math.sqrt(sum || 1.0);
+    
+    const sx = ox * k;
+    const sy = oy * k;
+    const sz = oz * k;
+    
+    const nx = sx / (a * a);
+    const ny = sy / (b * b);
+    const nz = sz / (c * c);
+    const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+    const dx = nx / nLen;
+    const dy = ny / nLen;
+    const dz = nz / nLen;
+    
+    const recessAmt = eyeRadius * 0.5;
+    const px = sx - dx * recessAmt;
+    const py = sy - dy * recessAmt;
+    const pz = sz - dz * recessAmt;
+    
+    eye.position.set(px, py, pz);
     eye.material = eyeMat;
     eye.parent = head;
   });
 
   const legPoses: LegPose[] = [
-    { hipX: 0.35, hipY: 0.36, kneeX: 1.05, kneeY: 0.78, footX: 1.72, footY: 1.08, coxaWidth: 0.15, tibiaWidth: 0.07 },
-    { hipX: 0.48, hipY: 0.14, kneeX: 1.22, kneeY: 0.22, footX: 1.95, footY: 0.30, coxaWidth: 0.16, tibiaWidth: 0.075 },
-    { hipX: 0.48, hipY: -0.12, kneeX: 1.22, kneeY: -0.26, footX: 1.92, footY: -0.42, coxaWidth: 0.155, tibiaWidth: 0.07 },
-    { hipX: 0.35, hipY: -0.34, kneeX: 1.00, kneeY: -0.74, footX: 1.66, footY: -1.02, coxaWidth: 0.14, tibiaWidth: 0.065 }
+    { hipX: 0.35, hipY: 0.36, kneeX: 1.05, kneeY: 1.10, footX: 1.60, footY: -0.10, coxaWidth: 0.15, tibiaWidth: 0.07 },
+    { hipX: 0.48, hipY: 0.14, kneeX: 1.25, kneeY: 0.80, footX: 1.80, footY: -0.40, coxaWidth: 0.16, tibiaWidth: 0.075 },
+    { hipX: 0.48, hipY: -0.12, kneeX: 1.25, kneeY: 0.50, footX: 1.80, footY: -0.80, coxaWidth: 0.155, tibiaWidth: 0.07 },
+    { hipX: 0.35, hipY: -0.34, kneeX: 1.05, kneeY: 0.20, footX: 1.60, footY: -1.20, coxaWidth: 0.14, tibiaWidth: 0.065 }
   ];
 
   for (let side = 0; side < 2; side++) {
@@ -10931,6 +10948,7 @@ export function decorateWeaverVisual(
         carapaceMat
       );
       coxa.rotation.z = angleFromLocalY(coxaDx, coxaDy);
+      coxa.rotation.y = sideSign * -0.45;
       coxa.parent = legRoot;
 
       const tibiaDx = footX - kneeX;
@@ -10947,6 +10965,7 @@ export function decorateWeaverVisual(
       );
       tibia.position.set(0, coxaLength, 0);
       tibia.rotation.z = angleFromLocalY(tibiaDx, tibiaDy) - coxa.rotation.z;
+      tibia.rotation.y = sideSign * 0.9;
       tibia.parent = coxa;
 
       const foot = createFoot(scene, `foot_${sideSign}_${l}`, radius, legMat);
@@ -10971,8 +10990,7 @@ export function decorateWeaverVisual(
     if (
       mesh.name.includes("weaver_eye") ||
       mesh.name.includes("spinneret_glow") ||
-      mesh.name.includes("foot_") ||
-      mesh.name.includes("weaver_dorsal_marking")
+      mesh.name.includes("foot_")
     ) {
       mesh.receiveShadows = false;
     } else {
