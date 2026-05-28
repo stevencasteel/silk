@@ -8,7 +8,11 @@ export function decoratePlayerSilkVisual(
   radius: number
 ): void {
   pMesh.isVisible = false;
-  pMesh.getChildMeshes().forEach((child) => child.dispose());
+  
+  const childMeshes = pMesh.getChildMeshes();
+  for (let i = 0; i < childMeshes.length; i++) {
+    childMeshes[i].dispose();
+  }
 
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
@@ -53,25 +57,25 @@ export function decoratePlayerSilkVisual(
   const silkMat = new BABYLON.PBRMaterial("playerSilkMat", scene);
   silkMat.metallic = 0.0;
   silkMat.roughness = 0.85;
+  silkMat.albedoColor = new BABYLON.Color3(0.93, 0.95, 0.96);
 
-  // Generate a procedural dense fibrous texture for player's silk
-  const silkTexs = textureGen.generatePBRTextures("silkFiber", scene, {
+  textureGen.generatePBRTextures("silkFiber", scene, {
     resolution: 512,
-    noiseScale: 40.0, // High scale for individual tight thread lines
+    noiseScale: 40.0,
     bumpStrength: 3.2,
     baseColor: new BABYLON.Color3(0.93, 0.95, 0.96),
     roughnessMin: 0.72,
     roughnessMax: 0.98,
     metallic: 0.0
+  }).then((silkTexs) => {
+    silkMat.albedoTexture = silkTexs.albedo;
+    silkMat.bumpTexture = silkTexs.normal;
+    silkMat.metallicTexture = silkTexs.orm;
+    silkMat.useAmbientOcclusionFromMetallicTextureRed = true;
+    silkMat.useRoughnessFromMetallicTextureGreen = true;
+    silkMat.useMetallnessFromMetallicTextureBlue = true;
+    silkMat.useRoughnessFromMetallicTextureAlpha = false;
   });
-
-  silkMat.albedoTexture = silkTexs.albedo;
-  silkMat.bumpTexture = silkTexs.normal;
-  silkMat.metallicTexture = silkTexs.orm;
-  silkMat.useAmbientOcclusionFromMetallicTextureRed = true;
-  silkMat.useRoughnessFromMetallicTextureGreen = true;
-  silkMat.useMetallnessFromMetallicTextureBlue = true;
-  silkMat.useRoughnessFromMetallicTextureAlpha = false;
 
   silkMat.sheen.isEnabled = true;
   silkMat.sheen.intensity = 0.8;
@@ -88,8 +92,9 @@ export function decoratePlayerSilkVisual(
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
   bandMat.metallic = 0.05;
   bandMat.roughness = 0.9;
+  bandMat.albedoColor = new BABYLON.Color3(0.85, 0.88, 0.9);
 
-  const bandTexs = textureGen.generatePBRTextures("silkBand", scene, {
+  textureGen.generatePBRTextures("silkBand", scene, {
     resolution: 256,
     noiseScale: 30.0,
     bumpStrength: 2.8,
@@ -97,15 +102,15 @@ export function decoratePlayerSilkVisual(
     roughnessMin: 0.75,
     roughnessMax: 0.95,
     metallic: 0.0
+  }).then((bandTexs) => {
+    bandMat.albedoTexture = bandTexs.albedo;
+    bandMat.bumpTexture = bandTexs.normal;
+    bandMat.metallicTexture = bandTexs.orm;
+    bandMat.useAmbientOcclusionFromMetallicTextureRed = true;
+    bandMat.useRoughnessFromMetallicTextureGreen = true;
+    bandMat.useMetallnessFromMetallicTextureBlue = true;
+    bandMat.useRoughnessFromMetallicTextureAlpha = false;
   });
-
-  bandMat.albedoTexture = bandTexs.albedo;
-  bandMat.bumpTexture = bandTexs.normal;
-  bandMat.metallicTexture = bandTexs.orm;
-  bandMat.useAmbientOcclusionFromMetallicTextureRed = true;
-  bandMat.useRoughnessFromMetallicTextureGreen = true;
-  bandMat.useMetallnessFromMetallicTextureBlue = true;
-  bandMat.useRoughnessFromMetallicTextureAlpha = false;
 
   bandMat.sheen.isEnabled = true;
   bandMat.sheen.intensity = 0.6;

@@ -11,9 +11,9 @@ export class ArenaGeometry {
     const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
     wallMaterial.metallic = 0.0;
     wallMaterial.roughness = 0.85;
+    wallMaterial.albedoColor = new BABYLON.Color3(0.043, 0.051, 0.063);
 
-    // Generate stone/concrete micro-bump map for shaft walls
-    const wallTexs = textureGen.generatePBRTextures("concreteWall", this.scene, {
+    textureGen.generatePBRTextures("concreteWall", this.scene, {
       resolution: 512,
       noiseScale: 10.0,
       bumpStrength: 2.5,
@@ -21,24 +21,24 @@ export class ArenaGeometry {
       roughnessMin: 0.75,
       roughnessMax: 0.98,
       metallic: 0.0
+    }).then((wallTexs) => {
+      wallMaterial.albedoTexture = wallTexs.albedo;
+      wallMaterial.bumpTexture = wallTexs.normal;
+      wallMaterial.metallicTexture = wallTexs.orm;
+      wallMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
+      wallMaterial.useRoughnessFromMetallicTextureGreen = true;
+      wallMaterial.useMetallnessFromMetallicTextureBlue = true;
+      wallMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      wallMaterial.enableSpecularAntiAliasing = true;
+      wallMaterial.forceIrradianceInFragment = true;
     });
-
-    wallMaterial.albedoTexture = wallTexs.albedo;
-    wallMaterial.bumpTexture = wallTexs.normal;
-    wallMaterial.metallicTexture = wallTexs.orm;
-    wallMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-    wallMaterial.useRoughnessFromMetallicTextureGreen = true;
-    wallMaterial.useMetallnessFromMetallicTextureBlue = true;
-    wallMaterial.useRoughnessFromMetallicTextureAlpha = false;
-    wallMaterial.enableSpecularAntiAliasing = true;
-    wallMaterial.forceIrradianceInFragment = true;
 
     const panelMaterial = new BABYLON.PBRMaterial("panelMat", this.scene);
     panelMaterial.metallic = 0.25;
     panelMaterial.roughness = 0.65;
+    panelMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.11);
 
-    // Generate metallic scuffed panel maps
-    const panelTexs = textureGen.generatePBRTextures("scrollingPanel", this.scene, {
+    textureGen.generatePBRTextures("scrollingPanel", this.scene, {
       resolution: 512,
       noiseScale: 16.0,
       bumpStrength: 1.8,
@@ -46,17 +46,17 @@ export class ArenaGeometry {
       roughnessMin: 0.45,
       roughnessMax: 0.75,
       metallic: 0.2
+    }).then((panelTexs) => {
+      panelMaterial.albedoTexture = panelTexs.albedo;
+      panelMaterial.bumpTexture = panelTexs.normal;
+      panelMaterial.metallicTexture = panelTexs.orm;
+      panelMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
+      panelMaterial.useRoughnessFromMetallicTextureGreen = true;
+      panelMaterial.useMetallnessFromMetallicTextureBlue = true;
+      panelMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      panelMaterial.enableSpecularAntiAliasing = true;
+      panelMaterial.forceIrradianceInFragment = true;
     });
-
-    panelMaterial.albedoTexture = panelTexs.albedo;
-    panelMaterial.bumpTexture = panelTexs.normal;
-    panelMaterial.metallicTexture = panelTexs.orm;
-    panelMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-    panelMaterial.useRoughnessFromMetallicTextureGreen = true;
-    panelMaterial.useMetallnessFromMetallicTextureBlue = true;
-    panelMaterial.useRoughnessFromMetallicTextureAlpha = false;
-    panelMaterial.enableSpecularAntiAliasing = true;
-    panelMaterial.forceIrradianceInFragment = true;
 
     const verticalGrooveMaterial = new BABYLON.PBRMaterial("grooveMat", this.scene);
     verticalGrooveMaterial.albedoColor = new BABYLON.Color3(0.015, 0.015, 0.02);
@@ -103,7 +103,6 @@ export class ArenaGeometry {
     rightGroove.material = verticalGrooveMaterial;
     rightGroove.receiveShadows = false;
 
-    // Allocate single unit-sized template meshes to create instances
     const panelBase = BABYLON.MeshBuilder.CreateBox(
       "panelBase",
       { width: 1.0, height: 1.0, depth: 1.0 },

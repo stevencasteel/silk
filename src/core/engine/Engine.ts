@@ -12,7 +12,7 @@ export class Engine {
   private systemManager: SystemManager;
   private broker: EventBroker;
 
-  public isPaused: boolean = false;
+  public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
   private hitStopTimer: number = 0;
   private unsubscribes: (() => void)[] = [];
@@ -35,11 +35,14 @@ export class Engine {
   }
 
   public async start(): Promise<void> {
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "INITIALIZING SYSTEMS..." });
+    this.isPaused = true;
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY" });
     await this.systemManager.initAll();
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "AWAITING INPUT" });
+    
     this.initPauseHandlers();
     this.initHitStopHandlers();
+    this.initGestureHandlers();
+    
     this.loop.start();
   }
 
@@ -84,6 +87,15 @@ export class Engine {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hitStopTimer = 0;
+      })
+    );
+  }
+
+  private initGestureHandlers(): void {
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        this.setPaused(false);
+        this.isManuallyPaused = false;
       })
     );
   }

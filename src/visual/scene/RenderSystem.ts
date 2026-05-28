@@ -57,16 +57,15 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 0.95; // Boosted baseline environment reflection
+    this.scene.environmentIntensity = 0.95;
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
       new BABYLON.Vector3(0, 1, 0),
       this.scene
     );
-    ambientLight.intensity = 0.18; // Elevated from 0.06 to lift unlit crevices
+    ambientLight.intensity = 0.18;
 
-    // --- KEY LIGHT (Left wall & front coverage, casts shadows) ---
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.35, -0.75, 0.55),
@@ -75,17 +74,15 @@ export class RenderSystem implements ISystem {
     dirLight.intensity = 1.65;
     dirLight.specular = new BABYLON.Color3(0.6, 0.6, 0.65);
 
-    // --- FILL LIGHT (Right wall & shadow balance, no duplicate cast shadows) ---
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
       new BABYLON.Vector3(0.35, -0.75, 0.55),
       this.scene
     );
-    dirFillLight.intensity = 1.35; // Illuminates the right wall and offsets dark shadows
+    dirFillLight.intensity = 1.35;
     dirFillLight.specular = new BABYLON.Color3(0.4, 0.4, 0.45);
     dirFillLight.setEnabled(true);
 
-    // --- ARCHITECTURAL POINT LIGHTS (Highlights concrete & scroll ticks) ---
     const leftPointLight = new BABYLON.PointLight(
       "leftPointLight",
       new BABYLON.Vector3(-13.5, 14.0, -1.0),

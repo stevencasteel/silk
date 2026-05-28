@@ -2,6 +2,11 @@ import * as BABYLON from "@babylonjs/core";
 
 export class ProceduralTextureGenerator {
   private p = new Uint8Array(256);
+  private static textureCache = new Map<string, {
+    albedo: BABYLON.DynamicTexture;
+    normal: BABYLON.DynamicTexture;
+    orm: BABYLON.DynamicTexture;
+  }>();
 
   constructor() {
     for (let i = 0; i < 256; i++) {
@@ -40,7 +45,7 @@ export class ProceduralTextureGenerator {
     return value;
   }
 
-  public generatePBRTextures(
+  public async generatePBRTextures(
     name: string,
     scene: BABYLON.Scene,
     config: {
@@ -51,18 +56,24 @@ export class ProceduralTextureGenerator {
       roughnessMin: number;
       roughnessMax: number;
       metallic: number;
-    }
-  ): {
+    },
+    onProgress?: (percent: number) => void
+  ): Promise<{
     albedo: BABYLON.DynamicTexture;
     normal: BABYLON.DynamicTexture;
     orm: BABYLON.DynamicTexture;
-  } {
+  }> {
+    const cached = ProceduralTextureGenerator.textureCache.get(name);
+    if (cached) {
+      if (onProgress) onProgress(1.0);
+      return cached;
+    }
+
     const res = config.resolution;
     const albedoTex = new BABYLON.DynamicTexture(`${name}_albedo`, res, scene, true);
     const normalTex = new BABYLON.DynamicTexture(`${name}_normal`, res, scene, true);
     const ormTex = new BABYLON.DynamicTexture(`${name}_orm`, res, scene, true);
 
-    // Cast the abstracted ICanvasRenderingContext safely to HTML5 CanvasRenderingContext2D
     const albedoCtx = albedoTex.getContext() as unknown as CanvasRenderingContext2D;
     const normalCtx = normalTex.getContext() as unknown as CanvasRenderingContext2D;
     const ormCtx = ormTex.getContext() as unknown as CanvasRenderingContext2D;
@@ -73,6 +84,10 @@ export class ProceduralTextureGenerator {
 
     const heightMap = new Float32Array(res * res);
     for (let y = 0; y < res; y++) {
+      if (y % 16 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        if (onProgress) onProgress((y / res) * 0.45);
+      }
       for (let x = 0; x < res; x++) {
         const nx = (x / res) * config.noiseScale;
         const ny = (y / res) * config.noiseScale;
@@ -81,6 +96,10 @@ export class ProceduralTextureGenerator {
     }
 
     for (let y = 0; y < res; y++) {
+      if (y % 16 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        if (onProgress) onProgress(0.45 + (y / res) * 0.55);
+      }
       for (let x = 0; x < res; x++) {
         const idx = (y * res + x) * 4;
         const h = heightMap[y * res + x];
@@ -136,6 +155,19 @@ export class ProceduralTextureGenerator {
     normalTex.update();
     ormTex.update();
 
-    return { albedo: albedoTex, normal: normalTex, orm: ormTex };
+    const textures = { albedo: albedoTex, normal: normalTex, orm: ormTex };
+    ProceduralTextureGenerator.textureCache.set(name, textures);
+
+    if (onProgress) onProgress(1.0);
+    return textures;
+  }
+
+  public static clearCache(): void {
+    ProceduralTextureGenerator.textureCache.forEach((texs) => {
+      texs.albedo.dispose();
+      texs.normal.dispose();
+      texs.orm.dispose();
+    });
+    ProceduralTextureGenerator.textureCache.clear();
   }
 }

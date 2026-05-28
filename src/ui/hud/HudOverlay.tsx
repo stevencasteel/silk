@@ -295,7 +295,7 @@ export const HudOverlay: React.FC = () => {
           </div>
         </div>
       ) : awaitingGesture ? (
-        <div className="overlay-root font-mono backdrop-wipe-active pointer-events-auto">
+        <div className="overlay-root font-mono backdrop-wipe-gesture pointer-events-auto">
           <div className="overlay-modal start-screen-modal victory-border max-w-sm w-full p-8 flex flex-col items-center">
             <button
               onClick={() => {

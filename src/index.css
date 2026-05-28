@@ -690,3 +690,9 @@ body,
   box-shadow: var(--shadow-inset-light), var(--shadow-inset-dark) !important;
   border: 1px solid rgba(0, 0, 0, 0.3) !important;
 }
+
+/* Progressive blur overlay for seamless immediate startup */
+.backdrop-wipe-gesture {
+  background: rgba(5, 5, 6, 0.25) !important;
+  backdrop-filter: blur(2px) !important;
+}

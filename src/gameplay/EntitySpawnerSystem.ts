@@ -166,6 +166,7 @@ export class EntitySpawnerSystem implements ISystem {
     const regCaster = this.context.visualRegistry.registerShadowCaster
       ? (m: BABYLON.AbstractMesh) => this.context.visualRegistry.registerShadowCaster!(m)
       : undefined;
+
     decorateWeaverVisual(scene, wMesh, radius, regCaster);
 
     this.context.visualRegistry.registerTransformNode(weaverId, wMesh);

@@ -13,7 +13,11 @@ export function decorateWeaverVisual(
   registerShadowCaster?: (mesh: BABYLON.AbstractMesh) => void
 ): void {
   wMesh.isVisible = false;
-  wMesh.getChildMeshes().forEach((child) => child.dispose());
+  
+  const childMeshes = wMesh.getChildMeshes();
+  for (let i = 0; i < childMeshes.length; i++) {
+    childMeshes[i].dispose();
+  }
 
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
@@ -30,8 +34,9 @@ export function decorateWeaverVisual(
   const carapaceMat = new BABYLON.PBRMaterial("carapaceMat", scene) as CustomPBRMaterial;
   carapaceMat.metallic = 0.45;
   carapaceMat.roughness = 0.65;
+  carapaceMat.albedoColor = new BABYLON.Color3(0.09, 0.07, 0.11);
 
-  const carapaceTexs = textureGen.generatePBRTextures("carapaceShell", scene, {
+  textureGen.generatePBRTextures("carapaceShell", scene, {
     resolution: 512,
     noiseScale: 28.0,
     bumpStrength: 2.2,
@@ -39,15 +44,15 @@ export function decorateWeaverVisual(
     roughnessMin: 0.55,
     roughnessMax: 0.85,
     metallic: 0.4
+  }).then((carapaceTexs) => {
+    carapaceMat.albedoTexture = carapaceTexs.albedo;
+    carapaceMat.bumpTexture = carapaceTexs.normal;
+    carapaceMat.metallicTexture = carapaceTexs.orm;
+    carapaceMat.useAmbientOcclusionFromMetallicTextureRed = true;
+    carapaceMat.useRoughnessFromMetallicTextureGreen = true;
+    carapaceMat.useMetallnessFromMetallicTextureBlue = true;
+    carapaceMat.useRoughnessFromMetallicTextureAlpha = false;
   });
-
-  carapaceMat.albedoTexture = carapaceTexs.albedo;
-  carapaceMat.bumpTexture = carapaceTexs.normal;
-  carapaceMat.metallicTexture = carapaceTexs.orm;
-  carapaceMat.useAmbientOcclusionFromMetallicTextureRed = true;
-  carapaceMat.useRoughnessFromMetallicTextureGreen = true;
-  carapaceMat.useMetallnessFromMetallicTextureBlue = true;
-  carapaceMat.useRoughnessFromMetallicTextureAlpha = false;
 
   carapaceMat.clearCoat.isEnabled = true;
   carapaceMat.clearCoat.intensity = 0.35;
@@ -61,8 +66,9 @@ export function decorateWeaverVisual(
   const shellMat = new BABYLON.PBRMaterial("carapaceUpperMat", scene) as CustomPBRMaterial;
   shellMat.metallic = 0.4;
   shellMat.roughness = 0.7;
+  shellMat.albedoColor = new BABYLON.Color3(0.13, 0.09, 0.18);
 
-  const shellTexs = textureGen.generatePBRTextures("carapaceUpper", scene, {
+  textureGen.generatePBRTextures("carapaceUpper", scene, {
     resolution: 512,
     noiseScale: 22.0,
     bumpStrength: 2.4,
@@ -70,15 +76,15 @@ export function decorateWeaverVisual(
     roughnessMin: 0.58,
     roughnessMax: 0.88,
     metallic: 0.35
+  }).then((shellTexs) => {
+    shellMat.albedoTexture = shellTexs.albedo;
+    shellMat.bumpTexture = shellTexs.normal;
+    shellMat.metallicTexture = shellTexs.orm;
+    shellMat.useAmbientOcclusionFromMetallicTextureRed = true;
+    shellMat.useRoughnessFromMetallicTextureGreen = true;
+    shellMat.useMetallnessFromMetallicTextureBlue = true;
+    shellMat.useRoughnessFromMetallicTextureAlpha = false;
   });
-
-  shellMat.albedoTexture = shellTexs.albedo;
-  shellMat.bumpTexture = shellTexs.normal;
-  shellMat.metallicTexture = shellTexs.orm;
-  shellMat.useAmbientOcclusionFromMetallicTextureRed = true;
-  shellMat.useRoughnessFromMetallicTextureGreen = true;
-  shellMat.useMetallnessFromMetallicTextureBlue = true;
-  shellMat.useRoughnessFromMetallicTextureAlpha = false;
 
   shellMat.clearCoat.isEnabled = true;
   shellMat.clearCoat.intensity = 0.35;
@@ -92,8 +98,9 @@ export function decorateWeaverVisual(
   const legMat = new BABYLON.PBRMaterial("legMat", scene) as CustomPBRMaterial;
   legMat.metallic = 0.3;
   legMat.roughness = 0.75;
+  legMat.albedoColor = new BABYLON.Color3(0.04, 0.03, 0.05);
 
-  const legTexs = textureGen.generatePBRTextures("legScratches", scene, {
+  textureGen.generatePBRTextures("legScratches", scene, {
     resolution: 256,
     noiseScale: 34.0,
     bumpStrength: 2.0,
@@ -101,15 +108,15 @@ export function decorateWeaverVisual(
     roughnessMin: 0.6,
     roughnessMax: 0.9,
     metallic: 0.25
+  }).then((legTexs) => {
+    legMat.albedoTexture = legTexs.albedo;
+    legMat.bumpTexture = legTexs.normal;
+    legMat.metallicTexture = legTexs.orm;
+    legMat.useAmbientOcclusionFromMetallicTextureRed = true;
+    legMat.useRoughnessFromMetallicTextureGreen = true;
+    legMat.useMetallnessFromMetallicTextureBlue = true;
+    legMat.useRoughnessFromMetallicTextureAlpha = false;
   });
-
-  legMat.albedoTexture = legTexs.albedo;
-  legMat.bumpTexture = legTexs.normal;
-  legMat.metallicTexture = legTexs.orm;
-  legMat.useAmbientOcclusionFromMetallicTextureRed = true;
-  legMat.useRoughnessFromMetallicTextureGreen = true;
-  legMat.useMetallnessFromMetallicTextureBlue = true;
-  legMat.useRoughnessFromMetallicTextureAlpha = false;
   legMat.enableSpecularAntiAliasing = true;
   legMat.forceIrradianceInFragment = true;
 
