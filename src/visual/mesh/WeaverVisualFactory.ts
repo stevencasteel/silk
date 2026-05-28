@@ -249,30 +249,6 @@ export function decorateWeaverVisual(
   cephalothorax.material = carapaceMat;
   cephalothorax.parent = wMesh;
 
-  const spinneretMat = new BABYLON.PBRMaterial("weaverSpinneretMat", scene);
-  spinneretMat.albedoColor = new BABYLON.Color3(0.05, 0.04, 0.06);
-  spinneretMat.metallic = 0.2;
-  spinneretMat.roughness = 0.8;
-
-  for (let i = 0; i < 2; i++) {
-    const sideSign = i === 0 ? -1 : 1;
-    const spinneret = BABYLON.MeshBuilder.CreateCylinder(
-      `weaver_spinneret_${i}`,
-      {
-        height: radius * 0.2,
-        diameterTop: radius * 0.02,
-        diameterBottom: radius * 0.07,
-        tessellation: 6
-      },
-      scene
-    );
-    spinneret.position.set(sideSign * radius * 0.045, -radius * 0.82, radius * 0.03);
-    spinneret.rotation.x = Math.PI * 0.25;
-    spinneret.rotation.z = -sideSign * Math.PI * 0.02;
-    spinneret.material = spinneretMat;
-    spinneret.parent = abdomen;
-  }
-
   const head = BABYLON.MeshBuilder.CreateSphere(
     "weaver_head",
     { diameterX: radius * 0.76, diameterY: radius * 0.48, diameterZ: radius * 0.45, segments: 18 },
