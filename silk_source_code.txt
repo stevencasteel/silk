@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 9:03:06 PM
+ [SYSTEM] Generated: 5/28/2026, 9:04:32 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1323,7 +1323,7 @@ export class AudioDirectorSystem implements ISystem {
           if (pTrav) {
             const reelConfig = GAMEPLAY_TUNING.REEL;
             const power = pTrav.launchPower;
-            
+
             if (power >= 1.0) {
               if (this.impactSynth) {
                 this.impactSynth.triggerAttackRelease("A1", "4n");
@@ -1386,10 +1386,10 @@ export class AudioDirectorSystem implements ISystem {
           }
           this.lastHitTime = nowMs;
 
-          const DORIAN_RATIOS = [1.0000, 1.1225, 1.1892, 1.3348, 1.4983, 1.6818, 1.7818, 2.0000];
+          const DORIAN_RATIOS = [1.0, 1.1225, 1.1892, 1.3348, 1.4983, 1.6818, 1.7818, 2.0];
           const scaleIndex = this.hitComboCount % DORIAN_RATIOS.length;
           const octave = Math.pow(2, Math.floor(this.hitComboCount / DORIAN_RATIOS.length));
-          const baseFreq = 164.81; 
+          const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
 
           this.impactSynth.triggerAttackRelease(freq, "16n");
@@ -1472,12 +1472,11 @@ export class AudioDirectorSystem implements ISystem {
     );
   }
 
-  private triggerDeathSequence(presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER): void {
+  private triggerDeathSequence(
+    presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER
+  ): void {
     if (this.impactSynth) {
-      this.impactSynth.triggerAttackRelease(
-        presets.DEATH_NOTE_1,
-        presets.DEATH_NOTE_1_DURATION
-      );
+      this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
       this.impactSynth.triggerAttackRelease(
         presets.DEATH_NOTE_2,
         presets.DEATH_NOTE_2_DURATION,
@@ -1503,7 +1502,7 @@ export class AudioDirectorSystem implements ISystem {
           this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
         }
         if (this.sfxPanner && this.toneModule) {
-          const panVal = Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0 * 0.45;
+          const panVal = (Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0) * 0.45;
           this.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
         }
       }
@@ -1812,12 +1811,15 @@ export class TensionSynthesizer {
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
-    const targetBaseFreq = presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
+    const targetBaseFreq =
+      presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
     const targetModulationIndex =
-      synthConfig.DRONE_MOD_INDEX_BASE + Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
+      synthConfig.DRONE_MOD_INDEX_BASE +
+      Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
     const targetGain =
       clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN + Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
+        ? synthConfig.DRONE_MIN_GAIN +
+          Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
         : 0.0;
 
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
@@ -1884,7 +1886,8 @@ export class TensionSynthesizer {
   }
 
   public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule)
+      return;
     const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
 
@@ -2598,9 +2601,9 @@ export const ARENA_CONFIG = {
     PLAYER_CAPSULE_SUBDIVISIONS: 3
   },
   ENTITY_COLORS: {
-    WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 }, 
-    PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 }, 
-    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } 
+    WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 },
+    PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 },
+    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 }
   },
   ENTITY_SPAWNER: {
     WEAVER_INITIAL_VELOCITY_X: 4.5,
@@ -2742,12 +2745,12 @@ export const WEAVER_AI_TUNING = {
 
 export const VISUAL_JUICE_CONFIG = {
   WEAVER_COLORS: {
-    SWEEPING: "121212", 
-    DASH_PREP: "dffe00", 
-    DASH_THRUST: "ff007f", 
-    DASH_RECOVER: "ff007f", 
-    RETURNING: "ff007f", 
-    DEFEATED: "000000" 
+    SWEEPING: "121212",
+    DASH_PREP: "dffe00",
+    DASH_THRUST: "ff007f",
+    DASH_RECOVER: "ff007f",
+    RETURNING: "ff007f",
+    DEFEATED: "000000"
   },
   MATERIALS: {
     WEAVER: {
@@ -2967,11 +2970,11 @@ export class Engine {
     this.isPaused = true;
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY" });
     await this.systemManager.initAll();
-    
+
     this.initPauseHandlers();
     this.initHitStopHandlers();
     this.initGestureHandlers();
-    
+
     this.loop.start();
   }
 
@@ -3194,7 +3197,12 @@ export interface GameEventMap {
   [GameEvent.WEAVER_DAMAGED]: { amount: number; source: string };
   [GameEvent.WEAVER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.WEAVER_DIED]: void;
-  [GameEvent.CAMERA_SHAKE_TRIGGERED]: { amplitude: number; duration: number; dirX?: number; dirY?: number };
+  [GameEvent.CAMERA_SHAKE_TRIGGERED]: {
+    amplitude: number;
+    duration: number;
+    dirX?: number;
+    dirY?: number;
+  };
   [GameEvent.GAME_OVER]: void;
   [GameEvent.GAME_WIN]: void;
   [GameEvent.GAME_RESET]: void;
@@ -3440,7 +3448,9 @@ export function getDistance2D(x1: number, y1: number, x2: number, y2: number): n
   return Math.sqrt(dx * dx + dy * dy) || 1.0;
 }
 
-export function dispatchUIFeedback(event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"): void {
+export function dispatchUIFeedback(
+  event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"
+): void {
   try {
     window.dispatchEvent(new CustomEvent(event));
   } catch (err) {
@@ -3464,7 +3474,11 @@ export class SubscriptionTracker {
 }
 
 export interface IProceduralTextureGenerator {
-  generatePBRTextures(name: string, scene: BABYLON.Scene, config: unknown): Promise<{
+  generatePBRTextures(
+    name: string,
+    scene: BABYLON.Scene,
+    config: unknown
+  ): Promise<{
     albedo: BABYLON.DynamicTexture;
     normal: BABYLON.DynamicTexture;
     orm: BABYLON.DynamicTexture;
@@ -3620,7 +3634,9 @@ export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
     if (shadowGen) {
-      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (m: BABYLON.AbstractMesh) => void };
+      const concreteGen = shadowGen as unknown as {
+        removeShadowCaster?: (m: BABYLON.AbstractMesh) => void;
+      };
       if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
         concreteGen.removeShadowCaster(mesh);
       }
@@ -3883,18 +3899,12 @@ export class EntitySpawnerSystem implements ISystem {
       reelHeat: 0.0
     });
 
-    this.context.stores
-      .get<HealthComponent>("health")
-      .add(playerId, {
-        current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
-        max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
-      });
-    this.context.stores
-      .get<InputIntentComponent>("input")
-      .add(playerId, { x: 0, y: 0,  });
-    this.context.stores
-      .get<PlayerTag>("playerTag")
-      .add(playerId, {});
+    this.context.stores.get<HealthComponent>("health").add(playerId, {
+      current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+      max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
+    });
+    this.context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
+    this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
 
     this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",
@@ -4146,7 +4156,7 @@ export class GameDirectorSystem implements ISystem {
 
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
-  
+
   private _tracker = new SubscriptionTracker();
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
@@ -4208,7 +4218,9 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
         if (payload.hp === 1 && this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
-          console.log("[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo...");
+          console.log(
+            "[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo..."
+          );
           this.adrenalineTimer = this.ADRENALINE_SURGE_DURATION;
         }
       })
@@ -4252,18 +4264,24 @@ export class GameDirectorSystem implements ISystem {
 
     if (this.activeCinematic !== "NONE") {
       this.cinematicTimer += dt;
-      console.log(`[GameDirectorSystem] Cinematic progress: ${this.cinematicTimer.toFixed(3)} / ${this.maxCinematicSimTime}`);
+      console.log(
+        `[GameDirectorSystem] Cinematic progress: ${this.cinematicTimer.toFixed(3)} / ${this.maxCinematicSimTime}`
+      );
       if (this.cinematicTimer >= this.maxCinematicSimTime) {
         const finishedCinematic = this.activeCinematic;
         this.activeCinematic = "NONE";
         GameDirectorSystem.timeScale = 1.0;
 
         if (finishedCinematic === "PLAYER_DEATH") {
-          console.log("[GameDirectorSystem] Player death cinematic complete! Publishing GAME_OVER event...");
+          console.log(
+            "[GameDirectorSystem] Player death cinematic complete! Publishing GAME_OVER event..."
+          );
           this.gameState = "GAME_OVER";
           this.context.broker.publish(GameEvent.GAME_OVER, undefined);
         } else if (finishedCinematic === "WEAVER_DEATH") {
-          console.log("[GameDirectorSystem] Weaver death cinematic complete! Publishing GAME_WIN event...");
+          console.log(
+            "[GameDirectorSystem] Weaver death cinematic complete! Publishing GAME_WIN event..."
+          );
           this.gameState = "VICTORY";
           this.context.broker.publish(GameEvent.GAME_WIN, undefined);
         }
@@ -4459,8 +4477,9 @@ export class ProjectileSystem implements ISystem {
 
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive", scene);
     const noisePlugin = new ProjectileNoisePlugin(this.projMatActive);
-    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
-      noisePlugin;
+    (
+      this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+    )._noisePlugin = noisePlugin;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
 
@@ -4717,7 +4736,12 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import {
+  VISUAL_JUICE_CONFIG,
+  CANONICAL_UNITS,
+  ARENA_CONFIG,
+  GAMEPLAY_TUNING
+} from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -4784,7 +4808,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
-          this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+          this._colorScratch.set(
+            colors.PLAYER_SPARK.r,
+            colors.PLAYER_SPARK.g,
+            colors.PLAYER_SPARK.b
+          );
           this.spawnBurst(
             playerNode.position,
             this._colorScratch,
@@ -4799,7 +4827,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          this._colorScratch.set(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+          this._colorScratch.set(
+            colors.WEAVER_SPARK.r,
+            colors.WEAVER_SPARK.g,
+            colors.WEAVER_SPARK.b
+          );
           this.spawnBurst(
             weaverNode.position,
             this._colorScratch,
@@ -4857,11 +4889,15 @@ export class JuiceSystem implements ISystem {
           if (playerNode) {
             const configObj = VISUAL_JUICE_CONFIG.PARTICLES;
             const colorsObj = configObj.COLORS;
-            
+
             const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
             const pTrav = traversal.get(this.context.refs.player);
-            
-            this._colorScratch.set(colorsObj.PLAYER_SPARK.r, colorsObj.PLAYER_SPARK.g, colorsObj.PLAYER_SPARK.b);
+
+            this._colorScratch.set(
+              colorsObj.PLAYER_SPARK.r,
+              colorsObj.PLAYER_SPARK.g,
+              colorsObj.PLAYER_SPARK.b
+            );
             let particleCount = 15;
             let burstSettings: {
               readonly VELOCITY_Y_MIN: number;
@@ -4872,11 +4908,11 @@ export class JuiceSystem implements ISystem {
               readonly LIFE_MIN: number;
               readonly LIFE_MAX: number;
             } = configObj.BURST.PLAYER;
-            
+
             if (pTrav) {
               const reelConfig = GAMEPLAY_TUNING.REEL;
               const power = pTrav.launchPower;
-              
+
               if (power >= 1.0) {
                 this._colorScratch.set(1.0, 0.15, 0.15);
                 particleCount = 25;
@@ -4890,13 +4926,8 @@ export class JuiceSystem implements ISystem {
                 particleCount = 22;
               }
             }
-            
-            this.spawnBurst(
-              playerNode.position,
-              this._colorScratch,
-              particleCount,
-              burstSettings
-            );
+
+            this.spawnBurst(playerNode.position, this._colorScratch, particleCount, burstSettings);
           }
         }
         this.playerState = payload.state;
@@ -5004,7 +5035,11 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    this._colorScratch.set(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    this._colorScratch.set(
+      colors.PROJECTILE_SPLAT.r,
+      colors.PROJECTILE_SPLAT.g,
+      colors.PROJECTILE_SPLAT.b
+    );
     const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2.0;
@@ -5214,13 +5249,13 @@ export class TetherVisualizerSystem implements ISystem {
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
-    this.tetherMat.metallic = 0.95; 
+    this.tetherMat.metallic = 0.95;
     this.tetherMat.roughness = 0.05;
     this.tetherMat.sheen.isEnabled = true;
     this.tetherMat.sheen.intensity = 0.95;
     this.tetherMat.sheen.roughness = 0.05;
-    this.tetherMat.emissiveIntensity = 4.0; 
-    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
+    this.tetherMat.emissiveIntensity = 4.0;
+    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.tetherMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
     this.tetherMat.disableLighting = false;
 
@@ -5303,47 +5338,52 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-    if (wNode) {
-      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
-      const tip = getWeaverStingerTip(
-        wNode.position.x,
-        wNode.position.y,
-        wNode.position.z,
-        rot.x,
-        rot.y,
-        rot.z,
-        rot.w,
-        radius,
-        1.18
-      );
-      this.scratchAnchor.copyFrom(tip);
-    } else {
+      const wNode = this.context.visualRegistry.getTransformNode(
+        this.context.refs.weaver
+      ) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+        const tip = getWeaverStingerTip(
+          wNode.position.x,
+          wNode.position.y,
+          wNode.position.z,
+          rot.x,
+          rot.y,
+          rot.z,
+          rot.w,
+          radius,
+          1.18
+        );
+        this.scratchAnchor.copyFrom(tip);
+      } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
       // Cap at exactly 1.0 (100% tension limit)
       const tension = Math.max(0, Math.min(1.0, tether.tension));
       const reelConfig = GAMEPLAY_TUNING.REEL;
-      const isSweetSpot = tension >= reelConfig.SWEET_SPOT_MIN && tension <= reelConfig.SWEET_SPOT_MAX;
+      const isSweetSpot =
+        tension >= reelConfig.SWEET_SPOT_MIN && tension <= reelConfig.SWEET_SPOT_MAX;
 
       const timeMs = performance.now();
       const frequency = VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      
+
       let vibAmp = 0;
       if (tension >= 1.0) {
         vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.0;
       } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
-        vibAmp = (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
+        vibAmp =
+          (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
+          VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       }
-      
+
       const vibOffset = Math.sin(vibPhase * (tension >= 1.0 ? 3.0 : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-      
+
       let MathSag = this.MAX_SAG * (1.0 - Math.min(1.0, tension)) + vibOffset;
       if (tension < 0.4) {
         MathSag *= 1.3;
@@ -5354,7 +5394,7 @@ export class TetherVisualizerSystem implements ISystem {
       if (tether.reelVelocity < 0) {
         MathSag *= Math.max(0.15, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
       } else if (tether.reelVelocity > 0) {
-        MathSag *= (1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4);
+        MathSag *= 1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4;
       }
 
       this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
@@ -5383,9 +5423,10 @@ export class TetherVisualizerSystem implements ISystem {
 
         const baseWave = Math.sin(
           (i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH +
-            timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ + reelPhaseOffset
+            timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ +
+            reelPhaseOffset
         );
-        
+
         let waveAmp = VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
         if (tension < 0.4) {
           waveAmp *= 1.8;
@@ -5417,24 +5458,24 @@ export class TetherVisualizerSystem implements ISystem {
 
       let r = 1.0;
       let g = 1.0;
-      let b = 1.0; 
+      let b = 1.0;
 
       if (tension >= 1.0) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; 
+        b = 0.5;
       } else if (tension >= 0.75) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; 
+        b = 0.5;
       } else if (isSweetSpot) {
         r = 0.87;
         g = 0.99;
-        b = 0.0; 
+        b = 0.0;
       } else if (tension < 0.4) {
         r = 1.0;
         g = 1.0;
-        b = 1.0; 
+        b = 1.0;
       }
 
       this.tetherMat.albedoColor.set(r, g, b);
@@ -5446,11 +5487,7 @@ export class TetherVisualizerSystem implements ISystem {
         eBrightness *= 4.0;
       }
 
-      this.tetherMat.emissiveColor.set(
-        eBrightness * r,
-        eBrightness * g,
-        eBrightness * b
-      );
+      this.tetherMat.emissiveColor.set(eBrightness * r, eBrightness * g, eBrightness * b);
     } else {
       this.tetherMesh.setEnabled(false);
 
@@ -5468,23 +5505,25 @@ export class TetherVisualizerSystem implements ISystem {
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-    if (wNode) {
-      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
-      const tip = getWeaverStingerTip(
-        wNode.position.x,
-        wNode.position.y,
-        wNode.position.z,
-        rot.x,
-        rot.y,
-        rot.z,
-        rot.w,
-        radius,
-        1.0
-      );
-      this.scratchAnchor.copyFrom(tip);
-    } else {
+      const wNode = this.context.visualRegistry.getTransformNode(
+        this.context.refs.weaver
+      ) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+        const tip = getWeaverStingerTip(
+          wNode.position.x,
+          wNode.position.y,
+          wNode.position.z,
+          rot.x,
+          rot.y,
+          rot.z,
+          rot.w,
+          radius,
+          1.0
+        );
+        this.scratchAnchor.copyFrom(tip);
+      } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
@@ -5583,7 +5622,12 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import {
+  ARENA_CONFIG,
+  CANONICAL_UNITS,
+  VISUAL_JUICE_CONFIG,
+  POST_PROCESSING_PRESETS
+} from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveDebris {
@@ -5600,7 +5644,6 @@ export class WeaverShatterSystem implements ISystem {
   private activeDebrisList: ActiveDebris[] = [];
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
-
 
   constructor(private context: SystemContext) {}
 
@@ -5733,17 +5776,17 @@ export class WeaverShatterSystem implements ISystem {
           shellPos[i1 * 3],
           shellPos[i1 * 3 + 1],
           shellPos[i1 * 3 + 2]
-                );
+        );
         const p2 = new BABYLON.Vector3(
           shellPos[i2 * 3],
           shellPos[i2 * 3 + 1],
           shellPos[i2 * 3 + 2]
-                );
+        );
         const p3 = new BABYLON.Vector3(
           shellPos[i3 * 3],
           shellPos[i3 * 3 + 1],
           shellPos[i3 * 3 + 2]
-                );
+        );
         const centroid = p1
           .add(p2)
           .add(p3)
@@ -5900,9 +5943,8 @@ export class WeaverShatterSystem implements ISystem {
 
     const scene = this.context.visualRegistry.getScene();
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
-    const cameraYOffset = scene && scene.activeCamera
-      ? (scene.activeCamera.position.y - defaultCameraY)
-      : 0.0;
+    const cameraYOffset =
+      scene && scene.activeCamera ? scene.activeCamera.position.y - defaultCameraY : 0.0;
     const disposeThreshold = -16.0 + cameraYOffset;
 
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
@@ -6172,7 +6214,7 @@ export class PlayerInputSystem implements ISystem {
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       input.x = 0;
       input.y = 0;
-      
+
       return;
     }
 
@@ -6186,7 +6228,6 @@ export class PlayerInputSystem implements ISystem {
 
     input.x = x;
     input.y = y;
-    
   }
 
   public dispose(): void {
@@ -6195,14 +6236,14 @@ export class PlayerInputSystem implements ISystem {
     this.keysPressed = {};
   }
 
-    private handleKeyDown = (e: KeyboardEvent): void => {
+  private handleKeyDown = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = true;
     useInputStore.getState().setKeyPressed(key, true);
     useInputStore.getState().setKeyPressed(e.code.toLowerCase(), true);
   };
 
-    private handleKeyUp = (e: KeyboardEvent): void => {
+  private handleKeyUp = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = false;
     useInputStore.getState().setKeyPressed(key, false);
@@ -6231,7 +6272,12 @@ import {
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
-import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import {
+  ARENA_CONFIG,
+  CANONICAL_UNITS,
+  GAMEPLAY_TUNING,
+  POST_PROCESSING_PRESETS
+} from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -6425,7 +6471,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
-      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { 
+      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, {
         state: trav.state,
         launchPower: trav.launchPower
       });
@@ -6462,7 +6508,11 @@ export class PlayerKinematicsSystem implements ISystem {
     const cameraY = scene && scene.activeCamera ? scene.activeCamera.position.y : defaultCameraY;
     const cameraYOffset = cameraY - defaultCameraY;
 
-    if (trav.state === "WALL_SLIDING" && trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+    if (
+      trav.state === "WALL_SLIDING" &&
+      trav.stickyEntityId !== undefined &&
+      trav.stickyEntityId !== -1
+    ) {
       const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
       const bug = bugStore.get(trav.stickyEntityId);
       const bugTransStore = this.context.stores.get<TransformComponent>("transform");
@@ -6511,7 +6561,7 @@ export class PlayerKinematicsSystem implements ISystem {
         vel.x = 0;
         vel.y = -(currentScrollSpeed + bug.speed - slideSpeed);
 
-        const speedScale = 1.0 + (bug.speed / Math.max(1.0, currentScrollSpeed));
+        const speedScale = 1.0 + bug.speed / Math.max(1.0, currentScrollSpeed);
         const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
         tether.tension += tensionDelta * dt;
 
@@ -6526,7 +6576,10 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    if (trav.state === "WALL_SLIDING" && (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)) {
+    if (
+      trav.state === "WALL_SLIDING" &&
+      (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)
+    ) {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (stillPressingIn === false) {
@@ -6593,7 +6646,8 @@ export class PlayerKinematicsSystem implements ISystem {
               trav.wallNormalX = -bugWallDir;
               trav.wallNormalY = 0;
               trav.stickyEntityId = bugId;
-              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+              trav.stickyWallX =
+                bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
               trav.stickyWallYOffset = nextY - bugTrans.y;
 
               target.x = trav.stickyWallX;
@@ -6706,8 +6760,10 @@ export class PlayerKinematicsSystem implements ISystem {
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const tensionPower = Math.min(1.0, storedTension);
-    const reelBonus = tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
-    const isSweetSpot = storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
+    const reelBonus =
+      tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
+    const isSweetSpot =
+      storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
 
     const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
@@ -6874,7 +6930,7 @@ export class VerticalBoundarySystem implements ISystem {
           this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
           const transforms = this.context.stores.get<TransformComponent>("transform");
           const pTrans = transforms.get(this.context.refs.player);
-          
+
           // Tactical Heavy Boundary Squash on floor limit
           if (pTrans) {
             pTrans.scaleX = 1.22;
@@ -6894,10 +6950,7 @@ export class VerticalBoundarySystem implements ISystem {
     }
   }
 
-  private updateStrainMeter(
-    tether: TetherComponent,
-    health: HealthComponent
-  ): void {
+  private updateStrainMeter(tether: TetherComponent, health: HealthComponent): void {
     const isOverloaded = tether.tension >= this.OVERLOAD_THRESHOLD;
 
     if (isOverloaded) {
@@ -6956,7 +7009,7 @@ export class WallBugSystem implements ISystem {
   readonly initPhase = InitPhase.Gameplay;
 
   private spawnTimer = 0.0;
-  private readonly spawnInterval = 5.0; 
+  private readonly spawnInterval = 5.0;
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
   private _tracker = new SubscriptionTracker();
@@ -7008,14 +7061,16 @@ export class WallBugSystem implements ISystem {
     if (!scene) return;
 
     this.spawnTimer += dt;
-    const activeCount = this.bugPool.filter(p => p.active).length;
+    const activeCount = this.bugPool.filter((p) => p.active).length;
 
     if (this.spawnTimer >= this.spawnInterval && activeCount < 3) {
       this.spawnTimer = 0.0;
       this.spawnBugFromPool();
     }
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
@@ -7030,7 +7085,7 @@ export class WallBugSystem implements ISystem {
 
       bug.timer += dt;
 
-      const extraCrawlSpeed = 3.8; 
+      const extraCrawlSpeed = 3.8;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
       if (bug.y < cameraY - 24.0) {
@@ -7049,7 +7104,7 @@ export class WallBugSystem implements ISystem {
           node.metadata = {};
         }
         let bugPhase = node.metadata.gaitPhase ?? 0.0;
-        const legFrequency = (currentScrollSpeed + bug.speed) * 0.85; 
+        const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
         bugPhase += legFrequency * dt;
         node.metadata.gaitPhase = bugPhase;
 
@@ -7086,10 +7141,12 @@ export class WallBugSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    const pBug = this.bugPool.find(p => !p.active);
+    const pBug = this.bugPool.find((p) => !p.active);
     if (!pBug) return;
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const side = Math.random() < 0.5 ? -1 : 1;
     const startX = side * 6.2;
     const startY = cameraY + 22.0;
@@ -7266,7 +7323,7 @@ export class WallBugSystem implements ISystem {
 
   public dispose(): void {
     this._tracker.clear();
-    
+
     for (let i = 0; i < this.bugPool.length; i++) {
       const pBug = this.bugPool[i];
       pBug.rootNode.dispose();
@@ -7546,20 +7603,27 @@ export class WeaverTraversalSystem implements ISystem {
 
         if (concreteEngine && Math.abs(vel.x) > 0.001) {
           this._rayStart.set(trans.x, trans.y, 0);
-          const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
+          const castLength =
+            ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
           this._rayEnd.set(trans.x + sState.direction * castLength, trans.y, 0);
 
           concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
           if (this._raycastResult.hasHit && this._raycastResult.body) {
             const hitDistance = this._raycastResult.hitDistance;
-            if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
+            if (
+              hitDistance <=
+              ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
+            ) {
               hitWallNormal = Math.sign(this._raycastResult.hitNormalWorld.x);
-              nextX = this._raycastResult.hitPointWorld.x - sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+              nextX =
+                this._raycastResult.hitPointWorld.x -
+                sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             }
           }
         } else {
-          const fallbackLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          const fallbackLimit =
+            ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (nextX >= fallbackLimit) {
             nextX = fallbackLimit;
             hitWallNormal = -1;
@@ -7595,7 +7659,6 @@ export class WeaverTraversalSystem implements ISystem {
         target.x = nextX;
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
         target.active = true;
-
       } else if (sState.phase === "HOLD") {
         sState.timer -= dt;
         vel.x = 0;
@@ -7634,22 +7697,30 @@ export class WeaverTraversalSystem implements ISystem {
 
         if (this._raycastResult.hasHit && this._raycastResult.body) {
           const hitDistance = this._raycastResult.hitDistance;
-          if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
-            target.x = this._raycastResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          if (
+            hitDistance <=
+            ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
+          ) {
+            target.x =
+              this._raycastResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             if (vel.x * dirX > 0) vel.x = 0;
           }
         }
       }
 
       this._rayStart.set(target.x, trans.y, 0);
-      const castLengthDown = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
+      const castLengthDown =
+        ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
       this._rayEnd.set(target.x, trans.y - castLengthDown, 0);
 
       concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
       if (this._raycastResult.hasHit && this._raycastResult.body && !isStriking) {
         const hitDistance = this._raycastResult.hitDistance;
-        if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)) {
+        if (
+          hitDistance <=
+          ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)
+        ) {
           isGrounded = true;
           target.y = this._raycastResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (vel.y < 0) vel.y = 0;
@@ -7658,7 +7729,7 @@ export class WeaverTraversalSystem implements ISystem {
 
       const wallCheckDist = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.15;
       this._rayStart.set(target.x, target.y, 0);
-      
+
       this._rayEnd.set(target.x - wallCheckDist, target.y, 0);
       concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
@@ -7674,7 +7745,8 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
     } else {
-      const wallLimitFallback = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const wallLimitFallback =
+        ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
       if (target.x > wallLimitFallback && (!sState || sState.phase !== "HOLD")) {
         target.x = wallLimitFallback;
         if (vel.x > 0) vel.x = 0;
@@ -7684,7 +7756,9 @@ export class WeaverTraversalSystem implements ISystem {
       }
 
       const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
-      const floorLimit = isStriking ? ARENA_CONFIG.VERTICAL.FLOOR_Y - 70.0 : ARENA_CONFIG.VERTICAL.FLOOR_Y;
+      const floorLimit = isStriking
+        ? ARENA_CONFIG.VERTICAL.FLOOR_Y - 70.0
+        : ARENA_CONFIG.VERTICAL.FLOOR_Y;
       if (target.y > ceilingLimit) {
         target.y = ceilingLimit;
         if (vel.y > 0) vel.y = 0;
@@ -7761,7 +7835,8 @@ export class WeaverTraversalSystem implements ISystem {
               targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
 
               const wobbleFreq = 12.0;
-              const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+              const wobbleAmp =
+                0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
               const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
               BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._targetQuat);
             } else {
@@ -7820,8 +7895,6 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import { TransformComponent } from "../../../core/ecs/Components";
 import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
-
-
 export class WeaverAscendingState implements IWeaverState {
   public readonly type: WeaverStateType = "ASCENDING";
   public readonly name = "ASCENDING TO CEILING";
@@ -7863,8 +7936,6 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
-
-
 export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
   public readonly name = "WEAVER DEFEATED";
@@ -7888,18 +7959,24 @@ export class WeaverDefeatedState implements IWeaverState {
 
 ● ./src/gameplay/weaver/states/WeaverPatrollingState.ts
 ────────────────────────────────────────────────────
-import { getWeaverStingerTip, setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
+import {
+  getWeaverStingerTip,
+  setKinematicVelocity,
+  HASH_PREFIX
+} from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
+import {
+  WEAVER_AI_TUNING,
+  VISUAL_JUICE_CONFIG,
+  ARENA_CONFIG
+} from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   HealthComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
-
-
 
 export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";
@@ -7983,7 +8060,11 @@ export class WeaverPatrollingState implements IWeaverState {
 ────────────────────────────────────────────────────
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../../core/engine/ArenaConfig";
+import {
+  WEAVER_AI_TUNING,
+  VISUAL_JUICE_CONFIG,
+  POST_PROCESSING_PRESETS
+} from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
@@ -7992,8 +8073,6 @@ import {
   WeaverAIComponent
 } from "../../../core/ecs/Components";
 import { setKinematicVelocity, HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
-
-
 
 export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
@@ -8226,7 +8305,8 @@ body,
   box-sizing: border-box;
 }
 
-.header-left, .header-right {
+.header-left,
+.header-right {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -8264,8 +8344,13 @@ body,
 }
 
 @keyframes pulse-glow-default {
-  0% { opacity: 0.6; }
-  100% { opacity: 1; text-shadow: 0 0 4px rgba(255, 255, 255, 0.2); }
+  0% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
+  }
 }
 
 .warn-alert {
@@ -8274,8 +8359,13 @@ body,
 }
 
 @keyframes pulse-glow-danger {
-  0% { opacity: 0.4; }
-  100% { opacity: 1; text-shadow: 0 0 10px var(--accent-danger); }
+  0% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 10px var(--accent-danger);
+  }
 }
 
 .warn-launch {
@@ -8284,8 +8374,13 @@ body,
 }
 
 @keyframes pulse-glow-success {
-  0% { opacity: 0.4; }
-  100% { opacity: 1; text-shadow: 0 0 10px var(--accent-success); }
+  0% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 10px var(--accent-success);
+  }
 }
 
 /* Mechanical Cabinet Footer */
@@ -8389,7 +8484,7 @@ body,
 .overlay-root {
   position: absolute;
   inset: 0;
-  background: rgba(5, 5, 6, 0.0);
+  background: rgba(5, 5, 6, 0);
   backdrop-filter: blur(0px);
   display: flex;
   flex-direction: column;
@@ -8422,42 +8517,59 @@ body,
   text-align: center;
   transform: scale(0.9);
   opacity: 0;
-  animation: modal-slide-up 0.5s cubic-bezier(0.25, 1.0, 0.25, 1.15) forwards;
+  animation: modal-slide-up 0.5s cubic-bezier(0.25, 1, 0.25, 1.15) forwards;
   border: 2px solid rgba(255, 255, 255, 0.02);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85);
 }
 
 @keyframes modal-slide-up {
-  0% { transform: scale(0.9); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .victory-border {
   border: 2px solid rgba(34, 197, 94, 0.35) !important;
-  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
+  box-shadow:
+    0 0 30px rgba(34, 197, 94, 0.15),
+    inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
 }
 
 .defeat-border {
   border: 2px solid rgba(239, 68, 68, 0.35) !important;
-  box-shadow: 0 0 30px rgba(239, 68, 68, 0.15), inset 0 0 20px rgba(239, 68, 68, 0.1) !important;
+  box-shadow:
+    0 0 30px rgba(239, 68, 68, 0.15),
+    inset 0 0 20px rgba(239, 68, 68, 0.1) !important;
 }
 
 .start-screen-modal {
   border: 2px solid rgba(34, 197, 94, 0.35) !important;
-  box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
+  box-shadow:
+    0 0 30px rgba(34, 197, 94, 0.15),
+    inset 0 0 20px rgba(34, 197, 94, 0.1) !important;
   background: rgba(12, 14, 18, 0.98) !important;
   padding: 40px !important;
 }
 
 .paused-border {
   border: 2px solid rgba(234, 179, 8, 0.35) !important;
-  box-shadow: 0 0 30px rgba(234, 179, 8, 0.15), inset 0 0 20px rgba(234, 179, 8, 0.1) !important;
+  box-shadow:
+    0 0 30px rgba(234, 179, 8, 0.15),
+    inset 0 0 20px rgba(234, 179, 8, 0.1) !important;
   background: rgba(12, 14, 18, 0.98) !important;
   padding: 40px !important;
 }
 
 .paused-title-glow {
-  text-shadow: 0 0 15px var(--signal-yellow-glow), -2px 0 var(--signal-yellow), 2px 0 #0000ff;
+  text-shadow:
+    0 0 15px var(--signal-yellow-glow),
+    -2px 0 var(--signal-yellow),
+    2px 0 #0000ff;
 }
 
 .overlay-title {
@@ -8657,77 +8769,176 @@ body,
 
 /* Core Animations */
 @keyframes led-squash-spring {
-  0% { transform: scale(1); }
-  25% { transform: scale(1.18, 0.82); filter: brightness(1.2); }
-  60% { transform: scale(0.92, 1.08); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.18, 0.82);
+    filter: brightness(1.2);
+  }
+  60% {
+    transform: scale(0.92, 1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .led-spring-impact {
   animation: led-squash-spring 0.38s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }
 
 @keyframes led-elastic-pop {
-  0% { transform: scale(0.3); opacity: 0; }
-  55% { transform: scale(1.35); filter: brightness(1.3); }
-  80% { transform: scale(0.95); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.35);
+    filter: brightness(1.3);
+  }
+  80% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 .led-elastic-spring {
   animation: led-elastic-pop 0.42s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
 }
 
 @keyframes stress-shiver {
-  0%, 100% { transform: translate(0, 0); }
-  20% { transform: translate(-1.2px, 0.8px); filter: brightness(1.15); }
-  40% { transform: translate(1.2px, -0.8px); }
-  60% { transform: translate(-0.8px, -1.2px); }
-  80% { transform: translate(0.8px, 1.2px); }
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-1.2px, 0.8px);
+    filter: brightness(1.15);
+  }
+  40% {
+    transform: translate(1.2px, -0.8px);
+  }
+  60% {
+    transform: translate(-0.8px, -1.2px);
+  }
+  80% {
+    transform: translate(0.8px, 1.2px);
+  }
 }
 .hud-stress-shiver {
   animation: stress-shiver 0.12s infinite linear !important;
 }
 
 @keyframes text-chromatic-flicker-green {
-  0%, 100% { text-shadow: 0 0 15px rgba(16, 185, 129, 0.6), -2px 0 #00ff00, 2px 0 #0000ff; }
-  50% { text-shadow: 0 0 8px rgba(16, 185, 129, 0.2), -1px 0 #00ff00, 1px 0 #0000ff; filter: brightness(0.95); }
-  92% { text-shadow: 0 0 25px rgba(16, 185, 129, 0.95), -3px 0 #00ff00, 3px 0 #0000ff; filter: brightness(1.1); }
+  0%,
+  100% {
+    text-shadow:
+      0 0 15px rgba(16, 185, 129, 0.6),
+      -2px 0 #00ff00,
+      2px 0 #0000ff;
+  }
+  50% {
+    text-shadow:
+      0 0 8px rgba(16, 185, 129, 0.2),
+      -1px 0 #00ff00,
+      1px 0 #0000ff;
+    filter: brightness(0.95);
+  }
+  92% {
+    text-shadow:
+      0 0 25px rgba(16, 185, 129, 0.95),
+      -3px 0 #00ff00,
+      3px 0 #0000ff;
+    filter: brightness(1.1);
+  }
 }
 .victory-title-anim {
   animation: text-chromatic-flicker-green 2.5s infinite ease-in-out;
 }
 
 @keyframes text-chromatic-flicker-red {
-  0%, 100% { text-shadow: 0 0 15px rgba(239, 68, 68, 0.6), -2px 0 #ff0000, 2px 0 #0000ff; }
-  45% { text-shadow: 0 0 6px rgba(239, 68, 68, 0.2), -1px 0 #ff0000, 1px 0 #0000ff; filter: brightness(0.9); }
-  85% { text-shadow: 0 0 22px rgba(239, 68, 68, 0.95), -4px 0 #ff0000, 4px 0 #0000ff; filter: brightness(1.2); }
+  0%,
+  100% {
+    text-shadow:
+      0 0 15px rgba(239, 68, 68, 0.6),
+      -2px 0 #ff0000,
+      2px 0 #0000ff;
+  }
+  45% {
+    text-shadow:
+      0 0 6px rgba(239, 68, 68, 0.2),
+      -1px 0 #ff0000,
+      1px 0 #0000ff;
+    filter: brightness(0.9);
+  }
+  85% {
+    text-shadow:
+      0 0 22px rgba(239, 68, 68, 0.95),
+      -4px 0 #ff0000,
+      4px 0 #0000ff;
+    filter: brightness(1.2);
+  }
 }
 .defeat-title-anim {
   animation: text-chromatic-flicker-red 2.2s infinite ease-in-out;
 }
 
 @keyframes victory-spin-glow {
-  0% { transform: scale(0.3) rotate(0deg); filter: drop-shadow(0 0 5px var(--accent-success)); opacity: 0; }
-  70% { transform: scale(1.1) rotate(370deg); filter: drop-shadow(0 0 20px var(--accent-success)); opacity: 0.9; }
-  100% { transform: scale(1) rotate(360deg); filter: drop-shadow(0 0 10px var(--accent-success)); opacity: 1; }
+  0% {
+    transform: scale(0.3) rotate(0deg);
+    filter: drop-shadow(0 0 5px var(--accent-success));
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.1) rotate(370deg);
+    filter: drop-shadow(0 0 20px var(--accent-success));
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    filter: drop-shadow(0 0 10px var(--accent-success));
+    opacity: 1;
+  }
 }
 .victory-icon-anim {
   animation: victory-spin-glow 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 @keyframes defeat-shiver-glow {
-  0%, 100% { transform: translate(0, 0) scale(1); filter: drop-shadow(0 0 5px var(--accent-danger)); opacity: 1; }
-  20% { transform: translate(-1.5px, 1px) rotate(-1.5deg) scale(1.05); }
-  40% { transform: translate(1.5px, -1px) rotate(2deg); filter: drop-shadow(0 0 16px var(--accent-danger)); }
-  60% { transform: translate(-1.5px, -1px) rotate(-1.5deg); }
-  80% { transform: translate(1.5px, 1.5px) rotate(1deg); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    filter: drop-shadow(0 0 5px var(--accent-danger));
+    opacity: 1;
+  }
+  20% {
+    transform: translate(-1.5px, 1px) rotate(-1.5deg) scale(1.05);
+  }
+  40% {
+    transform: translate(1.5px, -1px) rotate(2deg);
+    filter: drop-shadow(0 0 16px var(--accent-danger));
+  }
+  60% {
+    transform: translate(-1.5px, -1px) rotate(-1.5deg);
+  }
+  80% {
+    transform: translate(1.5px, 1.5px) rotate(1deg);
+  }
 }
 .defeat-icon-anim {
   animation: defeat-shiver-glow 0.22s infinite linear;
 }
 
 @keyframes bounce-short {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 .animate-bounce-short {
   animation: bounce-short 1.5s infinite ease-in-out;
@@ -8738,17 +8949,31 @@ body,
 }
 
 @keyframes stats-card-entry {
-  0% { opacity: 0; transform: translateY(12px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (pointer: fine) {
   *,
   *::before,
   *::after,
-  html, body, #root,
-  iframe, canvas, video, svg, path,
-  :hover, :focus, :active,
+  html,
+  body,
+  #root,
+  iframe,
+  canvas,
+  video,
+  svg,
+  path,
+  :hover,
+  :focus,
+  :active,
   ::backdrop {
     cursor: none !important;
   }
@@ -8875,7 +9100,7 @@ body,
   background: #0f1218;
   color: #718096;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 
+  box-shadow:
     -1px -1px 3px rgba(255, 255, 255, 0.01),
     2px 2px 5px rgba(0, 0, 0, 0.8),
     inset 1px 1px 0px rgba(255, 255, 255, 0.03);
@@ -8892,7 +9117,7 @@ body,
   border-color: var(--signal-green);
   color: #ffffff;
   background: #0c0e12;
-  box-shadow: 
+  box-shadow:
     0 0 8px rgba(34, 197, 94, 0.25),
     inset 0 0 3px rgba(34, 197, 94, 0.15),
     2px 2px 5px rgba(0, 0, 0, 0.9);
@@ -8957,9 +9182,7 @@ import HavokPhysics from "@babylonjs/havok";
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(message)), ms)
-    )
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms))
   ]);
 }
 
@@ -8977,7 +9200,9 @@ export class HavokPhysicsSystem implements ISystem {
     this.registerCommands();
     const scene = this.context.visualRegistry.getScene();
     if (scene) {
-      this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "LOADING PHYSICS ENGINE..." });
+      this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+        status: "LOADING PHYSICS ENGINE..."
+      });
       try {
         const HAVOK_TIMEOUT_MS = 15000;
         let havokInstance;
@@ -8993,7 +9218,9 @@ export class HavokPhysicsSystem implements ISystem {
           });
           try {
             havokInstance = await withTimeout(
-              HavokPhysics({ locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm" }),
+              HavokPhysics({
+                locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+              }),
               HAVOK_TIMEOUT_MS,
               "CDN HavokPhysics.wasm timed out"
             );
@@ -9088,12 +9315,7 @@ export class HavokPhysicsSystem implements ISystem {
     );
     shape.material = physicsMaterial;
 
-    const body = new BABYLON.PhysicsBody(
-      mesh,
-      BABYLON.PhysicsMotionType.STATIC,
-      false,
-      scene
-    );
+    const body = new BABYLON.PhysicsBody(mesh, BABYLON.PhysicsMotionType.STATIC, false, scene);
     body.shape = shape;
     body.setMassProperties({ mass: 0 });
     return body;
@@ -9139,14 +9361,18 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.z = wTarget.z;
     }
 
-    const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.AbstractMesh | null;
+    const pMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.player
+    ) as BABYLON.AbstractMesh | null;
     if (pMesh && pMesh.physicsBody && pTrans) {
       this._scratchPos.set(pTrans.x, pTrans.y, pTrans.z);
       this._scratchRot.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
       pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
 
-    const wMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.AbstractMesh | null;
+    const wMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.weaver
+    ) as BABYLON.AbstractMesh | null;
     if (wMesh && wMesh.physicsBody && wTrans) {
       this._scratchPos.set(wTrans.x, wTrans.y, wTrans.z);
       this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
@@ -9219,11 +9445,11 @@ export function Cursor() {
         width: 48,
         height: 48,
         pointerEvents: "none",
-        zIndex: 99999,
+        zIndex: 99999
       }}
       className="[@media(pointer:coarse)]:hidden"
       animate={{
-        opacity: isVisible && modalsOpen && cursorType !== "hidden" ? 1 : 0,
+        opacity: isVisible && modalsOpen && cursorType !== "hidden" ? 1 : 0
       }}
       transition={{ duration: 0.25 }}
     >
@@ -9258,13 +9484,13 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
           borderRadius: "50%",
           background: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0) 70%)",
           pointerEvents: "none",
-          zIndex: 1,
+          zIndex: 1
         }}
         animate={{
           width: variant.bubbleSize > 0 ? variant.bubbleSize + 16 : 0,
           height: variant.bubbleSize > 0 ? variant.bubbleSize + 16 : 0,
           x: "-50%",
-          y: "-50%",
+          y: "-50%"
         }}
         transition={{ type: "spring", stiffness: 180, damping: 15 }}
       />
@@ -9280,13 +9506,13 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
           alignItems: "center",
           justifyContent: "center",
           pointerEvents: "none",
-          zIndex: 2,
+          zIndex: 2
         }}
         animate={{
           width: variant.bubbleSize,
           height: variant.bubbleSize,
           x: "-50%",
-          y: "-50%",
+          y: "-50%"
         }}
         transition={{ type: "spring", stiffness: 180, damping: 15 }}
       >
@@ -9321,12 +9547,12 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
             left: "50%",
             zIndex: 3,
             pointerEvents: "none",
-            transformOrigin: "5.5px 3.2px",
+            transformOrigin: "5.5px 3.2px"
           }}
           animate={{
             scale: isPressed ? 0.85 : 1,
             x: "-50%",
-            y: "-50%",
+            y: "-50%"
           }}
           transition={{ type: "spring", stiffness: 300, damping: 15 }}
         >
@@ -9336,13 +9562,13 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
               fill={variant.color}
               stroke="rgba(0,0,0,0.5)"
               strokeWidth="3"
-                />
-              </svg>
-            </motion.div>
-          )}
-        </div>
-      );
-    }
+            />
+          </svg>
+        </motion.div>
+      )}
+    </div>
+  );
+}
 
 
 
@@ -9364,29 +9590,29 @@ export const CURSOR_VARIANTS: Record<CursorType, CursorVariantConfig> = {
     color: "#10b981",
     isBase: true,
     bubbleSize: 0,
-    bubbleBg: "transparent",
+    bubbleBg: "transparent"
   },
   button: {
     blendMode: "normal",
     color: "#10b981",
     isBase: true,
     bubbleSize: 0,
-    bubbleBg: "transparent",
+    bubbleBg: "transparent"
   },
   text: {
     blendMode: "normal",
     color: "#10b981",
     isBase: false,
     bubbleSize: 32,
-    bubbleBg: "transparent",
+    bubbleBg: "transparent"
   },
   hidden: {
     blendMode: "normal",
     color: "transparent",
     isBase: false,
     bubbleSize: 0,
-    bubbleBg: "transparent",
-  },
+    bubbleBg: "transparent"
+  }
 };
 
 
@@ -9395,11 +9621,7 @@ export const CURSOR_VARIANTS: Record<CursorType, CursorVariantConfig> = {
 ────────────────────────────────────────────────────
 import { create } from "zustand";
 
-export type CursorType =
-  | "default"
-  | "text"
-  | "button"
-  | "hidden";
+export type CursorType = "default" | "text" | "button" | "hidden";
 
 interface CursorStore {
   cursorType: CursorType;
@@ -9408,7 +9630,7 @@ interface CursorStore {
 
 export const useCursorStore = create<CursorStore>((set) => ({
   cursorType: "default",
-  setCursorType: (type) => set({ cursorType: type }),
+  setCursorType: (type) => set({ cursorType: type })
 }));
 
 
@@ -9460,9 +9682,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           }}
         >
           <div>
-            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
-              HUD RENDER ERROR
-            </div>
+            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>HUD RENDER ERROR</div>
             <div style={{ color: "#a1a1aa", fontSize: "10px" }}>
               {this.state.error?.message ?? "Unknown error"}
             </div>
@@ -9490,7 +9710,13 @@ interface CalibrationStepMeta {
   successTitle: string;
   activeTitle: string;
   subtitle: string;
-  renderKeys: (useWasd: boolean, isLeft: boolean, isRight: boolean, isUp: boolean, isDown: boolean) => React.ReactNode;
+  renderKeys: (
+    useWasd: boolean,
+    isLeft: boolean,
+    isRight: boolean,
+    isUp: boolean,
+    isDown: boolean
+  ) => React.ReactNode;
 }
 
 const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
@@ -9549,9 +9775,7 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
 };
 
 export const HudOverlay: React.FC = () => {
-  const playerState = usePlayerStore(
-    useShallow((s) => ({ playerHp: s.playerHp }))
-  );
+  const playerState = usePlayerStore(useShallow((s) => ({ playerHp: s.playerHp })));
   const { playerHp } = playerState;
 
   const weaverState = useWeaverStore(
@@ -9687,7 +9911,7 @@ export const HudOverlay: React.FC = () => {
   useEffect(() => {
     const handleTensionTick = (e: Event) => {
       const tensionVal = (e as CustomEvent).detail.tension;
-      const snapLimit = 1.0; 
+      const snapLimit = 1.0;
       const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
       const displayPercent = Math.round(clamped * 100);
       const scaleX = clamped / snapLimit;
@@ -9905,7 +10129,9 @@ export const HudOverlay: React.FC = () => {
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
   const isCriticalHp = playerHp === 1 && !overlayVisible;
 
-  const activeLedClass = stepSuccess ? "led-green led-elastic-spring" : "led-yellow led-spring-impact";
+  const activeLedClass = stepSuccess
+    ? "led-green led-elastic-spring"
+    : "led-yellow led-spring-impact";
   const activeStep = CALIBRATION_STEPS[displayedStep];
 
   return (
@@ -9917,10 +10143,7 @@ export const HudOverlay: React.FC = () => {
               INITIALIZING...
             </h2>
             <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
-              <div
-                className="h-full bg-emerald-500"
-                style={{ width: "100%" }}
-              />
+              <div className="h-full bg-emerald-500" style={{ width: "100%" }} />
             </div>
             <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
               {bootStatus}
@@ -9946,10 +10169,28 @@ export const HudOverlay: React.FC = () => {
         </div>
       ) : (
         <div className="hud-root select-none pointer-events-none">
-          <div className={`cabinet-header-panel ${isCriticalHp || hurtShakeActive ? "hud-stress-shiver" : ""}`}>
+          <div
+            className={`cabinet-header-panel ${isCriticalHp || hurtShakeActive ? "hud-stress-shiver" : ""}`}
+          >
             <div className="header-left flex flex-col gap-1.5">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-green)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                <Heart size={13} fill="var(--signal-green)" style={{ color: "var(--signal-green)", flexShrink: 0 }} /> PLAYER HP
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "var(--signal-green)",
+                  fontSize: "13px",
+                  fontWeight: "900",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase"
+                }}
+              >
+                <Heart
+                  size={13}
+                  fill="var(--signal-green)"
+                  style={{ color: "var(--signal-green)", flexShrink: 0 }}
+                />{" "}
+                PLAYER HP
               </span>
               <div className="hud-hp-row" style={{ display: "flex", gap: "6px" }}>
                 {[...Array(5)].map((_, i) => {
@@ -9970,7 +10211,10 @@ export const HudOverlay: React.FC = () => {
               </div>
             </div>
 
-            <div className="header-center" style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}>
+            <div
+              className="header-center"
+              style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}
+            >
               <AnimatePresence mode="wait">
                 {activeStep ? (
                   <motion.div
@@ -9979,16 +10223,43 @@ export const HudOverlay: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 12 }}
                     transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "2px"
+                    }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      {activeStep.renderKeys(useWasd, isLeftPressed, isRightPressed, isUpPressed, isDownPressed)}
-                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
+                      {activeStep.renderKeys(
+                        useWasd,
+                        isLeftPressed,
+                        isRightPressed,
+                        isUpPressed,
+                        isDownPressed
+                      )}
+                      <div
+                        className={`led-dot ${activeLedClass}`}
+                        style={{ width: "6px", height: "6px", marginLeft: "4px" }}
+                      />
                     </div>
-                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
+                    <span
+                      className="bezel-panel-label"
+                      style={{
+                        color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)",
+                        fontSize: "9px"
+                      }}
+                    >
                       {stepSuccess ? activeStep.successTitle : activeStep.activeTitle}
                     </span>
-                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    <span
+                      style={{
+                        fontSize: "7.5px",
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em"
+                      }}
+                    >
                       {activeStep.subtitle}
                     </span>
                   </motion.div>
@@ -10000,8 +10271,21 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.25 }}
                     style={{ display: "flex", alignItems: "center" }}
                   >
-                    <span className="warn-text" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                    <span
+                      className="warn-text"
+                      style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ flexShrink: 0, opacity: 0.85 }}
+                      >
                         <line x1="12" y1="2" x2="12" y2="22" />
                         <line x1="2" y1="12" x2="22" y2="12" />
                         <line x1="5" y1="5" x2="19" y2="19" />
@@ -10010,7 +10294,17 @@ export const HudOverlay: React.FC = () => {
                         <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
                       </svg>
                       <span style={{ transform: "translateY(1px)" }}>SILK</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ flexShrink: 0, opacity: 0.85 }}
+                      >
                         <line x1="12" y1="2" x2="12" y2="22" />
                         <line x1="2" y1="12" x2="22" y2="12" />
                         <line x1="5" y1="5" x2="19" y2="19" />
@@ -10025,8 +10319,24 @@ export const HudOverlay: React.FC = () => {
             </div>
 
             <div className="header-right flex flex-col items-end gap-1.5">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-red)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                <Skull size={13} fill="var(--signal-red)" style={{ color: "var(--signal-red)", flexShrink: 0 }} /> BOSS
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "var(--signal-red)",
+                  fontSize: "13px",
+                  fontWeight: "900",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase"
+                }}
+              >
+                <Skull
+                  size={13}
+                  fill="var(--signal-red)"
+                  style={{ color: "var(--signal-red)", flexShrink: 0 }}
+                />{" "}
+                BOSS
               </span>
               <div
                 className="neo-pressed"
@@ -10047,7 +10357,7 @@ export const HudOverlay: React.FC = () => {
                     height: "100%",
                     borderRadius: "4px",
                     width: `${(weaverHpRatio * 100).toFixed(1)}%`,
-                    transition: "width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
+                    transition: "width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)"
                   }}
                 />
               </div>
@@ -10068,9 +10378,30 @@ export const HudOverlay: React.FC = () => {
 
           <div className="cabinet-footer-panel">
             <div className="flex flex-col items-center gap-2" style={{ width: "320px" }}>
-              <div className="flex justify-between w-full font-bold" style={{ padding: "0 4px", alignItems: "center" }}>
-                <span style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>TENSION</span>
-                <span ref={tensionTextValRef} style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>
+              <div
+                className="flex justify-between w-full font-bold"
+                style={{ padding: "0 4px", alignItems: "center" }}
+              >
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontSize: "13px",
+                    fontWeight: "900",
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase"
+                  }}
+                >
+                  TENSION
+                </span>
+                <span
+                  ref={tensionTextValRef}
+                  style={{
+                    fontFamily: "monospace",
+                    fontSize: "14px",
+                    fontWeight: "900",
+                    letterSpacing: "0.05em"
+                  }}
+                >
                   0%
                 </span>
               </div>
@@ -10124,13 +10455,19 @@ export const HudOverlay: React.FC = () => {
                     <Skull
                       size={48}
                       className="defeat-icon-anim"
-                      style={{ color: "var(--accent-danger)", filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))" }}
+                      style={{
+                        color: "var(--accent-danger)",
+                        filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))"
+                      }}
                     />
                   ) : (
                     <Trophy
                       size={48}
                       className="victory-icon-anim"
-                      style={{ color: "var(--accent-success)", filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))" }}
+                      style={{
+                        color: "var(--accent-success)",
+                        filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))"
+                      }}
                     />
                   )}
                   <h1
@@ -10153,13 +10490,19 @@ export const HudOverlay: React.FC = () => {
                 >
                   <div className="gameover-stat-row">
                     <span className="gameover-stat-label">TOTAL WINS</span>
-                    <span key={`wins-${tickerWins}`} className="gameover-stat-value gameover-stat-win led-spring-impact inline-block">
+                    <span
+                      key={`wins-${tickerWins}`}
+                      className="gameover-stat-value gameover-stat-win led-spring-impact inline-block"
+                    >
                       {tickerWins}
                     </span>
                   </div>
                   <div className="gameover-stat-row">
                     <span className="gameover-stat-label">TOTAL LOSSES</span>
-                    <span key={`losses-${tickerLosses}`} className="gameover-stat-value gameover-stat-loss led-spring-impact inline-block">
+                    <span
+                      key={`losses-${tickerLosses}`}
+                      className="gameover-stat-value gameover-stat-loss led-spring-impact inline-block"
+                    >
                       {tickerLosses}
                     </span>
                   </div>
@@ -10180,14 +10523,26 @@ export const HudOverlay: React.FC = () => {
                       onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
                       className={`neo-btn gameover-btn ${
                         menuIndex === 0
-                          ? (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-victory-focused")
-                          : (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover")
+                          ? overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-focused"
+                            : "gameover-btn-victory-focused"
+                          : overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-hover"
+                            : "gameover-btn-victory-hover"
                       }`}
                     >
-                      {menuIndex === 0 && <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>▶</span>}
+                      {menuIndex === 0 && (
+                        <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>
+                          ▶
+                        </span>
+                      )}
                       <RotateCcw size={16} className="flex-shrink-0" />
                       <span>RETRY</span>
-                      {menuIndex === 0 && <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>◀</span>}
+                      {menuIndex === 0 && (
+                        <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>
+                          ◀
+                        </span>
+                      )}
                     </button>
 
                     <button
@@ -10203,14 +10558,26 @@ export const HudOverlay: React.FC = () => {
                       onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
                       className={`neo-btn gameover-btn ${
                         menuIndex === 1
-                          ? (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-victory-focused")
-                          : (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover")
+                          ? overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-focused"
+                            : "gameover-btn-victory-focused"
+                          : overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-hover"
+                            : "gameover-btn-victory-hover"
                       }`}
                     >
-                      {menuIndex === 1 && <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>▶</span>}
+                      {menuIndex === 1 && (
+                        <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>
+                          ▶
+                        </span>
+                      )}
                       <Trash2 size={16} className="flex-shrink-0" />
                       <span>CLEAR</span>
-                      {menuIndex === 1 && <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>◀</span>}
+                      {menuIndex === 1 && (
+                        <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>
+                          ◀
+                        </span>
+                      )}
                     </button>
                   </div>
                 </>
@@ -10226,7 +10593,10 @@ export const HudOverlay: React.FC = () => {
           style={{ background: "rgba(12, 13, 17, 0.65)" }}
         >
           <div className="flex flex-col items-center justify-center text-center animate-bounce-short">
-            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--accent-tension)" }}>
+            <h1
+              className="text-3xl font-black tracking-[0.25em] paused-title-glow"
+              style={{ color: "var(--accent-tension)" }}
+            >
               PAUSED
             </h1>
             <p className="text-[11px] text-zinc-400 tracking-[0.15em] uppercase mt-2">
@@ -10248,17 +10618,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import {
-  TraversalStateComponent,
-  InputIntentComponent
-} from "../../core/ecs/Components";
+import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  usePlayerStore,
-  useWeaverStore,
-  useOverlayStore,
-  resetAllStores
-} from "./hudStore";
+import { usePlayerStore, useWeaverStore, useOverlayStore, resetAllStores } from "./hudStore";
 
 export class HudSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
@@ -10301,10 +10663,15 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
 
-        if (!this.step0Completed && overlayStore.calibrationStep === 0 && this.currentState === "WALL_SLIDING" && tension >= 0.5) {
+        if (
+          !this.step0Completed &&
+          overlayStore.calibrationStep === 0 &&
+          this.currentState === "WALL_SLIDING" &&
+          tension >= 0.5
+        ) {
           this.step0Completed = true;
           overlayStore.setCalibrationStep(1);
-          dispatchUIFeedback("silk-play-confirm")
+          dispatchUIFeedback("silk-play-confirm");
         }
 
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
@@ -10326,7 +10693,7 @@ export class HudSyncSystem implements ISystem {
             if (!this.step1Completed && this.reeledUp && this.reeledDown) {
               this.step1Completed = true;
               overlayStore.setCalibrationStep(2);
-              dispatchUIFeedback("silk-play-confirm")
+              dispatchUIFeedback("silk-play-confirm");
             }
           }
         }
@@ -10413,7 +10780,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step1Completed && this.reeledUp && this.reeledDown) {
           this.step1Completed = true;
           overlayStore.setCalibrationStep(2);
-          dispatchUIFeedback("silk-play-confirm")
+          dispatchUIFeedback("silk-play-confirm");
         }
       }
     }
@@ -10421,11 +10788,11 @@ export class HudSyncSystem implements ISystem {
     if (overlayStore.calibrationStep === 2) {
       const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
       const pTrav = travStore.get(this.context.refs.player);
-      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.60) {
+      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
         if (!this.step2Completed) {
           this.step2Completed = true;
           overlayStore.setCalibrationStep(3);
-          dispatchUIFeedback("silk-play-confirm")
+          dispatchUIFeedback("silk-play-confirm");
         }
       }
     }
@@ -10506,7 +10873,7 @@ export interface OverlayState {
   overlaySubtitle: string;
   isPaused: boolean;
   awaitingGesture: boolean;
-  
+
   wins: number;
   losses: number;
   menuIndex: number;
@@ -10535,7 +10902,12 @@ export interface InputStoreState {
 }
 
 const PLAYER_RESET = { playerHp: 5, playerMaxHp: 5, currentState: "AIRBORNE" };
-const WEAVER_RESET = { weaverHp: 100, weaverMaxHp: 100, weaverState: "SWEEPING", weaverHue: "rgb(239, 68, 68)" };
+const WEAVER_RESET = {
+  weaverHp: 100,
+  weaverMaxHp: 100,
+  weaverState: "SWEEPING",
+  weaverHue: "rgb(239, 68, 68)"
+};
 const OVERLAY_RESET = {
   bootStatus: "READY",
   traversalHint: "",
@@ -10573,11 +10945,16 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   setTraversalHint: (text, color, opacity) =>
     set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
   showOverlay: (title, color, subtitle) =>
-    set({ overlayVisible: true, overlayTitle: title, overlayColor: color, overlaySubtitle: subtitle }),
+    set({
+      overlayVisible: true,
+      overlayTitle: title,
+      overlayColor: color,
+      overlaySubtitle: subtitle
+    }),
   hideOverlay: () => set({ overlayVisible: false }),
   setPaused: (isPaused) => set({ isPaused }),
   setAwaitingGesture: (awaiting) => set({ awaitingGesture: awaiting }),
-  
+
   setMenuIndex: (index) => set({ menuIndex: index }),
   loadStats: () => {
     try {
@@ -10622,18 +10999,20 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
 
   setCalibrationStep: (step) => set({ calibrationStep: step }),
 
-  reset: () => set((state) => ({
-    ...OVERLAY_RESET,
-    wins: state.wins,
-    losses: state.losses
-  }))
+  reset: () =>
+    set((state) => ({
+      ...OVERLAY_RESET,
+      wins: state.wins,
+      losses: state.losses
+    }))
 }));
 
 export const useInputStore = create<InputStoreState>((set) => ({
   keysPressed: {},
-  setKeyPressed: (key, pressed) => set((state) => ({
-    keysPressed: { ...state.keysPressed, [key]: pressed }
-  })),
+  setKeyPressed: (key, pressed) =>
+    set((state) => ({
+      keysPressed: { ...state.keysPressed, [key]: pressed }
+    })),
   reset: () => set({ keysPressed: {} })
 }));
 
@@ -10769,7 +11148,9 @@ export class CameraSystem implements ISystem {
 
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const playerTrans = transforms.get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
 
     if (playerTrans && trav) {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
@@ -10778,7 +11159,7 @@ export class CameraSystem implements ISystem {
       if (trav.state === "WALL_SLIDING") {
         if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
           const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
-          
+
           const maxCameraSpeed = ParallaxScrollSystem.currentScrollSpeed;
           const maxDelta = -maxCameraSpeed * dt;
           let desiredScrollY = targetScrollY;
@@ -10786,13 +11167,24 @@ export class CameraSystem implements ISystem {
             desiredScrollY = Math.max(this.cameraScrollY + maxDelta, desiredScrollY);
           }
 
-          const clampedScrollY = Math.max(CAMERA_TUNING.MIN_SCROLL_Y, Math.min(CAMERA_TUNING.MAX_SCROLL_Y, desiredScrollY));
+          const clampedScrollY = Math.max(
+            CAMERA_TUNING.MIN_SCROLL_Y,
+            Math.min(CAMERA_TUNING.MAX_SCROLL_Y, desiredScrollY)
+          );
           this.cameraScrollY = clampedScrollY;
         } else if (playerLocalY > -4.0 && this.cameraScrollY < 0.0) {
-          this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
+          this.cameraScrollY = BABYLON.Scalar.Lerp(
+            this.cameraScrollY,
+            0.0,
+            CAMERA_TUNING.NORMAL_LERP
+          );
         }
       } else {
-        this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
+        this.cameraScrollY = BABYLON.Scalar.Lerp(
+          this.cameraScrollY,
+          0.0,
+          CAMERA_TUNING.NORMAL_LERP
+        );
       }
     }
   }
@@ -10808,7 +11200,9 @@ export class CameraSystem implements ISystem {
     if (pNode) {
       const baseY = preset.DEFAULT_TARGET.y;
       const playerLocalY = pNode.position.y - (baseY + this.cameraScrollY);
-      const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+      const trav = this.context.stores
+        .get<TraversalStateComponent>("traversal")
+        .get(this.context.refs.player);
 
       if (trav && trav.state === "WALL_SLIDING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
         targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;
@@ -10852,7 +11246,7 @@ export class LightingSystem implements ISystem {
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
-  private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
+  private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0);
   private currentColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
   private flashTimer = 0.0;
@@ -10869,7 +11263,7 @@ export class LightingSystem implements ISystem {
       new BABYLON.Vector3(0, 5, -5),
       scene
     );
-    this.weaverLight.intensity = 2.0; 
+    this.weaverLight.intensity = 2.0;
     this.weaverLight.range = 18.0;
     this.weaverLight.diffuse = this.currentColor;
     this.weaverLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
@@ -10882,9 +11276,9 @@ export class LightingSystem implements ISystem {
       2.4,
       scene
     );
-    this.weaverKeyLight.intensity = 3.0; 
+    this.weaverKeyLight.intensity = 3.0;
     this.weaverKeyLight.range = 28.0;
-    this.weaverKeyLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
+    this.weaverKeyLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.weaverKeyLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     this.rimLight = new BABYLON.DirectionalLight(
@@ -11204,36 +11598,50 @@ export class ArenaGeometry {
     wallMaterial.roughness = 0.85;
     wallMaterial.albedoColor = new BABYLON.Color3(0.043, 0.051, 0.063);
 
-    applyProceduralTextures(textureGen, "concreteWall", this.scene, wallMaterial, {
-      resolution: 512,
-      noiseScale: 10.0,
-      bumpStrength: 2.5,
-      baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
-      roughnessMin: 0.75,
-      roughnessMax: 0.98,
-      metallic: 0.0
-    }, (mat) => {
-      mat.enableSpecularAntiAliasing = true;
-      mat.forceIrradianceInFragment = true;
-    });
+    applyProceduralTextures(
+      textureGen,
+      "concreteWall",
+      this.scene,
+      wallMaterial,
+      {
+        resolution: 512,
+        noiseScale: 10.0,
+        bumpStrength: 2.5,
+        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
+        roughnessMin: 0.75,
+        roughnessMax: 0.98,
+        metallic: 0.0
+      },
+      (mat) => {
+        mat.enableSpecularAntiAliasing = true;
+        mat.forceIrradianceInFragment = true;
+      }
+    );
 
     const panelMaterial = new BABYLON.PBRMaterial("panelMat", this.scene);
     panelMaterial.metallic = 0.25;
     panelMaterial.roughness = 0.65;
     panelMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.11);
 
-    applyProceduralTextures(textureGen, "scrollingPanel", this.scene, panelMaterial, {
-      resolution: 512,
-      noiseScale: 16.0,
-      bumpStrength: 1.8,
-      baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
-      roughnessMin: 0.45,
-      roughnessMax: 0.75,
-      metallic: 0.2
-    }, (mat) => {
-      mat.enableSpecularAntiAliasing = true;
-      mat.forceIrradianceInFragment = true;
-    });
+    applyProceduralTextures(
+      textureGen,
+      "scrollingPanel",
+      this.scene,
+      panelMaterial,
+      {
+        resolution: 512,
+        noiseScale: 16.0,
+        bumpStrength: 1.8,
+        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
+        roughnessMin: 0.45,
+        roughnessMax: 0.75,
+        metallic: 0.2
+      },
+      (mat) => {
+        mat.enableSpecularAntiAliasing = true;
+        mat.forceIrradianceInFragment = true;
+      }
+    );
 
     const verticalGrooveMaterial = new BABYLON.PBRMaterial("grooveMat", this.scene);
     verticalGrooveMaterial.albedoColor = new BABYLON.Color3(0.015, 0.015, 0.02);
@@ -11245,23 +11653,30 @@ export class ArenaGeometry {
     backdropMaterial.roughness = 0.94;
     backdropMaterial.albedoColor = new BABYLON.Color3(0.026, 0.03, 0.037);
 
-    applyProceduralTextures(textureGen, "shaftBackdropConcrete", this.scene, backdropMaterial, {
-      resolution: 1024,
-      noiseScale: 12.0,
-      bumpStrength: 3.1,
-      baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
-      roughnessMin: 0.82,
-      roughnessMax: 0.99,
-      metallic: 0.0,
-      ridgeStrength: 0.16,
-      ridgeScale: 0.34,
-      ridgeDirectionX: 0.65,
-      ridgeDirectionY: 1.0,
-      colorVariation: 0.2
-    }, (mat) => {
-      mat.enableSpecularAntiAliasing = true;
-      mat.forceIrradianceInFragment = true;
-    });
+    applyProceduralTextures(
+      textureGen,
+      "shaftBackdropConcrete",
+      this.scene,
+      backdropMaterial,
+      {
+        resolution: 1024,
+        noiseScale: 12.0,
+        bumpStrength: 3.1,
+        baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
+        roughnessMin: 0.82,
+        roughnessMax: 0.99,
+        metallic: 0.0,
+        ridgeStrength: 0.16,
+        ridgeScale: 0.34,
+        ridgeDirectionX: 0.65,
+        ridgeDirectionY: 1.0,
+        colorVariation: 0.2
+      },
+      (mat) => {
+        mat.enableSpecularAntiAliasing = true;
+        mat.forceIrradianceInFragment = true;
+      }
+    );
 
     const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
     backdropPanelMaterial.metallic = 0.05;
@@ -11405,7 +11820,7 @@ export class ArenaGeometry {
     const panelCount = 20;
     const panelSpacing = wallHeight / panelCount;
     for (let i = 0; i < panelCount; i++) {
-      const panelY = (i - panelCount / 2) * panelSpacing + (wallHeight * 0.1);
+      const panelY = (i - panelCount / 2) * panelSpacing + wallHeight * 0.1;
 
       const heightScale = 0.45 + Math.abs(Math.sin(i * 1.5)) * 0.45;
       const panelHeight = panelSpacing * heightScale;
@@ -11432,7 +11847,7 @@ export class ArenaGeometry {
     const ribCount = 10;
     const ribSpacing = wallHeight / ribCount;
     for (let i = 0; i < ribCount; i++) {
-      const ribY = (i - ribCount / 2) * ribSpacing + (wallHeight * 0.1);
+      const ribY = (i - ribCount / 2) * ribSpacing + wallHeight * 0.1;
 
       const ribHeight = 0.18 + Math.abs(Math.sin(i * 1.9)) * 0.22;
       const ribDepth = 4.15;
@@ -11500,7 +11915,7 @@ export function decoratePlayerSilkVisual(
   radius: number
 ): void {
   pMesh.isVisible = false;
-  
+
   const childMeshes = pMesh.getChildMeshes();
   for (let i = 0; i < childMeshes.length; i++) {
     childMeshes[i].dispose();
@@ -11519,7 +11934,7 @@ export function decoratePlayerSilkVisual(
   );
   innerBody.position.set(0, 0, 0);
   const innerMat = new BABYLON.PBRMaterial("playerInnerMat", scene);
-  innerMat.albedoColor = new BABYLON.Color3(0.04, 0.01, 0.08); 
+  innerMat.albedoColor = new BABYLON.Color3(0.04, 0.01, 0.08);
   innerMat.roughness = 0.95;
   innerMat.metallic = 0.05;
   innerBody.material = innerMat;
@@ -11539,9 +11954,9 @@ export function decoratePlayerSilkVisual(
   const textureGen = new ProceduralTextureGenerator();
 
   const silkMat = new BABYLON.PBRMaterial("playerSilkMat", scene);
-  silkMat.metallic = 0.92; 
+  silkMat.metallic = 0.92;
   silkMat.roughness = 0.08;
-  silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0); 
+  silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0);
 
   applyProceduralTextures(textureGen, "silkFiber", scene, silkMat, {
     resolution: 512,
@@ -11556,7 +11971,7 @@ export function decoratePlayerSilkVisual(
   silkMat.sheen.isEnabled = true;
   silkMat.sheen.intensity = 0.95;
   silkMat.sheen.roughness = 0.05;
-  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0); 
+  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
   silkMat.emissiveColor = new BABYLON.Color3(0.1, 0.0, 0.2);
   silkMat.enableSpecularAntiAliasing = true;
   silkMat.forceIrradianceInFragment = true;
@@ -11568,7 +11983,7 @@ export function decoratePlayerSilkVisual(
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
   bandMat.metallic = 0.95;
   bandMat.roughness = 0.06;
-  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
+  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
   applyProceduralTextures(textureGen, "silkBand", scene, bandMat, {
     resolution: 256,
@@ -11693,9 +12108,9 @@ function createFoot(
   const foot = BABYLON.MeshBuilder.CreateSphere(
     name,
     {
-      diameterX: radius * 0.10,
+      diameterX: radius * 0.1,
       diameterY: radius * 0.28,
-      diameterZ: radius * 0.10
+      diameterZ: radius * 0.1
     },
     scene
   );
@@ -11739,7 +12154,7 @@ export function decorateWeaverVisual(
   registerShadowCaster?: (mesh: BABYLON.AbstractMesh) => void
 ): void {
   wMesh.isVisible = false;
-  
+
   const childMeshes = wMesh.getChildMeshes();
   for (let i = 0; i < childMeshes.length; i++) {
     childMeshes[i].dispose();
@@ -11903,18 +12318,18 @@ export function decorateWeaverVisual(
       { diameter: eyeRadius * 2.0 },
       scene
     );
-    
+
     const ox = offset.x * radius;
     const oy = offset.y * radius;
     const oz = offset.z * radius;
-    
+
     const sum = (ox * ox) / (a * a) + (oy * oy) / (b * b) + (oz * oz) / (c * c);
     const k = 1.0 / Math.sqrt(sum || 1.0);
-    
+
     const sx = ox * k;
     const sy = oy * k;
     const sz = oz * k;
-    
+
     const nx = sx / (a * a);
     const ny = sy / (b * b);
     const nz = sz / (c * c);
@@ -11922,22 +12337,58 @@ export function decorateWeaverVisual(
     const dx = nx / nLen;
     const dy = ny / nLen;
     const dz = nz / nLen;
-    
+
     const recessAmt = eyeRadius * 0.5;
     const px = sx - dx * recessAmt;
     const py = sy - dy * recessAmt;
     const pz = sz - dz * recessAmt;
-    
+
     eye.position.set(px, py, pz);
     eye.material = eyeMat;
     eye.parent = head;
   });
 
   const legPoses: LegPose[] = [
-    { hipX: 0.38, hipY: 0.32, kneeX: 0.96, kneeY: 0.74, footX: 1.7, footY: 1.02, coxaWidth: 0.14, tibiaWidth: 0.058 },
-    { hipX: 0.5, hipY: 0.1, kneeX: 1.2, kneeY: 0.24, footX: 1.95, footY: 0.26, coxaWidth: 0.15, tibiaWidth: 0.064 },
-    { hipX: 0.5, hipY: -0.12, kneeX: 1.2, kneeY: -0.32, footX: 1.92, footY: -0.52, coxaWidth: 0.145, tibiaWidth: 0.06 },
-    { hipX: 0.36, hipY: -0.34, kneeX: 0.96, kneeY: -0.74, footX: 1.68, footY: -1.08, coxaWidth: 0.13, tibiaWidth: 0.054 }
+    {
+      hipX: 0.38,
+      hipY: 0.32,
+      kneeX: 0.96,
+      kneeY: 0.74,
+      footX: 1.7,
+      footY: 1.02,
+      coxaWidth: 0.14,
+      tibiaWidth: 0.058
+    },
+    {
+      hipX: 0.5,
+      hipY: 0.1,
+      kneeX: 1.2,
+      kneeY: 0.24,
+      footX: 1.95,
+      footY: 0.26,
+      coxaWidth: 0.15,
+      tibiaWidth: 0.064
+    },
+    {
+      hipX: 0.5,
+      hipY: -0.12,
+      kneeX: 1.2,
+      kneeY: -0.32,
+      footX: 1.92,
+      footY: -0.52,
+      coxaWidth: 0.145,
+      tibiaWidth: 0.06
+    },
+    {
+      hipX: 0.36,
+      hipY: -0.34,
+      kneeX: 0.96,
+      kneeY: -0.74,
+      footX: 1.68,
+      footY: -1.08,
+      coxaWidth: 0.13,
+      tibiaWidth: 0.054
+    }
   ];
 
   for (let side = 0; side < 2; side++) {
@@ -11954,11 +12405,11 @@ export function decorateWeaverVisual(
       const legRoot = new BABYLON.TransformNode(`leg_root_${sideSign}_${l}`, scene);
       legRoot.parent = wMesh;
       legRoot.position.set(hipX, hipY, radius * -0.15);
-      
+
       const coxaDx = kneeX - hipX;
       const coxaDy = kneeY - hipY;
       const coxaLength = Math.sqrt(coxaDx * coxaDx + coxaDy * coxaDy);
-      
+
       const coxa = createLegSegment(
         scene,
         `coxa_${sideSign}_${l}`,
@@ -12037,11 +12488,14 @@ import * as BABYLON from "@babylonjs/core";
 
 export class ProceduralTextureGenerator {
   private p = new Uint8Array(256);
-  private static textureCache = new Map<string, {
-    albedo: BABYLON.DynamicTexture;
-    normal: BABYLON.DynamicTexture;
-    orm: BABYLON.DynamicTexture;
-  }>();
+  private static textureCache = new Map<
+    string,
+    {
+      albedo: BABYLON.DynamicTexture;
+      normal: BABYLON.DynamicTexture;
+      orm: BABYLON.DynamicTexture;
+    }
+  >();
 
   constructor() {
     for (let i = 0; i < 256; i++) {
@@ -12185,7 +12639,11 @@ export class ProceduralTextureGenerator {
         normalImg.data[idx + 3] = 255;
 
         const variation = config.colorVariation ?? 0.12;
-        const pore = this.fbm((x / res) * config.noiseScale * 4.5 + 3.1, (y / res) * config.noiseScale * 4.5, 2);
+        const pore = this.fbm(
+          (x / res) * config.noiseScale * 4.5 + 3.1,
+          (y / res) * config.noiseScale * 4.5,
+          2
+        );
         const tint = 0.86 + h * variation + (pore - 0.5) * variation * 0.35;
         albedoImg.data[idx] = Math.min(255, Math.max(0, config.baseColor.r * 255 * tint));
         albedoImg.data[idx + 1] = Math.min(255, Math.max(0, config.baseColor.g * 255 * tint));
@@ -12294,7 +12752,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 1.45; 
+    this.scene.environmentIntensity = 1.45;
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
@@ -12309,7 +12767,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirLight.intensity = 1.65;
-    dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
+    dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
@@ -12317,7 +12775,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirFillLight.intensity = 1.35;
-    dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
+    dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     dirFillLight.setEnabled(true);
 
     const pointLightsConfigs = [
@@ -12337,7 +12795,7 @@ export class RenderSystem implements ISystem {
       }
     ];
 
-    pointLightsConfigs.forEach(cfg => {
+    pointLightsConfigs.forEach((cfg) => {
       const pl = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
       pl.intensity = cfg.intensity;
       pl.range = cfg.range;
@@ -12355,14 +12813,14 @@ export class RenderSystem implements ISystem {
     );
     lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
-    lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); 
+    lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25);
 
     const uplightConfigs = [
       { name: "leftShaftUplight", pos: new BABYLON.Vector3(-10.5, -9.0, -4.2) },
       { name: "rightShaftUplight", pos: new BABYLON.Vector3(10.5, -9.0, -4.2) }
     ];
 
-    uplightConfigs.forEach(cfg => {
+    uplightConfigs.forEach((cfg) => {
       const uplight = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
       uplight.intensity = 1.95;
       uplight.range = 32.0;
@@ -12382,19 +12840,22 @@ export class RenderSystem implements ISystem {
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
     pipeline.imageProcessing.vignetteWeight = preset.RENDERER.VIGNETTE_WEIGHT;
-    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0.05, 0.0, 0.1, 1); 
+    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0.05, 0.0, 0.1, 1);
     pipeline.imageProcessing.exposure = preset.RENDERER.EXPOSURE;
     pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
 
     pipeline.imageProcessing.toneMappingEnabled = true;
-    pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
+    pipeline.imageProcessing.toneMappingType =
+      BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
 
     pipeline.chromaticAberrationEnabled = true;
     pipeline.chromaticAberration.aberrationAmount = 0.0;
     pipeline.chromaticAberration.radialIntensity = 1.2;
     this.pipeline = pipeline;
 
-    this.scene.lights.forEach((light) => { light.specular.set(0, 0, 0); });
+    this.scene.lights.forEach((light) => {
+      light.specular.set(0, 0, 0);
+    });
 
     const shadowGen = new BABYLON.ShadowGenerator(preset.RENDERER.SHADOW_MAP_SIZE, dirLight);
     shadowGen.usePercentageCloserFiltering = true;
@@ -12422,7 +12883,11 @@ export class RenderSystem implements ISystem {
     );
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
-        if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
+        if (
+          payload.state === "LAUNCHING" &&
+          payload.launchPower !== undefined &&
+          payload.launchPower >= 0.72
+        ) {
           if (this.pipeline) {
             this.pipeline.chromaticAberration.aberrationAmount = 20.0 * payload.launchPower;
           }
@@ -12587,7 +13052,11 @@ export class EntityInterpolationSystem implements ISystem {
 
 ● ./src/visual/systems/ParallaxScrollSystem.ts
 ────────────────────────────────────────────────────
-import { ARENA_CONFIG, CANONICAL_UNITS, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import {
+  ARENA_CONFIG,
+  CANONICAL_UNITS,
+  POST_PROCESSING_PRESETS
+} from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -12714,9 +13183,7 @@ export class ParallaxScrollSystem implements ISystem {
     }
 
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_POS.y;
-    const cameraYOffset = scene.activeCamera
-      ? (scene.activeCamera.position.y - defaultCameraY)
-      : 0.0;
+    const cameraYOffset = scene.activeCamera ? scene.activeCamera.position.y - defaultCameraY : 0.0;
 
     const leftWall = scene.getMeshByName("leftWall");
     const rightWall = scene.getMeshByName("rightWall");
@@ -12782,7 +13249,7 @@ export class VisualStateDressingSystem implements ISystem {
 
   private currentEmissiveColor = new BABYLON.Color3(0.05, 0.15, 0.05);
   private readonly _targetEmissiveColor = new BABYLON.Color3();
-  
+
   private visualClock = 0.0;
   private gaitClock = 0.0;
   private gaitAmp = 0.12;
@@ -12871,13 +13338,16 @@ export class VisualStateDressingSystem implements ISystem {
     const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
     if (pNode && tether && trav) {
       const mesh = pNode as BABYLON.AbstractMesh;
-      
+
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);
       }
       mesh.getChildMeshes().forEach((child) => {
-        if (child.material instanceof BABYLON.PBRMaterial && !pbrMaterials.includes(child.material)) {
+        if (
+          child.material instanceof BABYLON.PBRMaterial &&
+          !pbrMaterials.includes(child.material)
+        ) {
           pbrMaterials.push(child.material);
         }
       });
@@ -12896,7 +13366,10 @@ export class VisualStateDressingSystem implements ISystem {
         pbrMaterials.push(mesh.material);
       }
       mesh.getChildMeshes().forEach((child) => {
-        if (child.material instanceof BABYLON.PBRMaterial && !pbrMaterials.includes(child.material)) {
+        if (
+          child.material instanceof BABYLON.PBRMaterial &&
+          !pbrMaterials.includes(child.material)
+        ) {
           pbrMaterials.push(child.material);
         }
       });
@@ -12929,16 +13402,35 @@ export class VisualStateDressingSystem implements ISystem {
 
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
-        const legRoots = mesh.getChildren((node) => node.name.startsWith("leg_root_"), false) as BABYLON.TransformNode[];
-        const abdomen = mesh.getChildren((node) => node.name === "weaver_abdomen", false)[0] as BABYLON.TransformNode;
-        const cephalothorax = mesh.getChildren((node) => node.name === "weaver_cephalothorax", false)[0] as BABYLON.TransformNode;
-        const head = mesh.getChildren((node) => node.name === "weaver_head", false)[0] as BABYLON.TransformNode;
-        
-        const legsMap = new Map<string, { coxa: BABYLON.TransformNode; tibia: BABYLON.TransformNode }>();
+        const legRoots = mesh.getChildren(
+          (node) => node.name.startsWith("leg_root_"),
+          false
+        ) as BABYLON.TransformNode[];
+        const abdomen = mesh.getChildren(
+          (node) => node.name === "weaver_abdomen",
+          false
+        )[0] as BABYLON.TransformNode;
+        const cephalothorax = mesh.getChildren(
+          (node) => node.name === "weaver_cephalothorax",
+          false
+        )[0] as BABYLON.TransformNode;
+        const head = mesh.getChildren(
+          (node) => node.name === "weaver_head",
+          false
+        )[0] as BABYLON.TransformNode;
+
+        const legsMap = new Map<
+          string,
+          { coxa: BABYLON.TransformNode; tibia: BABYLON.TransformNode }
+        >();
         legRoots.forEach((root) => {
-          const coxa = root.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode;
+          const coxa = root
+            .getChildren()
+            .find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode;
           if (coxa) {
-            const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode;
+            const tibia = coxa
+              .getChildren()
+              .find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode;
             if (tibia) {
               legsMap.set(root.name, { coxa, tibia });
             }
@@ -13001,10 +13493,13 @@ export class VisualStateDressingSystem implements ISystem {
 
           const coxa = legJoints?.coxa;
           if (coxa) {
-            const coxaMeta = coxa.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
+            const coxaMeta = coxa.metadata as {
+              baseRotationZ?: number;
+              baseRotationX?: number;
+            } | null;
             const baseCoxaZ = coxaMeta?.baseRotationZ ?? coxa.rotation.z;
             const baseCoxaX = coxaMeta?.baseRotationX ?? coxa.rotation.x;
-            
+
             const coxaTuckAngle = sideSign * this.gaitTuck * 0.24;
             const coxaLift = sideSign * lift * 0.16;
             coxa.rotation.z = baseCoxaZ + coxaTuckAngle + coxaLift;
@@ -13012,10 +13507,13 @@ export class VisualStateDressingSystem implements ISystem {
 
             const tibia = legJoints?.tibia;
             if (tibia) {
-              const tibiaMeta = tibia.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
+              const tibiaMeta = tibia.metadata as {
+                baseRotationZ?: number;
+                baseRotationX?: number;
+              } | null;
               const baseTibiaZ = tibiaMeta?.baseRotationZ ?? tibia.rotation.z;
               const baseTibiaX = tibiaMeta?.baseRotationX ?? tibia.rotation.x;
-              
+
               const tibiaTuckAngle = -sideSign * this.gaitTuck * 0.34;
               const tibiaSweep = -sideSign * (sweep * 0.12 + lift * 0.1);
               tibia.rotation.z = baseTibiaZ + tibiaTuckAngle + tibiaSweep;
@@ -13041,13 +13539,17 @@ export class VisualStateDressingSystem implements ISystem {
         this._footLocalTarget.x += sweep * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
         this._footLocalTarget.y += lift * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
 
-        BABYLON.Vector3.TransformCoordinatesToRef(this._footLocalTarget, mesh.getWorldMatrix(), this._footWorldTarget);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          this._footLocalTarget,
+          mesh.getWorldMatrix(),
+          this._footWorldTarget
+        );
 
         const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
         const ceilingY = ARENA_CONFIG.VERTICAL.CEILING_Y;
         const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y;
 
-        const checkMargin = 0.55; 
+        const checkMargin = 0.55;
         if (this._footWorldTarget.x > wallLimit - checkMargin) {
           this._footWorldTarget.x = wallLimit;
         } else if (this._footWorldTarget.x < -wallLimit + checkMargin) {
@@ -13061,11 +13563,15 @@ export class VisualStateDressingSystem implements ISystem {
         }
 
         transNode.getWorldMatrix().invertToRef(this._rootWorldInv);
-        BABYLON.Vector3.TransformCoordinatesToRef(this._footWorldTarget, this._rootWorldInv, this._targetLocal);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          this._footWorldTarget,
+          this._rootWorldInv,
+          this._targetLocal
+        );
 
         const ikRotations = this.solveIK(this._targetLocal, coxaLength, tibiaLength, sideSign);
 
-        transNode.rotation.z = 0; 
+        transNode.rotation.z = 0;
         transNode.rotation.y = 0;
         transNode.position.z = rootMeta.basePositionZ ?? transNode.position.z;
 
@@ -13088,7 +13594,11 @@ export class VisualStateDressingSystem implements ISystem {
     }
   }
 
-  private resolveWeaverGaitTargets(wAI: WeaverAIComponent): { amp: number; freq: number; tuck: number } {
+  private resolveWeaverGaitTargets(wAI: WeaverAIComponent): {
+    amp: number;
+    freq: number;
+    tuck: number;
+  } {
     if (wAI.state === "STRIKING" || wAI.state.includes("WEAVER STRIKE")) {
       const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
       const wVel = velStore.get(this.context.refs.weaver);
@@ -13179,7 +13689,12 @@ export class VisualStateDressingSystem implements ISystem {
     }
 
     this._targetEmissiveColor.set(targetR, targetG, targetB);
-    BABYLON.Color3.LerpToRef(this.currentEmissiveColor, this._targetEmissiveColor, emissive.PLAYER_LERP_RATE, this.currentEmissiveColor);
+    BABYLON.Color3.LerpToRef(
+      this.currentEmissiveColor,
+      this._targetEmissiveColor,
+      emissive.PLAYER_LERP_RATE,
+      this.currentEmissiveColor
+    );
 
     mat.emissiveColor.set(
       this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
