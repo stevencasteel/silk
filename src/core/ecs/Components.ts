@@ -67,6 +67,16 @@ export interface WeaverAIComponent {
   scrollSpeed: number;
   damageShearIntensity: number;
   damageShearTime: number;
+  desiredVelocityX: number;
+  desiredVelocityY: number;
+  shootRequested: boolean;
+  shootOriginX?: number;
+  shootOriginY?: number;
+  shootTargetX?: number;
+  shootTargetY?: number;
+  shakeRequested: boolean;
+  shakeAmplitude?: number;
+  shakeDuration?: number;
 }
 
 export interface PlayerTag {

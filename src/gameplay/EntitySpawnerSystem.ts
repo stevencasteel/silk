@@ -101,7 +101,11 @@ export class EntitySpawnerSystem implements ISystem {
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
       scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE,
       damageShearIntensity: 0.0,
-      damageShearTime: 0.0
+      damageShearTime: 0.0,
+      desiredVelocityX: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X,
+      desiredVelocityY: 0,
+      shootRequested: false,
+      shakeRequested: false
     });
 
     this.context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
@@ -119,7 +123,6 @@ export class EntitySpawnerSystem implements ISystem {
       direction: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X >= 0 ? 1 : -1
     });
 
-    // Attach passive hitbox/hurtbox components
     this.context.stores.get<HurtboxComponent>("hurtbox").add(weaverId, {
       ownerId: weaverId,
       isActive: true,
@@ -129,7 +132,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     this.context.stores.get<HitboxComponent>("hitbox").add(weaverId, {
       ownerId: weaverId,
-      isActive: false, // Activated dynamically during STRIKING state
+      isActive: false,
       radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
       damage: GAMEPLAY_TUNING.COMBAT.WEAVER_CONTACT_DAMAGE,
       targetLayer: "PLAYER"
@@ -248,7 +251,6 @@ export class EntitySpawnerSystem implements ISystem {
 
     this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
 
-    // Attach passive hitbox/hurtbox components
     this.context.stores.get<HurtboxComponent>("hurtbox").add(playerId, {
       ownerId: playerId,
       isActive: true,
@@ -258,7 +260,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     this.context.stores.get<HitboxComponent>("hitbox").add(playerId, {
       ownerId: playerId,
-      isActive: false, // Activated dynamically during LAUNCHING traversal state
+      isActive: false,
       radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
       damage: GAMEPLAY_TUNING.COMBAT.PLAYER_FLING_DAMAGE,
       targetLayer: "WEAVER"

@@ -43,6 +43,7 @@ import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/player/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/weaver/WeaverBrainSystem";
 import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem";
+import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
@@ -162,6 +163,7 @@ export class CompositionRoot {
     const spawner = new EntitySpawnerSystem(context);
 
     const weaverBrain = new WeaverBrainSystem(context);
+    const weaverActionSystem = new WeaverActionSystem(context);
     const weaverTraversalSystem = new WeaverTraversalSystem(context);
 
     const combatSystem = new CombatSystem(context);
@@ -181,6 +183,7 @@ export class CompositionRoot {
     systemManager.register(collisionResolutionSystem);
     systemManager.register(inputSystem);
     systemManager.register(weaverBrain);
+    systemManager.register(weaverActionSystem);
     systemManager.register(playerKinematics);
     systemManager.register(playerAnimation);
     systemManager.register(weaverTraversalSystem);

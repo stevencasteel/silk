@@ -1,18 +1,9 @@
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import {
-  WEAVER_AI_TUNING,
-  VISUAL_JUICE_CONFIG,
-  POST_PROCESSING_PRESETS
-} from "../../../core/engine/ArenaConfig";
+import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import {
-  TransformComponent,
-  HealthComponent,
-  WeaverTraversalComponent,
-  WeaverAIComponent
-} from "../../../core/ecs/Components";
-import { setKinematicVelocity, HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
+import { TransformComponent, HealthComponent, WeaverTraversalComponent, WeaverAIComponent } from "../../../core/ecs/Components";
+import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
 
 export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
@@ -42,7 +33,11 @@ export class WeaverStrikingState implements IWeaverState {
     this.currentPhase = "PREP";
     this.phaseTimer = WEAVER_AI_TUNING.DASH.PREP_TIME;
 
-    setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
+    const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (ai) {
+      ai.desiredVelocityX = 0;
+      ai.desiredVelocityY = 0;
+    }
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const playerTrans = transforms.get(ctx.refs.player);
@@ -68,7 +63,7 @@ export class WeaverStrikingState implements IWeaverState {
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const weaverTrans = transforms.get(ctx.refs.weaver);
 
-    if (weaverTrans) {
+    if (weaverTrans && aiComp) {
       const dx = this.targetPos.x - weaverTrans.x;
       const dy = this.targetPos.y - weaverTrans.y;
       const dist = getDistance2D(weaverTrans.x, weaverTrans.y, this.targetPos.x, this.targetPos.y);
@@ -80,7 +75,8 @@ export class WeaverStrikingState implements IWeaverState {
       this.thrustVelocity.x = (dx / dist) * speed;
       this.thrustVelocity.y = (dy / dist) * speed;
 
-      setKinematicVelocity(ctx, ctx.refs.weaver, this.thrustVelocity.x, this.thrustVelocity.y);
+      aiComp.desiredVelocityX = this.thrustVelocity.x;
+      aiComp.desiredVelocityY = this.thrustVelocity.y;
     }
   }
 
@@ -91,32 +87,31 @@ export class WeaverStrikingState implements IWeaverState {
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
       aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
+      aiComp.desiredVelocityX = 0;
+      aiComp.desiredVelocityY = 0;
+      aiComp.shakeRequested = true;
+      aiComp.shakeAmplitude = 0.8;
+      aiComp.shakeDuration = 0.4;
     }
-
-    setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
-
-    ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.8, duration: 0.4 });
   }
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
     this.phaseTimer -= dt;
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (!aiComp) return null;
 
     if (this.currentPhase === "PREP") {
       const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
       const step = Math.floor(this.phaseTimer * strobeHz);
-      if (aiComp) {
-        aiComp.hue =
-          step % 2 === 0
-            ? HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
-            : HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-      }
+      aiComp.hue =
+        step % 2 === 0
+          ? HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
+          : HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
 
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP,
-          duration: WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR
-        });
+        aiComp.shakeRequested = true;
+        aiComp.shakeAmplitude = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP;
+        aiComp.shakeDuration = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR;
       }
 
       if (this.phaseTimer <= 0) {

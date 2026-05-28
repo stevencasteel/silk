@@ -2,7 +2,8 @@ import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
+import { WeaverAIComponent } from "../../../core/ecs/Components";
+import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
@@ -10,7 +11,11 @@ export class WeaverDefeatedState implements IWeaverState {
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
 
   public enter(ctx: SystemContext): void {
-    setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
+    const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (ai) {
+      ai.desiredVelocityX = 0;
+      ai.desiredVelocityY = 0;
+    }
     ctx.broker.publish(GameEvent.WEAVER_DIED, undefined);
   }
 
