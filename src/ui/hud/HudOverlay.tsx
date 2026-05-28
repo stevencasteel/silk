@@ -7,9 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export const HudOverlay: React.FC = () => {
   const playerState = usePlayerStore(
-    useShallow((s) => ({ playerHp: s.playerHp, currentState: s.currentState }))
+    useShallow((s) => ({ playerHp: s.playerHp }))
   );
-  const { playerHp, currentState } = playerState;
+  const { playerHp } = playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -68,9 +68,12 @@ export const HudOverlay: React.FC = () => {
   const [hurtShakeActive, setHurtShakeActive] = useState<boolean>(false);
   const prevHpRef = useRef(playerHp);
 
-  // Stateful interactive key listener matching the Box Battle visual calibration depth
   const [pressedKeys, setPressedKeys] = useState<Record<string, boolean>>({});
   const [useWasd, setUseWasd] = useState<boolean>(false);
+
+  // Decoupled displayed steps to handle the visual success latency
+  const [displayedStep, setDisplayedStep] = useState<number>(calibrationStep);
+  const [stepSuccess, setStepSuccess] = useState<boolean>(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -134,6 +137,33 @@ export const HudOverlay: React.FC = () => {
     setTickerLosses(0);
   }, [clearStats]);
 
+  // Satisfy transition delays on step progress with deferred macro-tasks
+  useEffect(() => {
+    let timerA: ReturnType<typeof setTimeout>;
+    let timerB: ReturnType<typeof setTimeout>;
+
+    if (calibrationStep > displayedStep) {
+      timerA = setTimeout(() => {
+        setStepSuccess(true);
+        
+        timerB = setTimeout(() => {
+          setDisplayedStep(calibrationStep);
+          setStepSuccess(false);
+        }, 1500); // Satisfying 1.5s visual registration delay
+      }, 0);
+    } else if (calibrationStep < displayedStep) {
+      timerA = setTimeout(() => {
+        setDisplayedStep(calibrationStep);
+        setStepSuccess(false);
+      }, 0);
+    }
+
+    return () => {
+      if (timerA) clearTimeout(timerA);
+      if (timerB) clearTimeout(timerB);
+    };
+  }, [calibrationStep, displayedStep]);
+
   useEffect(() => {
     const handleTensionTick = (e: Event) => {
       const tensionVal = (e as CustomEvent).detail.tension;
@@ -174,6 +204,7 @@ export const HudOverlay: React.FC = () => {
     const prevHP = prevHpRef.current;
     let shakeTimer: ReturnType<typeof setTimeout> | null = null;
     let animTimer: ReturnType<typeof setTimeout> | null = null;
+    let deferredTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (playerHp !== prevHP) {
       const tookDamage = playerHp < prevHP && prevHP !== -1;
@@ -194,7 +225,11 @@ export const HudOverlay: React.FC = () => {
           nextCls[i] = "led-spring-impact";
         }
       }
-      setHpAnims(nextCls);
+
+      deferredTimer = setTimeout(() => {
+        setHpAnims(nextCls);
+      }, 0);
+
       prevHpRef.current = playerHp;
 
       animTimer = setTimeout(() => {
@@ -205,6 +240,7 @@ export const HudOverlay: React.FC = () => {
     return () => {
       if (shakeTimer) clearTimeout(shakeTimer);
       if (animTimer) clearTimeout(animTimer);
+      if (deferredTimer) clearTimeout(deferredTimer);
     };
   }, [playerHp]);
 
@@ -329,6 +365,8 @@ export const HudOverlay: React.FC = () => {
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
   const isCriticalHp = playerHp === 1 && !overlayVisible;
 
+  const activeLedClass = stepSuccess ? "led-green led-elastic-spring" : "led-yellow led-spring-impact";
+
   return (
     <>
       {isBooting ? (
@@ -391,63 +429,99 @@ export const HudOverlay: React.FC = () => {
               </div>
             </div>
 
-            <div className="header-center" style={{ minWidth: "190px", display: "flex", justifyContent: "center" }}>
+            <div className="header-center" style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}>
               <AnimatePresence mode="wait">
-                {calibrationStep === 0 && (
+                {displayedStep === 0 && (
                   <motion.div
                     key="step-0"
-                    initial={{ opacity: 0, y: -8 }}
+                    initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    style={{ display: "flex", alignItems: "center", gap: "5px" }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
                   >
-                    <span className={`keycap-box ${isLeftPressed ? "keycap-used" : ""}`}>
-                      {useWasd ? "A" : "◀"}
+                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <motion.span 
+                        animate={isLeftPressed ? { scale: 0.85 } : { scale: 1 }}
+                        className={`keycap-box ${isLeftPressed ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "A" : "◀"}
+                      </motion.span>
+                      <motion.span 
+                        animate={isRightPressed ? { scale: 0.85 } : { scale: 1 }}
+                        className={`keycap-box ${isRightPressed ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "D" : "▶"}
+                      </motion.span>
+                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
+                    </div>
+                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
+                      {stepSuccess ? "1. Cling Successful!" : "1. Cling to a Wall"}
                     </span>
-                    <span className={`keycap-box ${isRightPressed ? "keycap-used" : ""}`}>
-                      {useWasd ? "D" : "▶"}
+                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Hold direction against a wall to stick
                     </span>
-                    <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>CLING TO WALL</span>
                   </motion.div>
                 )}
 
-                {calibrationStep === 1 && (
+                {displayedStep === 1 && (
                   <motion.div
                     key="step-1"
-                    initial={{ opacity: 0, y: -8 }}
+                    initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    style={{ display: "flex", alignItems: "center", gap: "5px" }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
                   >
-                    <span className={`keycap-box ${isUpPressed ? "keycap-used" : ""}`}>
-                      {useWasd ? "W" : "▲"}
+                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <motion.span 
+                        animate={isUpPressed ? { scale: 0.85 } : { scale: 1 }}
+                        className={`keycap-box ${isUpPressed ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "W" : "▲"}
+                      </motion.span>
+                      <motion.span 
+                        animate={isDownPressed ? { scale: 0.85 } : { scale: 1 }}
+                        className={`keycap-box ${isDownPressed ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "S" : "▼"}
+                      </motion.span>
+                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
+                    </div>
+                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
+                      {stepSuccess ? "2. Tether Adjusted!" : "2. Adjust Silk Tether"}
                     </span>
-                    <span className={`keycap-box ${isDownPressed ? "keycap-used" : ""}`}>
-                      {useWasd ? "S" : "▼"}
+                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Press up/down to change length
                     </span>
-                    <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>REEL TETHER</span>
                   </motion.div>
                 )}
 
-                {calibrationStep === 2 && (
+                {displayedStep === 2 && (
                   <motion.div
                     key="step-2"
-                    initial={{ opacity: 0, y: -8 }}
+                    initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    style={{ display: "flex", alignItems: "center", gap: "5px" }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
                   >
-                    <span className="keycap-box" style={{ padding: "3px 8px" }}>
-                      RELEASE CLING
+                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <span className="keycap-box" style={{ padding: "3px 8px" }}>
+                        RELEASE KEY
+                      </span>
+                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
+                    </div>
+                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
+                      {stepSuccess ? "3. Fling Successful!" : "3. Let Go to Fling"}
                     </span>
-                    <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>LET GO TO LAUNCH</span>
+                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Release key under tension to launch
+                    </span>
                   </motion.div>
                 )}
 
-                {calibrationStep === 3 && (
+                {displayedStep >= 3 && (
                   <motion.div
                     key="completed"
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -455,29 +529,25 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.25 }}
                     style={{ display: "flex", alignItems: "center" }}
                   >
-                    {currentState === "LAUNCHING" ? (
-                      <span className="warn-text warn-launch">LAUNCH SUCCESS</span>
-                    ) : (
-                      <span className="warn-text" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
-                          <line x1="12" y1="2" x2="12" y2="22" />
-                          <line x1="2" y1="12" x2="22" y2="12" />
-                          <line x1="5" y1="5" x2="19" y2="19" />
-                          <line x1="5" y1="19" x2="19" y2="5" />
-                          <path d="M12,8 Q13.5,8.5 15,9.5 Q15.5,11 16,12 Q15.5,13 15,14.5 Q13.5,15.5 12,16 Q10.5,15.5 9,14.5 Q8.5,13 8,12 Q8.5,11 9,9.5 Q10.5,8.5 12,8 Z" />
-                          <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
-                        </svg>
-                        <span style={{ transform: "translateY(1px)" }}>SILK</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
-                          <line x1="12" y1="2" x2="12" y2="22" />
-                          <line x1="2" y1="12" x2="22" y2="12" />
-                          <line x1="5" y1="5" x2="19" y2="19" />
-                          <line x1="5" y1="19" x2="19" y2="5" />
-                          <path d="M12,8 Q13.5,8.5 15,9.5 Q15.5,11 16,12 Q15.5,13 15,14.5 Q13.5,15.5 12,16 Q10.5,15.5 9,14.5 Q8.5,13 8,12 Q8.5,11 9,9.5 Q10.5,8.5 12,8 Z" />
-                          <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
-                        </svg>
-                      </span>
-                    )}
+                    <span className="warn-text" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                        <line x1="12" y1="2" x2="12" y2="22" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <line x1="5" y1="5" x2="19" y2="19" />
+                        <line x1="5" y1="19" x2="19" y2="5" />
+                        <path d="M12,8 Q13.5,8.5 15,9.5 Q15.5,11 16,12 Q15.5,13 15,14.5 Q13.5,15.5 12,16 Q10.5,15.5 9,14.5 Q8.5,13 8,12 Q8.5,11 9,9.5 Q10.5,8.5 12,8 Z" />
+                        <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
+                      </svg>
+                      <span style={{ transform: "translateY(1px)" }}>SILK</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                        <line x1="12" y1="2" x2="12" y2="22" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <line x1="5" y1="5" x2="19" y2="19" />
+                        <line x1="5" y1="19" x2="19" y2="5" />
+                        <path d="M12,8 Q13.5,8.5 15,9.5 Q15.5,11 16,12 Q15.5,13 15,14.5 Q13.5,15.5 12,16 Q10.5,15.5 9,14.5 Q8.5,13 8,12 Q8.5,11 9,9.5 Q10.5,8.5 12,8 Z" />
+                        <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
+                      </svg>
+                    </span>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -497,7 +567,7 @@ export const HudOverlay: React.FC = () => {
                   boxSizing: "border-box",
                   overflow: "hidden",
                   background: "#07080b",
-                  border: "1px solid rgba(0,0,0,0.4)"
+                  border: "1px solid rgba(0, 0, 0, 0.4)"
                 }}
               >
                 <div
@@ -543,7 +613,7 @@ export const HudOverlay: React.FC = () => {
                   boxSizing: "border-box",
                   overflow: "hidden",
                   background: "#07080b",
-                  border: "1px solid rgba(0,0,0,0.4)"
+                  border: "1px solid rgba(0, 0, 0, 0.4)"
                 }}
               >
                 <div
