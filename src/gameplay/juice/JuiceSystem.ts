@@ -12,7 +12,8 @@ import { GameEvent } from "../../core/events/GameEvents";
 import {
   TransformComponent,
   TetherComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  ParticleEmitterComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -433,16 +434,25 @@ export class JuiceSystem implements ISystem {
       }
     }
 
-    const transforms = this.context.stores.get<TransformComponent>("transform");
-    const tethers = this.context.stores.get<TetherComponent>("tether");
-    const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
+    // Query active component-based emitters generically
+    const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
+    const tetherStore = this.context.stores.get<TetherComponent>("tether");
+    const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
 
-    const pTrans = transforms.get(this.context.refs.player);
-    const pTether = tethers.get(this.context.refs.player);
-    const pTrav = traversal.get(this.context.refs.player);
+    for (const [id, emitter] of emitterStore.entries()) {
+      if (!emitter.isActive) continue;
 
-    if (pTrans && pTether && pTrav && pTrav.state === "WALL_SLIDING") {
-      this.emitWallSlideSparks(pTrans, pTether, pTrav, dt);
+      const trans = transformStore.get(id);
+      if (!trans) continue;
+
+      if (emitter.emitterType === "SLIDING_SPARKS") {
+        const tether = tetherStore.get(id);
+        const trav = traversalStore.get(id);
+        if (tether && trav) {
+          this.emitWallSlideSparks(trans, tether, trav, dt);
+        }
+      }
     }
   }
 

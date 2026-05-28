@@ -11,7 +11,8 @@ import {
   InputIntentComponent,
   HealthComponent,
   KinematicVelocityComponent,
-  StickySurfaceComponent
+  StickySurfaceComponent,
+  ParticleEmitterComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
@@ -218,6 +219,28 @@ export class PlayerKinematicsSystem implements ISystem {
         state: trav.state,
         launchPower: trav.launchPower
       });
+    }
+
+    // Toggle ParticleEmitterComponent based on state
+    const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
+    const pId = this.context.refs.player;
+    if (!emitterStore.has(pId)) {
+      emitterStore.add(pId, {
+        emitterType: "NONE",
+        isActive: false,
+        rate: 0.15,
+        colorR: 1.0,
+        colorG: 0.0,
+        colorB: 0.5
+      });
+    }
+    const pEmitter = emitterStore.get(pId)!;
+    if (trav.state === "WALL_SLIDING") {
+      pEmitter.isActive = true;
+      pEmitter.emitterType = "SLIDING_SPARKS";
+    } else {
+      pEmitter.isActive = false;
+      pEmitter.emitterType = "NONE";
     }
   }
 
@@ -561,10 +584,10 @@ export class PlayerKinematicsSystem implements ISystem {
       target.x = tether.anchorX + nx * activeMaxLength;
       target.y = tether.anchorY + ny * activeMaxLength;
 
-      const dot = vel.x * nx + vel.y * ny;
-      if (dot > 0) {
-        vel.x -= dot * nx;
-        vel.y -= dot * ny;
+      const dVal = vel.x * nx + vel.y * ny;
+      if (dVal > 0) {
+        vel.x -= dVal * nx;
+        vel.y -= dVal * ny;
       }
     }
   }

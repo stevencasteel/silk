@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 4:49:09 PM
+ [SYSTEM] Generated: 5/28/2026, 4:52:16 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1088,7 +1088,8 @@ import {
   ProjectileComponent,
   WeaverSweepComponent,
   CollisionStateComponent,
-  TetherStrainComponent
+  TetherStrainComponent,
+  ParticleEmitterComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -1147,6 +1148,7 @@ export class CompositionRoot {
     const weaverSweep = new ComponentStore<WeaverSweepComponent>();
     const collisionStates = new ComponentStore<CollisionStateComponent>();
     const tetherStrains = new ComponentStore<TetherStrainComponent>();
+    const particleEmitters = new ComponentStore<ParticleEmitterComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1175,6 +1177,7 @@ export class CompositionRoot {
     registerStore("weaverSweep", weaverSweep);
     registerStore("collisionState", collisionStates);
     registerStore("tetherStrain", tetherStrains);
+    registerStore("particleEmitter", particleEmitters);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
 
@@ -2455,6 +2458,15 @@ export interface TetherStrainComponent {
   strain: number;
   strainTimer: number;
   isOverloaded: boolean;
+}
+
+export interface ParticleEmitterComponent {
+  emitterType: "SLIDING_SPARKS" | "TRAIL" | "NONE";
+  isActive: boolean;
+  rate: number;
+  colorR: number;
+  colorG: number;
+  colorB: number;
 }
 
 
@@ -4873,7 +4885,8 @@ import { GameEvent } from "../../core/events/GameEvents";
 import {
   TransformComponent,
   TetherComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  ParticleEmitterComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -5294,16 +5307,25 @@ export class JuiceSystem implements ISystem {
       }
     }
 
-    const transforms = this.context.stores.get<TransformComponent>("transform");
-    const tethers = this.context.stores.get<TetherComponent>("tether");
-    const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
+    // Query active component-based emitters generically
+    const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
+    const tetherStore = this.context.stores.get<TetherComponent>("tether");
+    const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
 
-    const pTrans = transforms.get(this.context.refs.player);
-    const pTether = tethers.get(this.context.refs.player);
-    const pTrav = traversal.get(this.context.refs.player);
+    for (const [id, emitter] of emitterStore.entries()) {
+      if (!emitter.isActive) continue;
 
-    if (pTrans && pTether && pTrav && pTrav.state === "WALL_SLIDING") {
-      this.emitWallSlideSparks(pTrans, pTether, pTrav, dt);
+      const trans = transformStore.get(id);
+      if (!trans) continue;
+
+      if (emitter.emitterType === "SLIDING_SPARKS") {
+        const tether = tetherStore.get(id);
+        const trav = traversalStore.get(id);
+        if (tether && trav) {
+          this.emitWallSlideSparks(trans, tether, trav, dt);
+        }
+      }
     }
   }
 
@@ -6320,7 +6342,7 @@ import { useInputStore } from "../../ui/hud/hudStore";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { InputIntentComponent, HealthComponent } from "../../core/ecs/Components";
+import { InputIntentComponent } from "../../core/ecs/Components";
 
 export class PlayerInputSystem implements ISystem {
   readonly phase = SystemPhase.Input;
@@ -6337,17 +6359,6 @@ export class PlayerInputSystem implements ISystem {
     const inputStore = this.context.stores.get<InputIntentComponent>("input");
     const input = inputStore.get(this.context.refs.player);
     if (!input) return;
-
-    const healths = this.context.stores.get<HealthComponent>("health");
-    const pHealth = healths.get(this.context.refs.player);
-    const wHealth = healths.get(this.context.refs.weaver);
-
-    if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
-      input.x = 0;
-      input.y = 0;
-
-      return;
-    }
 
     let x = 0;
     if (this.keysPressed["a"] || this.keysPressed["arrowleft"]) x -= 1;
@@ -6399,7 +6410,8 @@ import {
   InputIntentComponent,
   HealthComponent,
   KinematicVelocityComponent,
-  StickySurfaceComponent
+  StickySurfaceComponent,
+  ParticleEmitterComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
@@ -6606,6 +6618,28 @@ export class PlayerKinematicsSystem implements ISystem {
         state: trav.state,
         launchPower: trav.launchPower
       });
+    }
+
+    // Toggle ParticleEmitterComponent based on state
+    const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
+    const pId = this.context.refs.player;
+    if (!emitterStore.has(pId)) {
+      emitterStore.add(pId, {
+        emitterType: "NONE",
+        isActive: false,
+        rate: 0.15,
+        colorR: 1.0,
+        colorG: 0.0,
+        colorB: 0.5
+      });
+    }
+    const pEmitter = emitterStore.get(pId)!;
+    if (trav.state === "WALL_SLIDING") {
+      pEmitter.isActive = true;
+      pEmitter.emitterType = "SLIDING_SPARKS";
+    } else {
+      pEmitter.isActive = false;
+      pEmitter.emitterType = "NONE";
     }
   }
 
@@ -6949,10 +6983,10 @@ export class PlayerKinematicsSystem implements ISystem {
       target.x = tether.anchorX + nx * activeMaxLength;
       target.y = tether.anchorY + ny * activeMaxLength;
 
-      const dot = vel.x * nx + vel.y * ny;
-      if (dot > 0) {
-        vel.x -= dot * nx;
-        vel.y -= dot * ny;
+      const dVal = vel.x * nx + vel.y * ny;
+      if (dVal > 0) {
+        vel.x -= dVal * nx;
+        vel.y -= dVal * ny;
       }
     }
   }

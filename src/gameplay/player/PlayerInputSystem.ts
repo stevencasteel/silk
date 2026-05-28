@@ -2,7 +2,7 @@ import { useInputStore } from "../../ui/hud/hudStore";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { InputIntentComponent, HealthComponent } from "../../core/ecs/Components";
+import { InputIntentComponent } from "../../core/ecs/Components";
 
 export class PlayerInputSystem implements ISystem {
   readonly phase = SystemPhase.Input;
@@ -19,17 +19,6 @@ export class PlayerInputSystem implements ISystem {
     const inputStore = this.context.stores.get<InputIntentComponent>("input");
     const input = inputStore.get(this.context.refs.player);
     if (!input) return;
-
-    const healths = this.context.stores.get<HealthComponent>("health");
-    const pHealth = healths.get(this.context.refs.player);
-    const wHealth = healths.get(this.context.refs.weaver);
-
-    if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
-      input.x = 0;
-      input.y = 0;
-
-      return;
-    }
 
     let x = 0;
     if (this.keysPressed["a"] || this.keysPressed["arrowleft"]) x -= 1;
