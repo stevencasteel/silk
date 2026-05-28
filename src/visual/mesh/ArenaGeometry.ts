@@ -163,6 +163,7 @@ export class ArenaGeometry {
     );
     panelBase.material = panelMaterial;
     panelBase.isVisible = false;
+    panelBase.receiveShadows = true;
 
     const ribBase = BABYLON.MeshBuilder.CreateBox(
       "ribBase",
@@ -171,6 +172,7 @@ export class ArenaGeometry {
     );
     ribBase.material = verticalGrooveMaterial;
     ribBase.isVisible = false;
+    ribBase.receiveShadows = true;
 
     const backdropPanelBase = BABYLON.MeshBuilder.CreateBox(
       "backdropPanelBase",
@@ -179,6 +181,7 @@ export class ArenaGeometry {
     );
     backdropPanelBase.material = backdropPanelMaterial;
     backdropPanelBase.isVisible = false;
+    backdropPanelBase.receiveShadows = true;
 
     const backdropGashBase = BABYLON.MeshBuilder.CreateBox(
       "backdropGashBase",
@@ -187,6 +190,7 @@ export class ArenaGeometry {
     );
     backdropGashBase.material = gashMaterial;
     backdropGashBase.isVisible = false;
+    backdropGashBase.receiveShadows = false;
 
     const backdropPanelCount = 28;
     const backdropPanelSpacing = wallHeight / backdropPanelCount;
@@ -200,7 +204,7 @@ export class ArenaGeometry {
       const backdropPanel = backdropPanelBase.createInstance(`backdropPanel_${i}`);
       backdropPanel.position.set(bandOffset, panelY, backdropZ - 0.22);
       backdropPanel.scaling.set(panelWidth, panelHeight, panelDepth);
-      backdropPanel.receiveShadows = true;
+      
       backdropPanel.metadata = { type: "scrolling_backdrop_panel", index: i, initialY: panelY };
 
       if (i % 3 !== 1) {
@@ -212,7 +216,7 @@ export class ArenaGeometry {
         );
         seam.scaling.set(panelWidth * (0.32 + Math.abs(Math.cos(i * 1.7)) * 0.24), 0.035, 0.12);
         seam.rotation.z = Math.sin(i * 1.9) * 0.34;
-        seam.receiveShadows = false;
+        
         seam.metadata = { type: "scrolling_backdrop_gash", index: i, initialY: seam.position.y };
       }
     }
@@ -230,7 +234,7 @@ export class ArenaGeometry {
         0.14
       );
       scratch.rotation.z = Math.sin(i * 2.61) * 0.92;
-      scratch.receiveShadows = false;
+      
       scratch.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
     }
 
@@ -251,13 +255,13 @@ export class ArenaGeometry {
       const lp = panelBase.createInstance(`leftPanel_${i}`);
       lp.position.set(-wallX + wallThickness / 2 - 0.02, panelY, 0);
       lp.scaling.set(panelWidth, panelHeight, panelDepth);
-      lp.receiveShadows = true;
+      
       lp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
 
       const rp = panelBase.createInstance(`rightPanel_${i}`);
       rp.position.set(wallX - wallThickness / 2 + 0.02, panelY, 0);
       rp.scaling.set(panelWidth, panelHeight, panelDepth);
-      rp.receiveShadows = true;
+      
       rp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
     }
 
@@ -272,13 +276,13 @@ export class ArenaGeometry {
       const leftRib = ribBase.createInstance(`leftRib_${i}`);
       leftRib.position.set(-wallX + wallThickness / 2, ribY, 0);
       leftRib.scaling.set(1.0, ribHeight, ribDepth);
-      leftRib.receiveShadows = true;
+      
       leftRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
 
       const rightRib = ribBase.createInstance(`rightRib_${i}`);
       rightRib.position.set(wallX - wallThickness / 2, ribY, 0);
       rightRib.scaling.set(1.0, ribHeight, ribDepth);
-      rightRib.receiveShadows = true;
+      
       rightRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
     }
 

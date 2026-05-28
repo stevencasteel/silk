@@ -5,8 +5,6 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SILK</title>
-    <!-- Preload heavy WASM runtime to start downloading early in parallel -->
-    <link rel="preload" href="./HavokPhysics.wasm" as="fetch" type="application/wasm" crossorigin="anonymous" />
     <!-- Preload prefiltered lighting environment to avoid staging pauses -->
     <link rel="preload" href="https://assets.babylonjs.com/environments/environmentSpecular.env" as="fetch" crossorigin="anonymous" />
   </head>
