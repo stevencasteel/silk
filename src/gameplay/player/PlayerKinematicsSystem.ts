@@ -30,6 +30,11 @@ export class PlayerKinematicsSystem implements ISystem {
   private lastCameraYOffset = 0.0;
   private wasWallSliding = false;
 
+  // Reusable scratch fields to prevent GC allocation in hot loops
+  private readonly _stingerTipLocal = new BABYLON.Vector3();
+  private readonly _weaverQuat = new BABYLON.Quaternion();
+  private readonly _stingerTipWorld = new BABYLON.Vector3();
+
   constructor(private context: SystemContext) {}
 
   public init(): void {
@@ -88,14 +93,13 @@ export class PlayerKinematicsSystem implements ISystem {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const stingerTipLocal = new BABYLON.Vector3(0, -radius * 1.18, 0);
-    const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-    const stingerTipWorld = new BABYLON.Vector3();
-    stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);
+    this._stingerTipLocal.set(0, -radius * 1.18, 0);
+    this._weaverQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
+    this._stingerTipLocal.rotateByQuaternionToRef(this._weaverQuat, this._stingerTipWorld);
 
-    tether.anchorX = wTrans.x + stingerTipWorld.x;
-    tether.anchorY = wTrans.y + stingerTipWorld.y;
-    tether.anchorZ = wTrans.z + stingerTipWorld.z;
+    tether.anchorX = wTrans.x + this._stingerTipWorld.x;
+    tether.anchorY = wTrans.y + this._stingerTipWorld.y;
+    tether.anchorZ = wTrans.z + this._stingerTipWorld.z;
 
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
@@ -169,12 +173,12 @@ export class PlayerKinematicsSystem implements ISystem {
       if (trav.state === "AIRBORNE") {
         vel.x += input.x * tuning.SWING_STEER_FORCE * dt;
         if (input.y > 0 && tether.isAttached) {
-          const dx = tether.anchorX - target.x;
-          const dy = tether.anchorY - target.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+          const dxVal = tether.anchorX - target.x;
+          const dyVal = tether.anchorY - target.y;
+          const dist = Math.sqrt(dxVal * dxVal + dyVal * dyVal) || 1.0;
           const pullForce = 15.0;
-          vel.x += (dx / dist) * pullForce * dt;
-          vel.y += (dy / dist) * pullForce * dt;
+          vel.x += (dxVal / dist) * pullForce * dt;
+          vel.y += (dyVal / dist) * pullForce * dt;
         }
       }
 
@@ -232,7 +236,6 @@ export class PlayerKinematicsSystem implements ISystem {
     const cameraY = scene && scene.activeCamera ? scene.activeCamera.position.y : defaultCameraY;
     const cameraYOffset = cameraY - defaultCameraY;
 
-    // --- BRANCH 1: STICKING TO A DESCENT COLUMN BUG ---
     if (trav.state === "WALL_SLIDING" && trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
       const bug = bugStore.get(trav.stickyEntityId);
@@ -258,21 +261,18 @@ export class PlayerKinematicsSystem implements ISystem {
 
         target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
 
-        // Control climb or slide relative to the bug with vertical input
         let slideSpeed = 0.0;
         if (input.y > 0) {
-          slideSpeed = 5.0; // Climb up the bug
+          slideSpeed = 5.0;
         } else if (input.y < 0) {
-          slideSpeed = -5.0; // Slide down the bug
+          slideSpeed = -5.0;
         }
         trav.stickyWallYOffset += slideSpeed * dt;
         
-        // Clamp position so player stays strictly on the crawling bug unless they let go or fling
         trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
 
         const finalY = bugTrans.y + trav.stickyWallYOffset;
 
-        // Auto-elongate string dynamically to match vertical drag on crawling bug
         const dx = target.x - tether.anchorX;
         const dy = finalY - tether.anchorY;
         const requiredLength = Math.sqrt(dx * dx + dy * dy);
@@ -286,11 +286,9 @@ export class PlayerKinematicsSystem implements ISystem {
         }
         target.y = finalY;
 
-        // Player's velocity matches the bug speed exactly, modified by local climbing
         vel.x = 0;
         vel.y = -(currentScrollSpeed + bug.speed - slideSpeed);
 
-        // Scale passive tension delta by ratio: 1.0 + (bug speed / background scroll speed)
         const speedScale = 1.0 + (bug.speed / Math.max(1.0, currentScrollSpeed));
         const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
         tether.tension += tensionDelta * dt;
@@ -310,7 +308,6 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    // --- BRANCH 2: SLIDING ON SOLID PERIMETER GLASS WALLS ---
     if (trav.state === "WALL_SLIDING" && (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)) {
       const stillPressingIn = input.x === trav.wallDir;
 
@@ -355,7 +352,6 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    // --- BRANCH 3: CHECK COLLISION INITIATION ---
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
     const bugTransStore = this.context.stores.get<TransformComponent>("transform");
     if (bugStore) {
@@ -583,7 +579,6 @@ export class PlayerKinematicsSystem implements ISystem {
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
     if (trav.state === "WALL_SLIDING") {
-      // Passive tension delta is calculated inside Branch 1 for active column bugs
       if (trav.stickyEntityId === undefined || trav.stickyEntityId === -1) {
         const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
         tether.tension += tensionDelta * dt;

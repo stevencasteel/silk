@@ -58,17 +58,7 @@ export class EntitySpawnerSystem implements ISystem {
     const weaverId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(weaverId);
 
-    const oldNode = this.context.visualRegistry.getTransformNode(weaverId);
-    if (oldNode) {
-      const oldMesh = oldNode as BABYLON.AbstractMesh;
-      if (oldMesh.physicsBody) {
-        if (oldMesh.physicsBody.shape) {
-          oldMesh.physicsBody.shape.dispose();
-        }
-        oldMesh.physicsBody.dispose();
-      }
-      this.context.visualRegistry.unregisterTransformNode(weaverId);
-    }
+    const existingNode = this.context.visualRegistry.getTransformNode(weaverId);
 
     this.context.stores.get<TransformComponent>("transform").add(weaverId, {
       x: 0,
@@ -113,6 +103,14 @@ export class EntitySpawnerSystem implements ISystem {
     });
 
     this.context.refs.weaver = weaverId;
+
+    if (existingNode) {
+      existingNode.position.set(0, ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, 0);
+      existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
+      existingNode.scaling.set(1.0, 1.0, 1.0);
+      existingNode.setEnabled(true);
+      return weaverId;
+    }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
@@ -194,14 +192,7 @@ export class EntitySpawnerSystem implements ISystem {
     const playerId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(playerId);
 
-    const oldNode = this.context.visualRegistry.getTransformNode(playerId);
-    if (oldNode) {
-      const oldMesh = oldNode as BABYLON.AbstractMesh;
-      if (oldMesh.physicsBody) {
-        oldMesh.physicsBody.dispose();
-      }
-      this.context.visualRegistry.unregisterTransformNode(playerId);
-    }
+    const existingNode = this.context.visualRegistry.getTransformNode(playerId);
 
     this.context.stores.get<TransformComponent>("transform").add(playerId, {
       x: 0,
@@ -264,6 +255,14 @@ export class EntitySpawnerSystem implements ISystem {
 
     this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
     this.context.refs.player = playerId;
+
+    if (existingNode) {
+      existingNode.position.set(0, ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, 0);
+      existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
+      existingNode.scaling.set(1.0, 1.0, 1.0);
+      existingNode.setEnabled(true);
+      return playerId;
+    }
 
     const pMesh = BABYLON.MeshBuilder.CreateCapsule(
       "playerVisual",

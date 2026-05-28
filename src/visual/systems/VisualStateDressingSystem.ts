@@ -11,6 +11,14 @@ import {
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
+interface CachedWeaverParts {
+  legRoots: BABYLON.TransformNode[];
+  abdomen: BABYLON.TransformNode;
+  cephalothorax: BABYLON.TransformNode;
+  head: BABYLON.TransformNode;
+  legs: Map<string, { coxa: BABYLON.TransformNode; tibia: BABYLON.TransformNode }>;
+}
+
 export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
@@ -23,6 +31,12 @@ export class VisualStateDressingSystem implements ISystem {
   private gaitAmp = 0.12;
   private gaitFreq = 8.0;
   private gaitTuck = 0.0;
+
+  // Reusable scratch objects to completely prevent dynamic GC allocations in rendering loops
+  private readonly _footLocalTarget = new BABYLON.Vector3();
+  private readonly _footWorldTarget = new BABYLON.Vector3();
+  private readonly _rootWorldInv = new BABYLON.Matrix();
+  private readonly _targetLocal = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
 
@@ -165,20 +179,44 @@ export class VisualStateDressingSystem implements ISystem {
         }
       });
 
-      const legRoots = mesh.getChildren((node) => node.name.startsWith("leg_root_"), false);
-      const bodyRadius = Math.max(1.0, mesh.getBoundingInfo().boundingSphere.radiusWorld * 0.45);
+      // Query cache implementation - dynamically resolves and caches parts once to prevent high-frequency getChildren array allocations
+      let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
+      if (!parts) {
+        const legRoots = mesh.getChildren((node) => node.name.startsWith("leg_root_"), false) as BABYLON.TransformNode[];
+        const abdomen = mesh.getChildren((node) => node.name === "weaver_abdomen", false)[0] as BABYLON.TransformNode;
+        const cephalothorax = mesh.getChildren((node) => node.name === "weaver_cephalothorax", false)[0] as BABYLON.TransformNode;
+        const head = mesh.getChildren((node) => node.name === "weaver_head", false)[0] as BABYLON.TransformNode;
+        
+        const legsMap = new Map<string, { coxa: BABYLON.TransformNode; tibia: BABYLON.TransformNode }>();
+        legRoots.forEach((root) => {
+          const coxa = root.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode;
+          if (coxa) {
+            const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode;
+            if (tibia) {
+              legsMap.set(root.name, { coxa, tibia });
+            }
+          }
+        });
+
+        parts = { legRoots, abdomen, cephalothorax, head, legs: legsMap };
+        if (!mesh.metadata) {
+          mesh.metadata = {};
+        }
+        mesh.metadata.cachedParts = parts;
+      }
+
       const bodySway = Math.sin(this.gaitClock * 0.5) * this.gaitAmp * 0.16;
-      const bodyBob = Math.cos(this.gaitClock) * bodyRadius * 0.008;
+      const bodyBob = Math.cos(this.gaitClock) * 1.5 * 0.008;
 
-      this.animateBodyPart(mesh.getChildren((node) => node.name === "weaver_abdomen", false)[0], bodySway, bodyBob * 0.55, 0.55);
-      this.animateBodyPart(mesh.getChildren((node) => node.name === "weaver_cephalothorax", false)[0], -bodySway * 0.45, bodyBob * 0.35, 0.28);
-      this.animateBodyPart(mesh.getChildren((node) => node.name === "weaver_head", false)[0], -bodySway * 0.7, bodyBob * 0.45, 0.4);
+      this.animateBodyPart(parts.abdomen, bodySway, bodyBob * 0.55, 0.55);
+      this.animateBodyPart(parts.cephalothorax, -bodySway * 0.45, bodyBob * 0.35, 0.28);
+      this.animateBodyPart(parts.head, -bodySway * 0.7, bodyBob * 0.45, 0.4);
 
-      legRoots.forEach((node) => {
+      parts.legRoots.forEach((node) => {
         const transNode = node as BABYLON.TransformNode;
-        const parts = transNode.name.split("_");
-        const sideSign = parseFloat(parts[2]);
-        const index = parseFloat(parts[3]);
+        const partsName = transNode.name.split("_");
+        const sideSign = parseFloat(partsName[2]);
+        const index = parseFloat(partsName[3]);
 
         if (isNaN(sideSign) || isNaN(index)) return;
 
@@ -192,11 +230,14 @@ export class VisualStateDressingSystem implements ISystem {
           baseFootLocal?: BABYLON.Vector3;
         } | null;
 
+        const legJoints = parts?.legs.get(transNode.name);
+
         if (
           !rootMeta ||
           rootMeta.coxaLength === undefined ||
           rootMeta.tibiaLength === undefined ||
-          !rootMeta.baseFootLocal
+          !rootMeta.baseFootLocal ||
+          !legJoints
         ) {
           const baseRootZ = rootMeta?.baseRootZ ?? 0;
           const diagonalOffset = (index + (sideSign > 0 ? 0 : 1)) % 2 === 0 ? 0 : Math.PI;
@@ -211,7 +252,7 @@ export class VisualStateDressingSystem implements ISystem {
           transNode.rotation.y = 0;
           transNode.position.z = rootMeta?.basePositionZ ?? transNode.position.z;
 
-          const coxa = transNode.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode | undefined;
+          const coxa = legJoints?.coxa;
           if (coxa) {
             const coxaMeta = coxa.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
             const baseCoxaZ = coxaMeta?.baseRotationZ ?? coxa.rotation.z;
@@ -222,7 +263,7 @@ export class VisualStateDressingSystem implements ISystem {
             coxa.rotation.z = baseCoxaZ + coxaTuckAngle + coxaLift;
             coxa.rotation.x = baseCoxaX;
 
-            const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode | undefined;
+            const tibia = legJoints?.tibia;
             if (tibia) {
               const tibiaMeta = tibia.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
               const baseTibiaZ = tibiaMeta?.baseRotationZ ?? tibia.rotation.z;
@@ -249,46 +290,46 @@ export class VisualStateDressingSystem implements ISystem {
         const liftWave = (1.0 - Math.cos(phase)) * 0.5;
         const lift = liftWave * this.gaitAmp * 1.2;
 
-        const footLocalTarget = baseFootLocal.clone();
-        footLocalTarget.x += sweep * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        footLocalTarget.y += lift * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        this._footLocalTarget.copyFrom(baseFootLocal);
+        this._footLocalTarget.x += sweep * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        this._footLocalTarget.y += lift * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
 
-        const footWorldTarget = BABYLON.Vector3.TransformCoordinates(footLocalTarget, mesh.getWorldMatrix());
+        BABYLON.Vector3.TransformCoordinatesToRef(this._footLocalTarget, mesh.getWorldMatrix(), this._footWorldTarget);
 
         const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
         const ceilingY = ARENA_CONFIG.VERTICAL.CEILING_Y;
         const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y;
 
         const checkMargin = 0.55; 
-        if (footWorldTarget.x > wallLimit - checkMargin) {
-          footWorldTarget.x = wallLimit;
-        } else if (footWorldTarget.x < -wallLimit + checkMargin) {
-          footWorldTarget.x = -wallLimit;
+        if (this._footWorldTarget.x > wallLimit - checkMargin) {
+          this._footWorldTarget.x = wallLimit;
+        } else if (this._footWorldTarget.x < -wallLimit + checkMargin) {
+          this._footWorldTarget.x = -wallLimit;
         }
 
-        if (footWorldTarget.y > ceilingY - checkMargin) {
-          footWorldTarget.y = ceilingY;
-        } else if (footWorldTarget.y < floorY + checkMargin) {
-          footWorldTarget.y = floorY;
+        if (this._footWorldTarget.y > ceilingY - checkMargin) {
+          this._footWorldTarget.y = ceilingY;
+        } else if (this._footWorldTarget.y < floorY + checkMargin) {
+          this._footWorldTarget.y = floorY;
         }
 
-        const rootWorldInv = transNode.getWorldMatrix().clone().invert();
-        const targetLocal = BABYLON.Vector3.TransformCoordinates(footWorldTarget, rootWorldInv);
+        transNode.getWorldMatrix().invertToRef(this._rootWorldInv);
+        BABYLON.Vector3.TransformCoordinatesToRef(this._footWorldTarget, this._rootWorldInv, this._targetLocal);
 
-        const ikRotations = this.solveIK(targetLocal, coxaLength, tibiaLength, sideSign);
+        const ikRotations = this.solveIK(this._targetLocal, coxaLength, tibiaLength, sideSign);
 
         transNode.rotation.z = 0; 
         transNode.rotation.y = 0;
         transNode.position.z = rootMeta.basePositionZ ?? transNode.position.z;
 
-        const coxa = transNode.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode | undefined;
+        const coxa = legJoints.coxa;
         if (coxa) {
           const coxaMeta = coxa.metadata as { baseRotationX?: number } | null;
           const baseCoxaX = coxaMeta?.baseRotationX ?? coxa.rotation.x;
           coxa.rotation.z = ikRotations.coxaZ;
           coxa.rotation.x = baseCoxaX;
 
-          const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode | undefined;
+          const tibia = legJoints.tibia;
           if (tibia) {
             const tibiaMeta = tibia.metadata as { baseRotationX?: number } | null;
             const baseTibiaX = tibiaMeta?.baseRotationX ?? tibia.rotation.x;

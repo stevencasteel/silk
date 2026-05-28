@@ -21,6 +21,11 @@ export class CameraSystem implements ISystem {
 
   private cameraScrollY = 0.0;
 
+  // Track shake offsets across update and render
+  private _shakeOffsetX = 0.0;
+  private _shakeOffsetY = 0.0;
+  private _shakeOffsetZ = 0.0;
+
   constructor(private context: SystemContext) {}
 
   public init(): void {
@@ -64,11 +69,8 @@ export class CameraSystem implements ISystem {
     return Math.sin(t * 17.1) * 0.43 + Math.sin(t * 31.7) * 0.27 + Math.sin(t * 7.3) * 0.3;
   }
 
+  // Update handles timeline offsets and tracking state progression safely
   public update(dt: number): void {
-    let shakeOffsetX = 0;
-    let shakeOffsetY = 0;
-    let shakeOffsetZ = 0;
-
     this.noiseTime += dt * 45.0;
 
     if (this.shakeTimer > 0) {
@@ -89,13 +91,13 @@ export class CameraSystem implements ISystem {
         const parallel = (noiseValX * dx + noiseValY * dy) * 0.85;
         const perpendicular = (-noiseValX * dy + noiseValY * dx) * 0.15;
 
-        shakeOffsetX = parallel * dx - perpendicular * dy;
-        shakeOffsetY = parallel * dy + perpendicular * dx;
-        shakeOffsetZ = noiseValZ;
+        this._shakeOffsetX = parallel * dx - perpendicular * dy;
+        this._shakeOffsetY = parallel * dy + perpendicular * dx;
+        this._shakeOffsetZ = noiseValZ;
       } else {
-        shakeOffsetX = noiseValX;
-        shakeOffsetY = noiseValY;
-        shakeOffsetZ = noiseValZ;
+        this._shakeOffsetX = noiseValX;
+        this._shakeOffsetY = noiseValY;
+        this._shakeOffsetZ = noiseValZ;
       }
 
       if (this.shakeTimer <= 0) {
@@ -103,7 +105,14 @@ export class CameraSystem implements ISystem {
         this.shakeDuration = 0;
         this.shakeDirX = 0;
         this.shakeDirY = 0;
+        this._shakeOffsetX = 0;
+        this._shakeOffsetY = 0;
+        this._shakeOffsetZ = 0;
       }
+    } else {
+      this._shakeOffsetX = 0;
+      this._shakeOffsetY = 0;
+      this._shakeOffsetZ = 0;
     }
 
     const transforms = this.context.stores.get<TransformComponent>("transform");
@@ -134,22 +143,37 @@ export class CameraSystem implements ISystem {
         this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
       }
     }
+  }
+
+  // Tracking alignment: Sets matrix values in sync with visual render updates (144Hz+) to prevent mesh tracking jitter
+  public render(alpha: number): void {
+    if (!this.cameraNode) return;
 
     const preset = POST_PROCESSING_PRESETS.CAMERA;
+    const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
-    if (this.cameraNode) {
-      this.cameraNode.position.set(
-        preset.DEFAULT_POS.x + shakeOffsetX,
-        preset.DEFAULT_POS.y + this.cameraScrollY + shakeOffsetY,
-        preset.DEFAULT_POS.z + shakeOffsetZ
-      );
-      this.cameraTarget.set(
-        preset.DEFAULT_TARGET.x + shakeOffsetX * 0.25,
-        preset.DEFAULT_TARGET.y + this.cameraScrollY + shakeOffsetY * 0.25,
-        preset.DEFAULT_TARGET.z
-      );
-      this.cameraNode.setTarget(this.cameraTarget);
+    let targetScrollY = this.cameraScrollY;
+    if (pNode) {
+      const baseY = preset.DEFAULT_TARGET.y;
+      const playerLocalY = pNode.position.y - (baseY + this.cameraScrollY);
+      const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+
+      if (trav && trav.state === "WALL_SLIDING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
+        targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;
+      }
     }
+
+    this.cameraNode.position.set(
+      preset.DEFAULT_POS.x + this._shakeOffsetX,
+      preset.DEFAULT_POS.y + targetScrollY + this._shakeOffsetY,
+      preset.DEFAULT_POS.z + this._shakeOffsetZ
+    );
+    this.cameraTarget.set(
+      preset.DEFAULT_TARGET.x + this._shakeOffsetX * 0.25,
+      preset.DEFAULT_TARGET.y + targetScrollY + this._shakeOffsetY * 0.25,
+      preset.DEFAULT_TARGET.z
+    );
+    this.cameraNode.setTarget(this.cameraTarget);
   }
 
   public dispose(): void {

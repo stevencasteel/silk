@@ -41,6 +41,10 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
         tetherStore.setTetherTension(tension);
+
+        // React Bypass: Dispatch custom event directly into the window thread for instant direct DOM updates
+        const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
+        window.dispatchEvent(evt);
       })
     );
     this.subscriptions.push(

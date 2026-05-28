@@ -45,13 +45,13 @@ export class TetherVisualizerSystem implements ISystem {
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
-    this.tetherMat.metallic = 0.95; // Mirror metallic liquid strand
+    this.tetherMat.metallic = 0.95; 
     this.tetherMat.roughness = 0.05;
     this.tetherMat.sheen.isEnabled = true;
     this.tetherMat.sheen.intensity = 0.95;
     this.tetherMat.sheen.roughness = 0.05;
-    this.tetherMat.emissiveIntensity = 4.0; // High gloss glowing liquid look
-    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); // White default
+    this.tetherMat.emissiveIntensity = 4.0; 
+    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
     this.tetherMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
     this.tetherMat.disableLighting = false;
 
@@ -97,6 +97,24 @@ export class TetherVisualizerSystem implements ISystem {
     this.tetherMeshPlayer.setEnabled(false);
   }
 
+  // Update loop handles snapping timeline calculation to prevent monitor frame-rate dependencies
+  public update(dt: number): void {
+    const tethers = this.context.stores.get<TetherComponent>("tether");
+    const tether = tethers.get(this.context.refs.player);
+    if (!tether) return;
+
+    if (!tether.isAttached) {
+      if (!this.isSnapped) {
+        this.isSnapped = true;
+        this.snapTimer = 0.0;
+      }
+      this.snapTimer = Math.min(this.maxSnapDuration, this.snapTimer + dt);
+    } else {
+      this.isSnapped = false;
+      this.snapTimer = 0.0;
+    }
+  }
+
   public render(alpha: number): void {
     if (!this.tetherMesh || !this.tetherMat || !this.tetherMeshAnchor || !this.tetherMeshPlayer)
       return;
@@ -109,8 +127,6 @@ export class TetherVisualizerSystem implements ISystem {
     if (!pTrans || !tether) return;
 
     if (tether.isAttached) {
-      this.isSnapped = false;
-      this.snapTimer = 0.0;
       this.tetherMesh.setEnabled(true);
       this.tetherMeshAnchor.setEnabled(false);
       this.tetherMeshPlayer.setEnabled(false);
@@ -221,24 +237,24 @@ export class TetherVisualizerSystem implements ISystem {
 
       let r = 1.0;
       let g = 1.0;
-      let b = 1.0; // White Default
+      let b = 1.0; 
 
       if (tension >= 1.0) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; // Pink Warning
+        b = 0.5; 
       } else if (tension >= 0.75) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; // Saturated Pink transitioning
+        b = 0.5; 
       } else if (isSweetSpot) {
         r = 0.87;
         g = 0.99;
-        b = 0.0; // Sulfur Yellow Sweet Spot
+        b = 0.0; 
       } else if (tension < 0.4) {
         r = 1.0;
         g = 1.0;
-        b = 1.0; // Clean White
+        b = 1.0; 
       }
 
       this.tetherMat.albedoColor.set(r, g, b);
@@ -258,12 +274,6 @@ export class TetherVisualizerSystem implements ISystem {
     } else {
       this.tetherMesh.setEnabled(false);
 
-      if (!this.isSnapped) {
-        this.isSnapped = true;
-        this.snapTimer = 0.0;
-      }
-
-      this.snapTimer += 0.016;
       if (this.snapTimer >= this.maxSnapDuration) {
         this.tetherMeshAnchor.setEnabled(false);
         this.tetherMeshPlayer.setEnabled(false);

@@ -6,15 +6,24 @@ import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem"
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
+interface PooledBug {
+  entityId: number;
+  rootNode: BABYLON.TransformNode;
+  active: boolean;
+}
+
 export class WallBugSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
   readonly initPhase = InitPhase.Gameplay;
 
   private spawnTimer = 0.0;
-  private readonly spawnInterval = 5.0; // Increased frequency (spawns every 5 seconds)
+  private readonly spawnInterval = 5.0; 
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
+
+  private bugPool: PooledBug[] = [];
+  private readonly POOL_SIZE = 4;
 
   constructor(private context: SystemContext) {}
 
@@ -33,13 +42,23 @@ export class WallBugSystem implements ISystem {
     this.eyeMaterial.emissiveColor = new BABYLON.Color3(1.0, 0.55, 0.0);
     this.eyeMaterial.disableLighting = true;
 
-    // Reset spawn timer to 0.0 to wait a beat after the game starts
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      const bugId = this.context.world.create();
+      const bugRoot = this.buildBugMeshHierarchy(bugId, scene);
+      bugRoot.setEnabled(false);
+
+      this.bugPool.push({
+        entityId: bugId,
+        rootNode: bugRoot,
+        active: false
+      });
+    }
+
     this.spawnTimer = 0.0;
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearAllBugs();
-        // Reset spawn timer to 0.0 to wait a beat after resets
         this.spawnTimer = 0.0;
       })
     );
@@ -50,48 +69,47 @@ export class WallBugSystem implements ISystem {
     if (!scene) return;
 
     this.spawnTimer += dt;
-    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
-    const activeCount = Array.from(bugStore.entries()).filter(([, b]) => b.state !== "INACTIVE").length;
+    const activeCount = this.bugPool.filter(p => p.active).length;
 
-    // Increased active bug limit to 3 for more consistent crawling columns
     if (this.spawnTimer >= this.spawnInterval && activeCount < 3) {
       this.spawnTimer = 0.0;
-      this.spawnBug();
+      this.spawnBugFromPool();
     }
 
     const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const transformStore = this.context.stores.get<TransformComponent>("transform");
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
 
-    for (const [id, bug] of bugStore.entries()) {
-      if (bug.state === "INACTIVE") continue;
+    for (let i = 0; i < this.bugPool.length; i++) {
+      const pBug = this.bugPool[i];
+      if (!pBug.active) continue;
 
-      const trans = transformStore.get(id);
-      if (!trans) continue;
+      const bug = bugStore.get(pBug.entityId);
+      const trans = transformStore.get(pBug.entityId);
+      if (!bug || !trans) continue;
 
       bug.timer += dt;
 
-      // Consistent downward crawl
       const extraCrawlSpeed = 3.8; 
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
       if (bug.y < cameraY - 24.0) {
-        bug.state = "INACTIVE";
-        this.context.world.destroy(id);
-        this.context.visualRegistry.unregisterTransformNode(id);
+        this.recycleBug(pBug);
         continue;
       }
 
       trans.x = bug.x;
       trans.y = bug.y;
 
-      const node = this.context.visualRegistry.getTransformNode(id);
+      pBug.rootNode.position.set(bug.x, bug.y, 0);
+
+      const node = pBug.rootNode;
       if (node) {
         if (!node.metadata) {
           node.metadata = {};
         }
         let bugPhase = node.metadata.gaitPhase ?? 0.0;
-        // Leg speed scales directly with crawl movement + scrolling
         const legFrequency = (currentScrollSpeed + bug.speed) * 0.85; 
         bugPhase += legFrequency * dt;
         node.metadata.gaitPhase = bugPhase;
@@ -100,10 +118,8 @@ export class WallBugSystem implements ISystem {
           if (child.name.startsWith("leg_joint_left")) {
             const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
             const childTrans = child as BABYLON.TransformNode;
-            // Main joint crawl oscillation
             childTrans.rotation.z = Math.sin(bugPhase + index * 1.5) * 0.22;
 
-            // Animate intermediate tibia joint out of phase
             childTrans.getChildren().forEach((subChild) => {
               if (subChild.name.startsWith("tibia_joint_left")) {
                 const subTrans = subChild as BABYLON.TransformNode;
@@ -113,10 +129,8 @@ export class WallBugSystem implements ISystem {
           } else if (child.name.startsWith("leg_joint_right")) {
             const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
             const childTrans = child as BABYLON.TransformNode;
-            // Main joint crawl oscillation
             childTrans.rotation.z = -Math.sin(bugPhase + index * 1.5) * 0.22;
 
-            // Animate intermediate tibia joint out of phase
             childTrans.getChildren().forEach((subChild) => {
               if (subChild.name.startsWith("tibia_joint_right")) {
                 const subTrans = subChild as BABYLON.TransformNode;
@@ -129,18 +143,19 @@ export class WallBugSystem implements ISystem {
     }
   }
 
-  private spawnBug(): void {
+  private spawnBugFromPool(): void {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    const id = this.context.world.create();
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
+    const pBug = this.bugPool.find(p => !p.active);
+    if (!pBug) return;
 
+    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
     const side = Math.random() < 0.5 ? -1 : 1;
     const startX = side * 6.2;
-    const startY = cameraY + 22.0; // Enters from top
+    const startY = cameraY + 22.0;
 
-    this.context.stores.get<TransformComponent>("transform").add(id, {
+    this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,
       y: startY,
       z: 0,
@@ -157,7 +172,7 @@ export class WallBugSystem implements ISystem {
       prevQw: 1
     });
 
-    this.context.stores.get<WallBugComponent>("wallBug").add(id, {
+    this.context.stores.get<WallBugComponent>("wallBug").add(pBug.entityId, {
       state: "CRAWLING_DOWN",
       timer: 0.0,
       x: startX,
@@ -168,6 +183,28 @@ export class WallBugSystem implements ISystem {
       stayDuration: 0.0
     });
 
+    pBug.active = true;
+    pBug.rootNode.position.set(startX, startY, 0);
+    pBug.rootNode.setEnabled(true);
+
+    this.context.visualRegistry.registerTransformNode(pBug.entityId, pBug.rootNode);
+  }
+
+  private recycleBug(pBug: PooledBug): void {
+    pBug.active = false;
+    pBug.rootNode.setEnabled(false);
+    pBug.rootNode.position.set(0, -999, 0);
+
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    bugStore.remove(pBug.entityId);
+
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
+    transformStore.remove(pBug.entityId);
+
+    this.context.visualRegistry.unregisterTransformNode(pBug.entityId);
+  }
+
+  private buildBugMeshHierarchy(id: number, scene: BABYLON.Scene): BABYLON.TransformNode {
     const bugRoot = new BABYLON.TransformNode(`wall_bug_root_${id}`, scene);
 
     const capsule = BABYLON.MeshBuilder.CreateCapsule(
@@ -203,7 +240,6 @@ export class WallBugSystem implements ISystem {
     for (let leg = 0; leg < 4; leg++) {
       const legY = -2.0 + leg * 1.35;
 
-      // Left Leg Hierarchy (jointL -> coxaL -> tibiaJointL -> tibiaL -> footL)
       const jointL = new BABYLON.TransformNode(`leg_joint_left_${id}_${leg}`, scene);
       jointL.position.set(-0.45, legY, 0);
       jointL.parent = bugRoot;
@@ -241,7 +277,6 @@ export class WallBugSystem implements ISystem {
       footL.material = this.eyeMaterial;
       footL.parent = tibiaJointL;
 
-      // Right Leg Hierarchy (jointR -> coxaR -> tibiaJointR -> tibiaR -> footR)
       const jointR = new BABYLON.TransformNode(`leg_joint_right_${id}_${leg}`, scene);
       jointR.position.set(0.45, legY, 0);
       jointR.parent = bugRoot;
@@ -280,16 +315,12 @@ export class WallBugSystem implements ISystem {
       footR.parent = tibiaJointR;
     }
 
-    bugRoot.position.set(startX, startY, 0);
-    this.context.visualRegistry.registerTransformNode(id, bugRoot);
+    return bugRoot;
   }
 
   private clearAllBugs(): void {
-    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
-    for (const [id] of bugStore.entries()) {
-      bugStore.remove(id);
-      this.context.world.destroy(id);
-      this.context.visualRegistry.unregisterTransformNode(id);
+    for (let i = 0; i < this.bugPool.length; i++) {
+      this.recycleBug(this.bugPool[i]);
     }
     this.spawnTimer = 0.0;
   }
@@ -297,7 +328,12 @@ export class WallBugSystem implements ISystem {
   public dispose(): void {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
-    this.clearAllBugs();
+    
+    for (let i = 0; i < this.bugPool.length; i++) {
+      const pBug = this.bugPool[i];
+      pBug.rootNode.dispose();
+    }
+    this.bugPool = [];
 
     if (this.bugMaterial) this.bugMaterial.dispose();
     if (this.eyeMaterial) this.eyeMaterial.dispose();

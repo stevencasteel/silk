@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { usePlayerStore, useWeaverStore, useTetherStore, useOverlayStore } from "./hudStore";
+import { usePlayerStore, useWeaverStore, useOverlayStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
@@ -19,7 +19,9 @@ export const HudOverlay: React.FC = () => {
   );
   const { weaverHp, weaverMaxHp } = weaverState;
 
-  const tetherTension = useTetherStore((s) => s.tetherTension);
+  // React Bypass DOM Element Refs for High-Frequency Tension updates
+  const tensionBarFillRef = useRef<HTMLDivElement | null>(null);
+  const tensionTextValRef = useRef<HTMLSpanElement | null>(null);
 
   const overlayState = useOverlayStore(
     useShallow((s) => ({
@@ -98,6 +100,43 @@ export const HudOverlay: React.FC = () => {
     setTickerWins(0);
     setTickerLosses(0);
   }, [clearStats]);
+
+  // Hooking the high-frequency event stream to bypass the React rendering tree
+  useEffect(() => {
+    const handleTensionTick = (e: Event) => {
+      const tensionVal = (e as CustomEvent).detail.tension;
+      const snapLimit = 1.3;
+      const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
+      const displayPercent = Math.round(clamped * 100);
+      const scaleX = clamped / snapLimit;
+
+      let color = "rgb(16, 185, 129)";
+      let textColor = "rgb(244, 244, 245)";
+      if (clamped >= 1.0) {
+        color = "rgb(239, 68, 68)";
+        textColor = "rgb(239, 68, 68)";
+      } else if (clamped >= 0.75) {
+        color = "rgb(245, 158, 11)";
+        textColor = "rgb(245, 158, 11)";
+      }
+
+      if (tensionBarFillRef.current) {
+        tensionBarFillRef.current.style.width = `${(scaleX * 100).toFixed(1)}%`;
+        tensionBarFillRef.current.style.background = color;
+        tensionBarFillRef.current.style.boxShadow = `0 0 8px ${color}`;
+      }
+
+      if (tensionTextValRef.current) {
+        tensionTextValRef.current.textContent = `${displayPercent}%`;
+        tensionTextValRef.current.style.color = textColor;
+      }
+    };
+
+    window.addEventListener("silk-tension-render-tick", handleTensionTick);
+    return () => {
+      window.removeEventListener("silk-tension-render-tick", handleTensionTick);
+    };
+  }, []);
 
   useEffect(() => {
     const prevHP = prevHpRef.current;
@@ -255,24 +294,7 @@ export const HudOverlay: React.FC = () => {
   }, [playerHp, overlayVisible, playTensionAlarm]);
 
   const isBooting = bootStatus !== "READY" && !awaitingGesture;
-
-  const snapLimit = 1.3;
-  const clampedTension = Math.max(0, Math.min(snapLimit, tetherTension));
-  const displayTensionPercent = Math.round(clampedTension * 100);
-  const tensionScaleX = clampedTension / snapLimit;
-
-  let tensionBarColor = "rgb(16, 185, 129)";
-  let tensionTextColor = "rgb(244, 244, 245)";
-  if (clampedTension >= 1.0) {
-    tensionBarColor = "rgb(239, 68, 68)";
-    tensionTextColor = "rgb(239, 68, 68)";
-  } else if (clampedTension >= 0.75) {
-    tensionBarColor = "rgb(245, 158, 11)";
-    tensionTextColor = "rgb(245, 158, 11)";
-  }
-
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
-
   const isCriticalHp = playerHp === 1 && !overlayVisible;
 
   return (
@@ -338,9 +360,7 @@ export const HudOverlay: React.FC = () => {
             </div>
 
             <div className="header-center">
-              {clampedTension >= 1.0 ? (
-                <span className="warn-text warn-alert">WARNING: OVERLOAD</span>
-              ) : currentState === "LAUNCHING" ? (
+              {currentState === "LAUNCHING" ? (
                 <span className="warn-text warn-launch">LAUNCH SUCCESS</span>
               ) : (
                 <span className="warn-text">▧ SILK ▨</span>
@@ -390,11 +410,11 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className={`flex flex-col items-center gap-2 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
+            <div className="flex flex-col items-center gap-2" style={{ width: "320px" }}>
               <div className="flex justify-between w-full font-bold" style={{ padding: "0 4px", alignItems: "center" }}>
                 <span style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>TENSION</span>
-                <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>
-                  {displayTensionPercent}%
+                <span ref={tensionTextValRef} style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>
+                  0%
                 </span>
               </div>
               <div
@@ -411,13 +431,12 @@ export const HudOverlay: React.FC = () => {
                 }}
               >
                 <div
+                  ref={tensionBarFillRef}
                   style={{
                     height: "100%",
                     borderRadius: "5px",
-                    width: `${(tensionScaleX * 100).toFixed(1)}%`,
-                    transition: "width 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
-                    background: tensionBarColor,
-                    boxShadow: `0 0 8px ${tensionBarColor}`
+                    width: "0%",
+                    transition: "width 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.2)"
                   }}
                 />
               </div>
