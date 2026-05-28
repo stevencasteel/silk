@@ -10,8 +10,9 @@ import {
   HealthComponent,
   WeaverSweepComponent
 } from "../../core/ecs/Components";
-import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
+import { WeaverSweepHelper } from "./WeaverSweepHelper";
 import * as BABYLON from "@babylonjs/core";
 
 export class WeaverTraversalSystem implements ISystem {
@@ -51,13 +52,6 @@ export class WeaverTraversalSystem implements ISystem {
     const concreteEngine = physicsEngine ? (physicsEngine as BABYLON.PhysicsEngine) : null;
 
     if (isPatrolling) {
-      const isBerserk = health
-        ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
-        : false;
-      const sweepSpeed = isBerserk
-        ? WEAVER_AI_TUNING.PATROL.SPEED_BERSERK
-        : WEAVER_AI_TUNING.PATROL.SPEED_NORMAL;
-
       if (!sState) {
         const dir = vel.x >= 0 ? 1 : -1;
         sState = {
@@ -68,14 +62,10 @@ export class WeaverTraversalSystem implements ISystem {
         sweepStore.add(this.context.refs.weaver, sState);
       }
 
-      if (sState.phase === "SWEEP" || sState.phase === "LAUNCH") {
-        if (sState.phase === "SWEEP") {
-          vel.x = sState.direction * sweepSpeed;
-        } else {
-          const targetVel = sState.direction * sweepSpeed;
-          vel.x = vel.x + (targetVel - vel.x) * 5.0 * dt;
-        }
+      // Delegate state transition rules to the helper
+      WeaverSweepHelper.updateSweepPhase(dt, sState, health, vel, trans);
 
+      if (sState.phase === "SWEEP" || sState.phase === "LAUNCH") {
         let nextX = trans.x + vel.x * dt;
         let hitWallNormal = 0;
 
@@ -118,42 +108,14 @@ export class WeaverTraversalSystem implements ISystem {
             wallNormalX: hitWallNormal
           });
 
-          if (trans.scaleVelX !== undefined) {
-            trans.scaleVelX += -3.5;
-            trans.scaleVelY! += 2.5;
-            trans.scaleVelZ! += 2.5;
-          }
-
-          sState.phase = "HOLD";
-          sState.timer = 0.22;
-          sState.direction = hitWallNormal;
-          vel.x = 0;
-        } else if (sState.phase === "LAUNCH") {
-          const currentSpeed = Math.abs(vel.x);
-          if (currentSpeed <= sweepSpeed * 1.05) {
-            sState.phase = "SWEEP";
-            vel.x = sState.direction * sweepSpeed;
-          }
+          // Delegate wall impact scaling impulses and direction changes
+          WeaverSweepHelper.handleWallImpact(sState, vel, trans, hitWallNormal);
         }
 
         target.x = nextX;
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
         target.active = true;
       } else if (sState.phase === "HOLD") {
-        sState.timer -= dt;
-        vel.x = 0;
-
-        if (sState.timer <= 0) {
-          sState.phase = "LAUNCH";
-          vel.x = sState.direction * sweepSpeed * 2.0;
-
-          if (trans.scaleVelX !== undefined) {
-            trans.scaleVelX += 4.5;
-            trans.scaleVelY! += -3.5;
-            trans.scaleVelZ! += -3.5;
-          }
-        }
-
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
         target.active = true;
       }
