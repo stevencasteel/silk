@@ -4,21 +4,17 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TensionSynthesizer } from "../tone/TensionSynthesizer";
+import { SfxSynthesizerRegistry } from "../tone/SfxSynthesizerRegistry";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import type { MembraneSynth, NoiseSynth, Synth, Panner } from "tone";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private tensionSynth: TensionSynthesizer | null = null;
-  private impactSynth: MembraneSynth | null = null;
-  private noiseSynth: NoiseSynth | null = null;
-  private tickSynth: Synth | null = null;
-  private confirmSynth: Synth | null = null;
-  private tensionAlarmSynth: Synth | null = null;
-  private sfxPanner: Panner | null = null;
+  private sfxRegistry: SfxSynthesizerRegistry | null = null;
+
   private windowTickListener: (() => void) | null = null;
   private windowConfirmListener: (() => void) | null = null;
   private windowTensionAlarmListener: (() => void) | null = null;
@@ -47,22 +43,22 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("mousedown", this.gestureTriggerRef);
 
     this.windowTickListener = () => {
-      if (this.initialized && this.tickSynth) {
-        this.tickSynth.triggerAttackRelease("E6", "32n");
+      if (this.initialized && this.sfxRegistry?.tickSynth) {
+        this.sfxRegistry.tickSynth.triggerAttackRelease("E6", "32n");
       }
     };
     window.addEventListener("silk-stats-tick", this.windowTickListener);
 
     this.windowConfirmListener = () => {
-      if (this.initialized && this.confirmSynth) {
-        this.confirmSynth.triggerAttackRelease("C6", "16n");
+      if (this.initialized && this.sfxRegistry?.confirmSynth) {
+        this.sfxRegistry.confirmSynth.triggerAttackRelease("C6", "16n");
       }
     };
     window.addEventListener("silk-play-confirm", this.windowConfirmListener);
 
     this.windowTensionAlarmListener = () => {
-      if (this.initialized && this.tensionAlarmSynth && Math.random() < 0.1) {
-        this.tensionAlarmSynth.triggerAttackRelease("F6", "32n");
+      if (this.initialized && this.sfxRegistry?.tensionAlarmSynth && Math.random() < 0.1) {
+        this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease("F6", "32n");
       }
     };
     window.addEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
@@ -79,7 +75,7 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
-        if (payload.state === "LAUNCHING" && this.initialized) {
+        if (payload.state === "LAUNCHING" && this.initialized && this.sfxRegistry) {
           const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
           const pTrav = travStore.get(this.context.refs.player);
           if (pTrav) {
@@ -87,23 +83,13 @@ export class AudioDirectorSystem implements ISystem {
             const power = pTrav.launchPower;
 
             if (power >= 1.0) {
-              if (this.impactSynth) {
-                this.impactSynth.triggerAttackRelease("A1", "4n");
-              }
-              if (this.noiseSynth) {
-                this.noiseSynth.triggerAttackRelease("4n");
-              }
+              this.sfxRegistry.impactSynth?.triggerAttackRelease("A1", "4n");
+              this.sfxRegistry.noiseSynth?.triggerAttackRelease("4n");
             } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-              if (this.tickSynth) {
-                this.tickSynth.triggerAttackRelease("G6", "16n");
-              }
-              if (this.impactSynth) {
-                this.impactSynth.triggerAttackRelease("D4", "16n");
-              }
+              this.sfxRegistry.tickSynth?.triggerAttackRelease("G6", "16n");
+              this.sfxRegistry.impactSynth?.triggerAttackRelease("D4", "16n");
             } else {
-              if (this.impactSynth) {
-                this.impactSynth.triggerAttackRelease("C3", "16n");
-              }
+              this.sfxRegistry.impactSynth?.triggerAttackRelease("C3", "16n");
             }
           }
         }
@@ -121,11 +107,9 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
-        if (this.initialized && this.impactSynth) {
-          this.impactSynth.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
-        }
-        if (this.initialized && this.noiseSynth) {
-          this.noiseSynth.triggerAttackRelease(presets.DAMAGED_DURATION);
+        if (this.initialized && this.sfxRegistry) {
+          this.sfxRegistry.impactSynth?.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+          this.sfxRegistry.noiseSynth?.triggerAttackRelease(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
       })
@@ -139,7 +123,7 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        if (this.initialized && this.impactSynth) {
+        if (this.initialized && this.sfxRegistry?.impactSynth) {
           const nowMs = performance.now();
           if (nowMs - this.lastHitTime < 1500) {
             this.hitComboCount++;
@@ -154,7 +138,7 @@ export class AudioDirectorSystem implements ISystem {
           const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
 
-          this.impactSynth.triggerAttackRelease(freq, "16n");
+          this.sfxRegistry.impactSynth.triggerAttackRelease(freq, "16n");
         }
       })
     );
@@ -237,19 +221,23 @@ export class AudioDirectorSystem implements ISystem {
   private triggerDeathSequence(
     presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER
   ): void {
-    if (this.impactSynth) {
-      this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-      this.impactSynth.triggerAttackRelease(
+    if (!this.sfxRegistry) return;
+
+    if (this.sfxRegistry.impactSynth) {
+      this.sfxRegistry.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+      this.sfxRegistry.impactSynth.triggerAttackRelease(
         presets.DEATH_NOTE_2,
         presets.DEATH_NOTE_2_DURATION,
         presets.DEATH_NOTE_2_DELAY
       );
     }
-    if (this.noiseSynth) {
-      this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-      this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
+    if (this.sfxRegistry.noiseSynth) {
+      this.sfxRegistry.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+      this.sfxRegistry.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
       setTimeout(() => {
-        if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+        if (this.sfxRegistry?.noiseSynth) {
+          this.sfxRegistry.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+        }
       }, presets.DEATH_NOISE_RESTORE_DELAY);
     }
   }
@@ -263,9 +251,9 @@ export class AudioDirectorSystem implements ISystem {
         if (this.tensionSynth) {
           this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
         }
-        if (this.sfxPanner && this.toneModule) {
+        if (this.sfxRegistry?.sfxPanner && this.toneModule) {
           const panVal = (Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0) * 0.45;
-          this.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
+          this.sfxRegistry.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
         }
       }
     }
@@ -292,71 +280,13 @@ export class AudioDirectorSystem implements ISystem {
 
         Tone.getDestination().mute = false;
 
-        this.sfxPanner = new Tone.Panner(0).toDestination();
-
-        this.tensionSynth = new TensionSynthesizer();
-        this.tensionSynth.initialize().then(() => {
-          this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+        this.sfxRegistry = new SfxSynthesizerRegistry();
+        this.sfxRegistry.initialize(Tone).then(() => {
+          this.tensionSynth = new TensionSynthesizer();
+          this.tensionSynth.initialize().then(() => {
+            this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
+          });
         });
-
-        this.impactSynth = new Tone.MembraneSynth({
-          pitchDecay: 0.05,
-          octaves: 4,
-          oscillator: { type: "sine" },
-          envelope: {
-            attack: 0.001,
-            decay: 0.2,
-            sustain: 0.01,
-            release: 0.4,
-            attackCurve: "exponential"
-          }
-        }).connect(this.sfxPanner);
-
-        const presets = AUDIO_PRESETS.PLAYER;
-
-        this.noiseSynth = new Tone.NoiseSynth({
-          noise: { type: "pink" },
-          envelope: {
-            attack: 0.001,
-            decay: presets.NOISE_DECAY,
-            sustain: 0,
-            release: presets.NOISE_DECAY
-          }
-        }).connect(this.sfxPanner);
-        this.noiseSynth.volume.value = presets.NOISE_VOLUME;
-
-        this.tickSynth = new Tone.Synth({
-          oscillator: { type: "sine" },
-          envelope: {
-            attack: 0.002,
-            decay: 0.03,
-            sustain: 0,
-            release: 0.03
-          }
-        }).toDestination();
-        this.tickSynth.volume.value = -14;
-
-        this.confirmSynth = new Tone.Synth({
-          oscillator: { type: "triangle" },
-          envelope: {
-            attack: 0.002,
-            decay: 0.12,
-            sustain: 0,
-            release: 0.08
-          }
-        }).toDestination();
-        this.confirmSynth.volume.value = -6;
-
-        this.tensionAlarmSynth = new Tone.Synth({
-          oscillator: { type: "sine" },
-          envelope: {
-            attack: 0.01,
-            decay: 0.1,
-            sustain: 0,
-            release: 0.05
-          }
-        }).toDestination();
-        this.tensionAlarmSynth.volume.value = -18;
       });
     });
   }
@@ -365,12 +295,7 @@ export class AudioDirectorSystem implements ISystem {
     this.removeGestureListeners();
     this._tracker.clear();
     if (this.tensionSynth) this.tensionSynth.dispose();
-    if (this.impactSynth) this.impactSynth.dispose();
-    if (this.noiseSynth) this.noiseSynth.dispose();
-    if (this.tickSynth) this.tickSynth.dispose();
-    if (this.confirmSynth) this.confirmSynth.dispose();
-    if (this.tensionAlarmSynth) this.tensionAlarmSynth.dispose();
-    if (this.sfxPanner) this.sfxPanner.dispose();
+    if (this.sfxRegistry) this.sfxRegistry.dispose();
     if (this.windowTickListener) {
       window.removeEventListener("silk-stats-tick", this.windowTickListener);
     }
