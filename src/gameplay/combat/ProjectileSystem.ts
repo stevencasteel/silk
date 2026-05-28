@@ -45,8 +45,9 @@ export class ProjectileSystem implements ISystem {
 
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive", scene);
     const noisePlugin = new ProjectileNoisePlugin(this.projMatActive);
-    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
-      noisePlugin;
+    (
+      this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+    )._noisePlugin = noisePlugin;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
 

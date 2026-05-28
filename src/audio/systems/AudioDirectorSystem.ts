@@ -85,7 +85,7 @@ export class AudioDirectorSystem implements ISystem {
           if (pTrav) {
             const reelConfig = GAMEPLAY_TUNING.REEL;
             const power = pTrav.launchPower;
-            
+
             if (power >= 1.0) {
               if (this.impactSynth) {
                 this.impactSynth.triggerAttackRelease("A1", "4n");
@@ -148,10 +148,10 @@ export class AudioDirectorSystem implements ISystem {
           }
           this.lastHitTime = nowMs;
 
-          const DORIAN_RATIOS = [1.0000, 1.1225, 1.1892, 1.3348, 1.4983, 1.6818, 1.7818, 2.0000];
+          const DORIAN_RATIOS = [1.0, 1.1225, 1.1892, 1.3348, 1.4983, 1.6818, 1.7818, 2.0];
           const scaleIndex = this.hitComboCount % DORIAN_RATIOS.length;
           const octave = Math.pow(2, Math.floor(this.hitComboCount / DORIAN_RATIOS.length));
-          const baseFreq = 164.81; 
+          const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
 
           this.impactSynth.triggerAttackRelease(freq, "16n");
@@ -234,12 +234,11 @@ export class AudioDirectorSystem implements ISystem {
     );
   }
 
-  private triggerDeathSequence(presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER): void {
+  private triggerDeathSequence(
+    presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER
+  ): void {
     if (this.impactSynth) {
-      this.impactSynth.triggerAttackRelease(
-        presets.DEATH_NOTE_1,
-        presets.DEATH_NOTE_1_DURATION
-      );
+      this.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
       this.impactSynth.triggerAttackRelease(
         presets.DEATH_NOTE_2,
         presets.DEATH_NOTE_2_DURATION,
@@ -265,7 +264,7 @@ export class AudioDirectorSystem implements ISystem {
           this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
         }
         if (this.sfxPanner && this.toneModule) {
-          const panVal = Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0 * 0.45;
+          const panVal = (Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0) * 0.45;
           this.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
         }
       }

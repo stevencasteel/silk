@@ -27,7 +27,7 @@ export class PlayerInputSystem implements ISystem {
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       input.x = 0;
       input.y = 0;
-      
+
       return;
     }
 
@@ -41,7 +41,6 @@ export class PlayerInputSystem implements ISystem {
 
     input.x = x;
     input.y = y;
-    
   }
 
   public dispose(): void {
@@ -50,14 +49,14 @@ export class PlayerInputSystem implements ISystem {
     this.keysPressed = {};
   }
 
-    private handleKeyDown = (e: KeyboardEvent): void => {
+  private handleKeyDown = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = true;
     useInputStore.getState().setKeyPressed(key, true);
     useInputStore.getState().setKeyPressed(e.code.toLowerCase(), true);
   };
 
-    private handleKeyUp = (e: KeyboardEvent): void => {
+  private handleKeyUp = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = false;
     useInputStore.getState().setKeyPressed(key, false);

@@ -20,13 +20,13 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
           borderRadius: "50%",
           background: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0) 70%)",
           pointerEvents: "none",
-          zIndex: 1,
+          zIndex: 1
         }}
         animate={{
           width: variant.bubbleSize > 0 ? variant.bubbleSize + 16 : 0,
           height: variant.bubbleSize > 0 ? variant.bubbleSize + 16 : 0,
           x: "-50%",
-          y: "-50%",
+          y: "-50%"
         }}
         transition={{ type: "spring", stiffness: 180, damping: 15 }}
       />
@@ -42,13 +42,13 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
           alignItems: "center",
           justifyContent: "center",
           pointerEvents: "none",
-          zIndex: 2,
+          zIndex: 2
         }}
         animate={{
           width: variant.bubbleSize,
           height: variant.bubbleSize,
           x: "-50%",
-          y: "-50%",
+          y: "-50%"
         }}
         transition={{ type: "spring", stiffness: 180, damping: 15 }}
       >
@@ -83,12 +83,12 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
             left: "50%",
             zIndex: 3,
             pointerEvents: "none",
-            transformOrigin: "5.5px 3.2px",
+            transformOrigin: "5.5px 3.2px"
           }}
           animate={{
             scale: isPressed ? 0.85 : 1,
             x: "-50%",
-            y: "-50%",
+            y: "-50%"
           }}
           transition={{ type: "spring", stiffness: 300, damping: 15 }}
         >
@@ -98,10 +98,10 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
               fill={variant.color}
               stroke="rgba(0,0,0,0.5)"
               strokeWidth="3"
-                />
-              </svg>
-            </motion.div>
-          )}
-        </div>
-      );
-    }
+            />
+          </svg>
+        </motion.div>
+      )}
+    </div>
+  );
+}

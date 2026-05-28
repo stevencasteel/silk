@@ -15,36 +15,50 @@ export class ArenaGeometry {
     wallMaterial.roughness = 0.85;
     wallMaterial.albedoColor = new BABYLON.Color3(0.043, 0.051, 0.063);
 
-    applyProceduralTextures(textureGen, "concreteWall", this.scene, wallMaterial, {
-      resolution: 512,
-      noiseScale: 10.0,
-      bumpStrength: 2.5,
-      baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
-      roughnessMin: 0.75,
-      roughnessMax: 0.98,
-      metallic: 0.0
-    }, (mat) => {
-      mat.enableSpecularAntiAliasing = true;
-      mat.forceIrradianceInFragment = true;
-    });
+    applyProceduralTextures(
+      textureGen,
+      "concreteWall",
+      this.scene,
+      wallMaterial,
+      {
+        resolution: 512,
+        noiseScale: 10.0,
+        bumpStrength: 2.5,
+        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
+        roughnessMin: 0.75,
+        roughnessMax: 0.98,
+        metallic: 0.0
+      },
+      (mat) => {
+        mat.enableSpecularAntiAliasing = true;
+        mat.forceIrradianceInFragment = true;
+      }
+    );
 
     const panelMaterial = new BABYLON.PBRMaterial("panelMat", this.scene);
     panelMaterial.metallic = 0.25;
     panelMaterial.roughness = 0.65;
     panelMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.11);
 
-    applyProceduralTextures(textureGen, "scrollingPanel", this.scene, panelMaterial, {
-      resolution: 512,
-      noiseScale: 16.0,
-      bumpStrength: 1.8,
-      baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
-      roughnessMin: 0.45,
-      roughnessMax: 0.75,
-      metallic: 0.2
-    }, (mat) => {
-      mat.enableSpecularAntiAliasing = true;
-      mat.forceIrradianceInFragment = true;
-    });
+    applyProceduralTextures(
+      textureGen,
+      "scrollingPanel",
+      this.scene,
+      panelMaterial,
+      {
+        resolution: 512,
+        noiseScale: 16.0,
+        bumpStrength: 1.8,
+        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
+        roughnessMin: 0.45,
+        roughnessMax: 0.75,
+        metallic: 0.2
+      },
+      (mat) => {
+        mat.enableSpecularAntiAliasing = true;
+        mat.forceIrradianceInFragment = true;
+      }
+    );
 
     const verticalGrooveMaterial = new BABYLON.PBRMaterial("grooveMat", this.scene);
     verticalGrooveMaterial.albedoColor = new BABYLON.Color3(0.015, 0.015, 0.02);
@@ -56,23 +70,30 @@ export class ArenaGeometry {
     backdropMaterial.roughness = 0.94;
     backdropMaterial.albedoColor = new BABYLON.Color3(0.026, 0.03, 0.037);
 
-    applyProceduralTextures(textureGen, "shaftBackdropConcrete", this.scene, backdropMaterial, {
-      resolution: 1024,
-      noiseScale: 12.0,
-      bumpStrength: 3.1,
-      baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
-      roughnessMin: 0.82,
-      roughnessMax: 0.99,
-      metallic: 0.0,
-      ridgeStrength: 0.16,
-      ridgeScale: 0.34,
-      ridgeDirectionX: 0.65,
-      ridgeDirectionY: 1.0,
-      colorVariation: 0.2
-    }, (mat) => {
-      mat.enableSpecularAntiAliasing = true;
-      mat.forceIrradianceInFragment = true;
-    });
+    applyProceduralTextures(
+      textureGen,
+      "shaftBackdropConcrete",
+      this.scene,
+      backdropMaterial,
+      {
+        resolution: 1024,
+        noiseScale: 12.0,
+        bumpStrength: 3.1,
+        baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
+        roughnessMin: 0.82,
+        roughnessMax: 0.99,
+        metallic: 0.0,
+        ridgeStrength: 0.16,
+        ridgeScale: 0.34,
+        ridgeDirectionX: 0.65,
+        ridgeDirectionY: 1.0,
+        colorVariation: 0.2
+      },
+      (mat) => {
+        mat.enableSpecularAntiAliasing = true;
+        mat.forceIrradianceInFragment = true;
+      }
+    );
 
     const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
     backdropPanelMaterial.metallic = 0.05;
@@ -216,7 +237,7 @@ export class ArenaGeometry {
     const panelCount = 20;
     const panelSpacing = wallHeight / panelCount;
     for (let i = 0; i < panelCount; i++) {
-      const panelY = (i - panelCount / 2) * panelSpacing + (wallHeight * 0.1);
+      const panelY = (i - panelCount / 2) * panelSpacing + wallHeight * 0.1;
 
       const heightScale = 0.45 + Math.abs(Math.sin(i * 1.5)) * 0.45;
       const panelHeight = panelSpacing * heightScale;
@@ -243,7 +264,7 @@ export class ArenaGeometry {
     const ribCount = 10;
     const ribSpacing = wallHeight / ribCount;
     for (let i = 0; i < ribCount; i++) {
-      const ribY = (i - ribCount / 2) * ribSpacing + (wallHeight * 0.1);
+      const ribY = (i - ribCount / 2) * ribSpacing + wallHeight * 0.1;
 
       const ribHeight = 0.18 + Math.abs(Math.sin(i * 1.9)) * 0.22;
       const ribDepth = 4.15;

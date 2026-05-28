@@ -38,7 +38,12 @@ export interface GameEventMap {
   [GameEvent.WEAVER_DAMAGED]: { amount: number; source: string };
   [GameEvent.WEAVER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.WEAVER_DIED]: void;
-  [GameEvent.CAMERA_SHAKE_TRIGGERED]: { amplitude: number; duration: number; dirX?: number; dirY?: number };
+  [GameEvent.CAMERA_SHAKE_TRIGGERED]: {
+    amplitude: number;
+    duration: number;
+    dirX?: number;
+    dirY?: number;
+  };
   [GameEvent.GAME_OVER]: void;
   [GameEvent.GAME_WIN]: void;
   [GameEvent.GAME_RESET]: void;

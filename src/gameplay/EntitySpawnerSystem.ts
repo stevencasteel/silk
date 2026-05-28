@@ -249,18 +249,12 @@ export class EntitySpawnerSystem implements ISystem {
       reelHeat: 0.0
     });
 
-    this.context.stores
-      .get<HealthComponent>("health")
-      .add(playerId, {
-        current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
-        max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
-      });
-    this.context.stores
-      .get<InputIntentComponent>("input")
-      .add(playerId, { x: 0, y: 0,  });
-    this.context.stores
-      .get<PlayerTag>("playerTag")
-      .add(playerId, {});
+    this.context.stores.get<HealthComponent>("health").add(playerId, {
+      current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+      max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
+    });
+    this.context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
+    this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
 
     this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",

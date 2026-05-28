@@ -15,9 +15,7 @@ import HavokPhysics from "@babylonjs/havok";
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(message)), ms)
-    )
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms))
   ]);
 }
 
@@ -35,7 +33,9 @@ export class HavokPhysicsSystem implements ISystem {
     this.registerCommands();
     const scene = this.context.visualRegistry.getScene();
     if (scene) {
-      this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "LOADING PHYSICS ENGINE..." });
+      this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+        status: "LOADING PHYSICS ENGINE..."
+      });
       try {
         const HAVOK_TIMEOUT_MS = 15000;
         let havokInstance;
@@ -51,7 +51,9 @@ export class HavokPhysicsSystem implements ISystem {
           });
           try {
             havokInstance = await withTimeout(
-              HavokPhysics({ locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm" }),
+              HavokPhysics({
+                locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+              }),
               HAVOK_TIMEOUT_MS,
               "CDN HavokPhysics.wasm timed out"
             );
@@ -146,12 +148,7 @@ export class HavokPhysicsSystem implements ISystem {
     );
     shape.material = physicsMaterial;
 
-    const body = new BABYLON.PhysicsBody(
-      mesh,
-      BABYLON.PhysicsMotionType.STATIC,
-      false,
-      scene
-    );
+    const body = new BABYLON.PhysicsBody(mesh, BABYLON.PhysicsMotionType.STATIC, false, scene);
     body.shape = shape;
     body.setMassProperties({ mass: 0 });
     return body;
@@ -197,14 +194,18 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.z = wTarget.z;
     }
 
-    const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player) as BABYLON.AbstractMesh | null;
+    const pMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.player
+    ) as BABYLON.AbstractMesh | null;
     if (pMesh && pMesh.physicsBody && pTrans) {
       this._scratchPos.set(pTrans.x, pTrans.y, pTrans.z);
       this._scratchRot.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
       pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
 
-    const wMesh = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.AbstractMesh | null;
+    const wMesh = this.context.visualRegistry.getTransformNode(
+      this.context.refs.weaver
+    ) as BABYLON.AbstractMesh | null;
     if (wMesh && wMesh.physicsBody && wTrans) {
       this._scratchPos.set(wTrans.x, wTrans.y, wTrans.z);
       this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);

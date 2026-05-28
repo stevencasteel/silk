@@ -2,11 +2,14 @@ import * as BABYLON from "@babylonjs/core";
 
 export class ProceduralTextureGenerator {
   private p = new Uint8Array(256);
-  private static textureCache = new Map<string, {
-    albedo: BABYLON.DynamicTexture;
-    normal: BABYLON.DynamicTexture;
-    orm: BABYLON.DynamicTexture;
-  }>();
+  private static textureCache = new Map<
+    string,
+    {
+      albedo: BABYLON.DynamicTexture;
+      normal: BABYLON.DynamicTexture;
+      orm: BABYLON.DynamicTexture;
+    }
+  >();
 
   constructor() {
     for (let i = 0; i < 256; i++) {
@@ -150,7 +153,11 @@ export class ProceduralTextureGenerator {
         normalImg.data[idx + 3] = 255;
 
         const variation = config.colorVariation ?? 0.12;
-        const pore = this.fbm((x / res) * config.noiseScale * 4.5 + 3.1, (y / res) * config.noiseScale * 4.5, 2);
+        const pore = this.fbm(
+          (x / res) * config.noiseScale * 4.5 + 3.1,
+          (y / res) * config.noiseScale * 4.5,
+          2
+        );
         const tint = 0.86 + h * variation + (pore - 0.5) * variation * 0.35;
         albedoImg.data[idx] = Math.min(255, Math.max(0, config.baseColor.r * 255 * tint));
         albedoImg.data[idx + 1] = Math.min(255, Math.max(0, config.baseColor.g * 255 * tint));

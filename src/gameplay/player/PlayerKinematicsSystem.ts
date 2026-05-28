@@ -15,7 +15,12 @@ import {
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
-import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import {
+  ARENA_CONFIG,
+  CANONICAL_UNITS,
+  GAMEPLAY_TUNING,
+  POST_PROCESSING_PRESETS
+} from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -209,7 +214,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
-      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, { 
+      this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, {
         state: trav.state,
         launchPower: trav.launchPower
       });
@@ -246,7 +251,11 @@ export class PlayerKinematicsSystem implements ISystem {
     const cameraY = scene && scene.activeCamera ? scene.activeCamera.position.y : defaultCameraY;
     const cameraYOffset = cameraY - defaultCameraY;
 
-    if (trav.state === "WALL_SLIDING" && trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+    if (
+      trav.state === "WALL_SLIDING" &&
+      trav.stickyEntityId !== undefined &&
+      trav.stickyEntityId !== -1
+    ) {
       const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
       const bug = bugStore.get(trav.stickyEntityId);
       const bugTransStore = this.context.stores.get<TransformComponent>("transform");
@@ -295,7 +304,7 @@ export class PlayerKinematicsSystem implements ISystem {
         vel.x = 0;
         vel.y = -(currentScrollSpeed + bug.speed - slideSpeed);
 
-        const speedScale = 1.0 + (bug.speed / Math.max(1.0, currentScrollSpeed));
+        const speedScale = 1.0 + bug.speed / Math.max(1.0, currentScrollSpeed);
         const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
         tether.tension += tensionDelta * dt;
 
@@ -310,7 +319,10 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    if (trav.state === "WALL_SLIDING" && (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)) {
+    if (
+      trav.state === "WALL_SLIDING" &&
+      (trav.stickyEntityId === undefined || trav.stickyEntityId === -1)
+    ) {
       const stillPressingIn = input.x === trav.wallDir;
 
       if (stillPressingIn === false) {
@@ -377,7 +389,8 @@ export class PlayerKinematicsSystem implements ISystem {
               trav.wallNormalX = -bugWallDir;
               trav.wallNormalY = 0;
               trav.stickyEntityId = bugId;
-              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+              trav.stickyWallX =
+                bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
               trav.stickyWallYOffset = nextY - bugTrans.y;
 
               target.x = trav.stickyWallX;
@@ -490,8 +503,10 @@ export class PlayerKinematicsSystem implements ISystem {
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const tensionPower = Math.min(1.0, storedTension);
-    const reelBonus = tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
-    const isSweetSpot = storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
+    const reelBonus =
+      tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
+    const isSweetSpot =
+      storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
 
     const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);

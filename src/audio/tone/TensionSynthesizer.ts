@@ -129,12 +129,15 @@ export class TensionSynthesizer {
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
-    const targetBaseFreq = presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
+    const targetBaseFreq =
+      presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
     const targetModulationIndex =
-      synthConfig.DRONE_MOD_INDEX_BASE + Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
+      synthConfig.DRONE_MOD_INDEX_BASE +
+      Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
     const targetGain =
       clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN + Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
+        ? synthConfig.DRONE_MIN_GAIN +
+          Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
         : 0.0;
 
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
@@ -201,7 +204,8 @@ export class TensionSynthesizer {
   }
 
   public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule)
+      return;
     const now = this.toneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
 

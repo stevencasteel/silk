@@ -1,4 +1,8 @@
-import { ARENA_CONFIG, CANONICAL_UNITS, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import {
+  ARENA_CONFIG,
+  CANONICAL_UNITS,
+  POST_PROCESSING_PRESETS
+} from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -125,9 +129,7 @@ export class ParallaxScrollSystem implements ISystem {
     }
 
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_POS.y;
-    const cameraYOffset = scene.activeCamera
-      ? (scene.activeCamera.position.y - defaultCameraY)
-      : 0.0;
+    const cameraYOffset = scene.activeCamera ? scene.activeCamera.position.y - defaultCameraY : 0.0;
 
     const leftWall = scene.getMeshByName("leftWall");
     const rightWall = scene.getMeshByName("rightWall");

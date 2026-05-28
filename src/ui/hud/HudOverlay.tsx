@@ -10,7 +10,13 @@ interface CalibrationStepMeta {
   successTitle: string;
   activeTitle: string;
   subtitle: string;
-  renderKeys: (useWasd: boolean, isLeft: boolean, isRight: boolean, isUp: boolean, isDown: boolean) => React.ReactNode;
+  renderKeys: (
+    useWasd: boolean,
+    isLeft: boolean,
+    isRight: boolean,
+    isUp: boolean,
+    isDown: boolean
+  ) => React.ReactNode;
 }
 
 const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
@@ -69,9 +75,7 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
 };
 
 export const HudOverlay: React.FC = () => {
-  const playerState = usePlayerStore(
-    useShallow((s) => ({ playerHp: s.playerHp }))
-  );
+  const playerState = usePlayerStore(useShallow((s) => ({ playerHp: s.playerHp })));
   const { playerHp } = playerState;
 
   const weaverState = useWeaverStore(
@@ -207,7 +211,7 @@ export const HudOverlay: React.FC = () => {
   useEffect(() => {
     const handleTensionTick = (e: Event) => {
       const tensionVal = (e as CustomEvent).detail.tension;
-      const snapLimit = 1.0; 
+      const snapLimit = 1.0;
       const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
       const displayPercent = Math.round(clamped * 100);
       const scaleX = clamped / snapLimit;
@@ -425,7 +429,9 @@ export const HudOverlay: React.FC = () => {
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
   const isCriticalHp = playerHp === 1 && !overlayVisible;
 
-  const activeLedClass = stepSuccess ? "led-green led-elastic-spring" : "led-yellow led-spring-impact";
+  const activeLedClass = stepSuccess
+    ? "led-green led-elastic-spring"
+    : "led-yellow led-spring-impact";
   const activeStep = CALIBRATION_STEPS[displayedStep];
 
   return (
@@ -437,10 +443,7 @@ export const HudOverlay: React.FC = () => {
               INITIALIZING...
             </h2>
             <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
-              <div
-                className="h-full bg-emerald-500"
-                style={{ width: "100%" }}
-              />
+              <div className="h-full bg-emerald-500" style={{ width: "100%" }} />
             </div>
             <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
               {bootStatus}
@@ -466,10 +469,28 @@ export const HudOverlay: React.FC = () => {
         </div>
       ) : (
         <div className="hud-root select-none pointer-events-none">
-          <div className={`cabinet-header-panel ${isCriticalHp || hurtShakeActive ? "hud-stress-shiver" : ""}`}>
+          <div
+            className={`cabinet-header-panel ${isCriticalHp || hurtShakeActive ? "hud-stress-shiver" : ""}`}
+          >
             <div className="header-left flex flex-col gap-1.5">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-green)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                <Heart size={13} fill="var(--signal-green)" style={{ color: "var(--signal-green)", flexShrink: 0 }} /> PLAYER HP
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "var(--signal-green)",
+                  fontSize: "13px",
+                  fontWeight: "900",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase"
+                }}
+              >
+                <Heart
+                  size={13}
+                  fill="var(--signal-green)"
+                  style={{ color: "var(--signal-green)", flexShrink: 0 }}
+                />{" "}
+                PLAYER HP
               </span>
               <div className="hud-hp-row" style={{ display: "flex", gap: "6px" }}>
                 {[...Array(5)].map((_, i) => {
@@ -490,7 +511,10 @@ export const HudOverlay: React.FC = () => {
               </div>
             </div>
 
-            <div className="header-center" style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}>
+            <div
+              className="header-center"
+              style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}
+            >
               <AnimatePresence mode="wait">
                 {activeStep ? (
                   <motion.div
@@ -499,16 +523,43 @@ export const HudOverlay: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 12 }}
                     transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "2px"
+                    }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      {activeStep.renderKeys(useWasd, isLeftPressed, isRightPressed, isUpPressed, isDownPressed)}
-                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
+                      {activeStep.renderKeys(
+                        useWasd,
+                        isLeftPressed,
+                        isRightPressed,
+                        isUpPressed,
+                        isDownPressed
+                      )}
+                      <div
+                        className={`led-dot ${activeLedClass}`}
+                        style={{ width: "6px", height: "6px", marginLeft: "4px" }}
+                      />
                     </div>
-                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
+                    <span
+                      className="bezel-panel-label"
+                      style={{
+                        color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)",
+                        fontSize: "9px"
+                      }}
+                    >
                       {stepSuccess ? activeStep.successTitle : activeStep.activeTitle}
                     </span>
-                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    <span
+                      style={{
+                        fontSize: "7.5px",
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em"
+                      }}
+                    >
                       {activeStep.subtitle}
                     </span>
                   </motion.div>
@@ -520,8 +571,21 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.25 }}
                     style={{ display: "flex", alignItems: "center" }}
                   >
-                    <span className="warn-text" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                    <span
+                      className="warn-text"
+                      style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ flexShrink: 0, opacity: 0.85 }}
+                      >
                         <line x1="12" y1="2" x2="12" y2="22" />
                         <line x1="2" y1="12" x2="22" y2="12" />
                         <line x1="5" y1="5" x2="19" y2="19" />
@@ -530,7 +594,17 @@ export const HudOverlay: React.FC = () => {
                         <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
                       </svg>
                       <span style={{ transform: "translateY(1px)" }}>SILK</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ flexShrink: 0, opacity: 0.85 }}
+                      >
                         <line x1="12" y1="2" x2="12" y2="22" />
                         <line x1="2" y1="12" x2="22" y2="12" />
                         <line x1="5" y1="5" x2="19" y2="19" />
@@ -545,8 +619,24 @@ export const HudOverlay: React.FC = () => {
             </div>
 
             <div className="header-right flex flex-col items-end gap-1.5">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-red)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                <Skull size={13} fill="var(--signal-red)" style={{ color: "var(--signal-red)", flexShrink: 0 }} /> BOSS
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "var(--signal-red)",
+                  fontSize: "13px",
+                  fontWeight: "900",
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase"
+                }}
+              >
+                <Skull
+                  size={13}
+                  fill="var(--signal-red)"
+                  style={{ color: "var(--signal-red)", flexShrink: 0 }}
+                />{" "}
+                BOSS
               </span>
               <div
                 className="neo-pressed"
@@ -567,7 +657,7 @@ export const HudOverlay: React.FC = () => {
                     height: "100%",
                     borderRadius: "4px",
                     width: `${(weaverHpRatio * 100).toFixed(1)}%`,
-                    transition: "width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
+                    transition: "width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)"
                   }}
                 />
               </div>
@@ -588,9 +678,30 @@ export const HudOverlay: React.FC = () => {
 
           <div className="cabinet-footer-panel">
             <div className="flex flex-col items-center gap-2" style={{ width: "320px" }}>
-              <div className="flex justify-between w-full font-bold" style={{ padding: "0 4px", alignItems: "center" }}>
-                <span style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>TENSION</span>
-                <span ref={tensionTextValRef} style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>
+              <div
+                className="flex justify-between w-full font-bold"
+                style={{ padding: "0 4px", alignItems: "center" }}
+              >
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontSize: "13px",
+                    fontWeight: "900",
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase"
+                  }}
+                >
+                  TENSION
+                </span>
+                <span
+                  ref={tensionTextValRef}
+                  style={{
+                    fontFamily: "monospace",
+                    fontSize: "14px",
+                    fontWeight: "900",
+                    letterSpacing: "0.05em"
+                  }}
+                >
                   0%
                 </span>
               </div>
@@ -644,13 +755,19 @@ export const HudOverlay: React.FC = () => {
                     <Skull
                       size={48}
                       className="defeat-icon-anim"
-                      style={{ color: "var(--accent-danger)", filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))" }}
+                      style={{
+                        color: "var(--accent-danger)",
+                        filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))"
+                      }}
                     />
                   ) : (
                     <Trophy
                       size={48}
                       className="victory-icon-anim"
-                      style={{ color: "var(--accent-success)", filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))" }}
+                      style={{
+                        color: "var(--accent-success)",
+                        filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))"
+                      }}
                     />
                   )}
                   <h1
@@ -673,13 +790,19 @@ export const HudOverlay: React.FC = () => {
                 >
                   <div className="gameover-stat-row">
                     <span className="gameover-stat-label">TOTAL WINS</span>
-                    <span key={`wins-${tickerWins}`} className="gameover-stat-value gameover-stat-win led-spring-impact inline-block">
+                    <span
+                      key={`wins-${tickerWins}`}
+                      className="gameover-stat-value gameover-stat-win led-spring-impact inline-block"
+                    >
                       {tickerWins}
                     </span>
                   </div>
                   <div className="gameover-stat-row">
                     <span className="gameover-stat-label">TOTAL LOSSES</span>
-                    <span key={`losses-${tickerLosses}`} className="gameover-stat-value gameover-stat-loss led-spring-impact inline-block">
+                    <span
+                      key={`losses-${tickerLosses}`}
+                      className="gameover-stat-value gameover-stat-loss led-spring-impact inline-block"
+                    >
                       {tickerLosses}
                     </span>
                   </div>
@@ -700,14 +823,26 @@ export const HudOverlay: React.FC = () => {
                       onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
                       className={`neo-btn gameover-btn ${
                         menuIndex === 0
-                          ? (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-victory-focused")
-                          : (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover")
+                          ? overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-focused"
+                            : "gameover-btn-victory-focused"
+                          : overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-hover"
+                            : "gameover-btn-victory-hover"
                       }`}
                     >
-                      {menuIndex === 0 && <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>▶</span>}
+                      {menuIndex === 0 && (
+                        <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>
+                          ▶
+                        </span>
+                      )}
                       <RotateCcw size={16} className="flex-shrink-0" />
                       <span>RETRY</span>
-                      {menuIndex === 0 && <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>◀</span>}
+                      {menuIndex === 0 && (
+                        <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>
+                          ◀
+                        </span>
+                      )}
                     </button>
 
                     <button
@@ -723,14 +858,26 @@ export const HudOverlay: React.FC = () => {
                       onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
                       className={`neo-btn gameover-btn ${
                         menuIndex === 1
-                          ? (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-focused" : "gameover-btn-victory-focused")
-                          : (overlayTitle === "DEFEATED" ? "gameover-btn-defeat-hover" : "gameover-btn-victory-hover")
+                          ? overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-focused"
+                            : "gameover-btn-victory-focused"
+                          : overlayTitle === "DEFEATED"
+                            ? "gameover-btn-defeat-hover"
+                            : "gameover-btn-victory-hover"
                       }`}
                     >
-                      {menuIndex === 1 && <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>▶</span>}
+                      {menuIndex === 1 && (
+                        <span className="gameover-inline-arrow" style={{ marginRight: "6px" }}>
+                          ▶
+                        </span>
+                      )}
                       <Trash2 size={16} className="flex-shrink-0" />
                       <span>CLEAR</span>
-                      {menuIndex === 1 && <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>◀</span>}
+                      {menuIndex === 1 && (
+                        <span className="gameover-inline-arrow" style={{ marginLeft: "6px" }}>
+                          ◀
+                        </span>
+                      )}
                     </button>
                   </div>
                 </>
@@ -746,7 +893,10 @@ export const HudOverlay: React.FC = () => {
           style={{ background: "rgba(12, 13, 17, 0.65)" }}
         >
           <div className="flex flex-col items-center justify-center text-center animate-bounce-short">
-            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--accent-tension)" }}>
+            <h1
+              className="text-3xl font-black tracking-[0.25em] paused-title-glow"
+              style={{ color: "var(--accent-tension)" }}
+            >
               PAUSED
             </h1>
             <p className="text-[11px] text-zinc-400 tracking-[0.15em] uppercase mt-2">

@@ -8,7 +8,9 @@ export function getDistance2D(x1: number, y1: number, x2: number, y2: number): n
   return Math.sqrt(dx * dx + dy * dy) || 1.0;
 }
 
-export function dispatchUIFeedback(event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"): void {
+export function dispatchUIFeedback(
+  event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"
+): void {
   try {
     window.dispatchEvent(new CustomEvent(event));
   } catch (err) {
@@ -32,7 +34,11 @@ export class SubscriptionTracker {
 }
 
 export interface IProceduralTextureGenerator {
-  generatePBRTextures(name: string, scene: BABYLON.Scene, config: unknown): Promise<{
+  generatePBRTextures(
+    name: string,
+    scene: BABYLON.Scene,
+    config: unknown
+  ): Promise<{
     albedo: BABYLON.DynamicTexture;
     normal: BABYLON.DynamicTexture;
     orm: BABYLON.DynamicTexture;
@@ -188,7 +194,9 @@ export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON
   scene.lights.forEach((light) => {
     const shadowGen = light.getShadowGenerator();
     if (shadowGen) {
-      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (m: BABYLON.AbstractMesh) => void };
+      const concreteGen = shadowGen as unknown as {
+        removeShadowCaster?: (m: BABYLON.AbstractMesh) => void;
+      };
       if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
         concreteGen.removeShadowCaster(mesh);
       }

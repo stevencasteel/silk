@@ -58,11 +58,11 @@ export function Cursor() {
         width: 48,
         height: 48,
         pointerEvents: "none",
-        zIndex: 99999,
+        zIndex: 99999
       }}
       className="[@media(pointer:coarse)]:hidden"
       animate={{
-        opacity: isVisible && modalsOpen && cursorType !== "hidden" ? 1 : 0,
+        opacity: isVisible && modalsOpen && cursorType !== "hidden" ? 1 : 0
       }}
       transition={{ duration: 0.25 }}
     >

@@ -1,10 +1,6 @@
 import { create } from "zustand";
 
-export type CursorType =
-  | "default"
-  | "text"
-  | "button"
-  | "hidden";
+export type CursorType = "default" | "text" | "button" | "hidden";
 
 interface CursorStore {
   cursorType: CursorType;
@@ -13,5 +9,5 @@ interface CursorStore {
 
 export const useCursorStore = create<CursorStore>((set) => ({
   cursorType: "default",
-  setCursorType: (type) => set({ cursorType: type }),
+  setCursorType: (type) => set({ cursorType: type })
 }));

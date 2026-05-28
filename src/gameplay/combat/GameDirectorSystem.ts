@@ -13,7 +13,7 @@ export class GameDirectorSystem implements ISystem {
 
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
-  
+
   private _tracker = new SubscriptionTracker();
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
@@ -75,7 +75,9 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
         if (payload.hp === 1 && this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
-          console.log("[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo...");
+          console.log(
+            "[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo..."
+          );
           this.adrenalineTimer = this.ADRENALINE_SURGE_DURATION;
         }
       })
@@ -119,18 +121,24 @@ export class GameDirectorSystem implements ISystem {
 
     if (this.activeCinematic !== "NONE") {
       this.cinematicTimer += dt;
-      console.log(`[GameDirectorSystem] Cinematic progress: ${this.cinematicTimer.toFixed(3)} / ${this.maxCinematicSimTime}`);
+      console.log(
+        `[GameDirectorSystem] Cinematic progress: ${this.cinematicTimer.toFixed(3)} / ${this.maxCinematicSimTime}`
+      );
       if (this.cinematicTimer >= this.maxCinematicSimTime) {
         const finishedCinematic = this.activeCinematic;
         this.activeCinematic = "NONE";
         GameDirectorSystem.timeScale = 1.0;
 
         if (finishedCinematic === "PLAYER_DEATH") {
-          console.log("[GameDirectorSystem] Player death cinematic complete! Publishing GAME_OVER event...");
+          console.log(
+            "[GameDirectorSystem] Player death cinematic complete! Publishing GAME_OVER event..."
+          );
           this.gameState = "GAME_OVER";
           this.context.broker.publish(GameEvent.GAME_OVER, undefined);
         } else if (finishedCinematic === "WEAVER_DEATH") {
-          console.log("[GameDirectorSystem] Weaver death cinematic complete! Publishing GAME_WIN event...");
+          console.log(
+            "[GameDirectorSystem] Weaver death cinematic complete! Publishing GAME_WIN event..."
+          );
           this.gameState = "VICTORY";
           this.context.broker.publish(GameEvent.GAME_WIN, undefined);
         }

@@ -55,9 +55,9 @@ function createFoot(
   const foot = BABYLON.MeshBuilder.CreateSphere(
     name,
     {
-      diameterX: radius * 0.10,
+      diameterX: radius * 0.1,
       diameterY: radius * 0.28,
-      diameterZ: radius * 0.10
+      diameterZ: radius * 0.1
     },
     scene
   );
@@ -101,7 +101,7 @@ export function decorateWeaverVisual(
   registerShadowCaster?: (mesh: BABYLON.AbstractMesh) => void
 ): void {
   wMesh.isVisible = false;
-  
+
   const childMeshes = wMesh.getChildMeshes();
   for (let i = 0; i < childMeshes.length; i++) {
     childMeshes[i].dispose();
@@ -265,18 +265,18 @@ export function decorateWeaverVisual(
       { diameter: eyeRadius * 2.0 },
       scene
     );
-    
+
     const ox = offset.x * radius;
     const oy = offset.y * radius;
     const oz = offset.z * radius;
-    
+
     const sum = (ox * ox) / (a * a) + (oy * oy) / (b * b) + (oz * oz) / (c * c);
     const k = 1.0 / Math.sqrt(sum || 1.0);
-    
+
     const sx = ox * k;
     const sy = oy * k;
     const sz = oz * k;
-    
+
     const nx = sx / (a * a);
     const ny = sy / (b * b);
     const nz = sz / (c * c);
@@ -284,22 +284,58 @@ export function decorateWeaverVisual(
     const dx = nx / nLen;
     const dy = ny / nLen;
     const dz = nz / nLen;
-    
+
     const recessAmt = eyeRadius * 0.5;
     const px = sx - dx * recessAmt;
     const py = sy - dy * recessAmt;
     const pz = sz - dz * recessAmt;
-    
+
     eye.position.set(px, py, pz);
     eye.material = eyeMat;
     eye.parent = head;
   });
 
   const legPoses: LegPose[] = [
-    { hipX: 0.38, hipY: 0.32, kneeX: 0.96, kneeY: 0.74, footX: 1.7, footY: 1.02, coxaWidth: 0.14, tibiaWidth: 0.058 },
-    { hipX: 0.5, hipY: 0.1, kneeX: 1.2, kneeY: 0.24, footX: 1.95, footY: 0.26, coxaWidth: 0.15, tibiaWidth: 0.064 },
-    { hipX: 0.5, hipY: -0.12, kneeX: 1.2, kneeY: -0.32, footX: 1.92, footY: -0.52, coxaWidth: 0.145, tibiaWidth: 0.06 },
-    { hipX: 0.36, hipY: -0.34, kneeX: 0.96, kneeY: -0.74, footX: 1.68, footY: -1.08, coxaWidth: 0.13, tibiaWidth: 0.054 }
+    {
+      hipX: 0.38,
+      hipY: 0.32,
+      kneeX: 0.96,
+      kneeY: 0.74,
+      footX: 1.7,
+      footY: 1.02,
+      coxaWidth: 0.14,
+      tibiaWidth: 0.058
+    },
+    {
+      hipX: 0.5,
+      hipY: 0.1,
+      kneeX: 1.2,
+      kneeY: 0.24,
+      footX: 1.95,
+      footY: 0.26,
+      coxaWidth: 0.15,
+      tibiaWidth: 0.064
+    },
+    {
+      hipX: 0.5,
+      hipY: -0.12,
+      kneeX: 1.2,
+      kneeY: -0.32,
+      footX: 1.92,
+      footY: -0.52,
+      coxaWidth: 0.145,
+      tibiaWidth: 0.06
+    },
+    {
+      hipX: 0.36,
+      hipY: -0.34,
+      kneeX: 0.96,
+      kneeY: -0.74,
+      footX: 1.68,
+      footY: -1.08,
+      coxaWidth: 0.13,
+      tibiaWidth: 0.054
+    }
   ];
 
   for (let side = 0; side < 2; side++) {
@@ -316,11 +352,11 @@ export function decorateWeaverVisual(
       const legRoot = new BABYLON.TransformNode(`leg_root_${sideSign}_${l}`, scene);
       legRoot.parent = wMesh;
       legRoot.position.set(hipX, hipY, radius * -0.15);
-      
+
       const coxaDx = kneeX - hipX;
       const coxaDy = kneeY - hipY;
       const coxaLength = Math.sqrt(coxaDx * coxaDx + coxaDy * coxaDy);
-      
+
       const coxa = createLegSegment(
         scene,
         `coxa_${sideSign}_${l}`,

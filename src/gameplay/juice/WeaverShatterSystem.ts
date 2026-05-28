@@ -2,7 +2,12 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import {
+  ARENA_CONFIG,
+  CANONICAL_UNITS,
+  VISUAL_JUICE_CONFIG,
+  POST_PROCESSING_PRESETS
+} from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveDebris {
@@ -19,7 +24,6 @@ export class WeaverShatterSystem implements ISystem {
   private activeDebrisList: ActiveDebris[] = [];
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
-
 
   constructor(private context: SystemContext) {}
 
@@ -152,17 +156,17 @@ export class WeaverShatterSystem implements ISystem {
           shellPos[i1 * 3],
           shellPos[i1 * 3 + 1],
           shellPos[i1 * 3 + 2]
-                );
+        );
         const p2 = new BABYLON.Vector3(
           shellPos[i2 * 3],
           shellPos[i2 * 3 + 1],
           shellPos[i2 * 3 + 2]
-                );
+        );
         const p3 = new BABYLON.Vector3(
           shellPos[i3 * 3],
           shellPos[i3 * 3 + 1],
           shellPos[i3 * 3 + 2]
-                );
+        );
         const centroid = p1
           .add(p2)
           .add(p3)
@@ -319,9 +323,8 @@ export class WeaverShatterSystem implements ISystem {
 
     const scene = this.context.visualRegistry.getScene();
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
-    const cameraYOffset = scene && scene.activeCamera
-      ? (scene.activeCamera.position.y - defaultCameraY)
-      : 0.0;
+    const cameraYOffset =
+      scene && scene.activeCamera ? scene.activeCamera.position.y - defaultCameraY : 0.0;
     const disposeThreshold = -16.0 + cameraYOffset;
 
     for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {

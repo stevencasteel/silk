@@ -1,4 +1,9 @@
-import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import {
+  VISUAL_JUICE_CONFIG,
+  CANONICAL_UNITS,
+  ARENA_CONFIG,
+  GAMEPLAY_TUNING
+} from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -65,7 +70,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
-          this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+          this._colorScratch.set(
+            colors.PLAYER_SPARK.r,
+            colors.PLAYER_SPARK.g,
+            colors.PLAYER_SPARK.b
+          );
           this.spawnBurst(
             playerNode.position,
             this._colorScratch,
@@ -80,7 +89,11 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          this._colorScratch.set(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+          this._colorScratch.set(
+            colors.WEAVER_SPARK.r,
+            colors.WEAVER_SPARK.g,
+            colors.WEAVER_SPARK.b
+          );
           this.spawnBurst(
             weaverNode.position,
             this._colorScratch,
@@ -138,11 +151,15 @@ export class JuiceSystem implements ISystem {
           if (playerNode) {
             const configObj = VISUAL_JUICE_CONFIG.PARTICLES;
             const colorsObj = configObj.COLORS;
-            
+
             const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
             const pTrav = traversal.get(this.context.refs.player);
-            
-            this._colorScratch.set(colorsObj.PLAYER_SPARK.r, colorsObj.PLAYER_SPARK.g, colorsObj.PLAYER_SPARK.b);
+
+            this._colorScratch.set(
+              colorsObj.PLAYER_SPARK.r,
+              colorsObj.PLAYER_SPARK.g,
+              colorsObj.PLAYER_SPARK.b
+            );
             let particleCount = 15;
             let burstSettings: {
               readonly VELOCITY_Y_MIN: number;
@@ -153,11 +170,11 @@ export class JuiceSystem implements ISystem {
               readonly LIFE_MIN: number;
               readonly LIFE_MAX: number;
             } = configObj.BURST.PLAYER;
-            
+
             if (pTrav) {
               const reelConfig = GAMEPLAY_TUNING.REEL;
               const power = pTrav.launchPower;
-              
+
               if (power >= 1.0) {
                 this._colorScratch.set(1.0, 0.15, 0.15);
                 particleCount = 25;
@@ -171,13 +188,8 @@ export class JuiceSystem implements ISystem {
                 particleCount = 22;
               }
             }
-            
-            this.spawnBurst(
-              playerNode.position,
-              this._colorScratch,
-              particleCount,
-              burstSettings
-            );
+
+            this.spawnBurst(playerNode.position, this._colorScratch, particleCount, burstSettings);
           }
         }
         this.playerState = payload.state;
@@ -285,7 +297,11 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    this._colorScratch.set(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    this._colorScratch.set(
+      colors.PROJECTILE_SPLAT.r,
+      colors.PROJECTILE_SPLAT.g,
+      colors.PROJECTILE_SPLAT.b
+    );
     const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2.0;

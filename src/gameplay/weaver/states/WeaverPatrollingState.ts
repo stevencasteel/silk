@@ -1,15 +1,21 @@
-import { getWeaverStingerTip, setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
+import {
+  getWeaverStingerTip,
+  setKinematicVelocity,
+  HASH_PREFIX
+} from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
+import {
+  WEAVER_AI_TUNING,
+  VISUAL_JUICE_CONFIG,
+  ARENA_CONFIG
+} from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   HealthComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
-
-
 
 export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";

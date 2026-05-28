@@ -14,27 +14,27 @@ export const CURSOR_VARIANTS: Record<CursorType, CursorVariantConfig> = {
     color: "#10b981",
     isBase: true,
     bubbleSize: 0,
-    bubbleBg: "transparent",
+    bubbleBg: "transparent"
   },
   button: {
     blendMode: "normal",
     color: "#10b981",
     isBase: true,
     bubbleSize: 0,
-    bubbleBg: "transparent",
+    bubbleBg: "transparent"
   },
   text: {
     blendMode: "normal",
     color: "#10b981",
     isBase: false,
     bubbleSize: 32,
-    bubbleBg: "transparent",
+    bubbleBg: "transparent"
   },
   hidden: {
     blendMode: "normal",
     color: "transparent",
     isBase: false,
     bubbleSize: 0,
-    bubbleBg: "transparent",
-  },
+    bubbleBg: "transparent"
+  }
 };

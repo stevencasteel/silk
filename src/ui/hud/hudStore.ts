@@ -30,7 +30,7 @@ export interface OverlayState {
   overlaySubtitle: string;
   isPaused: boolean;
   awaitingGesture: boolean;
-  
+
   wins: number;
   losses: number;
   menuIndex: number;
@@ -59,7 +59,12 @@ export interface InputStoreState {
 }
 
 const PLAYER_RESET = { playerHp: 5, playerMaxHp: 5, currentState: "AIRBORNE" };
-const WEAVER_RESET = { weaverHp: 100, weaverMaxHp: 100, weaverState: "SWEEPING", weaverHue: "rgb(239, 68, 68)" };
+const WEAVER_RESET = {
+  weaverHp: 100,
+  weaverMaxHp: 100,
+  weaverState: "SWEEPING",
+  weaverHue: "rgb(239, 68, 68)"
+};
 const OVERLAY_RESET = {
   bootStatus: "READY",
   traversalHint: "",
@@ -97,11 +102,16 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   setTraversalHint: (text, color, opacity) =>
     set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
   showOverlay: (title, color, subtitle) =>
-    set({ overlayVisible: true, overlayTitle: title, overlayColor: color, overlaySubtitle: subtitle }),
+    set({
+      overlayVisible: true,
+      overlayTitle: title,
+      overlayColor: color,
+      overlaySubtitle: subtitle
+    }),
   hideOverlay: () => set({ overlayVisible: false }),
   setPaused: (isPaused) => set({ isPaused }),
   setAwaitingGesture: (awaiting) => set({ awaitingGesture: awaiting }),
-  
+
   setMenuIndex: (index) => set({ menuIndex: index }),
   loadStats: () => {
     try {
@@ -146,18 +156,20 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
 
   setCalibrationStep: (step) => set({ calibrationStep: step }),
 
-  reset: () => set((state) => ({
-    ...OVERLAY_RESET,
-    wins: state.wins,
-    losses: state.losses
-  }))
+  reset: () =>
+    set((state) => ({
+      ...OVERLAY_RESET,
+      wins: state.wins,
+      losses: state.losses
+    }))
 }));
 
 export const useInputStore = create<InputStoreState>((set) => ({
   keysPressed: {},
-  setKeyPressed: (key, pressed) => set((state) => ({
-    keysPressed: { ...state.keysPressed, [key]: pressed }
-  })),
+  setKeyPressed: (key, pressed) =>
+    set((state) => ({
+      keysPressed: { ...state.keysPressed, [key]: pressed }
+    })),
   reset: () => set({ keysPressed: {} })
 }));
 

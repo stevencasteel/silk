@@ -119,7 +119,9 @@ export class CameraSystem implements ISystem {
 
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const playerTrans = transforms.get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
 
     if (playerTrans && trav) {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
@@ -128,7 +130,7 @@ export class CameraSystem implements ISystem {
       if (trav.state === "WALL_SLIDING") {
         if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
           const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
-          
+
           const maxCameraSpeed = ParallaxScrollSystem.currentScrollSpeed;
           const maxDelta = -maxCameraSpeed * dt;
           let desiredScrollY = targetScrollY;
@@ -136,13 +138,24 @@ export class CameraSystem implements ISystem {
             desiredScrollY = Math.max(this.cameraScrollY + maxDelta, desiredScrollY);
           }
 
-          const clampedScrollY = Math.max(CAMERA_TUNING.MIN_SCROLL_Y, Math.min(CAMERA_TUNING.MAX_SCROLL_Y, desiredScrollY));
+          const clampedScrollY = Math.max(
+            CAMERA_TUNING.MIN_SCROLL_Y,
+            Math.min(CAMERA_TUNING.MAX_SCROLL_Y, desiredScrollY)
+          );
           this.cameraScrollY = clampedScrollY;
         } else if (playerLocalY > -4.0 && this.cameraScrollY < 0.0) {
-          this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
+          this.cameraScrollY = BABYLON.Scalar.Lerp(
+            this.cameraScrollY,
+            0.0,
+            CAMERA_TUNING.NORMAL_LERP
+          );
         }
       } else {
-        this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, 0.0, CAMERA_TUNING.NORMAL_LERP);
+        this.cameraScrollY = BABYLON.Scalar.Lerp(
+          this.cameraScrollY,
+          0.0,
+          CAMERA_TUNING.NORMAL_LERP
+        );
       }
     }
   }
@@ -158,7 +171,9 @@ export class CameraSystem implements ISystem {
     if (pNode) {
       const baseY = preset.DEFAULT_TARGET.y;
       const playerLocalY = pNode.position.y - (baseY + this.cameraScrollY);
-      const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+      const trav = this.context.stores
+        .get<TraversalStateComponent>("traversal")
+        .get(this.context.refs.player);
 
       if (trav && trav.state === "WALL_SLIDING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
         targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;

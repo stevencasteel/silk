@@ -25,7 +25,7 @@ export class VisualStateDressingSystem implements ISystem {
 
   private currentEmissiveColor = new BABYLON.Color3(0.05, 0.15, 0.05);
   private readonly _targetEmissiveColor = new BABYLON.Color3();
-  
+
   private visualClock = 0.0;
   private gaitClock = 0.0;
   private gaitAmp = 0.12;
@@ -114,13 +114,16 @@ export class VisualStateDressingSystem implements ISystem {
     const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
     if (pNode && tether && trav) {
       const mesh = pNode as BABYLON.AbstractMesh;
-      
+
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);
       }
       mesh.getChildMeshes().forEach((child) => {
-        if (child.material instanceof BABYLON.PBRMaterial && !pbrMaterials.includes(child.material)) {
+        if (
+          child.material instanceof BABYLON.PBRMaterial &&
+          !pbrMaterials.includes(child.material)
+        ) {
           pbrMaterials.push(child.material);
         }
       });
@@ -139,7 +142,10 @@ export class VisualStateDressingSystem implements ISystem {
         pbrMaterials.push(mesh.material);
       }
       mesh.getChildMeshes().forEach((child) => {
-        if (child.material instanceof BABYLON.PBRMaterial && !pbrMaterials.includes(child.material)) {
+        if (
+          child.material instanceof BABYLON.PBRMaterial &&
+          !pbrMaterials.includes(child.material)
+        ) {
           pbrMaterials.push(child.material);
         }
       });
@@ -172,16 +178,35 @@ export class VisualStateDressingSystem implements ISystem {
 
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
-        const legRoots = mesh.getChildren((node) => node.name.startsWith("leg_root_"), false) as BABYLON.TransformNode[];
-        const abdomen = mesh.getChildren((node) => node.name === "weaver_abdomen", false)[0] as BABYLON.TransformNode;
-        const cephalothorax = mesh.getChildren((node) => node.name === "weaver_cephalothorax", false)[0] as BABYLON.TransformNode;
-        const head = mesh.getChildren((node) => node.name === "weaver_head", false)[0] as BABYLON.TransformNode;
-        
-        const legsMap = new Map<string, { coxa: BABYLON.TransformNode; tibia: BABYLON.TransformNode }>();
+        const legRoots = mesh.getChildren(
+          (node) => node.name.startsWith("leg_root_"),
+          false
+        ) as BABYLON.TransformNode[];
+        const abdomen = mesh.getChildren(
+          (node) => node.name === "weaver_abdomen",
+          false
+        )[0] as BABYLON.TransformNode;
+        const cephalothorax = mesh.getChildren(
+          (node) => node.name === "weaver_cephalothorax",
+          false
+        )[0] as BABYLON.TransformNode;
+        const head = mesh.getChildren(
+          (node) => node.name === "weaver_head",
+          false
+        )[0] as BABYLON.TransformNode;
+
+        const legsMap = new Map<
+          string,
+          { coxa: BABYLON.TransformNode; tibia: BABYLON.TransformNode }
+        >();
         legRoots.forEach((root) => {
-          const coxa = root.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode;
+          const coxa = root
+            .getChildren()
+            .find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode;
           if (coxa) {
-            const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode;
+            const tibia = coxa
+              .getChildren()
+              .find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode;
             if (tibia) {
               legsMap.set(root.name, { coxa, tibia });
             }
@@ -244,10 +269,13 @@ export class VisualStateDressingSystem implements ISystem {
 
           const coxa = legJoints?.coxa;
           if (coxa) {
-            const coxaMeta = coxa.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
+            const coxaMeta = coxa.metadata as {
+              baseRotationZ?: number;
+              baseRotationX?: number;
+            } | null;
             const baseCoxaZ = coxaMeta?.baseRotationZ ?? coxa.rotation.z;
             const baseCoxaX = coxaMeta?.baseRotationX ?? coxa.rotation.x;
-            
+
             const coxaTuckAngle = sideSign * this.gaitTuck * 0.24;
             const coxaLift = sideSign * lift * 0.16;
             coxa.rotation.z = baseCoxaZ + coxaTuckAngle + coxaLift;
@@ -255,10 +283,13 @@ export class VisualStateDressingSystem implements ISystem {
 
             const tibia = legJoints?.tibia;
             if (tibia) {
-              const tibiaMeta = tibia.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
+              const tibiaMeta = tibia.metadata as {
+                baseRotationZ?: number;
+                baseRotationX?: number;
+              } | null;
               const baseTibiaZ = tibiaMeta?.baseRotationZ ?? tibia.rotation.z;
               const baseTibiaX = tibiaMeta?.baseRotationX ?? tibia.rotation.x;
-              
+
               const tibiaTuckAngle = -sideSign * this.gaitTuck * 0.34;
               const tibiaSweep = -sideSign * (sweep * 0.12 + lift * 0.1);
               tibia.rotation.z = baseTibiaZ + tibiaTuckAngle + tibiaSweep;
@@ -284,13 +315,17 @@ export class VisualStateDressingSystem implements ISystem {
         this._footLocalTarget.x += sweep * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
         this._footLocalTarget.y += lift * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
 
-        BABYLON.Vector3.TransformCoordinatesToRef(this._footLocalTarget, mesh.getWorldMatrix(), this._footWorldTarget);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          this._footLocalTarget,
+          mesh.getWorldMatrix(),
+          this._footWorldTarget
+        );
 
         const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
         const ceilingY = ARENA_CONFIG.VERTICAL.CEILING_Y;
         const floorY = ARENA_CONFIG.VERTICAL.FLOOR_Y;
 
-        const checkMargin = 0.55; 
+        const checkMargin = 0.55;
         if (this._footWorldTarget.x > wallLimit - checkMargin) {
           this._footWorldTarget.x = wallLimit;
         } else if (this._footWorldTarget.x < -wallLimit + checkMargin) {
@@ -304,11 +339,15 @@ export class VisualStateDressingSystem implements ISystem {
         }
 
         transNode.getWorldMatrix().invertToRef(this._rootWorldInv);
-        BABYLON.Vector3.TransformCoordinatesToRef(this._footWorldTarget, this._rootWorldInv, this._targetLocal);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          this._footWorldTarget,
+          this._rootWorldInv,
+          this._targetLocal
+        );
 
         const ikRotations = this.solveIK(this._targetLocal, coxaLength, tibiaLength, sideSign);
 
-        transNode.rotation.z = 0; 
+        transNode.rotation.z = 0;
         transNode.rotation.y = 0;
         transNode.position.z = rootMeta.basePositionZ ?? transNode.position.z;
 
@@ -331,7 +370,11 @@ export class VisualStateDressingSystem implements ISystem {
     }
   }
 
-  private resolveWeaverGaitTargets(wAI: WeaverAIComponent): { amp: number; freq: number; tuck: number } {
+  private resolveWeaverGaitTargets(wAI: WeaverAIComponent): {
+    amp: number;
+    freq: number;
+    tuck: number;
+  } {
     if (wAI.state === "STRIKING" || wAI.state.includes("WEAVER STRIKE")) {
       const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
       const wVel = velStore.get(this.context.refs.weaver);
@@ -422,7 +465,12 @@ export class VisualStateDressingSystem implements ISystem {
     }
 
     this._targetEmissiveColor.set(targetR, targetG, targetB);
-    BABYLON.Color3.LerpToRef(this.currentEmissiveColor, this._targetEmissiveColor, emissive.PLAYER_LERP_RATE, this.currentEmissiveColor);
+    BABYLON.Color3.LerpToRef(
+      this.currentEmissiveColor,
+      this._targetEmissiveColor,
+      emissive.PLAYER_LERP_RATE,
+      this.currentEmissiveColor
+    );
 
     mat.emissiveColor.set(
       this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,

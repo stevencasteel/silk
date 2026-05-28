@@ -46,13 +46,13 @@ export class TetherVisualizerSystem implements ISystem {
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
-    this.tetherMat.metallic = 0.95; 
+    this.tetherMat.metallic = 0.95;
     this.tetherMat.roughness = 0.05;
     this.tetherMat.sheen.isEnabled = true;
     this.tetherMat.sheen.intensity = 0.95;
     this.tetherMat.sheen.roughness = 0.05;
-    this.tetherMat.emissiveIntensity = 4.0; 
-    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
+    this.tetherMat.emissiveIntensity = 4.0;
+    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.tetherMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
     this.tetherMat.disableLighting = false;
 
@@ -135,47 +135,52 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-    if (wNode) {
-      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
-      const tip = getWeaverStingerTip(
-        wNode.position.x,
-        wNode.position.y,
-        wNode.position.z,
-        rot.x,
-        rot.y,
-        rot.z,
-        rot.w,
-        radius,
-        1.18
-      );
-      this.scratchAnchor.copyFrom(tip);
-    } else {
+      const wNode = this.context.visualRegistry.getTransformNode(
+        this.context.refs.weaver
+      ) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+        const tip = getWeaverStingerTip(
+          wNode.position.x,
+          wNode.position.y,
+          wNode.position.z,
+          rot.x,
+          rot.y,
+          rot.z,
+          rot.w,
+          radius,
+          1.18
+        );
+        this.scratchAnchor.copyFrom(tip);
+      } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
       // Cap at exactly 1.0 (100% tension limit)
       const tension = Math.max(0, Math.min(1.0, tether.tension));
       const reelConfig = GAMEPLAY_TUNING.REEL;
-      const isSweetSpot = tension >= reelConfig.SWEET_SPOT_MIN && tension <= reelConfig.SWEET_SPOT_MAX;
+      const isSweetSpot =
+        tension >= reelConfig.SWEET_SPOT_MIN && tension <= reelConfig.SWEET_SPOT_MAX;
 
       const timeMs = performance.now();
       const frequency = VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_FREQ;
       const vibPhase = timeMs * frequency;
-      
+
       let vibAmp = 0;
       if (tension >= 1.0) {
         vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.0;
       } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
-        vibAmp = (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
+        vibAmp =
+          (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
+          VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       }
-      
+
       const vibOffset = Math.sin(vibPhase * (tension >= 1.0 ? 3.0 : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-      
+
       let MathSag = this.MAX_SAG * (1.0 - Math.min(1.0, tension)) + vibOffset;
       if (tension < 0.4) {
         MathSag *= 1.3;
@@ -186,7 +191,7 @@ export class TetherVisualizerSystem implements ISystem {
       if (tether.reelVelocity < 0) {
         MathSag *= Math.max(0.15, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
       } else if (tether.reelVelocity > 0) {
-        MathSag *= (1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4);
+        MathSag *= 1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4;
       }
 
       this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
@@ -215,9 +220,10 @@ export class TetherVisualizerSystem implements ISystem {
 
         const baseWave = Math.sin(
           (i / this.SEGMENTS) * Math.PI * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_STRETCH +
-            timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ + reelPhaseOffset
+            timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_FREQ +
+            reelPhaseOffset
         );
-        
+
         let waveAmp = VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
         if (tension < 0.4) {
           waveAmp *= 1.8;
@@ -249,24 +255,24 @@ export class TetherVisualizerSystem implements ISystem {
 
       let r = 1.0;
       let g = 1.0;
-      let b = 1.0; 
+      let b = 1.0;
 
       if (tension >= 1.0) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; 
+        b = 0.5;
       } else if (tension >= 0.75) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; 
+        b = 0.5;
       } else if (isSweetSpot) {
         r = 0.87;
         g = 0.99;
-        b = 0.0; 
+        b = 0.0;
       } else if (tension < 0.4) {
         r = 1.0;
         g = 1.0;
-        b = 1.0; 
+        b = 1.0;
       }
 
       this.tetherMat.albedoColor.set(r, g, b);
@@ -278,11 +284,7 @@ export class TetherVisualizerSystem implements ISystem {
         eBrightness *= 4.0;
       }
 
-      this.tetherMat.emissiveColor.set(
-        eBrightness * r,
-        eBrightness * g,
-        eBrightness * b
-      );
+      this.tetherMat.emissiveColor.set(eBrightness * r, eBrightness * g, eBrightness * b);
     } else {
       this.tetherMesh.setEnabled(false);
 
@@ -300,23 +302,25 @@ export class TetherVisualizerSystem implements ISystem {
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-    if (wNode) {
-      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
-      const tip = getWeaverStingerTip(
-        wNode.position.x,
-        wNode.position.y,
-        wNode.position.z,
-        rot.x,
-        rot.y,
-        rot.z,
-        rot.w,
-        radius,
-        1.0
-      );
-      this.scratchAnchor.copyFrom(tip);
-    } else {
+      const wNode = this.context.visualRegistry.getTransformNode(
+        this.context.refs.weaver
+      ) as BABYLON.Mesh | null;
+      if (wNode) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+        const tip = getWeaverStingerTip(
+          wNode.position.x,
+          wNode.position.y,
+          wNode.position.z,
+          rot.x,
+          rot.y,
+          rot.z,
+          rot.w,
+          radius,
+          1.0
+        );
+        this.scratchAnchor.copyFrom(tip);
+      } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 

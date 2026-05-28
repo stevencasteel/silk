@@ -8,8 +8,6 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import { TransformComponent } from "../../../core/ecs/Components";
 import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
-
-
 export class WeaverAscendingState implements IWeaverState {
   public readonly type: WeaverStateType = "ASCENDING";
   public readonly name = "ASCENDING TO CEILING";

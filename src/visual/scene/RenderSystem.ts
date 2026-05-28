@@ -58,7 +58,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 1.45; 
+    this.scene.environmentIntensity = 1.45;
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
@@ -73,7 +73,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirLight.intensity = 1.65;
-    dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
+    dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
@@ -81,7 +81,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirFillLight.intensity = 1.35;
-    dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
+    dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     dirFillLight.setEnabled(true);
 
     const pointLightsConfigs = [
@@ -101,7 +101,7 @@ export class RenderSystem implements ISystem {
       }
     ];
 
-    pointLightsConfigs.forEach(cfg => {
+    pointLightsConfigs.forEach((cfg) => {
       const pl = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
       pl.intensity = cfg.intensity;
       pl.range = cfg.range;
@@ -119,14 +119,14 @@ export class RenderSystem implements ISystem {
     );
     lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
-    lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); 
+    lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25);
 
     const uplightConfigs = [
       { name: "leftShaftUplight", pos: new BABYLON.Vector3(-10.5, -9.0, -4.2) },
       { name: "rightShaftUplight", pos: new BABYLON.Vector3(10.5, -9.0, -4.2) }
     ];
 
-    uplightConfigs.forEach(cfg => {
+    uplightConfigs.forEach((cfg) => {
       const uplight = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
       uplight.intensity = 1.95;
       uplight.range = 32.0;
@@ -146,19 +146,22 @@ export class RenderSystem implements ISystem {
     pipeline.imageProcessingEnabled = true;
     pipeline.imageProcessing.vignetteEnabled = true;
     pipeline.imageProcessing.vignetteWeight = preset.RENDERER.VIGNETTE_WEIGHT;
-    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0.05, 0.0, 0.1, 1); 
+    pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0.05, 0.0, 0.1, 1);
     pipeline.imageProcessing.exposure = preset.RENDERER.EXPOSURE;
     pipeline.imageProcessing.contrast = preset.RENDERER.CONTRAST;
 
     pipeline.imageProcessing.toneMappingEnabled = true;
-    pipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
+    pipeline.imageProcessing.toneMappingType =
+      BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
 
     pipeline.chromaticAberrationEnabled = true;
     pipeline.chromaticAberration.aberrationAmount = 0.0;
     pipeline.chromaticAberration.radialIntensity = 1.2;
     this.pipeline = pipeline;
 
-    this.scene.lights.forEach((light) => { light.specular.set(0, 0, 0); });
+    this.scene.lights.forEach((light) => {
+      light.specular.set(0, 0, 0);
+    });
 
     const shadowGen = new BABYLON.ShadowGenerator(preset.RENDERER.SHADOW_MAP_SIZE, dirLight);
     shadowGen.usePercentageCloserFiltering = true;
@@ -186,7 +189,11 @@ export class RenderSystem implements ISystem {
     );
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
-        if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
+        if (
+          payload.state === "LAUNCHING" &&
+          payload.launchPower !== undefined &&
+          payload.launchPower >= 0.72
+        ) {
           if (this.pipeline) {
             this.pipeline.chromaticAberration.aberrationAmount = 20.0 * payload.launchPower;
           }

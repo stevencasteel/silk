@@ -10,7 +10,7 @@ export function decoratePlayerSilkVisual(
   radius: number
 ): void {
   pMesh.isVisible = false;
-  
+
   const childMeshes = pMesh.getChildMeshes();
   for (let i = 0; i < childMeshes.length; i++) {
     childMeshes[i].dispose();
@@ -29,7 +29,7 @@ export function decoratePlayerSilkVisual(
   );
   innerBody.position.set(0, 0, 0);
   const innerMat = new BABYLON.PBRMaterial("playerInnerMat", scene);
-  innerMat.albedoColor = new BABYLON.Color3(0.04, 0.01, 0.08); 
+  innerMat.albedoColor = new BABYLON.Color3(0.04, 0.01, 0.08);
   innerMat.roughness = 0.95;
   innerMat.metallic = 0.05;
   innerBody.material = innerMat;
@@ -49,9 +49,9 @@ export function decoratePlayerSilkVisual(
   const textureGen = new ProceduralTextureGenerator();
 
   const silkMat = new BABYLON.PBRMaterial("playerSilkMat", scene);
-  silkMat.metallic = 0.92; 
+  silkMat.metallic = 0.92;
   silkMat.roughness = 0.08;
-  silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0); 
+  silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0);
 
   applyProceduralTextures(textureGen, "silkFiber", scene, silkMat, {
     resolution: 512,
@@ -66,7 +66,7 @@ export function decoratePlayerSilkVisual(
   silkMat.sheen.isEnabled = true;
   silkMat.sheen.intensity = 0.95;
   silkMat.sheen.roughness = 0.05;
-  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0); 
+  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0);
   silkMat.emissiveColor = new BABYLON.Color3(0.1, 0.0, 0.2);
   silkMat.enableSpecularAntiAliasing = true;
   silkMat.forceIrradianceInFragment = true;
@@ -78,7 +78,7 @@ export function decoratePlayerSilkVisual(
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
   bandMat.metallic = 0.95;
   bandMat.roughness = 0.06;
-  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
+  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
   applyProceduralTextures(textureGen, "silkBand", scene, bandMat, {
     resolution: 256,

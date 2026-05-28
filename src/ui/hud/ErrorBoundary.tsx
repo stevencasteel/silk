@@ -43,9 +43,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           }}
         >
           <div>
-            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
-              HUD RENDER ERROR
-            </div>
+            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>HUD RENDER ERROR</div>
             <div style={{ color: "#a1a1aa", fontSize: "10px" }}>
               {this.state.error?.message ?? "Unknown error"}
             </div>

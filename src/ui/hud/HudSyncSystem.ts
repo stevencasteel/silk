@@ -3,17 +3,9 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
-import {
-  TraversalStateComponent,
-  InputIntentComponent
-} from "../../core/ecs/Components";
+import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  usePlayerStore,
-  useWeaverStore,
-  useOverlayStore,
-  resetAllStores
-} from "./hudStore";
+import { usePlayerStore, useWeaverStore, useOverlayStore, resetAllStores } from "./hudStore";
 
 export class HudSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
@@ -56,10 +48,15 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         this.updateHint(tension);
 
-        if (!this.step0Completed && overlayStore.calibrationStep === 0 && this.currentState === "WALL_SLIDING" && tension >= 0.5) {
+        if (
+          !this.step0Completed &&
+          overlayStore.calibrationStep === 0 &&
+          this.currentState === "WALL_SLIDING" &&
+          tension >= 0.5
+        ) {
           this.step0Completed = true;
           overlayStore.setCalibrationStep(1);
-          dispatchUIFeedback("silk-play-confirm")
+          dispatchUIFeedback("silk-play-confirm");
         }
 
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
@@ -81,7 +78,7 @@ export class HudSyncSystem implements ISystem {
             if (!this.step1Completed && this.reeledUp && this.reeledDown) {
               this.step1Completed = true;
               overlayStore.setCalibrationStep(2);
-              dispatchUIFeedback("silk-play-confirm")
+              dispatchUIFeedback("silk-play-confirm");
             }
           }
         }
@@ -168,7 +165,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step1Completed && this.reeledUp && this.reeledDown) {
           this.step1Completed = true;
           overlayStore.setCalibrationStep(2);
-          dispatchUIFeedback("silk-play-confirm")
+          dispatchUIFeedback("silk-play-confirm");
         }
       }
     }
@@ -176,11 +173,11 @@ export class HudSyncSystem implements ISystem {
     if (overlayStore.calibrationStep === 2) {
       const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
       const pTrav = travStore.get(this.context.refs.player);
-      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.60) {
+      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
         if (!this.step2Completed) {
           this.step2Completed = true;
           overlayStore.setCalibrationStep(3);
-          dispatchUIFeedback("silk-play-confirm")
+          dispatchUIFeedback("silk-play-confirm");
         }
       }
     }

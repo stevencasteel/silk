@@ -91,20 +91,27 @@ export class WeaverTraversalSystem implements ISystem {
 
         if (concreteEngine && Math.abs(vel.x) > 0.001) {
           this._rayStart.set(trans.x, trans.y, 0);
-          const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
+          const castLength =
+            ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
           this._rayEnd.set(trans.x + sState.direction * castLength, trans.y, 0);
 
           concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
           if (this._raycastResult.hasHit && this._raycastResult.body) {
             const hitDistance = this._raycastResult.hitDistance;
-            if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
+            if (
+              hitDistance <=
+              ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
+            ) {
               hitWallNormal = Math.sign(this._raycastResult.hitNormalWorld.x);
-              nextX = this._raycastResult.hitPointWorld.x - sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+              nextX =
+                this._raycastResult.hitPointWorld.x -
+                sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             }
           }
         } else {
-          const fallbackLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          const fallbackLimit =
+            ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (nextX >= fallbackLimit) {
             nextX = fallbackLimit;
             hitWallNormal = -1;
@@ -140,7 +147,6 @@ export class WeaverTraversalSystem implements ISystem {
         target.x = nextX;
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
         target.active = true;
-
       } else if (sState.phase === "HOLD") {
         sState.timer -= dt;
         vel.x = 0;
@@ -179,22 +185,30 @@ export class WeaverTraversalSystem implements ISystem {
 
         if (this._raycastResult.hasHit && this._raycastResult.body) {
           const hitDistance = this._raycastResult.hitDistance;
-          if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
-            target.x = this._raycastResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          if (
+            hitDistance <=
+            ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
+          ) {
+            target.x =
+              this._raycastResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             if (vel.x * dirX > 0) vel.x = 0;
           }
         }
       }
 
       this._rayStart.set(target.x, trans.y, 0);
-      const castLengthDown = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
+      const castLengthDown =
+        ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
       this._rayEnd.set(target.x, trans.y - castLengthDown, 0);
 
       concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
       if (this._raycastResult.hasHit && this._raycastResult.body && !isStriking) {
         const hitDistance = this._raycastResult.hitDistance;
-        if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)) {
+        if (
+          hitDistance <=
+          ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)
+        ) {
           isGrounded = true;
           target.y = this._raycastResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (vel.y < 0) vel.y = 0;
@@ -203,7 +217,7 @@ export class WeaverTraversalSystem implements ISystem {
 
       const wallCheckDist = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.15;
       this._rayStart.set(target.x, target.y, 0);
-      
+
       this._rayEnd.set(target.x - wallCheckDist, target.y, 0);
       concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
@@ -219,7 +233,8 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
     } else {
-      const wallLimitFallback = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const wallLimitFallback =
+        ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
       if (target.x > wallLimitFallback && (!sState || sState.phase !== "HOLD")) {
         target.x = wallLimitFallback;
         if (vel.x > 0) vel.x = 0;
@@ -229,7 +244,9 @@ export class WeaverTraversalSystem implements ISystem {
       }
 
       const ceilingLimit = ARENA_CONFIG.VERTICAL.CEILING_Y;
-      const floorLimit = isStriking ? ARENA_CONFIG.VERTICAL.FLOOR_Y - 70.0 : ARENA_CONFIG.VERTICAL.FLOOR_Y;
+      const floorLimit = isStriking
+        ? ARENA_CONFIG.VERTICAL.FLOOR_Y - 70.0
+        : ARENA_CONFIG.VERTICAL.FLOOR_Y;
       if (target.y > ceilingLimit) {
         target.y = ceilingLimit;
         if (vel.y > 0) vel.y = 0;
@@ -306,7 +323,8 @@ export class WeaverTraversalSystem implements ISystem {
               targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
 
               const wobbleFreq = 12.0;
-              const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+              const wobbleAmp =
+                0.08 * Math.max(0.0, 1.0 - ai.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
               const wobbleAngle = Math.sin(ai.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
               BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, wobbleAngle, this._targetQuat);
             } else {

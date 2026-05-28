@@ -38,11 +38,11 @@ export class Engine {
     this.isPaused = true;
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY" });
     await this.systemManager.initAll();
-    
+
     this.initPauseHandlers();
     this.initHitStopHandlers();
     this.initGestureHandlers();
-    
+
     this.loop.start();
   }
 

@@ -19,7 +19,7 @@ export class WallBugSystem implements ISystem {
   readonly initPhase = InitPhase.Gameplay;
 
   private spawnTimer = 0.0;
-  private readonly spawnInterval = 5.0; 
+  private readonly spawnInterval = 5.0;
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
   private _tracker = new SubscriptionTracker();
@@ -71,14 +71,16 @@ export class WallBugSystem implements ISystem {
     if (!scene) return;
 
     this.spawnTimer += dt;
-    const activeCount = this.bugPool.filter(p => p.active).length;
+    const activeCount = this.bugPool.filter((p) => p.active).length;
 
     if (this.spawnTimer >= this.spawnInterval && activeCount < 3) {
       this.spawnTimer = 0.0;
       this.spawnBugFromPool();
     }
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
@@ -93,7 +95,7 @@ export class WallBugSystem implements ISystem {
 
       bug.timer += dt;
 
-      const extraCrawlSpeed = 3.8; 
+      const extraCrawlSpeed = 3.8;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
       if (bug.y < cameraY - 24.0) {
@@ -112,7 +114,7 @@ export class WallBugSystem implements ISystem {
           node.metadata = {};
         }
         let bugPhase = node.metadata.gaitPhase ?? 0.0;
-        const legFrequency = (currentScrollSpeed + bug.speed) * 0.85; 
+        const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
         bugPhase += legFrequency * dt;
         node.metadata.gaitPhase = bugPhase;
 
@@ -149,10 +151,12 @@ export class WallBugSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    const pBug = this.bugPool.find(p => !p.active);
+    const pBug = this.bugPool.find((p) => !p.active);
     if (!pBug) return;
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const side = Math.random() < 0.5 ? -1 : 1;
     const startX = side * 6.2;
     const startY = cameraY + 22.0;
@@ -329,7 +333,7 @@ export class WallBugSystem implements ISystem {
 
   public dispose(): void {
     this._tracker.clear();
-    
+
     for (let i = 0; i < this.bugPool.length; i++) {
       const pBug = this.bugPool[i];
       pBug.rootNode.dispose();

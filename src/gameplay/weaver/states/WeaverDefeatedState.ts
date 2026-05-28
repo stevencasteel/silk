@@ -4,8 +4,6 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
-
-
 export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
   public readonly name = "WEAVER DEFEATED";

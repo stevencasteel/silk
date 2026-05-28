@@ -64,7 +64,7 @@ export class VerticalBoundarySystem implements ISystem {
           this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
           const transforms = this.context.stores.get<TransformComponent>("transform");
           const pTrans = transforms.get(this.context.refs.player);
-          
+
           // Tactical Heavy Boundary Squash on floor limit
           if (pTrans) {
             pTrans.scaleX = 1.22;
@@ -84,10 +84,7 @@ export class VerticalBoundarySystem implements ISystem {
     }
   }
 
-  private updateStrainMeter(
-    tether: TetherComponent,
-    health: HealthComponent
-  ): void {
+  private updateStrainMeter(tether: TetherComponent, health: HealthComponent): void {
     const isOverloaded = tether.tension >= this.OVERLOAD_THRESHOLD;
 
     if (isOverloaded) {

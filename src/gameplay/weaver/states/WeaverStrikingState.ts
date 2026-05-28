@@ -1,6 +1,10 @@
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../../core/engine/ArenaConfig";
+import {
+  WEAVER_AI_TUNING,
+  VISUAL_JUICE_CONFIG,
+  POST_PROCESSING_PRESETS
+} from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
@@ -9,8 +13,6 @@ import {
   WeaverAIComponent
 } from "../../../core/ecs/Components";
 import { setKinematicVelocity, HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
-
-
 
 export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
