@@ -20,6 +20,7 @@ export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
   public readonly name = "WEAVER STRIKE";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+  public readonly audioParams = { baseFreq: 55, lfoHz: 0.2, harmonicity: 1.5 };
   private strikeCount = 0;
   private maxStrikes = 2;
   private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";

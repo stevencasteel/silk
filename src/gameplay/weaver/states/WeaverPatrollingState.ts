@@ -18,6 +18,7 @@ export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";
   public readonly name = "PATROLLING CEILING";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+  public readonly audioParams = { baseFreq: 55, lfoHz: 0.2, harmonicity: 1.5 };
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 

@@ -28,6 +28,9 @@ export class AudioDirectorSystem implements ISystem {
   private hitComboCount = 0;
   private lastHitTime = 0;
   private toneModule: typeof import("tone") | null = null;
+  private lastConfirmTime = 0;
+  private lastTickTime = 0;
+  private lastAlarmTime = 0;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -43,22 +46,34 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("mousedown", this.gestureTriggerRef);
 
     this.windowTickListener = () => {
-      if (this.initialized && this.sfxRegistry?.tickSynth) {
-        this.sfxRegistry.tickSynth.triggerAttackRelease("E6", "32n");
+      if (this.initialized && this.sfxRegistry?.tickSynth && this.toneModule) {
+        const nowMs = performance.now();
+        if (nowMs - this.lastTickTime > 30) {
+          this.lastTickTime = nowMs;
+          this.sfxRegistry.tickSynth.triggerAttackRelease("E6", "32n", this.toneModule.now());
+        }
       }
     };
     window.addEventListener("silk-stats-tick", this.windowTickListener);
 
     this.windowConfirmListener = () => {
-      if (this.initialized && this.sfxRegistry?.confirmSynth) {
-        this.sfxRegistry.confirmSynth.triggerAttackRelease("C6", "16n");
+      if (this.initialized && this.sfxRegistry?.confirmSynth && this.toneModule) {
+        const nowMs = performance.now();
+        if (nowMs - this.lastConfirmTime > 50) {
+          this.lastConfirmTime = nowMs;
+          this.sfxRegistry.confirmSynth.triggerAttackRelease("C6", "16n", this.toneModule.now());
+        }
       }
     };
     window.addEventListener("silk-play-confirm", this.windowConfirmListener);
 
     this.windowTensionAlarmListener = () => {
-      if (this.initialized && this.sfxRegistry?.tensionAlarmSynth && Math.random() < 0.1) {
-        this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease("F6", "32n");
+      if (this.initialized && this.sfxRegistry?.tensionAlarmSynth && this.toneModule && Math.random() < 0.1) {
+        const nowMs = performance.now();
+        if (nowMs - this.lastAlarmTime > 80) {
+          this.lastAlarmTime = nowMs;
+          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease("F6", "32n", this.toneModule.now());
+        }
       }
     };
     window.addEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
@@ -149,7 +164,7 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.handleStateChange(payload.state);
+          this.tensionSynth.handleStateChange(payload.state, payload.audioParams);
         }
       })
     );

@@ -12,6 +12,8 @@ import {
   WeaverAIComponent,
   CollisionResponseComponent,
   TraversalStateComponent,
+  BoundaryConstraintComponent,
+  CollisionStateComponent,
   InvulnerabilityComponent,
   ParticleRequestComponent
 } from "../../core/ecs/Components";
@@ -109,6 +111,47 @@ export class ProjectileSystem implements ISystem {
         lifeTime: 0.0,
         fallbackX: 0.0,
         fallbackY: 0.0
+      });
+
+      this.context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(projId, {
+        isActive: true,
+        limitX: ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X,
+        layer: "PROJECTILE",
+        onBoundaryHit: (id: number, side: "LEFT" | "RIGHT", currentX: number) => {
+          const pComp = this.context.stores.get<ProjectileComponent>("projectile").get(id);
+          if (pComp && !pComp.isStuck) {
+            const projTrans = this.context.stores.get<TransformComponent>("transform").get(id);
+            const projCol = this.context.stores.get<CollisionStateComponent>("collisionState").get(id);
+            if (projTrans && projCol) {
+              pComp.isStuck = true;
+              pComp.isStuckOnWall = true;
+              projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X - 0.05);
+
+              projCol.isWallClinging = true;
+              projCol.wallNormalX = side === "RIGHT" ? -1 : 1;
+              projCol.lastHitType = "WALL";
+              projCol.hitPointX = projTrans.x;
+              projCol.hitPointY = projTrans.y;
+
+              const mesh = this.context.visualRegistry.getTransformNode(id) as BABYLON.Mesh;
+              if (mesh) {
+                mesh.scaling.set(0.24, 1.45, 1.45);
+                mesh.position.x = projTrans.x;
+                mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+                const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+                if (stuckMat) {
+                  mesh.material = stuckMat;
+                }
+              }
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: projTrans.x,
+                y: projTrans.y,
+                isWall: true
+              });
+            }
+          }
+        }
       });
 
       this.context.stores.get<CollisionResponseComponent>("collisionResponse").add(projId, {

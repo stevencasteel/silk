@@ -9,6 +9,7 @@ export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
   public readonly name = "WEAVER DEFEATED";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
+  public readonly audioParams = { baseFreq: 30, lfoHz: 0.05, harmonicity: 1.0 };
 
   public enter(ctx: SystemContext): void {
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);

@@ -236,3 +236,11 @@ export interface CollisionResponseComponent {
   ) => void;
   onOverlap?: (otherId: number, context: unknown) => void;
 }
+
+
+export interface BoundaryConstraintComponent {
+  isActive: boolean;
+  limitX: number;
+  layer: "PLAYER" | "PROJECTILE";
+  onBoundaryHit?: (id: number, side: "LEFT" | "RIGHT", currentX: number) => void;
+}

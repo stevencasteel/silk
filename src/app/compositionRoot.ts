@@ -32,7 +32,8 @@ import {
   ParticleEmitterComponent,
   HitboxComponent,
   HurtboxComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  BoundaryConstraintComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -108,6 +109,7 @@ export class CompositionRoot {
     const hitboxes = new ComponentStore<HitboxComponent>();
     const hurtboxes = new ComponentStore<HurtboxComponent>();
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
+    const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -149,6 +151,7 @@ export class CompositionRoot {
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
     registerStore("particleRequest", particleRequests);
+    registerStore("boundaryConstraint", boundaryConstraints);
 
     const visualRegistry = new VisualRegistry();
 

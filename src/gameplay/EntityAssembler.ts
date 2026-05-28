@@ -18,7 +18,9 @@ import {
   HitboxComponent,
   PlayerCosmeticComponent,
   WeaverCosmeticComponent,
-  CollisionResponseComponent
+  CollisionResponseComponent,
+  BoundaryConstraintComponent,
+  CollisionStateComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { createWeaverVisualMesh } from "../visual/mesh/WeaverVisualFactory";
@@ -265,6 +267,24 @@ export class EntityAssembler {
       springDamping: 14,
       rotationAngle: 0.0,
       slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR
+    });
+
+    context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(playerId, {
+      isActive: true,
+      limitX: ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X,
+      layer: "PLAYER",
+      onBoundaryHit: (id: number, side: "LEFT" | "RIGHT") => {
+        const colStore = context.stores.get<CollisionStateComponent>("collisionState");
+        const pCol = colStore.get(id);
+        const pTrans = context.stores.get<TransformComponent>("transform").get(id);
+        if (pCol && pTrans) {
+          pCol.isWallClinging = true;
+          pCol.wallNormalX = side === "RIGHT" ? -1 : 1;
+          pCol.lastHitType = "WALL";
+          pCol.hitPointX = side === "RIGHT" ? ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X : -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+          pCol.hitPointY = pTrans.y;
+        }
+      }
     });
 
     context.stores.get<CollisionResponseComponent>("collisionResponse").add(playerId, {
