@@ -1,3 +1,4 @@
+import { ColorCache } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -121,8 +122,7 @@ export class LightingSystem implements ISystem {
   }
 
   private setWeaverPhaseHue(colorHex: string): void {
-    // Standardize using Babylon’s robust built-in Hex string parser
-    this.targetColor.copyFrom(BABYLON.Color3.FromHexString(colorHex));
+    this.targetColor.copyFrom(ColorCache.getColor(colorHex));
   }
 
   public dispose(): void {

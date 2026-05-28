@@ -1,3 +1,4 @@
+import { ColorCache } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
@@ -25,7 +26,6 @@ export class VisualStateDressingSystem implements ISystem {
   private currentEmissiveR = 0.05;
   private currentEmissiveG = 0.15;
   private currentEmissiveB = 0.05;
-  private colorCache = new Map<string, BABYLON.Color3>();
   private visualClock = 0.0;
   private gaitClock = 0.0;
   private gaitAmp = 0.12;
@@ -149,12 +149,7 @@ export class VisualStateDressingSystem implements ISystem {
         emissive.WEAVER_EMISSIVE_PULSE_BASE +
         Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
-      let cachedColor = this.colorCache.get(wAI.hue);
-      if (!cachedColor) {
-        // Standardize using Babylon’s robust built-in Hex string parser
-        cachedColor = BABYLON.Color3.FromHexString(wAI.hue);
-        this.colorCache.set(wAI.hue, cachedColor);
-      }
+      const cachedColor = ColorCache.getColor(wAI.hue);
 
       pbrMaterials.forEach((pbrMat) => {
         let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
@@ -163,9 +158,9 @@ export class VisualStateDressingSystem implements ISystem {
         }
 
         pbrMat.emissiveColor.set(
-          cachedColor!.r * scale + pulse * 0.12,
-          cachedColor!.g * scale,
-          cachedColor!.b * scale
+          cachedColor.r * scale + pulse * 0.12,
+          cachedColor.g * scale,
+          cachedColor.b * scale
         );
 
         const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })

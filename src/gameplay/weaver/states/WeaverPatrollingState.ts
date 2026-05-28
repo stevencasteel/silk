@@ -1,3 +1,4 @@
+import { getWeaverStingerTip } from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -7,7 +8,6 @@ import {
   HealthComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
-import * as BABYLON from "@babylonjs/core";
 
 const HASH = String.fromCharCode(35);
 
@@ -17,11 +17,6 @@ export class WeaverPatrollingState implements IWeaverState {
   public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
   private shootTimer = 0.0;
   private hasTelegraphed = false;
-
-  // Reusable scratch objects to completely prevent dynamic GC allocations during active firing updates
-  private readonly _stingerTipLocal = new BABYLON.Vector3();
-  private readonly _weaverQuat = new BABYLON.Quaternion();
-  private readonly _stingerTipWorld = new BABYLON.Vector3();
 
   public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
@@ -80,16 +75,24 @@ export class WeaverPatrollingState implements IWeaverState {
 
       if (playerTrans && wTrans) {
         const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        this._stingerTipLocal.set(0, -radius, 0);
-        this._weaverQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-        this._stingerTipLocal.rotateByQuaternionToRef(this._weaverQuat, this._stingerTipWorld);
+    const tipWorld = getWeaverStingerTip(
+      wTrans.x,
+      wTrans.y,
+      wTrans.z,
+      wTrans.qx,
+      wTrans.qy,
+      wTrans.qz,
+      wTrans.qw,
+      radius,
+      1.0
+    );
 
-        ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
-          x: wTrans.x + this._stingerTipWorld.x,
-          y: wTrans.y + this._stingerTipWorld.y,
-          tx: playerTrans.x,
-          ty: playerTrans.y
-        });
+    ctx.broker.publish(GameEvent.WEAVER_SHOOT, {
+      x: tipWorld.x,
+      y: tipWorld.y,
+      tx: playerTrans.x,
+      ty: playerTrans.y
+    });
       }
     }
     return null;

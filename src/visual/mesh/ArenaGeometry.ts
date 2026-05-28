@@ -1,3 +1,4 @@
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -22,13 +23,7 @@ export class ArenaGeometry {
       roughnessMax: 0.98,
       metallic: 0.0
     }).then((wallTexs) => {
-      wallMaterial.albedoTexture = wallTexs.albedo;
-      wallMaterial.bumpTexture = wallTexs.normal;
-      wallMaterial.metallicTexture = wallTexs.orm;
-      wallMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-      wallMaterial.useRoughnessFromMetallicTextureGreen = true;
-      wallMaterial.useMetallnessFromMetallicTextureBlue = true;
-      wallMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      configurePBRTextures(wallMaterial, wallTexs);
       wallMaterial.enableSpecularAntiAliasing = true;
       wallMaterial.forceIrradianceInFragment = true;
     });
@@ -47,13 +42,7 @@ export class ArenaGeometry {
       roughnessMax: 0.75,
       metallic: 0.2
     }).then((panelTexs) => {
-      panelMaterial.albedoTexture = panelTexs.albedo;
-      panelMaterial.bumpTexture = panelTexs.normal;
-      panelMaterial.metallicTexture = panelTexs.orm;
-      panelMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-      panelMaterial.useRoughnessFromMetallicTextureGreen = true;
-      panelMaterial.useMetallnessFromMetallicTextureBlue = true;
-      panelMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      configurePBRTextures(panelMaterial, panelTexs);
       panelMaterial.enableSpecularAntiAliasing = true;
       panelMaterial.forceIrradianceInFragment = true;
     });
@@ -82,13 +71,7 @@ export class ArenaGeometry {
       ridgeDirectionY: 1.0,
       colorVariation: 0.2
     }).then((backdropTexs) => {
-      backdropMaterial.albedoTexture = backdropTexs.albedo;
-      backdropMaterial.bumpTexture = backdropTexs.normal;
-      backdropMaterial.metallicTexture = backdropTexs.orm;
-      backdropMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
-      backdropMaterial.useRoughnessFromMetallicTextureGreen = true;
-      backdropMaterial.useMetallnessFromMetallicTextureBlue = true;
-      backdropMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      configurePBRTextures(backdropMaterial, backdropTexs);
       backdropMaterial.enableSpecularAntiAliasing = true;
       backdropMaterial.forceIrradianceInFragment = true;
     });

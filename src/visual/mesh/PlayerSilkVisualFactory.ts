@@ -1,3 +1,4 @@
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
@@ -68,13 +69,7 @@ export function decoratePlayerSilkVisual(
     roughnessMax: 0.12,
     metallic: 0.92
   }).then((silkTexs) => {
-    silkMat.albedoTexture = silkTexs.albedo;
-    silkMat.bumpTexture = silkTexs.normal;
-    silkMat.metallicTexture = silkTexs.orm;
-    silkMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    silkMat.useRoughnessFromMetallicTextureGreen = true;
-    silkMat.useMetallnessFromMetallicTextureBlue = true;
-    silkMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(silkMat, silkTexs);
   });
 
   silkMat.sheen.isEnabled = true;
@@ -103,13 +98,7 @@ export function decoratePlayerSilkVisual(
     roughnessMax: 0.1,
     metallic: 0.95
   }).then((bandTexs) => {
-    bandMat.albedoTexture = bandTexs.albedo;
-    bandMat.bumpTexture = bandTexs.normal;
-    bandMat.metallicTexture = bandTexs.orm;
-    bandMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    bandMat.useRoughnessFromMetallicTextureGreen = true;
-    bandMat.useMetallnessFromMetallicTextureBlue = true;
-    bandMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(bandMat, bandTexs);
   });
 
   bandMat.sheen.isEnabled = true;

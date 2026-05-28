@@ -1,3 +1,4 @@
+import { solveSpringDamper } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -334,23 +335,19 @@ export class WeaverTraversalSystem implements ISystem {
       }
 
       const stiffness = 120;
-      const damping = 22;
+    const damping = 22;
 
-      const dispX = trans.scaleX! - targetScaleX;
-      const dispY = trans.scaleY! - targetScaleY;
-      const dispZ = trans.scaleZ! - targetScaleZ;
+    const springX = solveSpringDamper(trans.scaleX!, targetScaleX, trans.scaleVelX!, dt, stiffness, damping);
+    trans.scaleX = springX.value;
+    trans.scaleVelX = springX.velocity;
 
-      const accelX = -stiffness * dispX - damping * trans.scaleVelX!;
-      const accelY = -stiffness * dispY - damping * trans.scaleVelY!;
-      const accelZ = -stiffness * dispZ - damping * trans.scaleVelZ!;
+    const springY = solveSpringDamper(trans.scaleY!, targetScaleY, trans.scaleVelY!, dt, stiffness, damping);
+    trans.scaleY = springY.value;
+    trans.scaleVelY = springY.velocity;
 
-      trans.scaleVelX! += accelX * dt;
-      trans.scaleVelY! += accelY * dt;
-      trans.scaleVelZ! += accelZ * dt;
-
-      trans.scaleX! += trans.scaleVelX! * dt;
-      trans.scaleY! += trans.scaleVelY! * dt;
-      trans.scaleZ! += trans.scaleVelZ! * dt;
+    const springZ = solveSpringDamper(trans.scaleZ!, targetScaleZ, trans.scaleVelZ!, dt, stiffness, damping);
+    trans.scaleZ = springZ.value;
+    trans.scaleVelZ = springZ.velocity;
 
       this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(

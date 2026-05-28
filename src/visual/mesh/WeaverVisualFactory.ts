@@ -1,3 +1,4 @@
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -108,13 +109,7 @@ export function decorateWeaverVisual(
     ridgeDirectionY: 1.0,
     colorVariation: 0.16
   }).then((carapaceTexs) => {
-    carapaceMat.albedoTexture = carapaceTexs.albedo;
-    carapaceMat.bumpTexture = carapaceTexs.normal;
-    carapaceMat.metallicTexture = carapaceTexs.orm;
-    carapaceMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    carapaceMat.useRoughnessFromMetallicTextureGreen = true;
-    carapaceMat.useMetallnessFromMetallicTextureBlue = true;
-    carapaceMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(carapaceMat, carapaceTexs);
   });
 
   carapaceMat.clearCoat.isEnabled = true;
@@ -145,13 +140,7 @@ export function decorateWeaverVisual(
     ridgeDirectionY: 1.0,
     colorVariation: 0.18
   }).then((shellTexs) => {
-    shellMat.albedoTexture = shellTexs.albedo;
-    shellMat.bumpTexture = shellTexs.normal;
-    shellMat.metallicTexture = shellTexs.orm;
-    shellMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    shellMat.useRoughnessFromMetallicTextureGreen = true;
-    shellMat.useMetallnessFromMetallicTextureBlue = true;
-    shellMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(shellMat, shellTexs);
   });
 
   shellMat.clearCoat.isEnabled = true;
@@ -182,13 +171,7 @@ export function decorateWeaverVisual(
     ridgeDirectionY: 1.0,
     colorVariation: 0.12
   }).then((legTexs) => {
-    legMat.albedoTexture = legTexs.albedo;
-    legMat.bumpTexture = legTexs.normal;
-    legMat.metallicTexture = legTexs.orm;
-    legMat.useAmbientOcclusionFromMetallicTextureRed = true;
-    legMat.useRoughnessFromMetallicTextureGreen = true;
-    legMat.useMetallnessFromMetallicTextureBlue = true;
-    legMat.useRoughnessFromMetallicTextureAlpha = false;
+    configurePBRTextures(legMat, legTexs);
   });
   legMat.enableSpecularAntiAliasing = true;
   legMat.forceIrradianceInFragment = true;

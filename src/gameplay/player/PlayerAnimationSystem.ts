@@ -1,3 +1,4 @@
+import { solveSpringDamper } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -67,21 +68,17 @@ export class PlayerAnimationSystem implements ISystem {
     const stiffness = 220;
     const damping = 14;
 
-    const dispX = pTrans.scaleX! - targetScaleX;
-    const dispY = pTrans.scaleY! - targetScaleY;
-    const dispZ = pTrans.scaleZ! - targetScaleZ;
+    const springX = solveSpringDamper(pTrans.scaleX!, targetScaleX, pTrans.scaleVelX!, dt, stiffness, damping);
+    pTrans.scaleX = springX.value;
+    pTrans.scaleVelX = springX.velocity;
 
-    const accelX = -stiffness * dispX - damping * pTrans.scaleVelX!;
-    const accelY = -stiffness * dispY - damping * pTrans.scaleVelY!;
-    const accelZ = -stiffness * dispZ - damping * pTrans.scaleVelZ!;
+    const springY = solveSpringDamper(pTrans.scaleY!, targetScaleY, pTrans.scaleVelY!, dt, stiffness, damping);
+    pTrans.scaleY = springY.value;
+    pTrans.scaleVelY = springY.velocity;
 
-    pTrans.scaleVelX! += accelX * dt;
-    pTrans.scaleVelY! += accelY * dt;
-    pTrans.scaleVelZ! += accelZ * dt;
-
-    pTrans.scaleX! += pTrans.scaleVelX! * dt;
-    pTrans.scaleY! += pTrans.scaleVelY! * dt;
-    pTrans.scaleZ! += pTrans.scaleVelZ! * dt;
+    const springZ = solveSpringDamper(pTrans.scaleZ!, targetScaleZ, pTrans.scaleVelZ!, dt, stiffness, damping);
+    pTrans.scaleZ = springZ.value;
+    pTrans.scaleVelZ = springZ.velocity;
 
     pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);

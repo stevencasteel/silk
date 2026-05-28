@@ -1,3 +1,4 @@
+import { getWeaverStingerTip } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
@@ -135,11 +136,22 @@ export class TetherVisualizerSystem implements ISystem {
       this.scratchPlayer.set(px, py, 0);
 
       const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-      if (wNode) {
-        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const localTip = new BABYLON.Vector3(0, -radius * 1.18, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
-      } else {
+    if (wNode) {
+      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+      const tip = getWeaverStingerTip(
+        wNode.position.x,
+        wNode.position.y,
+        wNode.position.z,
+        rot.x,
+        rot.y,
+        rot.z,
+        rot.w,
+        radius,
+        1.18
+      );
+      this.scratchAnchor.copyFrom(tip);
+    } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
@@ -289,11 +301,22 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
       const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
-      if (wNode) {
-        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const localTip = new BABYLON.Vector3(0, -radius, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
-      } else {
+    if (wNode) {
+      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const rot = wNode.rotationQuaternion || BABYLON.Quaternion.FromEulerVector(wNode.rotation);
+      const tip = getWeaverStingerTip(
+        wNode.position.x,
+        wNode.position.y,
+        wNode.position.z,
+        rot.x,
+        rot.y,
+        rot.z,
+        rot.w,
+        radius,
+        1.0
+      );
+      this.scratchAnchor.copyFrom(tip);
+    } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 

@@ -1,4 +1,4 @@
-import * as BABYLON from "@babylonjs/core";
+import { getWeaverStingerTip } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -29,11 +29,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
   private lastCameraYOffset = 0.0;
   private wasWallSliding = false;
-
-  // Reusable scratch fields to prevent GC allocation in hot loops
-  private readonly _stingerTipLocal = new BABYLON.Vector3();
-  private readonly _weaverQuat = new BABYLON.Quaternion();
-  private readonly _stingerTipWorld = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
 
@@ -93,13 +88,20 @@ export class PlayerKinematicsSystem implements ISystem {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    this._stingerTipLocal.set(0, -radius * 1.18, 0);
-    this._weaverQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-    this._stingerTipLocal.rotateByQuaternionToRef(this._weaverQuat, this._stingerTipWorld);
-
-    tether.anchorX = wTrans.x + this._stingerTipWorld.x;
-    tether.anchorY = wTrans.y + this._stingerTipWorld.y;
-    tether.anchorZ = wTrans.z + this._stingerTipWorld.z;
+    const tipWorld = getWeaverStingerTip(
+      wTrans.x,
+      wTrans.y,
+      wTrans.z,
+      wTrans.qx,
+      wTrans.qy,
+      wTrans.qz,
+      wTrans.qw,
+      radius,
+      1.18
+    );
+    tether.anchorX = tipWorld.x;
+    tether.anchorY = tipWorld.y;
+    tether.anchorZ = tipWorld.z;
 
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
