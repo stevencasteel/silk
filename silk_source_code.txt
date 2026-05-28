@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 9:35:24 PM
+ [SYSTEM] Generated: 5/28/2026, 9:50:05 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -103,8 +103,11 @@
 │   ├── physics/
 │   │   ├── commands/
 │   │   │   └── PhysicsCommands.ts
-│   │   └── havok/
-│   │       └── HavokPhysicsSystem.ts
+│   │   ├── havok/
+│   │   │   └── HavokPhysicsSystem.ts
+│   │   └── systems/
+│   │       ├── CollisionResolutionSystem.ts
+│   │       └── KinematicIntegrationSystem.ts
 │   ├── ui/
 │   │   ├── cursor/
 │   │   │   ├── Cursor.tsx
@@ -1082,9 +1085,13 @@ import {
   WallBugComponent,
   StickySurfaceComponent,
   ProjectileComponent,
-  WeaverSweepComponent
+  WeaverSweepComponent,
+  CollisionStateComponent,
+  TetherStrainComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
+import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
+import { CollisionResolutionSystem } from "../physics/systems/CollisionResolutionSystem";
 import { VisualRegistry } from "../visual/scene/VisualRegistry";
 import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
@@ -1137,6 +1144,8 @@ export class CompositionRoot {
     const stickySurfaces = new ComponentStore<StickySurfaceComponent>();
     const projectiles = new ComponentStore<ProjectileComponent>();
     const weaverSweep = new ComponentStore<WeaverSweepComponent>();
+    const collisionStates = new ComponentStore<CollisionStateComponent>();
+    const tetherStrains = new ComponentStore<TetherStrainComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1163,6 +1172,8 @@ export class CompositionRoot {
     registerStore("stickySurface", stickySurfaces);
     registerStore("projectile", projectiles);
     registerStore("weaverSweep", weaverSweep);
+    registerStore("collisionState", collisionStates);
+    registerStore("tetherStrain", tetherStrains);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
 
@@ -1186,6 +1197,8 @@ export class CompositionRoot {
     const audioSystem = new AudioDirectorSystem(context);
 
     const physicsSystem = new HavokPhysicsSystem(context);
+    const kinematicIntegrationSystem = new KinematicIntegrationSystem(context);
+    const collisionResolutionSystem = new CollisionResolutionSystem(context);
 
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
@@ -1215,6 +1228,8 @@ export class CompositionRoot {
     systemManager.register(spawner);
     systemManager.register(renderSystem);
     systemManager.register(physicsSystem);
+    systemManager.register(kinematicIntegrationSystem);
+    systemManager.register(collisionResolutionSystem);
     systemManager.register(inputSystem);
     systemManager.register(weaverBrain);
     systemManager.register(playerKinematics);
@@ -2423,6 +2438,22 @@ export interface WeaverSweepComponent {
   phase: SweepPhase;
   timer: number;
   direction: number;
+}
+
+export interface CollisionStateComponent {
+  isGrounded: boolean;
+  isWallClinging: boolean;
+  wallNormalX: number;
+  wallNormalY: number;
+  lastHitType: "NONE" | "WALL" | "GROUND" | "PROJECTILE";
+  hitPointX: number;
+  hitPointY: number;
+}
+
+export interface TetherStrainComponent {
+  strain: number;
+  strainTimer: number;
+  isOverloaded: boolean;
 }
 
 
@@ -4640,7 +4671,6 @@ export class ProjectileSystem implements ISystem {
     const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
     const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
     const transformStore = this.context.stores.get<TransformComponent>("transform");
-    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
     const projStore = this.context.stores.get<ProjectileComponent>("projectile");
 
     const pHealth = healthStore.get(this.context.refs.player);
@@ -4668,7 +4698,6 @@ export class ProjectileSystem implements ISystem {
     const pMesh = this.context.visualRegistry.getTransformNode(
       this.context.refs.player
     ) as BABYLON.AbstractMesh;
-    const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const projId = this.projectileEntities[i];
@@ -4678,95 +4707,11 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       const trans = transformStore.get(projId);
-      const vel = velStore.get(projId);
       const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
-      if (!trans || !vel || !mesh) continue;
+      if (!trans || !mesh) continue;
 
-      if (!p.isStuck) {
-        trans.x += vel.x * dt;
-        trans.y += vel.y * dt;
-        mesh.position.set(trans.x, trans.y, 0);
-
-        const body = this.bodiesMap.get(projId);
-        if (body) {
-          body.setTargetTransform(
-            mesh.position,
-            mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
-          );
-        }
-
-        if (Math.abs(trans.x) >= wallLimit) {
-          p.isStuck = true;
-          p.isStuckOnWall = true;
-          mesh.scaling.set(0.24, 1.45, 1.45);
-          trans.x = Math.sign(trans.x) * (wallLimit - 0.05);
-          mesh.position.x = trans.x;
-          mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-          mesh.material = this.projMatStuck;
-
-          trans.qx = 0;
-          trans.qy = 0;
-          trans.qz = 0;
-          trans.qw = 1;
-
-          if (body) {
-            body.setTargetTransform(mesh.position, mesh.rotationQuaternion);
-          }
-
-          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-            x: trans.x,
-            y: trans.y,
-            isWall: true
-          });
-        }
-
-        if (!p.isStuck && pMesh) {
-          if (mesh.intersectsMesh(pMesh, false)) {
-            const isLaunching = pTrav && pTrav.state === "LAUNCHING";
-            const hasIframe = pIframe.timeRemaining > 0;
-
-            if (isLaunching) {
-              const dx = trans.x - pMesh.position.x;
-              const dy = trans.y - pMesh.position.y;
-              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-
-              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-                x: trans.x,
-                y: trans.y,
-                isWall: false
-              });
-              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
-                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
-                dirX: dx / dist,
-                dirY: dy / dist
-              });
-              this.recycleProjectile(projId, p);
-              continue;
-            } else if (!hasIframe) {
-              this.context.commands.dispatch({
-                type: "DAMAGE_REQUEST",
-                targetId: this.context.refs.player,
-                amount: 1,
-                source: "PROJECTILE"
-              });
-
-              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-                x: trans.x,
-                y: trans.y,
-                isWall: false
-              });
-              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-              });
-              this.recycleProjectile(projId, p);
-              continue;
-            }
-          }
-        }
-      }
-
+      // Projectile translation is now cleanly handled by KinematicIntegrationSystem.
+      // We only execute programmatic scroll-tracking of stuck wall projectiles and intersection triggers.
       if (p.isStuckOnWall) {
         trans.y -= currentScrollSpeed * dt;
         mesh.position.y = trans.y;
@@ -4776,6 +4721,51 @@ export class ProjectileSystem implements ISystem {
             mesh.position,
             mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
           );
+        }
+      } else {
+        // Evaluate dynamic collisions against player capsule mesh bounds
+        if (pMesh && mesh.intersectsMesh(pMesh, false)) {
+          const isLaunching = pTrav && pTrav.state === "LAUNCHING";
+          const hasIframe = pIframe.timeRemaining > 0;
+
+          if (isLaunching) {
+            const dx = trans.x - pMesh.position.x;
+            const dy = trans.y - pMesh.position.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: trans.x,
+              y: trans.y,
+              isWall: false
+            });
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
+              dirX: dx / dist,
+              dirY: dy / dist
+            });
+            this.recycleProjectile(projId, p);
+            continue;
+          } else if (!hasIframe) {
+            this.context.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: this.context.refs.player,
+              amount: 1,
+              source: "PROJECTILE"
+            });
+
+            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: trans.x,
+              y: trans.y,
+              isWall: false
+            });
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+            });
+            this.recycleProjectile(projId, p);
+            continue;
+          }
         }
       }
 
@@ -7131,7 +7121,8 @@ import {
   HealthComponent,
   TransformComponent,
   KinematicVelocityComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  TetherStrainComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -7158,10 +7149,18 @@ export class VerticalBoundarySystem implements ISystem {
     const trav = this.context.stores
       .get<TraversalStateComponent>("traversal")
       .get(this.context.refs.player);
+    const strainStore = this.context.stores.get<TetherStrainComponent>("tetherStrain");
 
     if (!tether || !target || !health || !vel || !trav) return;
+
+    const pId = this.context.refs.player;
+    if (!strainStore.has(pId)) {
+      strainStore.add(pId, { strain: 0, strainTimer: 0, isOverloaded: false });
+    }
+    const tStrain = strainStore.get(pId)!;
+
     this.clampToArenaBounds(target, vel, trav);
-    this.updateStrainMeter(tether, health);
+    this.updateStrainMeter(tether, health, tStrain);
   }
 
   private clampToArenaBounds(
@@ -7207,8 +7206,10 @@ export class VerticalBoundarySystem implements ISystem {
     }
   }
 
-  private updateStrainMeter(tether: TetherComponent, health: HealthComponent): void {
+  private updateStrainMeter(tether: TetherComponent, health: HealthComponent, tStrain: TetherStrainComponent): void {
     const isOverloaded = tether.tension >= this.OVERLOAD_THRESHOLD;
+    tStrain.isOverloaded = isOverloaded;
+    tStrain.strain = tether.tension;
 
     if (isOverloaded) {
       const overloadDelta = tether.tension - this.OVERLOAD_THRESHOLD;
@@ -7342,6 +7343,8 @@ export class WallBugSystem implements ISystem {
 
       bug.timer += dt;
 
+      // Wall bug kinematics translation is cleanly handled by KinematicIntegrationSystem.
+      // We only execute scroll-tracking updates and check vertical bounds.
       const extraCrawlSpeed = 3.8;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
@@ -7355,39 +7358,11 @@ export class WallBugSystem implements ISystem {
 
       pBug.rootNode.position.set(bug.x, bug.y, 0);
 
-      const node = pBug.rootNode;
-      if (node) {
-        let bugPhase = bug.gaitPhase;
-        const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
-        bugPhase += legFrequency * dt;
-        bug.gaitPhase = bugPhase;
-
-        node.getChildren().forEach((child) => {
-          if (child.name.startsWith("leg_joint_left")) {
-            const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
-            const childTrans = child as BABYLON.TransformNode;
-            childTrans.rotation.z = Math.sin(bugPhase + index * 1.5) * 0.22;
-
-            childTrans.getChildren().forEach((subChild) => {
-              if (subChild.name.startsWith("tibia_joint_left")) {
-                const subTrans = subChild as BABYLON.TransformNode;
-                subTrans.rotation.z = Math.PI / 4 + Math.cos(bugPhase + index * 1.5) * 0.32;
-              }
-            });
-          } else if (child.name.startsWith("leg_joint_right")) {
-            const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
-            const childTrans = child as BABYLON.TransformNode;
-            childTrans.rotation.z = -Math.sin(bugPhase + index * 1.5) * 0.22;
-
-            childTrans.getChildren().forEach((subChild) => {
-              if (subChild.name.startsWith("tibia_joint_right")) {
-                const subTrans = subChild as BABYLON.TransformNode;
-                subTrans.rotation.z = -Math.PI / 4 - Math.cos(bugPhase + index * 1.5) * 0.32;
-              }
-            });
-          }
-        });
-      }
+      // Simple kinematic frequency tracker (Procedural joint animation is isolated to RenderSync)
+      let bugPhase = bug.gaitPhase;
+      const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
+      bugPhase += legFrequency * dt;
+      bug.gaitPhase = bugPhase;
     }
   }
 
@@ -9549,6 +9524,148 @@ export class HavokPhysicsSystem implements ISystem {
       this._scratchPos.set(wTrans.x, wTrans.y, wTrans.z);
       this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
       wMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
+    }
+  }
+}
+
+
+
+● ./src/physics/systems/CollisionResolutionSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  CollisionStateComponent,
+  ProjectileComponent
+} from "../../core/ecs/Components";
+import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { GameEvent } from "../../core/events/GameEvents";
+import * as BABYLON from "@babylonjs/core";
+
+export class CollisionResolutionSystem implements ISystem {
+  readonly phase = SystemPhase.Collision;
+  private readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+
+  constructor(private context: SystemContext) {}
+
+  public update(dt: number): void {
+    void dt;
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const collisionStore = this.context.stores.get<CollisionStateComponent>("collisionState");
+
+    for (const [id] of transforms.entries()) {
+      if (!collisionStore.has(id)) {
+        collisionStore.add(id, {
+          isGrounded: false,
+          isWallClinging: false,
+          wallNormalX: 0,
+          wallNormalY: 0,
+          lastHitType: "NONE",
+          hitPointX: 0,
+          hitPointY: 0
+        });
+      }
+    }
+
+    const pId = this.context.refs.player;
+    const pTrans = transforms.get(pId);
+    const pCol = collisionStore.get(pId);
+    if (pTrans && pCol) {
+      const hitRight = pTrans.x > this.WALL_LIMIT_X;
+      const hitLeft = pTrans.x < -this.WALL_LIMIT_X;
+
+      if (hitRight) {
+        pCol.isWallClinging = true;
+        pCol.wallNormalX = -1;
+        pCol.lastHitType = "WALL";
+        pCol.hitPointX = this.WALL_LIMIT_X;
+        pCol.hitPointY = pTrans.y;
+      } else if (hitLeft) {
+        pCol.isWallClinging = true;
+        pCol.wallNormalX = 1;
+        pCol.lastHitType = "WALL";
+        pCol.hitPointX = -this.WALL_LIMIT_X;
+        pCol.hitPointY = pTrans.y;
+      } else {
+        pCol.isWallClinging = false;
+        pCol.wallNormalX = 0;
+      }
+    }
+
+    const projectiles = this.context.stores.get<ProjectileComponent>("projectile");
+    for (const [id, pComp] of projectiles.entries()) {
+      if (!pComp.isActive || pComp.isStuck) continue;
+
+      const projTrans = transforms.get(id);
+      const projCol = collisionStore.get(id);
+      if (projTrans && projCol) {
+        const hitRight = projTrans.x >= this.WALL_LIMIT_X;
+        const hitLeft = projTrans.x <= -this.WALL_LIMIT_X;
+
+        if (hitRight || hitLeft) {
+          pComp.isStuck = true;
+          pComp.isStuckOnWall = true;
+          projTrans.x = Math.sign(projTrans.x) * (this.WALL_LIMIT_X - 0.05);
+
+          projCol.isWallClinging = true;
+          projCol.wallNormalX = hitRight ? -1 : 1;
+          projCol.lastHitType = "WALL";
+          projCol.hitPointX = projTrans.x;
+          projCol.hitPointY = projTrans.y;
+
+          const mesh = this.context.visualRegistry.getTransformNode(id) as BABYLON.Mesh;
+          if (mesh) {
+            mesh.scaling.set(0.24, 1.45, 1.45);
+            mesh.position.x = projTrans.x;
+            mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+            const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+            if (stuckMat) {
+              mesh.material = stuckMat;
+            }
+          }
+
+          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+            x: projTrans.x,
+            y: projTrans.y,
+            isWall: true
+          });
+        }
+      }
+    }
+  }
+}
+
+
+
+● ./src/physics/systems/KinematicIntegrationSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { TransformComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+
+export class KinematicIntegrationSystem implements ISystem {
+  readonly phase = SystemPhase.Kinematics;
+
+  constructor(private context: SystemContext) {}
+
+  public update(dt: number): void {
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const velocities = this.context.stores.get<KinematicVelocityComponent>("velocity");
+
+    for (const [id, trans] of transforms.entries()) {
+      if (id === this.context.refs.player || id === this.context.refs.weaver) {
+        continue;
+      }
+
+      const vel = velocities.get(id);
+      if (vel) {
+        trans.x += vel.x * dt;
+        trans.y += vel.y * dt;
+        trans.z += vel.z * dt;
+      }
     }
   }
 }
@@ -13412,7 +13529,8 @@ import {
   WeaverAIComponent,
   KinematicVelocityComponent,
   TransformComponent,
-  WeaverTraversalComponent
+  WeaverTraversalComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -13566,6 +13684,7 @@ export class VisualStateDressingSystem implements ISystem {
 
   public render(): void {
     this.updateAestheticDressing();
+    this.dressWallBugLegs();
   }
 
   private solveIK(
@@ -13599,6 +13718,41 @@ export class VisualStateDressingSystem implements ISystem {
     }
 
     return this._ikResult;
+  }
+
+  private dressWallBugLegs(): void {
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    for (const [id, bug] of bugStore.entries()) {
+      const node = this.context.visualRegistry.getTransformNode(id);
+      if (!node) continue;
+
+      const bugPhase = bug.gaitPhase;
+      node.getChildren().forEach((child) => {
+        if (child.name.startsWith("leg_joint_left")) {
+          const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
+          const childTrans = child as BABYLON.TransformNode;
+          childTrans.rotation.z = Math.sin(bugPhase + index * 1.5) * 0.22;
+
+          childTrans.getChildren().forEach((subChild) => {
+            if (subChild.name.startsWith("tibia_joint_left")) {
+              const subTrans = subChild as BABYLON.TransformNode;
+              subTrans.rotation.z = Math.PI / 4 + Math.cos(bugPhase + index * 1.5) * 0.32;
+            }
+          });
+        } else if (child.name.startsWith("leg_joint_right")) {
+          const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
+          const childTrans = child as BABYLON.TransformNode;
+          childTrans.rotation.z = -Math.sin(bugPhase + index * 1.5) * 0.22;
+
+          childTrans.getChildren().forEach((subChild) => {
+            if (subChild.name.startsWith("tibia_joint_right")) {
+              const subTrans = subChild as BABYLON.TransformNode;
+              subTrans.rotation.z = -Math.PI / 4 - Math.cos(bugPhase + index * 1.5) * 0.32;
+            }
+          });
+        }
+      });
+    }
   }
 
   private updateAestheticDressing(): void {
