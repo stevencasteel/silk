@@ -56,6 +56,11 @@ export class ProceduralTextureGenerator {
       roughnessMin: number;
       roughnessMax: number;
       metallic: number;
+      ridgeStrength?: number;
+      ridgeScale?: number;
+      ridgeDirectionX?: number;
+      ridgeDirectionY?: number;
+      colorVariation?: number;
     },
     onProgress?: (percent: number) => void
   ): Promise<{
@@ -91,7 +96,23 @@ export class ProceduralTextureGenerator {
       for (let x = 0; x < res; x++) {
         const nx = (x / res) * config.noiseScale;
         const ny = (y / res) * config.noiseScale;
-        heightMap[y * res + x] = this.fbm(nx, ny, 4);
+        const warp = this.fbm(nx * 0.33 + 11.7, ny * 0.33 - 5.2, 3);
+        const lowNoise = this.fbm(nx, ny, 4);
+        const fineNoise = this.fbm(nx * 2.6 + 19.1, ny * 2.6 - 3.4, 3);
+        const ridgeScale = config.ridgeScale ?? 0;
+
+        let ridge = 0.0;
+        if (ridgeScale > 0) {
+          const dirX = config.ridgeDirectionX ?? 0.25;
+          const dirY = config.ridgeDirectionY ?? 1.0;
+          const len = Math.sqrt(dirX * dirX + dirY * dirY) || 1.0;
+          const ridgeCoord = (nx * dirX + ny * dirY) / len;
+          ridge = 1.0 - Math.abs(Math.sin((ridgeCoord * ridgeScale + warp * 1.8) * Math.PI));
+        }
+
+        const ridgeStrength = config.ridgeStrength ?? 0;
+        const height = lowNoise * 0.72 + fineNoise * 0.18 + ridge * ridgeStrength;
+        heightMap[y * res + x] = Math.min(1.0, Math.max(0.0, height));
       }
     }
 
@@ -128,7 +149,9 @@ export class ProceduralTextureGenerator {
         normalImg.data[idx + 2] = Math.floor((nzVal + 1.0) * 0.5 * 255);
         normalImg.data[idx + 3] = 255;
 
-        const tint = 0.88 + h * 0.12;
+        const variation = config.colorVariation ?? 0.12;
+        const pore = this.fbm((x / res) * config.noiseScale * 4.5 + 3.1, (y / res) * config.noiseScale * 4.5, 2);
+        const tint = 0.86 + h * variation + (pore - 0.5) * variation * 0.35;
         albedoImg.data[idx] = Math.min(255, Math.max(0, config.baseColor.r * 255 * tint));
         albedoImg.data[idx + 1] = Math.min(255, Math.max(0, config.baseColor.g * 255 * tint));
         albedoImg.data[idx + 2] = Math.min(255, Math.max(0, config.baseColor.b * 255 * tint));

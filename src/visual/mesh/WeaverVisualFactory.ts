@@ -96,12 +96,17 @@ export function decorateWeaverVisual(
 
   textureGen.generatePBRTextures("carapaceShell", scene, {
     resolution: 512,
-    noiseScale: 28.0,
-    bumpStrength: 2.2,
-    baseColor: new BABYLON.Color3(0.09, 0.07, 0.11),
-    roughnessMin: 0.55,
-    roughnessMax: 0.85,
-    metallic: 0.4
+    noiseScale: 18.0,
+    bumpStrength: 1.65,
+    baseColor: new BABYLON.Color3(0.075, 0.055, 0.095),
+    roughnessMin: 0.5,
+    roughnessMax: 0.82,
+    metallic: 0.32,
+    ridgeStrength: 0.13,
+    ridgeScale: 0.54,
+    ridgeDirectionX: 0.25,
+    ridgeDirectionY: 1.0,
+    colorVariation: 0.16
   }).then((carapaceTexs) => {
     carapaceMat.albedoTexture = carapaceTexs.albedo;
     carapaceMat.bumpTexture = carapaceTexs.normal;
@@ -128,12 +133,17 @@ export function decorateWeaverVisual(
 
   textureGen.generatePBRTextures("carapaceUpper", scene, {
     resolution: 512,
-    noiseScale: 22.0,
-    bumpStrength: 2.4,
-    baseColor: new BABYLON.Color3(0.13, 0.09, 0.18),
-    roughnessMin: 0.58,
-    roughnessMax: 0.88,
-    metallic: 0.35
+    noiseScale: 16.0,
+    bumpStrength: 1.85,
+    baseColor: new BABYLON.Color3(0.12, 0.075, 0.16),
+    roughnessMin: 0.48,
+    roughnessMax: 0.8,
+    metallic: 0.28,
+    ridgeStrength: 0.18,
+    ridgeScale: 0.48,
+    ridgeDirectionX: 0.12,
+    ridgeDirectionY: 1.0,
+    colorVariation: 0.18
   }).then((shellTexs) => {
     shellMat.albedoTexture = shellTexs.albedo;
     shellMat.bumpTexture = shellTexs.normal;
@@ -160,12 +170,17 @@ export function decorateWeaverVisual(
 
   textureGen.generatePBRTextures("legScratches", scene, {
     resolution: 256,
-    noiseScale: 34.0,
-    bumpStrength: 2.0,
-    baseColor: new BABYLON.Color3(0.04, 0.03, 0.05),
-    roughnessMin: 0.6,
-    roughnessMax: 0.9,
-    metallic: 0.25
+    noiseScale: 26.0,
+    bumpStrength: 1.55,
+    baseColor: new BABYLON.Color3(0.035, 0.03, 0.047),
+    roughnessMin: 0.56,
+    roughnessMax: 0.86,
+    metallic: 0.2,
+    ridgeStrength: 0.22,
+    ridgeScale: 1.15,
+    ridgeDirectionX: 0.08,
+    ridgeDirectionY: 1.0,
+    colorVariation: 0.12
   }).then((legTexs) => {
     legMat.albedoTexture = legTexs.albedo;
     legMat.bumpTexture = legTexs.normal;
@@ -187,10 +202,10 @@ export function decorateWeaverVisual(
 
   const abdomen = BABYLON.MeshBuilder.CreateSphere(
     "weaver_abdomen",
-    { diameterX: radius * 1.3, diameterY: radius * 1.7, diameterZ: radius * 1.0, segments: 16 },
+    { diameterX: radius * 1.38, diameterY: radius * 1.55, diameterZ: radius * 0.64, segments: 24 },
     scene
   );
-  abdomen.position.set(0, -radius * 0.35, radius * 0.1);
+  abdomen.position.set(0, -radius * 0.42, -radius * 0.035);
   abdomen.material = shellMat;
   abdomen.parent = wMesh;
 
@@ -227,10 +242,10 @@ export function decorateWeaverVisual(
 
   const cephalothorax = BABYLON.MeshBuilder.CreateSphere(
     "weaver_cephalothorax",
-    { diameterX: radius * 1.0, diameterY: radius * 0.9, diameterZ: radius * 0.7 },
+    { diameterX: radius * 1.06, diameterY: radius * 0.84, diameterZ: radius * 0.5, segments: 20 },
     scene
   );
-  cephalothorax.position.set(0, radius * 0.12, -radius * 0.05);
+  cephalothorax.position.set(0, radius * 0.08, -radius * 0.055);
   cephalothorax.material = carapaceMat;
   cephalothorax.parent = wMesh;
 
@@ -251,7 +266,7 @@ export function decorateWeaverVisual(
       },
       scene
     );
-    spinneret.position.set(sideSign * radius * 0.04, -radius * 0.85, 0.0);
+    spinneret.position.set(sideSign * radius * 0.045, -radius * 0.82, radius * 0.03);
     spinneret.rotation.x = Math.PI * 0.25;
     spinneret.rotation.z = -sideSign * Math.PI * 0.02;
     spinneret.material = spinneretMat;
@@ -260,26 +275,26 @@ export function decorateWeaverVisual(
 
   const head = BABYLON.MeshBuilder.CreateSphere(
     "weaver_head",
-    { diameterX: radius * 0.9, diameterY: radius * 0.6, diameterZ: radius * 0.8 },
+    { diameterX: radius * 0.76, diameterY: radius * 0.48, diameterZ: radius * 0.45, segments: 18 },
     scene
   );
-  head.position.set(0, radius * 0.4, -radius * 0.1);
+  head.position.set(0, radius * 0.42, -radius * 0.08);
   head.material = carapaceMat;
   head.parent = wMesh;
 
   const eyeOffsets = [
-    { x: -0.18, y: 0.05, z: -0.35 },
-    { x: 0.18, y: 0.05, z: -0.35 },
-    { x: -0.08, y: 0.12, z: -0.40 },
-    { x: 0.08, y: 0.12, z: -0.40 },
-    { x: -0.25, y: 0.08, z: -0.32 },
-    { x: 0.25, y: 0.08, z: -0.32 }
+    { x: -0.15, y: 0.02, z: -0.36 },
+    { x: 0.15, y: 0.02, z: -0.36 },
+    { x: -0.06, y: 0.11, z: -0.4 },
+    { x: 0.06, y: 0.11, z: -0.4 },
+    { x: -0.24, y: 0.07, z: -0.31 },
+    { x: 0.24, y: 0.07, z: -0.31 }
   ];
 
-  const a = radius * 0.45;
-  const b = radius * 0.3;
-  const c = radius * 0.4;
-  const eyeRadius = radius * 0.06;
+  const a = radius * 0.38;
+  const b = radius * 0.24;
+  const c = radius * 0.225;
+  const eyeRadius = radius * 0.048;
 
   eyeOffsets.forEach((offset, idx) => {
     const eye = BABYLON.MeshBuilder.CreateSphere(
@@ -318,10 +333,10 @@ export function decorateWeaverVisual(
   });
 
   const legPoses: LegPose[] = [
-    { hipX: 0.35, hipY: 0.36, kneeX: 1.05, kneeY: 1.10, footX: 1.60, footY: -0.10, coxaWidth: 0.15, tibiaWidth: 0.07 },
-    { hipX: 0.48, hipY: 0.14, kneeX: 1.25, kneeY: 0.80, footX: 1.80, footY: -0.40, coxaWidth: 0.16, tibiaWidth: 0.075 },
-    { hipX: 0.48, hipY: -0.12, kneeX: 1.25, kneeY: 0.50, footX: 1.80, footY: -0.80, coxaWidth: 0.155, tibiaWidth: 0.07 },
-    { hipX: 0.35, hipY: -0.34, kneeX: 1.05, kneeY: 0.20, footX: 1.60, footY: -1.20, coxaWidth: 0.14, tibiaWidth: 0.065 }
+    { hipX: 0.38, hipY: 0.32, kneeX: 0.96, kneeY: 0.74, footX: 1.7, footY: 1.02, coxaWidth: 0.14, tibiaWidth: 0.058 },
+    { hipX: 0.5, hipY: 0.1, kneeX: 1.2, kneeY: 0.24, footX: 1.95, footY: 0.26, coxaWidth: 0.15, tibiaWidth: 0.064 },
+    { hipX: 0.5, hipY: -0.12, kneeX: 1.2, kneeY: -0.32, footX: 1.92, footY: -0.52, coxaWidth: 0.145, tibiaWidth: 0.06 },
+    { hipX: 0.36, hipY: -0.34, kneeX: 0.96, kneeY: -0.74, footX: 1.68, footY: -1.08, coxaWidth: 0.13, tibiaWidth: 0.054 }
   ];
 
   for (let side = 0; side < 2; side++) {
@@ -337,7 +352,7 @@ export function decorateWeaverVisual(
 
       const legRoot = new BABYLON.TransformNode(`leg_root_${sideSign}_${l}`, scene);
       legRoot.parent = wMesh;
-      legRoot.position.set(hipX, hipY, radius * 0.02);
+      legRoot.position.set(hipX, hipY, radius * 0.035);
       
       const coxaDx = kneeX - hipX;
       const coxaDy = kneeY - hipY;
@@ -352,7 +367,7 @@ export function decorateWeaverVisual(
         carapaceMat
       );
       coxa.rotation.z = angleFromLocalY(coxaDx, coxaDy);
-      coxa.rotation.y = sideSign * -0.45;
+      coxa.rotation.x = -0.34;
       coxa.parent = legRoot;
 
       const tibiaDx = footX - kneeX;
@@ -369,23 +384,27 @@ export function decorateWeaverVisual(
       );
       tibia.position.set(0, coxaLength, 0);
       tibia.rotation.z = angleFromLocalY(tibiaDx, tibiaDy) - coxa.rotation.z;
-      tibia.rotation.y = sideSign * 0.9;
+      tibia.rotation.x = 0.82;
       tibia.parent = coxa;
 
       const foot = createFoot(scene, `foot_${sideSign}_${l}`, radius, legMat);
-      foot.position.set(0, tibiaLength, 0);
+      foot.position.set(0, tibiaLength, radius * 0.08);
+      foot.rotation.x = -0.24;
       foot.parent = tibia;
 
       legRoot.metadata = {
         sideSign,
         index: l,
-        baseRootZ: 0
+        baseRootZ: 0,
+        basePositionZ: legRoot.position.z
       };
       coxa.metadata = {
-        baseRotationZ: coxa.rotation.z
+        baseRotationZ: coxa.rotation.z,
+        baseRotationX: coxa.rotation.x
       };
       tibia.metadata = {
-        baseRotationZ: tibia.rotation.z
+        baseRotationZ: tibia.rotation.z,
+        baseRotationX: tibia.rotation.x
       };
     }
   }

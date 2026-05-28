@@ -18,10 +18,17 @@ export class VisualStateDressingSystem implements ISystem {
   private currentEmissiveG = 0.15;
   private currentEmissiveB = 0.05;
   private colorCache = new Map<string, BABYLON.Color3>();
+  private visualClock = 0.0;
+  private gaitClock = 0.0;
+  private gaitAmp = 0.12;
+  private gaitFreq = 8.0;
+  private gaitTuck = 0.0;
 
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
+    this.visualClock += dt;
+
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
@@ -30,7 +37,15 @@ export class VisualStateDressingSystem implements ISystem {
       if (wAI.damageShearIntensity > 0.0) {
         wAI.damageShearIntensity = Math.max(0.0, wAI.damageShearIntensity - dt * 1.75);
       }
+
+      const target = this.resolveWeaverGaitTargets(wAI);
+      const blend = 1.0 - Math.exp(-dt * 8.0);
+      this.gaitAmp += (target.amp - this.gaitAmp) * blend;
+      this.gaitFreq += (target.freq - this.gaitFreq) * blend;
+      this.gaitTuck += (target.tuck - this.gaitTuck) * blend;
     }
+
+    this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);
   }
 
   public render(): void {
@@ -82,8 +97,7 @@ export class VisualStateDressingSystem implements ISystem {
 
       const pulse =
         emissive.WEAVER_EMISSIVE_PULSE_BASE +
-        Math.sin(Date.now() * emissive.WEAVER_EMISSIVE_PULSE_FREQ) *
-          emissive.WEAVER_EMISSIVE_PULSE_AMP;
+        Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
       let cachedColor = this.colorCache.get(wAI.hue);
       if (!cachedColor) {
@@ -96,13 +110,13 @@ export class VisualStateDressingSystem implements ISystem {
       }
 
       pbrMaterials.forEach((pbrMat) => {
-        let scale = emissive.WEAVER_EMISSIVE_SCALE;
+        let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
         if (pbrMat.name === "legMat") {
-          scale *= 0.15;
+          scale *= 0.24;
         }
 
         pbrMat.emissiveColor.set(
-          cachedColor!.r * scale + pulse * 0.2,
+          cachedColor!.r * scale + pulse * 0.12,
           cachedColor!.g * scale,
           cachedColor!.b * scale
         );
@@ -115,42 +129,14 @@ export class VisualStateDressingSystem implements ISystem {
         }
       });
 
-      const timeSec = Date.now() * 0.001;
       const legRoots = mesh.getChildren((node) => node.name.startsWith("leg_root_"), false);
+      const bodyRadius = Math.max(1.0, mesh.getBoundingInfo().boundingSphere.radiusWorld * 0.45);
+      const bodySway = Math.sin(this.gaitClock * 0.5) * this.gaitAmp * 0.16;
+      const bodyBob = Math.cos(this.gaitClock) * bodyRadius * 0.008;
 
-      let tuckFactor = 0.0;
-      let swayAmp = 0.15;
-      let swayFreq = 12.0;
-
-      if (wAI.state === "STRIKING" || wAI.state.includes("WEAVER STRIKE")) {
-        const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-        const wVel = velStore.get(this.context.refs.weaver);
-        const speed = wVel ? Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y) : 0;
-
-        if (speed < 0.1) {
-          tuckFactor = 0.75;
-          swayAmp = 0.04;
-          swayFreq = 24.0;
-        } else {
-          tuckFactor = -0.6;
-          swayAmp = 0.05;
-          swayFreq = 8.0;
-        }
-      } else if (wAI.state === "PATROLLING" || wAI.state.includes("PATROLLING")) {
-        tuckFactor = 0.0;
-        const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-        const wVel = velStore.get(this.context.refs.weaver);
-        const speed = wVel ? Math.abs(wVel.x) : 4.5;
-        swayAmp = 0.18 * (speed / 4.5);
-        swayFreq = 8.0 + speed * 1.2;
-      } else if (wAI.state === "ASCENDING" || wAI.state.includes("ASCENDING")) {
-        tuckFactor = 0.3;
-        swayAmp = 0.06;
-        swayFreq = 10.0;
-      } else if (wAI.state === "DEFEATED" || wAI.state.includes("DEFEATED")) {
-        tuckFactor = 0.9;
-        swayAmp = 0.0;
-      }
+      this.animateBodyPart(mesh.getChildren((node) => node.name === "weaver_abdomen", false)[0], bodySway, bodyBob * 0.55, 0.55);
+      this.animateBodyPart(mesh.getChildren((node) => node.name === "weaver_cephalothorax", false)[0], -bodySway * 0.45, bodyBob * 0.35, 0.28);
+      this.animateBodyPart(mesh.getChildren((node) => node.name === "weaver_head", false)[0], -bodySway * 0.7, bodyBob * 0.45, 0.4);
 
       legRoots.forEach((node) => {
         const transNode = node as BABYLON.TransformNode;
@@ -163,42 +149,116 @@ export class VisualStateDressingSystem implements ISystem {
         const sideSignVal = sideSign;
         const indexVal = index;
 
-        const rootMeta = transNode.metadata as { sideSign?: number; index?: number; baseRootZ?: number } | null;
+        const rootMeta = transNode.metadata as {
+          sideSign?: number;
+          index?: number;
+          baseRootZ?: number;
+          basePositionZ?: number;
+        } | null;
         const baseRootZ = rootMeta?.baseRootZ ?? 0;
 
-        const sideOffset = sideSignVal > 0 ? 0 : Math.PI;
-        const indexOffset = (indexVal % 2) * Math.PI;
-        const phase = (timeSec * swayFreq) + sideOffset + indexOffset;
+        const diagonalOffset = (indexVal + (sideSignVal > 0 ? 0 : 1)) % 2 === 0 ? 0 : Math.PI;
+        const rowOffset = indexVal * 0.18;
+        const phase = this.gaitClock + diagonalOffset + rowOffset;
 
-        const sweep = Math.sin(phase) * swayAmp;
-        const lift = Math.cos(phase) * swayAmp * 0.4;
+        const sweep = Math.sin(phase) * this.gaitAmp * (1.0 - Math.abs(this.gaitTuck) * 0.25);
+        const liftWave = (1.0 - Math.cos(phase)) * 0.5;
+        const lift = liftWave * this.gaitAmp;
 
-        // Apply primary gait sweep to rotation.z so legs cycle back and forth on-screen
         transNode.rotation.z = baseRootZ + sideSignVal * sweep;
-        // Apply minor depth lift to rotation.y to simulate foot clearance
-        transNode.rotation.y = lift * 0.08;
+        transNode.rotation.y = 0;
+        transNode.position.z = rootMeta?.basePositionZ ?? transNode.position.z;
 
         const coxa = transNode.getChildren().find((c) => c.name.startsWith("coxa_")) as BABYLON.TransformNode | undefined;
         if (coxa) {
-          const coxaMeta = coxa.metadata as { baseRotationZ?: number } | null;
+          const coxaMeta = coxa.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
           const baseCoxaZ = coxaMeta?.baseRotationZ ?? coxa.rotation.z;
+          const baseCoxaX = coxaMeta?.baseRotationX ?? coxa.rotation.x;
           
-          const coxaTuckAngle = sideSignVal * tuckFactor * 0.35;
-          const coxaLift = sideSignVal * lift * 0.3;
+          const coxaTuckAngle = sideSignVal * this.gaitTuck * 0.24;
+          const coxaLift = sideSignVal * lift * 0.16;
           coxa.rotation.z = baseCoxaZ + coxaTuckAngle + coxaLift;
+          coxa.rotation.x = baseCoxaX;
 
           const tibia = coxa.getChildren().find((c) => c.name.startsWith("tibia_")) as BABYLON.TransformNode | undefined;
           if (tibia) {
-            const tibiaMeta = tibia.metadata as { baseRotationZ?: number } | null;
+            const tibiaMeta = tibia.metadata as { baseRotationZ?: number; baseRotationX?: number } | null;
             const baseTibiaZ = tibiaMeta?.baseRotationZ ?? tibia.rotation.z;
+            const baseTibiaX = tibiaMeta?.baseRotationX ?? tibia.rotation.x;
             
-            const tibiaTuckAngle = -sideSignVal * tuckFactor * 0.45;
-            const tibiaSweep = -sideSignVal * sweep * 0.2;
+            const tibiaTuckAngle = -sideSignVal * this.gaitTuck * 0.34;
+            const tibiaSweep = -sideSignVal * (sweep * 0.12 + lift * 0.1);
             tibia.rotation.z = baseTibiaZ + tibiaTuckAngle + tibiaSweep;
+            tibia.rotation.x = baseTibiaX;
           }
         }
       });
     }
+  }
+
+  private resolveWeaverGaitTargets(wAI: WeaverAIComponent): { amp: number; freq: number; tuck: number } {
+    if (wAI.state === "STRIKING" || wAI.state.includes("WEAVER STRIKE")) {
+      const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+      const wVel = velStore.get(this.context.refs.weaver);
+      const speed = wVel ? Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y) : 0;
+
+      if (speed < 0.1) {
+        return { amp: 0.035, freq: 13.0, tuck: 0.72 };
+      }
+      return { amp: 0.055, freq: 8.5, tuck: -0.42 };
+    }
+
+    if (wAI.state === "PATROLLING" || wAI.state.includes("PATROLLING")) {
+      const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+      const wVel = velStore.get(this.context.refs.weaver);
+      const speed = wVel ? Math.abs(wVel.x) : 4.5;
+      const speedScale = Math.min(1.45, Math.max(0.45, speed / 4.5));
+      return { amp: 0.13 * speedScale, freq: 7.2 + speed * 0.75, tuck: 0.0 };
+    }
+
+    if (wAI.state === "ASCENDING" || wAI.state.includes("ASCENDING")) {
+      return { amp: 0.055, freq: 7.5, tuck: 0.28 };
+    }
+
+    if (wAI.state === "DEFEATED" || wAI.state.includes("DEFEATED")) {
+      return { amp: 0.0, freq: 5.0, tuck: 0.82 };
+    }
+
+    return { amp: 0.09, freq: 7.5, tuck: 0.12 };
+  }
+
+  private animateBodyPart(
+    node: BABYLON.Node | null | undefined,
+    sway: number,
+    bobZ: number,
+    rotationScale: number
+  ): void {
+    if (!(node instanceof BABYLON.TransformNode)) return;
+
+    let meta = node.metadata as {
+      baseX?: number;
+      baseY?: number;
+      baseZ?: number;
+    } | null;
+
+    if (!meta || meta.baseX === undefined || meta.baseY === undefined || meta.baseZ === undefined) {
+      meta = {
+        ...(meta ?? {}),
+        baseX: node.position.x,
+        baseY: node.position.y,
+        baseZ: node.position.z
+      };
+      node.metadata = meta;
+    }
+
+    const baseX = meta.baseX ?? node.position.x;
+    const baseY = meta.baseY ?? node.position.y;
+    const baseZ = meta.baseZ ?? node.position.z;
+
+    node.position.x = baseX + sway * 0.08;
+    node.position.y = baseY + Math.abs(sway) * 0.035;
+    node.position.z = baseZ + bobZ;
+    node.rotation.z = sway * rotationScale;
   }
 
   private updatePlayerEmissive(mat: BABYLON.PBRMaterial, tension: number, state: string): void {

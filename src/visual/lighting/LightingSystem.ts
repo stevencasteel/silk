@@ -10,6 +10,7 @@ export class LightingSystem implements ISystem {
 
   private unsub: (() => void) | null = null;
   private weaverLight: BABYLON.PointLight | null = null;
+  private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
   private targetColor = new BABYLON.Color3(0.3, 0.3, 0.4);
   private currentColor = new BABYLON.Color3(0.3, 0.3, 0.4);
@@ -25,21 +26,35 @@ export class LightingSystem implements ISystem {
 
     this.weaverLight = new BABYLON.PointLight(
       "weaverEmotionLight",
-      new BABYLON.Vector3(0, 5, -2),
+      new BABYLON.Vector3(0, 5, -5),
       scene
     );
-    this.weaverLight.intensity = 1.8;
+    this.weaverLight.intensity = 1.35;
+    this.weaverLight.range = 18.0;
     this.weaverLight.diffuse = this.currentColor;
     this.weaverLight.specular = this.currentColor;
 
-    this.rimLight = new BABYLON.DirectionalLight(
-      "rimLight",
-      new BABYLON.Vector3(0.1, 0.35, -0.95),
+    this.weaverKeyLight = new BABYLON.SpotLight(
+      "weaverCarapaceKeyLight",
+      new BABYLON.Vector3(0, 6, -11),
+      new BABYLON.Vector3(0.08, -0.18, 1.0),
+      Math.PI * 0.34,
+      2.4,
       scene
     );
-    this.rimLight.intensity = 1.35;
-    this.rimLight.diffuse = new BABYLON.Color3(0.72, 0.87, 1.0);
-    this.rimLight.specular = new BABYLON.Color3(0.72, 0.87, 1.0);
+    this.weaverKeyLight.intensity = 2.15;
+    this.weaverKeyLight.range = 28.0;
+    this.weaverKeyLight.diffuse = new BABYLON.Color3(0.78, 0.88, 1.0);
+    this.weaverKeyLight.specular = new BABYLON.Color3(0.95, 0.82, 1.0);
+
+    this.rimLight = new BABYLON.DirectionalLight(
+      "rimLight",
+      new BABYLON.Vector3(-0.22, 0.28, -0.94),
+      scene
+    );
+    this.rimLight.intensity = 1.05;
+    this.rimLight.diffuse = new BABYLON.Color3(0.68, 0.86, 1.0);
+    this.rimLight.specular = new BABYLON.Color3(0.82, 0.92, 1.0);
 
     this.unsub = this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
       this.setWeaverPhaseHue(payload.hue);
@@ -60,7 +75,17 @@ export class LightingSystem implements ISystem {
     const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
     if (weaverNode) {
       this.weaverLight.position.copyFrom(weaverNode.position);
-      this.weaverLight.position.z = weaverNode.position.z - 3.5;
+      this.weaverLight.position.y = weaverNode.position.y + 1.4;
+      this.weaverLight.position.z = weaverNode.position.z - 5.5;
+
+      if (this.weaverKeyLight) {
+        this.weaverKeyLight.position.set(
+          weaverNode.position.x - 1.6,
+          weaverNode.position.y + 2.6,
+          weaverNode.position.z - 11.0
+        );
+        this.weaverKeyLight.direction.set(0.12, -0.18, 1.0);
+      }
     }
 
     if (this.isFlashing) {
@@ -85,6 +110,9 @@ export class LightingSystem implements ISystem {
 
     this.weaverLight.diffuse.copyFrom(this.currentColor);
     this.weaverLight.specular.copyFrom(this.currentColor);
+    if (this.weaverKeyLight) {
+      this.weaverKeyLight.intensity = this.isFlashing ? 2.8 : 2.15;
+    }
   }
 
   private triggerFlash(): void {
@@ -104,6 +132,7 @@ export class LightingSystem implements ISystem {
   public dispose(): void {
     if (this.unsub) this.unsub();
     if (this.weaverLight) this.weaverLight.dispose();
+    if (this.weaverKeyLight) this.weaverKeyLight.dispose();
     if (this.rimLight) this.rimLight.dispose();
   }
 }
