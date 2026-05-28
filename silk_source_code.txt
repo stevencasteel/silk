@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 5:23:01 PM
+ [SYSTEM] Generated: 5/28/2026, 5:33:33 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -424,7 +424,7 @@ SILK starts in the vertical portrait arena immediately without title screens.
   The state machine is evaluated by WeaverBrainSystem, which delegates runtime 
   updates to isolated single-responsibility state classes:
   1. SWEEPING (WeaverSweepingState - Red): Dormant patrol. Fires projectiles.
-  2. DASHING (WeaverDashingState - Orange/Red/Cyan): Triggered by damage. 
+  2. DASHING (WeaverDashingState - Orange/Red/White): Triggered by damage. 
      Prep, Thrust, and Recover sub-phases.
   3. RETURNING (WeaverReturningState - Gray): Ascends back to patrol line.
   4. DEFEATED (WeaverDefeatedState - Dark): Triggers 2-Layer procedural shatter.
@@ -2580,7 +2580,7 @@ export const ARENA_CONFIG = {
   ENTITY_COLORS: {
     WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 }, // Saturated Deep Violet Base
     PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 }, // Mirror-Chrome Albedo
-    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } // Neon Pink Sheen
+    PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 } // Pink Sheen
   },
   ENTITY_SPAWNER: {
     WEAVER_INITIAL_VELOCITY_X: 4.5,
@@ -2724,9 +2724,9 @@ export const VISUAL_JUICE_CONFIG = {
   WEAVER_COLORS: {
     SWEEPING: "121212", // Low baseline emissive (exposes raw silver mecha-chrome during patrol)
     DASH_PREP: "dffe00", // Telegraph is Sulfur Yellow
-    DASH_THRUST: "ff007f", // Lunges are Neon Pink
-    DASH_RECOVER: "ff007f", // Strike Recovery is Neon Pink
-    RETURNING: "ff007f", // Ascent Return is Neon Pink
+    DASH_THRUST: "ff007f", // Lunges are Pink
+    DASH_RECOVER: "ff007f", // Strike Recovery is Pink
+    RETURNING: "ff007f", // Ascent Return is Pink
     DEFEATED: "000000" // Saturated Black Defeated
   },
   MATERIALS: {
@@ -2766,11 +2766,11 @@ export const VISUAL_JUICE_CONFIG = {
   PARTICLES: {
     DRAG: 0.92,
     COLORS: {
-      PLAYER_SPARK: { r: 0.0, g: 0.94, b: 1.0 },
+      PLAYER_SPARK: { r: 1.0, g: 1.0, b: 1.0 },
       WEAVER_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
       LANDING_DUST: { r: 0.87, g: 0.99, b: 0.0 },
       WALL_SPARK: { r: 1.0, g: 0.0, b: 0.5 },
-      PROJECTILE_SPLAT: { r: 0.0, g: 0.94, b: 1.0 }
+      PROJECTILE_SPLAT: { r: 1.0, g: 1.0, b: 1.0 }
     },
     BURST: {
       PLAYER: {
@@ -2861,7 +2861,7 @@ export const VISUAL_JUICE_CONFIG = {
       MULT_B: 0.5
     },
     PLAYER_EMISSIVE_LAUNCH: {
-      R: 0.0,
+      R: 0.95,
       G: 0.95,
       B: 0.95
     },
@@ -4975,8 +4975,8 @@ export class TetherVisualizerSystem implements ISystem {
     this.tetherMat.sheen.intensity = 0.95;
     this.tetherMat.sheen.roughness = 0.05;
     this.tetherMat.emissiveIntensity = 4.0; // High gloss glowing liquid look
-    this.tetherMat.albedoColor = new BABYLON.Color3(0.0, 0.94, 1.0); // Neon Cyan default
-    this.tetherMat.emissiveColor = new BABYLON.Color3(0.0, 0.45, 0.5);
+    this.tetherMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); // White default
+    this.tetherMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
     this.tetherMat.disableLighting = false;
 
     this.tetherMesh = BABYLON.MeshBuilder.CreateTube(
@@ -5143,15 +5143,14 @@ export class TetherVisualizerSystem implements ISystem {
         instance: this.tetherMesh
       });
 
-      // Airbrush Square Color Spectrum transitions
-      let r = 0.0;
-      let g = 0.94;
-      let b = 1.0; // Cyan Default
+      let r = 1.0;
+      let g = 1.0;
+      let b = 1.0; // White Default
 
       if (tension >= 1.0) {
         r = 1.0;
         g = 0.0;
-        b = 0.5; // Neon Pink Warning
+        b = 0.5; // Pink Warning
       } else if (tension >= 0.75) {
         r = 1.0;
         g = 0.0;
@@ -5161,9 +5160,9 @@ export class TetherVisualizerSystem implements ISystem {
         g = 0.99;
         b = 0.0; // Sulfur Yellow Sweet Spot
       } else if (tension < 0.4) {
-        r = 0.0;
-        g = 0.94;
-        b = 1.0; // Clean Cyan
+        r = 1.0;
+        g = 1.0;
+        b = 1.0; // Clean White
       }
 
       this.tetherMat.albedoColor.set(r, g, b);
@@ -9919,8 +9918,8 @@ export class LightingSystem implements ISystem {
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
-  private targetColor = new BABYLON.Color3(0.0, 0.94, 1.0); 
-  private currentColor = new BABYLON.Color3(0.0, 0.94, 1.0);
+  private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
+  private currentColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
   private flashTimer = 0.0;
   private isFlashing = false;
@@ -9951,7 +9950,7 @@ export class LightingSystem implements ISystem {
     );
     this.weaverKeyLight.intensity = 3.0; 
     this.weaverKeyLight.range = 28.0;
-    this.weaverKeyLight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    this.weaverKeyLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     this.weaverKeyLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     this.rimLight = new BABYLON.DirectionalLight(
@@ -9960,7 +9959,7 @@ export class LightingSystem implements ISystem {
       scene
     );
     this.rimLight.intensity = 1.8;
-    this.rimLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0);
+    this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     this.unsub = this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
@@ -10672,13 +10671,13 @@ export function decoratePlayerSilkVisual(
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
   bandMat.metallic = 0.95;
   bandMat.roughness = 0.06;
-  bandMat.albedoColor = new BABYLON.Color3(0.0, 0.94, 1.0); 
+  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
 
   textureGen.generatePBRTextures("silkBand", scene, {
     resolution: 256,
     noiseScale: 30.0,
     bumpStrength: 2.8,
-    baseColor: new BABYLON.Color3(0.0, 0.94, 1.0),
+    baseColor: new BABYLON.Color3(1.0, 1.0, 1.0),
     roughnessMin: 0.04,
     roughnessMax: 0.1,
     metallic: 0.95
@@ -10947,7 +10946,7 @@ export function decorateWeaverVisual(
   legMat._shearPlugin = shearPluginLeg;
 
   const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);
-  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5); // Neon Pink eyes
+  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5); // Pink eyes
   eyeMat.disableLighting = true;
 
   const abdomen = BABYLON.MeshBuilder.CreateSphere(
@@ -11433,7 +11432,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirLight.intensity = 1.65;
-    dirLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     dirLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const dirFillLight = new BABYLON.DirectionalLight(
@@ -11442,7 +11441,7 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     dirFillLight.intensity = 1.35;
-    dirFillLight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     dirFillLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
     dirFillLight.setEnabled(true);
 
@@ -11464,7 +11463,7 @@ export class RenderSystem implements ISystem {
     );
     rightPointLight.intensity = 1.45;
     rightPointLight.range = 34.0;
-    rightPointLight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    rightPointLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     rightPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
     rightPointLight.setEnabled(true);
 
@@ -11488,7 +11487,7 @@ export class RenderSystem implements ISystem {
     );
     leftUplight.intensity = 1.95;
     leftUplight.range = 32.0;
-    leftUplight.diffuse = new BABYLON.Color3(1.0, 0.0, 0.5); 
+    leftUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     leftUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const rightUplight = new BABYLON.PointLight(
@@ -11498,7 +11497,7 @@ export class RenderSystem implements ISystem {
     );
     rightUplight.intensity = 1.95;
     rightUplight.range = 32.0;
-    rightUplight.diffuse = new BABYLON.Color3(0.0, 0.94, 1.0); 
+    rightUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
     rightUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
