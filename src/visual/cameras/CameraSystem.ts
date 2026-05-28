@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
@@ -16,7 +17,7 @@ export class CameraSystem implements ISystem {
   private shakeDirX = 0;
   private shakeDirY = 0;
   private noiseTime = 0.0;
-  private unsub: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private cameraTarget = new BABYLON.Vector3();
 
   private cameraScrollY = 0.0;
@@ -48,7 +49,7 @@ export class CameraSystem implements ISystem {
       );
     }
 
-    this.unsub.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
         this.shakeIntensity = Math.max(this.shakeIntensity, payload.amplitude);
         this.shakeTimer = Math.max(this.shakeTimer, payload.duration);
@@ -58,7 +59,7 @@ export class CameraSystem implements ISystem {
       })
     );
 
-    this.unsub.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.cameraScrollY = 0.0;
       })
@@ -178,7 +179,6 @@ export class CameraSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsub.forEach((unsub) => unsub());
-    this.unsub = [];
+    this._tracker.clear();
   }
 }

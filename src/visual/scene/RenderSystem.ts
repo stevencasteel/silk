@@ -73,7 +73,7 @@ export class RenderSystem implements ISystem {
     );
     dirLight.intensity = 1.65;
     dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    dirLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
@@ -82,7 +82,7 @@ export class RenderSystem implements ISystem {
     );
     dirFillLight.intensity = 1.35;
     dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    dirFillLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
     dirFillLight.setEnabled(true);
 
     const leftPointLight = new BABYLON.PointLight(
@@ -93,7 +93,7 @@ export class RenderSystem implements ISystem {
     leftPointLight.intensity = 1.45;
     leftPointLight.range = 34.0;
     leftPointLight.diffuse = new BABYLON.Color3(0.87, 0.99, 0.0); 
-    leftPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
     leftPointLight.setEnabled(true);
 
     const rightPointLight = new BABYLON.PointLight(
@@ -104,7 +104,7 @@ export class RenderSystem implements ISystem {
     rightPointLight.intensity = 1.45;
     rightPointLight.range = 34.0;
     rightPointLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    rightPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
     rightPointLight.setEnabled(true);
 
     const lowerBackLight = new BABYLON.SpotLight(
@@ -118,7 +118,7 @@ export class RenderSystem implements ISystem {
     lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
     lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); 
-    lowerBackLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const leftUplight = new BABYLON.PointLight(
       "leftShaftUplight",
@@ -128,7 +128,7 @@ export class RenderSystem implements ISystem {
     leftUplight.intensity = 1.95;
     leftUplight.range = 32.0;
     leftUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    leftUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const rightUplight = new BABYLON.PointLight(
       "rightShaftUplight",
@@ -138,7 +138,7 @@ export class RenderSystem implements ISystem {
     rightUplight.intensity = 1.95;
     rightUplight.range = 32.0;
     rightUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    rightUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -164,6 +164,8 @@ export class RenderSystem implements ISystem {
     pipeline.chromaticAberration.aberrationAmount = 0.0;
     pipeline.chromaticAberration.radialIntensity = 1.2;
     this.pipeline = pipeline;
+
+    this.scene.lights.forEach((light) => { light.specular.set(0, 0, 0); });
 
     const shadowGen = new BABYLON.ShadowGenerator(preset.RENDERER.SHADOW_MAP_SIZE, dirLight);
     shadowGen.usePercentageCloserFiltering = true;

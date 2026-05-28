@@ -1,5 +1,6 @@
 import { ARENA_CONFIG, CANONICAL_UNITS, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import {
   WeaverAIComponent,
@@ -21,22 +22,22 @@ export class ParallaxScrollSystem implements ISystem {
 
   private cachedScrollables: BABYLON.AbstractMesh[] | null = null;
   private hitStopTimer = 0.0;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         this.hitStopTimer = 0.08;
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         this.hitStopTimer = 0.15;
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hitStopTimer = 0.0;
         this.currentScrollOffset = 0.0;
@@ -156,8 +157,7 @@ export class ParallaxScrollSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     this.cachedScrollables = null;
   }
 }

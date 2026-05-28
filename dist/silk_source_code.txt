@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 3:36:01 PM
+ [SYSTEM] Generated: 5/28/2026, 3:41:09 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1248,6 +1248,7 @@ export class CompositionRoot {
 ● ./src/audio/systems/AudioDirectorSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -1273,7 +1274,7 @@ export class AudioDirectorSystem implements ISystem {
   private initialized: boolean = false;
 
   private broker: EventBroker;
-  private subscriptions: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private gestureTriggerRef: (() => void) | null = null;
 
   private hitComboCount = 0;
@@ -1316,7 +1317,7 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   public init(): void {
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.updateDronePitch(payload.tension);
@@ -1324,7 +1325,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
         if (payload.state === "LAUNCHING" && this.initialized) {
           const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
@@ -1357,7 +1358,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.setLowHPStatus(payload.hp === 1);
@@ -1365,7 +1366,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.impactSynth) {
@@ -1379,14 +1380,14 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
         // State-driven Audio Coupling: Reset player's swing-charge combo instantly on ground contact
         this.hitComboCount = 0;
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         if (this.initialized && this.impactSynth) {
           const nowMs = performance.now();
@@ -1408,7 +1409,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.handleStateChange(payload.state);
@@ -1416,7 +1417,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.fadeOutAndMute();
@@ -1424,7 +1425,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.fadeOutAndMute();
@@ -1432,7 +1433,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.resetToBaseline();
@@ -1442,7 +1443,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
         if (this.initialized && this.tensionSynth && this.toneModule) {
           const rawCtx = this.toneModule.getContext().rawContext as unknown as AudioContext;
@@ -1466,7 +1467,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.WEAVER;
@@ -1492,7 +1493,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.PLAYER;
@@ -1626,8 +1627,7 @@ export class AudioDirectorSystem implements ISystem {
 
   public dispose(): void {
     this.removeGestureListeners();
-    this.subscriptions.forEach((unsub) => unsub());
-    this.subscriptions = [];
+    this._tracker.clear();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();
@@ -3470,6 +3470,45 @@ export function dispatchUIFeedback(event: "silk-stats-tick" | "silk-play-confirm
   }
 }
 
+export class SubscriptionTracker {
+  private _unsubs: (() => void)[] = [];
+
+  public add(unsub: () => void): void {
+    this._unsubs.push(unsub);
+  }
+
+  public clear(): void {
+    for (let i = 0; i < this._unsubs.length; i++) {
+      this._unsubs[i]();
+    }
+    this._unsubs.length = 0;
+  }
+}
+
+export interface IProceduralTextureGenerator {
+  generatePBRTextures(name: string, scene: BABYLON.Scene, config: unknown): Promise<{
+    albedo: BABYLON.DynamicTexture;
+    normal: BABYLON.DynamicTexture;
+    orm: BABYLON.DynamicTexture;
+  }>;
+}
+
+export function applyProceduralTextures(
+  textureGen: IProceduralTextureGenerator,
+  name: string,
+  scene: BABYLON.Scene,
+  material: BABYLON.PBRMaterial,
+  config: unknown,
+  customSetup?: (mat: BABYLON.PBRMaterial) => void
+): void {
+  textureGen.generatePBRTextures(name, scene, config).then((textures) => {
+    configurePBRTextures(material, textures);
+    if (customSetup) {
+      customSetup(material);
+    }
+  });
+}
+
 export function solveSpringDamper(
   current: number,
   target: number,
@@ -4695,6 +4734,7 @@ export class ProjectileSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -4720,7 +4760,7 @@ export class JuiceSystem implements ISystem {
   private poolSize = 64;
   private nextPoolIndex = 0;
   private parentNode: BABYLON.TransformNode | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private playerState: string = "AIRBORNE";
 
   private readonly _colorScratch = new BABYLON.Color3();
@@ -4755,7 +4795,7 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES;
     const colors = config.COLORS;
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
@@ -4770,7 +4810,7 @@ export class JuiceSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
@@ -4785,7 +4825,7 @@ export class JuiceSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.PLAYER_LANDED,
         (payload: { x: number; y: number }) => {
@@ -4795,7 +4835,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.PLAYER_WALL_HIT,
         (payload: { x: number; y: number; wallNormalX: number }) => {
@@ -4805,7 +4845,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.WEAVER_WALL_HIT,
         (payload: { x: number; y: number; wallNormalX: number }) => {
@@ -4815,7 +4855,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.PROJECTILE_IMPACT,
         (payload: { x: number; y: number; isWall: boolean }) => {
@@ -4825,7 +4865,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
         if (payload.state === "LAUNCHING" && this.playerState !== "LAUNCHING") {
           const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
@@ -4878,7 +4918,7 @@ export class JuiceSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.playerState = "AIRBORNE";
       })
@@ -5125,8 +5165,7 @@ export class JuiceSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     if (this.parentNode) {
       this.parentNode.dispose();
     }
@@ -6128,6 +6167,7 @@ export class PlayerAnimationSystem implements ISystem {
 
 ● ./src/gameplay/player/PlayerInputSystem.ts
 ────────────────────────────────────────────────────
+import { useInputStore } from "../../ui/hud/hudStore";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -6179,12 +6219,18 @@ export class PlayerInputSystem implements ISystem {
     this.keysPressed = {};
   }
 
-  private handleKeyDown = (e: KeyboardEvent): void => {
-    this.keysPressed[e.key.toLowerCase()] = true;
+    private handleKeyDown = (e: KeyboardEvent): void => {
+    const key = e.key.toLowerCase();
+    this.keysPressed[key] = true;
+    useInputStore.getState().setKeyPressed(key, true);
+    useInputStore.getState().setKeyPressed(e.code.toLowerCase(), true);
   };
 
-  private handleKeyUp = (e: KeyboardEvent): void => {
-    this.keysPressed[e.key.toLowerCase()] = false;
+    private handleKeyUp = (e: KeyboardEvent): void => {
+    const key = e.key.toLowerCase();
+    this.keysPressed[key] = false;
+    useInputStore.getState().setKeyPressed(key, false);
+    useInputStore.getState().setKeyPressed(e.code.toLowerCase(), false);
   };
 }
 
@@ -6937,6 +6983,7 @@ export class VerticalBoundarySystem implements ISystem {
 ● ./src/gameplay/player/WallBugSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, WallBugComponent } from "../../core/ecs/Components";
@@ -6959,7 +7006,7 @@ export class WallBugSystem implements ISystem {
   private readonly spawnInterval = 5.0; 
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   private bugPool: PooledBug[] = [];
   private readonly POOL_SIZE = 4;
@@ -6995,7 +7042,7 @@ export class WallBugSystem implements ISystem {
 
     this.spawnTimer = 0.0;
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearAllBugs();
         this.spawnTimer = 0.0;
@@ -7265,8 +7312,7 @@ export class WallBugSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     
     for (let i = 0; i < this.bugPool.length; i++) {
       const pBug = this.bugPool[i];
@@ -9540,7 +9586,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 ────────────────────────────────────────────────────
 import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { usePlayerStore, useWeaverStore, useOverlayStore } from "./hudStore";
+import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
@@ -9609,7 +9655,7 @@ export const HudOverlay: React.FC = () => {
   const [hurtShakeActive, setHurtShakeActive] = useState<boolean>(false);
   const prevHpRef = useRef(playerHp);
 
-  const [pressedKeys, setPressedKeys] = useState<Record<string, boolean>>({});
+  const pressedKeys = useInputStore((state) => state.keysPressed);
   const [useWasd, setUseWasd] = useState<boolean>(false);
 
   // Decoupled displayed steps to handle the visual success latency
@@ -9619,23 +9665,15 @@ export const HudOverlay: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
-      setPressedKeys((prev) => ({ ...prev, [key]: true, [e.code.toLowerCase()]: true }));
-      
       if (["w", "a", "s", "d"].includes(key)) {
         setUseWasd(true);
       } else if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         setUseWasd(false);
       }
     };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      setPressedKeys((prev) => ({ ...prev, [key]: false, [e.code.toLowerCase()]: false }));
-    };
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
 
@@ -10606,6 +10644,12 @@ export interface OverlayState {
   reset: () => void;
 }
 
+export interface InputStoreState {
+  keysPressed: Record<string, boolean>;
+  setKeyPressed: (key: string, pressed: boolean) => void;
+  reset: () => void;
+}
+
 const PLAYER_RESET = { playerHp: 5, playerMaxHp: 5, currentState: "AIRBORNE" };
 const WEAVER_RESET = { weaverHp: 100, weaverMaxHp: 100, weaverState: "SWEEPING", weaverHue: "rgb(239, 68, 68)" };
 const OVERLAY_RESET = {
@@ -10701,10 +10745,19 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   }))
 }));
 
+export const useInputStore = create<InputStoreState>((set) => ({
+  keysPressed: {},
+  setKeyPressed: (key, pressed) => set((state) => ({
+    keysPressed: { ...state.keysPressed, [key]: pressed }
+  })),
+  reset: () => set({ keysPressed: {} })
+}));
+
 export function resetAllStores(): void {
   usePlayerStore.getState().reset();
   useWeaverStore.getState().reset();
   useOverlayStore.getState().reset();
+  useInputStore.getState().reset();
 }
 
 
@@ -10712,6 +10765,7 @@ export function resetAllStores(): void {
 ● ./src/visual/cameras/CameraSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
@@ -10729,7 +10783,7 @@ export class CameraSystem implements ISystem {
   private shakeDirX = 0;
   private shakeDirY = 0;
   private noiseTime = 0.0;
-  private unsub: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private cameraTarget = new BABYLON.Vector3();
 
   private cameraScrollY = 0.0;
@@ -10761,7 +10815,7 @@ export class CameraSystem implements ISystem {
       );
     }
 
-    this.unsub.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
         this.shakeIntensity = Math.max(this.shakeIntensity, payload.amplitude);
         this.shakeTimer = Math.max(this.shakeTimer, payload.duration);
@@ -10771,7 +10825,7 @@ export class CameraSystem implements ISystem {
       })
     );
 
-    this.unsub.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.cameraScrollY = 0.0;
       })
@@ -10891,8 +10945,7 @@ export class CameraSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsub.forEach((unsub) => unsub());
-    this.unsub = [];
+    this._tracker.clear();
   }
 }
 
@@ -11250,7 +11303,8 @@ export class RasterShearPlugin extends MaterialPluginBase {
 
 ● ./src/visual/mesh/ArenaGeometry.ts
 ────────────────────────────────────────────────────
-import { configurePBRTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+
 import * as BABYLON from "@babylonjs/core";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -11266,7 +11320,7 @@ export class ArenaGeometry {
     wallMaterial.roughness = 0.85;
     wallMaterial.albedoColor = new BABYLON.Color3(0.043, 0.051, 0.063);
 
-    textureGen.generatePBRTextures("concreteWall", this.scene, {
+    applyProceduralTextures(textureGen, "concreteWall", this.scene, wallMaterial, {
       resolution: 512,
       noiseScale: 10.0,
       bumpStrength: 2.5,
@@ -11274,10 +11328,9 @@ export class ArenaGeometry {
       roughnessMin: 0.75,
       roughnessMax: 0.98,
       metallic: 0.0
-    }).then((wallTexs) => {
-      configurePBRTextures(wallMaterial, wallTexs);
-      wallMaterial.enableSpecularAntiAliasing = true;
-      wallMaterial.forceIrradianceInFragment = true;
+    }, (mat) => {
+      mat.enableSpecularAntiAliasing = true;
+      mat.forceIrradianceInFragment = true;
     });
 
     const panelMaterial = new BABYLON.PBRMaterial("panelMat", this.scene);
@@ -11285,7 +11338,7 @@ export class ArenaGeometry {
     panelMaterial.roughness = 0.65;
     panelMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.11);
 
-    textureGen.generatePBRTextures("scrollingPanel", this.scene, {
+    applyProceduralTextures(textureGen, "scrollingPanel", this.scene, panelMaterial, {
       resolution: 512,
       noiseScale: 16.0,
       bumpStrength: 1.8,
@@ -11293,10 +11346,9 @@ export class ArenaGeometry {
       roughnessMin: 0.45,
       roughnessMax: 0.75,
       metallic: 0.2
-    }).then((panelTexs) => {
-      configurePBRTextures(panelMaterial, panelTexs);
-      panelMaterial.enableSpecularAntiAliasing = true;
-      panelMaterial.forceIrradianceInFragment = true;
+    }, (mat) => {
+      mat.enableSpecularAntiAliasing = true;
+      mat.forceIrradianceInFragment = true;
     });
 
     const verticalGrooveMaterial = new BABYLON.PBRMaterial("grooveMat", this.scene);
@@ -11309,7 +11361,7 @@ export class ArenaGeometry {
     backdropMaterial.roughness = 0.94;
     backdropMaterial.albedoColor = new BABYLON.Color3(0.026, 0.03, 0.037);
 
-    textureGen.generatePBRTextures("shaftBackdropConcrete", this.scene, {
+    applyProceduralTextures(textureGen, "shaftBackdropConcrete", this.scene, backdropMaterial, {
       resolution: 1024,
       noiseScale: 12.0,
       bumpStrength: 3.1,
@@ -11322,10 +11374,9 @@ export class ArenaGeometry {
       ridgeDirectionX: 0.65,
       ridgeDirectionY: 1.0,
       colorVariation: 0.2
-    }).then((backdropTexs) => {
-      configurePBRTextures(backdropMaterial, backdropTexs);
-      backdropMaterial.enableSpecularAntiAliasing = true;
-      backdropMaterial.forceIrradianceInFragment = true;
+    }, (mat) => {
+      mat.enableSpecularAntiAliasing = true;
+      mat.forceIrradianceInFragment = true;
     });
 
     const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
@@ -11553,7 +11604,8 @@ export class ArenaGeometry {
 
 ● ./src/visual/mesh/PlayerSilkVisualFactory.ts
 ────────────────────────────────────────────────────
-import { configurePBRTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
@@ -11615,7 +11667,7 @@ export function decoratePlayerSilkVisual(
   silkMat.roughness = 0.08;
   silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0); 
 
-  textureGen.generatePBRTextures("silkFiber", scene, {
+  applyProceduralTextures(textureGen, "silkFiber", scene, silkMat, {
     resolution: 512,
     noiseScale: 40.0,
     bumpStrength: 3.2,
@@ -11623,8 +11675,6 @@ export function decoratePlayerSilkVisual(
     roughnessMin: 0.05,
     roughnessMax: 0.12,
     metallic: 0.92
-  }).then((silkTexs) => {
-    configurePBRTextures(silkMat, silkTexs);
   });
 
   silkMat.sheen.isEnabled = true;
@@ -11644,7 +11694,7 @@ export function decoratePlayerSilkVisual(
   bandMat.roughness = 0.06;
   bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
 
-  textureGen.generatePBRTextures("silkBand", scene, {
+  applyProceduralTextures(textureGen, "silkBand", scene, bandMat, {
     resolution: 256,
     noiseScale: 30.0,
     bumpStrength: 2.8,
@@ -11652,8 +11702,6 @@ export function decoratePlayerSilkVisual(
     roughnessMin: 0.04,
     roughnessMax: 0.1,
     metallic: 0.95
-  }).then((bandTexs) => {
-    configurePBRTextures(bandMat, bandTexs);
   });
 
   bandMat.sheen.isEnabled = true;
@@ -11712,7 +11760,8 @@ export function decoratePlayerSilkVisual(
 
 ● ./src/visual/mesh/WeaverVisualFactory.ts
 ────────────────────────────────────────────────────
-import { configurePBRTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -11841,7 +11890,7 @@ export function decorateWeaverVisual(
     true
   );
 
-  textureGen.generatePBRTextures("carapaceShell", scene, {
+  applyProceduralTextures(textureGen, "carapaceShell", scene, carapaceMat, {
     resolution: 512,
     noiseScale: 18.0,
     bumpStrength: 1.65,
@@ -11854,8 +11903,6 @@ export function decorateWeaverVisual(
     ridgeDirectionX: 0.25,
     ridgeDirectionY: 1.0,
     colorVariation: 0.16
-  }).then((carapaceTexs) => {
-    configurePBRTextures(carapaceMat, carapaceTexs);
   });
 
   const shellMat = createWeaverMaterial(
@@ -11867,7 +11914,7 @@ export function decorateWeaverVisual(
     true
   );
 
-  textureGen.generatePBRTextures("carapaceUpper", scene, {
+  applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
     noiseScale: 16.0,
     bumpStrength: 1.85,
@@ -11880,8 +11927,6 @@ export function decorateWeaverVisual(
     ridgeDirectionX: 0.12,
     ridgeDirectionY: 1.0,
     colorVariation: 0.18
-  }).then((shellTexs) => {
-    configurePBRTextures(shellMat, shellTexs);
   });
 
   const legMat = createWeaverMaterial(
@@ -11893,7 +11938,7 @@ export function decorateWeaverVisual(
     false
   );
 
-  textureGen.generatePBRTextures("legScratches", scene, {
+  applyProceduralTextures(textureGen, "legScratches", scene, legMat, {
     resolution: 256,
     noiseScale: 26.0,
     bumpStrength: 1.55,
@@ -11906,8 +11951,6 @@ export function decorateWeaverVisual(
     ridgeDirectionX: 0.08,
     ridgeDirectionY: 1.0,
     colorVariation: 0.12
-  }).then((legTexs) => {
-    configurePBRTextures(legMat, legTexs);
   });
 
   const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);
@@ -12398,7 +12441,7 @@ export class RenderSystem implements ISystem {
     );
     dirLight.intensity = 1.65;
     dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    dirLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
@@ -12407,7 +12450,7 @@ export class RenderSystem implements ISystem {
     );
     dirFillLight.intensity = 1.35;
     dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    dirFillLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
     dirFillLight.setEnabled(true);
 
     const leftPointLight = new BABYLON.PointLight(
@@ -12418,7 +12461,7 @@ export class RenderSystem implements ISystem {
     leftPointLight.intensity = 1.45;
     leftPointLight.range = 34.0;
     leftPointLight.diffuse = new BABYLON.Color3(0.87, 0.99, 0.0); 
-    leftPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
     leftPointLight.setEnabled(true);
 
     const rightPointLight = new BABYLON.PointLight(
@@ -12429,7 +12472,7 @@ export class RenderSystem implements ISystem {
     rightPointLight.intensity = 1.45;
     rightPointLight.range = 34.0;
     rightPointLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    rightPointLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
     rightPointLight.setEnabled(true);
 
     const lowerBackLight = new BABYLON.SpotLight(
@@ -12443,7 +12486,7 @@ export class RenderSystem implements ISystem {
     lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
     lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); 
-    lowerBackLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const leftUplight = new BABYLON.PointLight(
       "leftShaftUplight",
@@ -12453,7 +12496,7 @@ export class RenderSystem implements ISystem {
     leftUplight.intensity = 1.95;
     leftUplight.range = 32.0;
     leftUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    leftUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const rightUplight = new BABYLON.PointLight(
       "rightShaftUplight",
@@ -12463,7 +12506,7 @@ export class RenderSystem implements ISystem {
     rightUplight.intensity = 1.95;
     rightUplight.range = 32.0;
     rightUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-    rightUplight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); 
+     
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -12489,6 +12532,8 @@ export class RenderSystem implements ISystem {
     pipeline.chromaticAberration.aberrationAmount = 0.0;
     pipeline.chromaticAberration.radialIntensity = 1.2;
     this.pipeline = pipeline;
+
+    this.scene.lights.forEach((light) => { light.specular.set(0, 0, 0); });
 
     const shadowGen = new BABYLON.ShadowGenerator(preset.RENDERER.SHADOW_MAP_SIZE, dirLight);
     shadowGen.usePercentageCloserFiltering = true;
@@ -12686,6 +12731,7 @@ export class EntityInterpolationSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { ARENA_CONFIG, CANONICAL_UNITS, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import {
   WeaverAIComponent,
@@ -12707,22 +12753,22 @@ export class ParallaxScrollSystem implements ISystem {
 
   private cachedScrollables: BABYLON.AbstractMesh[] | null = null;
   private hitStopTimer = 0.0;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         this.hitStopTimer = 0.08;
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         this.hitStopTimer = 0.15;
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.hitStopTimer = 0.0;
         this.currentScrollOffset = 0.0;
@@ -12842,8 +12888,7 @@ export class ParallaxScrollSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     this.cachedScrollables = null;
   }
 }

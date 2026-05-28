@@ -52,6 +52,12 @@ export interface OverlayState {
   reset: () => void;
 }
 
+export interface InputStoreState {
+  keysPressed: Record<string, boolean>;
+  setKeyPressed: (key: string, pressed: boolean) => void;
+  reset: () => void;
+}
+
 const PLAYER_RESET = { playerHp: 5, playerMaxHp: 5, currentState: "AIRBORNE" };
 const WEAVER_RESET = { weaverHp: 100, weaverMaxHp: 100, weaverState: "SWEEPING", weaverHue: "rgb(239, 68, 68)" };
 const OVERLAY_RESET = {
@@ -147,8 +153,17 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   }))
 }));
 
+export const useInputStore = create<InputStoreState>((set) => ({
+  keysPressed: {},
+  setKeyPressed: (key, pressed) => set((state) => ({
+    keysPressed: { ...state.keysPressed, [key]: pressed }
+  })),
+  reset: () => set({ keysPressed: {} })
+}));
+
 export function resetAllStores(): void {
   usePlayerStore.getState().reset();
   useWeaverStore.getState().reset();
   useOverlayStore.getState().reset();
+  useInputStore.getState().reset();
 }

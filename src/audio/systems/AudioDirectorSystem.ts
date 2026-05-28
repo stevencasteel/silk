@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -24,7 +25,7 @@ export class AudioDirectorSystem implements ISystem {
   private initialized: boolean = false;
 
   private broker: EventBroker;
-  private subscriptions: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private gestureTriggerRef: (() => void) | null = null;
 
   private hitComboCount = 0;
@@ -67,7 +68,7 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   public init(): void {
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.updateDronePitch(payload.tension);
@@ -75,7 +76,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
         if (payload.state === "LAUNCHING" && this.initialized) {
           const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
@@ -108,7 +109,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.setLowHPStatus(payload.hp === 1);
@@ -116,7 +117,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.impactSynth) {
@@ -130,14 +131,14 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
         // State-driven Audio Coupling: Reset player's swing-charge combo instantly on ground contact
         this.hitComboCount = 0;
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         if (this.initialized && this.impactSynth) {
           const nowMs = performance.now();
@@ -159,7 +160,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.handleStateChange(payload.state);
@@ -167,7 +168,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.fadeOutAndMute();
@@ -175,7 +176,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.fadeOutAndMute();
@@ -183,7 +184,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         if (this.initialized && this.tensionSynth) {
           this.tensionSynth.resetToBaseline();
@@ -193,7 +194,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
         if (this.initialized && this.tensionSynth && this.toneModule) {
           const rawCtx = this.toneModule.getContext().rawContext as unknown as AudioContext;
@@ -217,7 +218,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.WEAVER;
@@ -243,7 +244,7 @@ export class AudioDirectorSystem implements ISystem {
       })
     );
 
-    this.subscriptions.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         if (this.initialized) {
           const presets = AUDIO_PRESETS.PLAYER;
@@ -377,8 +378,7 @@ export class AudioDirectorSystem implements ISystem {
 
   public dispose(): void {
     this.removeGestureListeners();
-    this.subscriptions.forEach((unsub) => unsub());
-    this.subscriptions = [];
+    this._tracker.clear();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.impactSynth) this.impactSynth.dispose();
     if (this.noiseSynth) this.noiseSynth.dispose();

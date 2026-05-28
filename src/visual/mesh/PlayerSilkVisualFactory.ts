@@ -1,4 +1,5 @@
-import { configurePBRTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
@@ -60,7 +61,7 @@ export function decoratePlayerSilkVisual(
   silkMat.roughness = 0.08;
   silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0); 
 
-  textureGen.generatePBRTextures("silkFiber", scene, {
+  applyProceduralTextures(textureGen, "silkFiber", scene, silkMat, {
     resolution: 512,
     noiseScale: 40.0,
     bumpStrength: 3.2,
@@ -68,8 +69,6 @@ export function decoratePlayerSilkVisual(
     roughnessMin: 0.05,
     roughnessMax: 0.12,
     metallic: 0.92
-  }).then((silkTexs) => {
-    configurePBRTextures(silkMat, silkTexs);
   });
 
   silkMat.sheen.isEnabled = true;
@@ -89,7 +88,7 @@ export function decoratePlayerSilkVisual(
   bandMat.roughness = 0.06;
   bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0); 
 
-  textureGen.generatePBRTextures("silkBand", scene, {
+  applyProceduralTextures(textureGen, "silkBand", scene, bandMat, {
     resolution: 256,
     noiseScale: 30.0,
     bumpStrength: 2.8,
@@ -97,8 +96,6 @@ export function decoratePlayerSilkVisual(
     roughnessMin: 0.04,
     roughnessMax: 0.1,
     metallic: 0.95
-  }).then((bandTexs) => {
-    configurePBRTextures(bandMat, bandTexs);
   });
 
   bandMat.sheen.isEnabled = true;

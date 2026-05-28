@@ -16,6 +16,45 @@ export function dispatchUIFeedback(event: "silk-stats-tick" | "silk-play-confirm
   }
 }
 
+export class SubscriptionTracker {
+  private _unsubs: (() => void)[] = [];
+
+  public add(unsub: () => void): void {
+    this._unsubs.push(unsub);
+  }
+
+  public clear(): void {
+    for (let i = 0; i < this._unsubs.length; i++) {
+      this._unsubs[i]();
+    }
+    this._unsubs.length = 0;
+  }
+}
+
+export interface IProceduralTextureGenerator {
+  generatePBRTextures(name: string, scene: BABYLON.Scene, config: unknown): Promise<{
+    albedo: BABYLON.DynamicTexture;
+    normal: BABYLON.DynamicTexture;
+    orm: BABYLON.DynamicTexture;
+  }>;
+}
+
+export function applyProceduralTextures(
+  textureGen: IProceduralTextureGenerator,
+  name: string,
+  scene: BABYLON.Scene,
+  material: BABYLON.PBRMaterial,
+  config: unknown,
+  customSetup?: (mat: BABYLON.PBRMaterial) => void
+): void {
+  textureGen.generatePBRTextures(name, scene, config).then((textures) => {
+    configurePBRTextures(material, textures);
+    if (customSetup) {
+      customSetup(material);
+    }
+  });
+}
+
 export function solveSpringDamper(
   current: number,
   target: number,

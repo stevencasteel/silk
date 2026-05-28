@@ -1,4 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, WallBugComponent } from "../../core/ecs/Components";
@@ -21,7 +22,7 @@ export class WallBugSystem implements ISystem {
   private readonly spawnInterval = 5.0; 
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   private bugPool: PooledBug[] = [];
   private readonly POOL_SIZE = 4;
@@ -57,7 +58,7 @@ export class WallBugSystem implements ISystem {
 
     this.spawnTimer = 0.0;
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearAllBugs();
         this.spawnTimer = 0.0;
@@ -327,8 +328,7 @@ export class WallBugSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     
     for (let i = 0; i < this.bugPool.length; i++) {
       const pBug = this.bugPool[i];

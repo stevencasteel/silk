@@ -1,4 +1,5 @@
-import { configurePBRTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -127,7 +128,7 @@ export function decorateWeaverVisual(
     true
   );
 
-  textureGen.generatePBRTextures("carapaceShell", scene, {
+  applyProceduralTextures(textureGen, "carapaceShell", scene, carapaceMat, {
     resolution: 512,
     noiseScale: 18.0,
     bumpStrength: 1.65,
@@ -140,8 +141,6 @@ export function decorateWeaverVisual(
     ridgeDirectionX: 0.25,
     ridgeDirectionY: 1.0,
     colorVariation: 0.16
-  }).then((carapaceTexs) => {
-    configurePBRTextures(carapaceMat, carapaceTexs);
   });
 
   const shellMat = createWeaverMaterial(
@@ -153,7 +152,7 @@ export function decorateWeaverVisual(
     true
   );
 
-  textureGen.generatePBRTextures("carapaceUpper", scene, {
+  applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
     noiseScale: 16.0,
     bumpStrength: 1.85,
@@ -166,8 +165,6 @@ export function decorateWeaverVisual(
     ridgeDirectionX: 0.12,
     ridgeDirectionY: 1.0,
     colorVariation: 0.18
-  }).then((shellTexs) => {
-    configurePBRTextures(shellMat, shellTexs);
   });
 
   const legMat = createWeaverMaterial(
@@ -179,7 +176,7 @@ export function decorateWeaverVisual(
     false
   );
 
-  textureGen.generatePBRTextures("legScratches", scene, {
+  applyProceduralTextures(textureGen, "legScratches", scene, legMat, {
     resolution: 256,
     noiseScale: 26.0,
     bumpStrength: 1.55,
@@ -192,8 +189,6 @@ export function decorateWeaverVisual(
     ridgeDirectionX: 0.08,
     ridgeDirectionY: 1.0,
     colorVariation: 0.12
-  }).then((legTexs) => {
-    configurePBRTextures(legMat, legTexs);
   });
 
   const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);

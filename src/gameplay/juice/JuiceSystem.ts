@@ -1,5 +1,6 @@
 import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -25,7 +26,7 @@ export class JuiceSystem implements ISystem {
   private poolSize = 64;
   private nextPoolIndex = 0;
   private parentNode: BABYLON.TransformNode | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private playerState: string = "AIRBORNE";
 
   private readonly _colorScratch = new BABYLON.Color3();
@@ -60,7 +61,7 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES;
     const colors = config.COLORS;
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
@@ -75,7 +76,7 @@ export class JuiceSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
@@ -90,7 +91,7 @@ export class JuiceSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.PLAYER_LANDED,
         (payload: { x: number; y: number }) => {
@@ -100,7 +101,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.PLAYER_WALL_HIT,
         (payload: { x: number; y: number; wallNormalX: number }) => {
@@ -110,7 +111,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.WEAVER_WALL_HIT,
         (payload: { x: number; y: number; wallNormalX: number }) => {
@@ -120,7 +121,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(
         GameEvent.PROJECTILE_IMPACT,
         (payload: { x: number; y: number; isWall: boolean }) => {
@@ -130,7 +131,7 @@ export class JuiceSystem implements ISystem {
       )
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
         if (payload.state === "LAUNCHING" && this.playerState !== "LAUNCHING") {
           const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
@@ -183,7 +184,7 @@ export class JuiceSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.playerState = "AIRBORNE";
       })
@@ -430,8 +431,7 @@ export class JuiceSystem implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     if (this.parentNode) {
       this.parentNode.dispose();
     }

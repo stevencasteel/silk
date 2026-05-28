@@ -1,6 +1,6 @@
 import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { usePlayerStore, useWeaverStore, useOverlayStore } from "./hudStore";
+import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
@@ -69,7 +69,7 @@ export const HudOverlay: React.FC = () => {
   const [hurtShakeActive, setHurtShakeActive] = useState<boolean>(false);
   const prevHpRef = useRef(playerHp);
 
-  const [pressedKeys, setPressedKeys] = useState<Record<string, boolean>>({});
+  const pressedKeys = useInputStore((state) => state.keysPressed);
   const [useWasd, setUseWasd] = useState<boolean>(false);
 
   // Decoupled displayed steps to handle the visual success latency
@@ -79,23 +79,15 @@ export const HudOverlay: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
-      setPressedKeys((prev) => ({ ...prev, [key]: true, [e.code.toLowerCase()]: true }));
-      
       if (["w", "a", "s", "d"].includes(key)) {
         setUseWasd(true);
       } else if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         setUseWasd(false);
       }
     };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      setPressedKeys((prev) => ({ ...prev, [key]: false, [e.code.toLowerCase()]: false }));
-    };
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
 
