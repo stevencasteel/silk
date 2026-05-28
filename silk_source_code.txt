@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 11:32:48 PM
+ [SYSTEM] Generated: 5/28/2026, 11:40:41 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1155,10 +1155,17 @@ import { ProfilePersistenceSystem } from "../core/systems/ProfilePersistenceSyst
 import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
 import { PlayerInputSystem } from "../gameplay/player/PlayerInputSystem";
 import { WeaverBrainSystem } from "../gameplay/weaver/WeaverBrainSystem";
+import { WeaverPatrollingState } from "../gameplay/weaver/states/WeaverPatrollingState";
+import { WeaverStrikingState } from "../gameplay/weaver/states/WeaverStrikingState";
+import { WeaverAscendingState } from "../gameplay/weaver/states/WeaverAscendingState";
+import { WeaverDefeatedState } from "../gameplay/weaver/states/WeaverDefeatedState";
 import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem";
 import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
+import { PlayerAirborneState } from "../gameplay/player/states/PlayerAirborneState";
+import { PlayerWallSlidingState } from "../gameplay/player/states/PlayerWallSlidingState";
+import { PlayerLaunchingState } from "../gameplay/player/states/PlayerLaunchingState";
 import { TetherReelingSystem } from "../gameplay/player/TetherReelingSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
@@ -1276,6 +1283,9 @@ export class CompositionRoot {
     const collisionResolutionSystem = new CollisionResolutionSystem(context);
 
     const playerKinematics = new PlayerKinematicsSystem(context);
+    playerKinematics.registerState(new PlayerAirborneState());
+    playerKinematics.registerState(new PlayerWallSlidingState());
+    playerKinematics.registerState(new PlayerLaunchingState());
     const tetherReeling = new TetherReelingSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
     const environmentCollision = new VerticalBoundarySystem(context);
@@ -1292,6 +1302,10 @@ export class CompositionRoot {
     const spawner = new EntitySpawnerSystem(context);
 
     const weaverBrain = new WeaverBrainSystem(context);
+    weaverBrain.registerState(new WeaverPatrollingState());
+    weaverBrain.registerState(new WeaverStrikingState());
+    weaverBrain.registerState(new WeaverAscendingState());
+    weaverBrain.registerState(new WeaverDefeatedState());
     const weaverActionSystem = new WeaverActionSystem(context);
     const weaverTraversalSystem = new WeaverTraversalSystem(context);
 
@@ -5363,17 +5377,9 @@ export class ProjectileSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
-import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { GameEvent } from "../../core/events/GameEvents";
-import {
-  TransformComponent,
-  TetherComponent,
-  TraversalStateComponent,
-  ParticleEmitterComponent,
-  ParticleRequestComponent
-} from "../../core/ecs/Components";
+import { ParticleRequestComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 import { IParticleEmitContext } from "./ParticleStrategies";
 
@@ -5392,10 +5398,7 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
   private poolSize = 64;
   private nextPoolIndex = 0;
   private parentNode: BABYLON.TransformNode | null = null;
-  private _tracker = new SubscriptionTracker();
-  private playerState: string = "AIRBORNE";
 
-  private readonly _colorScratch = new BABYLON.Color3();
   private readonly _particleOriginScratch = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
@@ -5423,18 +5426,6 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
         active: false
       });
     }
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
-        this.playerState = payload.state;
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-        this.playerState = "AIRBORNE";
-      })
-    );
   }
 
   public emitRawParticle(
@@ -5459,77 +5450,10 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
     this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
   }
 
-  private spawnLaunchTrail(position: BABYLON.Vector3): void {
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
-
-    const tempPos = position.clone();
-    tempPos.x += (Math.random() - 0.5) * trail.OFFSET_X;
-    tempPos.y += (Math.random() - 0.5) * trail.OFFSET_Y;
-
-    const vx = (Math.random() - 0.5) * trail.VELOCITY_X_MAX;
-    const vy = (Math.random() - 0.5) * trail.VELOCITY_Y_MAX;
-    const vz = (Math.random() - 0.5) * trail.VELOCITY_Z_MAX;
-
-    const tempVel = new BABYLON.Vector3(vx, vy, vz);
-    const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
-
-    this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
-    this.emitRawParticle(tempPos, tempVel, life, this._colorScratch);
-  }
-
-  private emitWallSlideSparks(
-    pTrans: TransformComponent,
-    pTether: TetherComponent,
-    pTrav: TraversalStateComponent,
-    dt: number
-  ): void {
-    const wallX = pTrav.wallDir * pTrans.x;
-    this._particleOriginScratch.set(wallX, pTrans.y, 0);
-
-    const tension = Math.max(0, pTether.tension);
-    const baseChance = 0.15;
-    const tensionBonus = tension * 0.85;
-    const totalChance = Math.min(1.0, baseChance + tensionBonus);
-
-    const ticks = Math.max(1, Math.round(dt * 60.0));
-    for (let t = 0; t < ticks; t++) {
-      if (Math.random() < totalChance) {
-        this.spawnSingleSlideSpark(this._particleOriginScratch, pTrav.wallNormalX, tension);
-      }
-    }
-  }
-
-  private spawnSingleSlideSpark(
-    position: BABYLON.Vector3,
-    wallNormalX: number,
-    tension: number
-  ): void {
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const speedMult = 1.0 + tension * 1.5;
-    const vx = wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
-    const vy = (Math.random() - 0.2) * 4.0 * speedMult;
-    const vz = (Math.random() - 0.5) * 1.5;
-
-    const tempVel = new BABYLON.Vector3(vx, vy, vz);
-    const life = 0.15 + Math.random() * 0.25;
-
-    if (tension > 0.8) {
-      this._colorScratch.set(1.0, 0.95, 0.8);
-    } else if (tension > 0.4) {
-      this._colorScratch.set(1.0, 0.65, 0.15);
-    } else {
-      this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
-    }
-
-    this.emitRawParticle(position, tempVel, life, this._colorScratch);
-  }
-
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
 
-    // Dynamic Polymorphic Processing (OCP Compliance)
     const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
     for (const [id, req] of reqStore.entries()) {
       if (req.strategy) {
@@ -5576,39 +5500,9 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
         p.mesh.scaling.set(ratio, ratio, ratio);
       }
     }
-
-    if (this.playerState === "LAUNCHING") {
-      const playerNode = this.context.visualRegistry.getTransformNode(
-        this.context.refs.player
-      ) as BABYLON.Mesh | null;
-      if (playerNode) {
-        this.spawnLaunchTrail(playerNode.position);
-      }
-    }
-
-    const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
-    const transformStore = this.context.stores.get<TransformComponent>("transform");
-    const tetherStore = this.context.stores.get<TetherComponent>("tether");
-    const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
-
-    for (const [id, emitter] of emitterStore.entries()) {
-      if (!emitter.isActive) continue;
-
-      const trans = transformStore.get(id);
-      if (!trans) continue;
-
-      if (emitter.emitterType === "SLIDING_SPARKS") {
-        const tether = tetherStore.get(id);
-        const trav = traversalStore.get(id);
-        if (tether && trav) {
-          this.emitWallSlideSparks(trans, tether, trav, dt);
-        }
-      }
-    }
   }
 
   public dispose(): void {
-    this._tracker.clear();
     if (this.parentNode) {
       this.parentNode.dispose();
     }
@@ -5756,6 +5650,67 @@ export class WebSplatStrategy implements IParticleEmitterStrategy {
       const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
 
       context.emitRawParticle(position, tempVel, life, color);
+    }
+  }
+}
+
+
+export class LaunchTrailStrategy implements IParticleEmitterStrategy {
+  public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+    const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
+
+    const tempPos = position.clone();
+    tempPos.x += (Math.random() - 0.5) * trail.OFFSET_X;
+    tempPos.y += (Math.random() - 0.5) * trail.OFFSET_Y;
+
+    const vx = (Math.random() - 0.5) * trail.VELOCITY_X_MAX;
+    const vy = (Math.random() - 0.5) * trail.VELOCITY_Y_MAX;
+    const vz = (Math.random() - 0.5) * trail.VELOCITY_Z_MAX;
+
+    const tempVel = new BABYLON.Vector3(vx, vy, vz);
+    const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
+
+    const color = new BABYLON.Color3(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    context.emitRawParticle(tempPos, tempVel, life, color);
+  }
+}
+
+export class WallSlideSparksStrategy implements IParticleEmitterStrategy {
+  constructor(
+    private wallNormalX: number,
+    private tension: number,
+    private dt: number
+  ) {}
+
+  public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+    const baseChance = 0.15;
+    const tensionBonus = this.tension * 0.85;
+    const totalChance = Math.min(1.0, baseChance + tensionBonus);
+
+    const ticks = Math.max(1, Math.round(this.dt * 60.0));
+    for (let t = 0; t < ticks; t++) {
+      if (Math.random() < totalChance) {
+        const speedMult = 1.0 + this.tension * 1.5;
+        const vx = this.wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
+        const vy = (Math.random() - 0.2) * 4.0 * speedMult;
+        const vz = (Math.random() - 0.5) * 1.5;
+
+        const tempVel = new BABYLON.Vector3(vx, vy, vz);
+        const life = 0.15 + Math.random() * 0.25;
+
+        let color: BABYLON.Color3;
+        if (this.tension > 0.8) {
+          color = new BABYLON.Color3(1.0, 0.95, 0.8);
+        } else if (this.tension > 0.4) {
+          color = new BABYLON.Color3(1.0, 0.65, 0.15);
+        } else {
+          color = new BABYLON.Color3(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
+        }
+
+        context.emitRawParticle(position, tempVel, life, color);
+      }
     }
   }
 }
@@ -6795,9 +6750,6 @@ import {
 } from "../../core/ecs/Components";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { IPlayerState } from "./IPlayerState";
-import { PlayerAirborneState } from "./states/PlayerAirborneState";
-import { PlayerWallSlidingState } from "./states/PlayerWallSlidingState";
-import { PlayerLaunchingState } from "./states/PlayerLaunchingState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -6809,10 +6761,10 @@ export class PlayerKinematicsSystem implements ISystem {
   private tensionPayload = { tension: 0.0 };
   private lengthPayload = { length: 0.0, maxLength: 0.0 };
 
-  constructor(private context: SystemContext) {
-    this.states.set("AIRBORNE", new PlayerAirborneState());
-    this.states.set("WALL_SLIDING", new PlayerWallSlidingState());
-    this.states.set("LAUNCHING", new PlayerLaunchingState());
+  constructor(private context: SystemContext) {}
+
+  public registerState(state: IPlayerState): void {
+    this.states.set(state.type, state);
   }
 
   public init(): void {
@@ -7725,13 +7677,15 @@ import {
   InputIntentComponent,
   StickySurfaceComponent,
   TransformComponent,
-  PlayerCosmeticComponent
+  PlayerCosmeticComponent,
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
+import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerLaunchingState implements IPlayerState {
   public readonly type: TraversalState = "LAUNCHING";
@@ -7871,6 +7825,17 @@ export class PlayerLaunchingState implements IPlayerState {
 
     target.x = nextX;
     target.y = nextY;
+
+    const reqId = ctx.world.create();
+    const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      reqStore.add(reqId, {
+        strategy: new LaunchTrailStrategy(),
+        x: target.x,
+        y: target.y,
+        z: 0
+      });
+    }
 
     if (trav.launchTimer <= 0) {
       trav.state = "AIRBORNE";
@@ -8050,7 +8015,8 @@ import {
   InputIntentComponent,
   StickySurfaceComponent,
   TransformComponent,
-  PlayerCosmeticComponent
+  PlayerCosmeticComponent,
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
@@ -8058,6 +8024,7 @@ import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig"
 import { PlayerStateUtils } from "./PlayerStateUtils";
 import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
+import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerWallSlidingState implements IPlayerState {
   public readonly type: TraversalState = "WALL_SLIDING";
@@ -8106,6 +8073,17 @@ export class PlayerWallSlidingState implements IPlayerState {
 
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const reelConfig = GAMEPLAY_TUNING.REEL;
+
+    const sparkReqId = ctx.world.create();
+    const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      reqStore.add(sparkReqId, {
+        strategy: new WallSlideSparksStrategy(trav.wallNormalX, tether.tension, dt),
+        x: trav.wallDir * target.x,
+        y: target.y,
+        z: 0
+      });
+    }
 
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
@@ -8273,10 +8251,6 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WeaverPatrollingState } from "./states/WeaverPatrollingState";
-import { WeaverStrikingState } from "./states/WeaverStrikingState";
-import { WeaverAscendingState } from "./states/WeaverAscendingState";
-import { WeaverDefeatedState } from "./states/WeaverDefeatedState";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
@@ -8286,11 +8260,10 @@ export class WeaverBrainSystem implements ISystem {
   private unsubReset: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
-  constructor(private context: SystemContext) {
-    this.states.set("PATROLLING", new WeaverPatrollingState());
-    this.states.set("STRIKING", new WeaverStrikingState());
-    this.states.set("ASCENDING", new WeaverAscendingState());
-    this.states.set("DEFEATED", new WeaverDefeatedState());
+  constructor(private context: SystemContext) {}
+
+  public registerState(state: IWeaverState): void {
+    this.states.set(state.type, state);
   }
 
   public init(): void {
@@ -8326,15 +8299,16 @@ export class WeaverBrainSystem implements ISystem {
       .get(this.context.refs.weaver);
     if (aiComp) {
       const startState = "PATROLLING" as WeaverStateType;
-      const stateObj = this.states.get(startState) || this.states.get("PATROLLING")!;
+      const stateObj = this.states.get(startState);
+      if (stateObj) {
+        aiComp.state = stateObj.type;
+        aiComp.hue = stateObj.hue;
+        aiComp.timeInState = 0;
 
-      aiComp.state = stateObj.type;
-      aiComp.hue = stateObj.hue;
-      aiComp.timeInState = 0;
-
-      this.activeState = stateObj;
-      this.activeState.enter(this.context);
-      this.publishStateChangeEvent(stateObj.name, stateObj.hue);
+        this.activeState = stateObj;
+        this.activeState.enter(this.context);
+        this.publishStateChangeEvent(stateObj.name, stateObj.hue);
+      }
     }
     this.pendingTransition = null;
   }
@@ -14341,12 +14315,15 @@ export class LegJointAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const cosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
+    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    let firstCosmetic: WeaverCosmeticComponent | undefined;
+    for (const [, cosmetic] of weaverCosmetics.entries()) {
+      firstCosmetic = cosmetic;
+      break;
+    }
 
-    if (cosmetic) {
-      const target = this.resolveWeaverGaitTargets(cosmetic);
+    if (firstCosmetic) {
+      const target = this.resolveWeaverGaitTargets(firstCosmetic);
       const blend = 1.0 - Math.exp(-dt * 8.0);
       this.gaitAmp += (target.amp - this.gaitAmp) * blend;
       this.gaitFreq += (target.freq - this.gaitFreq) * blend;
@@ -14430,12 +14407,12 @@ export class LegJointAnimationSystem implements ISystem {
   }
 
   private dressWeaverLegs(): void {
-    const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    const cosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
+    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
 
-    if (wNode && cosmetic) {
+    for (const [id] of weaverCosmetics.entries()) {
+      const wNode = this.context.visualRegistry.getTransformNode(id);
+      if (!wNode) continue;
+
       const mesh = wNode as BABYLON.AbstractMesh;
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
@@ -14806,19 +14783,17 @@ export class ParallaxScrollSystem implements ISystem {
 
 ● ./src/visual/systems/VisualStateDressingSystem.ts
 ────────────────────────────────────────────────────
-import { ColorCache, solveScaleSpring } from "../../core/utils/EngineUtils";
+import { ColorCache } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  TetherComponent,
-  TraversalStateComponent,
-  TransformComponent,
   PlayerCosmeticComponent,
   WeaverCosmeticComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  TransformComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -14847,11 +14822,8 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const transStore = this.context.stores.get<TransformComponent>("transform");
-    const wTrans = transStore.get(this.context.refs.weaver);
-    const cosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
+    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
 
     if (wAI) {
       wAI.damageShearTime += dt;
@@ -14860,20 +14832,28 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    if (wTrans && cosmetic) {
+    for (const [id, cosmetic] of cosmeticStore.entries()) {
+      const wTrans = transformStore.get(id);
+      if (!wTrans) continue;
+
       wTrans.prevScaleX = wTrans.scaleX!;
       wTrans.prevScaleY = wTrans.scaleY!;
       wTrans.prevScaleZ = wTrans.scaleZ!;
 
-      solveScaleSpring(
-        wTrans,
-        cosmetic.targetScaleX,
-        cosmetic.targetScaleY,
-        cosmetic.targetScaleZ,
-        dt,
-        cosmetic.springStiffness,
-        cosmetic.springDamping
-      );
+      const displacementX = wTrans.scaleX! - cosmetic.targetScaleX;
+      const accelerationX = -cosmetic.springStiffness * displacementX - cosmetic.springDamping * (wTrans.scaleVelX ?? 0.0);
+      wTrans.scaleVelX = (wTrans.scaleVelX ?? 0.0) + accelerationX * dt;
+      wTrans.scaleX = wTrans.scaleX! + wTrans.scaleVelX * dt;
+
+      const displacementY = wTrans.scaleY! - cosmetic.targetScaleY;
+      const accelerationY = -cosmetic.springStiffness * displacementY - cosmetic.springDamping * (wTrans.scaleVelY ?? 0.0);
+      wTrans.scaleVelY = (wTrans.scaleVelY ?? 0.0) + accelerationY * dt;
+      wTrans.scaleY = wTrans.scaleY! + wTrans.scaleVelY * dt;
+
+      const displacementZ = wTrans.scaleZ! - cosmetic.targetScaleZ;
+      const accelerationZ = -cosmetic.springStiffness * displacementZ - cosmetic.springDamping * (wTrans.scaleVelZ ?? 0.0);
+      wTrans.scaleVelZ = (wTrans.scaleVelZ ?? 0.0) + accelerationZ * dt;
+      wTrans.scaleZ = wTrans.scaleZ! + wTrans.scaleVelZ * dt;
 
       this._weaverTargetQuat.set(0, 0, 0, 1);
       if (cosmetic.rotationAngle !== 0) {
@@ -14910,25 +14890,18 @@ export class VisualStateDressingSystem implements ISystem {
   }
 
   private updateAestheticDressing(): void {
-    const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const trav = this.context.stores
-      .get<TraversalStateComponent>("traversal")
-      .get(this.context.refs.player);
+    const pCosmetics = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const wCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const pCosmetic = this.context.stores
-      .get<PlayerCosmeticComponent>("playerCosmetic")
-      .get(this.context.refs.player);
-    const wCosmetic = this.context.stores
-      .get<WeaverCosmeticComponent>("weaverCosmetic")
-      .get(this.context.refs.weaver);
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
-    const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-    if (pNode && tether && trav && pCosmetic) {
-      const mesh = pNode as BABYLON.AbstractMesh;
+    for (const [id, pCosmetic] of pCosmetics.entries()) {
+      const pNode = this.context.visualRegistry.getTransformNode(id);
+      if (!pNode) continue;
 
+      const mesh = pNode as BABYLON.AbstractMesh;
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);
@@ -14963,10 +14936,11 @@ export class VisualStateDressingSystem implements ISystem {
       });
     }
 
-    const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-    if (wNode && wAI && wCosmetic) {
-      const mesh = wNode as BABYLON.AbstractMesh;
+    for (const [id, wCosmetic] of wCosmetics.entries()) {
+      const wNode = this.context.visualRegistry.getTransformNode(id);
+      if (!wNode) continue;
 
+      const mesh = wNode as BABYLON.AbstractMesh;
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);
@@ -14998,11 +14972,13 @@ export class VisualStateDressingSystem implements ISystem {
           cachedColor.b * scale
         );
 
-        const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
-          ._shearPlugin;
-        if (shearPlugin) {
-          shearPlugin.shearIntensity = wAI.damageShearIntensity;
-          shearPlugin.shearTime = wAI.damageShearTime;
+        if (wAI) {
+          const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+            ._shearPlugin;
+          if (shearPlugin) {
+            shearPlugin.shearIntensity = wAI.damageShearIntensity;
+            shearPlugin.shearTime = wAI.damageShearTime;
+          }
         }
       });
 
