@@ -87,7 +87,7 @@ export class PlayerKinematicsSystem implements ISystem {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const stingerTipLocal = new BABYLON.Vector3(0, -radius * 2.0, 0);
+    const stingerTipLocal = new BABYLON.Vector3(0, -radius * 1.18, 0);
     const weaverQuat = new BABYLON.Quaternion(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
     const stingerTipWorld = new BABYLON.Vector3();
     stingerTipLocal.rotateByQuaternionToRef(weaverQuat, stingerTipWorld);

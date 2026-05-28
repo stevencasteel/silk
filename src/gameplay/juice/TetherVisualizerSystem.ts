@@ -122,7 +122,7 @@ export class TetherVisualizerSystem implements ISystem {
       const wNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver) as BABYLON.Mesh | null;
       if (wNode) {
         const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const localTip = new BABYLON.Vector3(0, -radius, 0);
+        const localTip = new BABYLON.Vector3(0, -radius * 1.18, 0);
         BABYLON.Vector3.TransformCoordinatesToRef(localTip, wNode.getWorldMatrix(), this.scratchAnchor);
       } else {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
