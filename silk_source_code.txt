@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 7:53:39 PM
+ [SYSTEM] Generated: 5/28/2026, 7:57:46 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3525,7 +3525,16 @@ export class EntitySpawnerSystem implements ISystem {
       prevQx: 0,
       prevQy: 0,
       prevQz: 0,
-      prevQw: 1
+      prevQw: 1,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      scaleZ: 1.0,
+      prevScaleX: 1.0,
+      prevScaleY: 1.0,
+      prevScaleZ: 1.0,
+      scaleVelX: 0.0,
+      scaleVelY: 0.0,
+      scaleVelZ: 0.0
     });
 
     this.context.stores
@@ -3659,7 +3668,16 @@ export class EntitySpawnerSystem implements ISystem {
       prevQx: 0,
       prevQy: 0,
       prevQz: 0,
-      prevQw: 1
+      prevQw: 1,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      scaleZ: 1.0,
+      prevScaleX: 1.0,
+      prevScaleY: 1.0,
+      prevScaleZ: 1.0,
+      scaleVelX: 0.0,
+      scaleVelY: 0.0,
+      scaleVelZ: 0.0
     });
 
     this.context.stores
@@ -5894,29 +5912,9 @@ export class PlayerAnimationSystem implements ISystem {
 
     if (!pTrans || !tether || !trav || !target || !vel) return;
 
-    if (
-      pTrans.scaleX === undefined ||
-      pTrans.scaleY === undefined ||
-      pTrans.scaleZ === undefined ||
-      pTrans.prevScaleX === undefined ||
-      pTrans.prevScaleY === undefined ||
-      pTrans.prevScaleZ === undefined
-    ) {
-      pTrans.scaleX = 1.0;
-      pTrans.scaleY = 1.0;
-      pTrans.scaleZ = 1.0;
-      pTrans.prevScaleX = 1.0;
-      pTrans.prevScaleY = 1.0;
-      pTrans.prevScaleZ = 1.0;
-    }
-
-    if (pTrans.scaleVelX === undefined) pTrans.scaleVelX = 0;
-    if (pTrans.scaleVelY === undefined) pTrans.scaleVelY = 0;
-    if (pTrans.scaleVelZ === undefined) pTrans.scaleVelZ = 0;
-
-    pTrans.prevScaleX = pTrans.scaleX;
-    pTrans.prevScaleY = pTrans.scaleY;
-    pTrans.prevScaleZ = pTrans.scaleZ;
+    pTrans.prevScaleX = pTrans.scaleX!;
+    pTrans.prevScaleY = pTrans.scaleY!;
+    pTrans.prevScaleZ = pTrans.scaleZ!;
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
@@ -5948,25 +5946,25 @@ export class PlayerAnimationSystem implements ISystem {
     const stiffness = 220;
     const damping = 14;
 
-    const dispX = pTrans.scaleX - targetScaleX;
-    const dispY = pTrans.scaleY - targetScaleY;
-    const dispZ = pTrans.scaleZ - targetScaleZ;
+    const dispX = pTrans.scaleX! - targetScaleX;
+    const dispY = pTrans.scaleY! - targetScaleY;
+    const dispZ = pTrans.scaleZ! - targetScaleZ;
 
-    const accelX = -stiffness * dispX - damping * pTrans.scaleVelX;
-    const accelY = -stiffness * dispY - damping * pTrans.scaleVelY;
-    const accelZ = -stiffness * dispZ - damping * pTrans.scaleVelZ;
+    const accelX = -stiffness * dispX - damping * pTrans.scaleVelX!;
+    const accelY = -stiffness * dispY - damping * pTrans.scaleVelY!;
+    const accelZ = -stiffness * dispZ - damping * pTrans.scaleVelZ!;
 
-    pTrans.scaleVelX += accelX * dt;
-    pTrans.scaleVelY += accelY * dt;
-    pTrans.scaleVelZ += accelZ * dt;
+    pTrans.scaleVelX! += accelX * dt;
+    pTrans.scaleVelY! += accelY * dt;
+    pTrans.scaleVelZ! += accelZ * dt;
 
-    pTrans.scaleX += pTrans.scaleVelX * dt;
-    pTrans.scaleY += pTrans.scaleVelY * dt;
-    pTrans.scaleZ += pTrans.scaleVelZ * dt;
+    pTrans.scaleX! += pTrans.scaleVelX! * dt;
+    pTrans.scaleY! += pTrans.scaleVelY! * dt;
+    pTrans.scaleZ! += pTrans.scaleVelZ! * dt;
 
-    pTrans.scaleX = Math.max(0.1, pTrans.scaleX);
-    pTrans.scaleY = Math.max(0.1, pTrans.scaleY);
-    pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ);
+    pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
+    pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
+    pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
 
     let rotDx = 0;
     let rotDy = 1;
@@ -7451,13 +7449,9 @@ export class WeaverTraversalSystem implements ISystem {
             wallNormalX: hitWallNormal
           });
 
-          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
-
-          trans.scaleVelX += -3.5;
-          trans.scaleVelY += 2.5;
-          trans.scaleVelZ += 2.5;
+          trans.scaleVelX! += -3.5;
+          trans.scaleVelY! += 2.5;
+          trans.scaleVelZ! += 2.5;
 
           sState.phase = "HOLD";
           sState.timer = 0.22;
@@ -7483,13 +7477,9 @@ export class WeaverTraversalSystem implements ISystem {
           sState.phase = "LAUNCH";
           vel.x = sState.direction * sweepSpeed * 2.0;
 
-          if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-          if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-          if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
-
-          trans.scaleVelX += 4.5;
-          trans.scaleVelY += -3.5;
-          trans.scaleVelZ += -3.5;
+          trans.scaleVelX! += 4.5;
+          trans.scaleVelY! += -3.5;
+          trans.scaleVelZ! += -3.5;
         }
 
         target.y = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_Y;
@@ -7595,24 +7585,9 @@ export class WeaverTraversalSystem implements ISystem {
     trav.wallNormalX = wallNormalX;
 
     if (trans) {
-      if (
-        trans.scaleX === undefined ||
-        trans.scaleY === undefined ||
-        trans.scaleZ === undefined ||
-        trans.prevScaleX === undefined ||
-        trans.prevScaleY === undefined ||
-        trans.prevScaleZ === undefined
-      ) {
-        trans.scaleX = 1.0;
-        trans.scaleY = 1.0;
-        trans.scaleZ = 1.0;
-        trans.prevScaleX = 1.0;
-        trans.prevScaleY = 1.0;
-        trans.prevScaleZ = 1.0;
-      }
-      trans.prevScaleX = trans.scaleX;
-      trans.prevScaleY = trans.scaleY;
-      trans.prevScaleZ = trans.scaleZ;
+      trans.prevScaleX = trans.scaleX!;
+      trans.prevScaleY = trans.scaleY!;
+      trans.prevScaleZ = trans.scaleZ!;
 
       let targetScaleX = 1.0;
       let targetScaleY = 1.0;
@@ -7682,28 +7657,24 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
 
-      if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
-      if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
-      if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
-
       const stiffness = 120;
       const damping = 22;
 
-      const dispX = (trans.scaleX ?? 1.0) - targetScaleX;
-      const dispY = (trans.scaleY ?? 1.0) - targetScaleY;
-      const dispZ = (trans.scaleZ ?? 1.0) - targetScaleZ;
+      const dispX = trans.scaleX! - targetScaleX;
+      const dispY = trans.scaleY! - targetScaleY;
+      const dispZ = trans.scaleZ! - targetScaleZ;
 
-      const accelX = -stiffness * dispX - damping * trans.scaleVelX;
-      const accelY = -stiffness * dispY - damping * trans.scaleVelY;
-      const accelZ = -stiffness * dispZ - damping * trans.scaleVelZ;
+      const accelX = -stiffness * dispX - damping * trans.scaleVelX!;
+      const accelY = -stiffness * dispY - damping * trans.scaleVelY!;
+      const accelZ = -stiffness * dispZ - damping * trans.scaleVelZ!;
 
-      trans.scaleVelX += accelX * dt;
-      trans.scaleVelY += accelY * dt;
-      trans.scaleVelZ += accelZ * dt;
+      trans.scaleVelX! += accelX * dt;
+      trans.scaleVelY! += accelY * dt;
+      trans.scaleVelZ! += accelZ * dt;
 
-      trans.scaleX = (trans.scaleX ?? 1.0) + trans.scaleVelX * dt;
-      trans.scaleY = (trans.scaleY ?? 1.0) + trans.scaleVelY * dt;
-      trans.scaleZ = (trans.scaleZ ?? 1.0) + trans.scaleVelZ * dt;
+      trans.scaleX! += trans.scaleVelX! * dt;
+      trans.scaleY! += trans.scaleVelY! * dt;
+      trans.scaleZ! += trans.scaleVelZ! * dt;
 
       this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(
@@ -7718,7 +7689,7 @@ export class WeaverTraversalSystem implements ISystem {
       trans.qw = this._currentQuat.w;
 
       if (isPatrolling && sState && sState.phase === "HOLD") {
-        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX - 15.0);
+        target.x = sState.direction * (ARENA_CONFIG.ENTITY.WEAVER_RADIUS * trans.scaleX! - 15.0);
       }
     }
   }
@@ -11086,11 +11057,8 @@ export class LightingSystem implements ISystem {
   }
 
   private setWeaverPhaseHue(colorHex: string): void {
-    const hex = colorHex.replace("#", "");
-    const r = parseInt(hex.substring(0, 2), 16) / 255;
-    const g = parseInt(hex.substring(2, 4), 16) / 255;
-    const b = parseInt(hex.substring(4, 6), 16) / 255;
-    this.targetColor.set(r, g, b);
+    // Standardize using Babylon’s robust built-in Hex string parser
+    this.targetColor.copyFrom(BABYLON.Color3.FromHexString(colorHex));
   }
 
   public dispose(): void {
@@ -13099,11 +13067,8 @@ export class VisualStateDressingSystem implements ISystem {
 
       let cachedColor = this.colorCache.get(wAI.hue);
       if (!cachedColor) {
-        const hex = wAI.hue.replace(String.fromCharCode(35), "");
-        const r = parseInt(hex.substring(0, 2), 16) / 255;
-        const g = parseInt(hex.substring(2, 4), 16) / 255;
-        const b = parseInt(hex.substring(4, 6), 16) / 255;
-        cachedColor = new BABYLON.Color3(r, g, b);
+        // Standardize using Babylon’s robust built-in Hex string parser
+        cachedColor = BABYLON.Color3.FromHexString(wAI.hue);
         this.colorCache.set(wAI.hue, cachedColor);
       }
 
