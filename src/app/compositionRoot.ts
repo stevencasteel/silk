@@ -22,6 +22,7 @@ import {
   WeaverTraversalComponent,
   WallBugComponent,
   StickySurfaceComponent,
+  ProjectileComponent,
   WeaverSweepComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
@@ -74,6 +75,7 @@ export class CompositionRoot {
     const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
     const wallBugs = new ComponentStore<WallBugComponent>();
     const stickySurfaces = new ComponentStore<StickySurfaceComponent>();
+    const projectiles = new ComponentStore<ProjectileComponent>();
     const weaverSweep = new ComponentStore<WeaverSweepComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
@@ -99,6 +101,7 @@ export class CompositionRoot {
     registerStore("weaverTraversal", weaverTraversal);
     registerStore("wallBug", wallBugs);
     registerStore("stickySurface", stickySurfaces);
+    registerStore("projectile", projectiles);
     registerStore("weaverSweep", weaverSweep);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);

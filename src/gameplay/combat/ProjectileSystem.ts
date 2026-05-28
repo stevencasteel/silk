@@ -3,28 +3,25 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
+import { EntityId } from "../../core/ecs/Entity";
 import {
   HealthComponent,
   InvulnerabilityComponent,
   WeaverAIComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  TransformComponent,
+  KinematicVelocityComponent,
+  ProjectileComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
-interface ActiveProjectile {
-  mesh: BABYLON.Mesh;
-  body: BABYLON.PhysicsBody | null;
-  isStuck: boolean;
-  isStuckOnWall: boolean;
-  lifeTime: number;
-  fallbackVelocity: BABYLON.Vector3;
-}
-
 export class ProjectileSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
-  private projectilePool: ActiveProjectile[] = [];
+  private projectileEntities: EntityId[] = [];
+  private bodiesMap = new Map<EntityId, BABYLON.PhysicsBody | null>();
+
   private readonly POOL_SIZE = WEAVER_AI_TUNING.SHOOT.POOL_SIZE;
   private nextPoolIndex = 0;
   private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
@@ -34,8 +31,6 @@ export class ProjectileSystem implements ISystem {
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
-
-  private readonly _velocityTickScratch = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
 
@@ -61,6 +56,9 @@ export class ProjectileSystem implements ISystem {
     }
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
+      const projId = this.context.world.create();
+      this.projectileEntities.push(projId);
+
       const sphere = BABYLON.MeshBuilder.CreateSphere(
         `projectile_pooled_${i}`,
         { diameter: WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER },
@@ -69,6 +67,7 @@ export class ProjectileSystem implements ISystem {
       sphere.position.set(0, -999, 0);
       sphere.material = this.projMatActive;
       sphere.isVisible = false;
+      sphere.setEnabled(false);
 
       let body: BABYLON.PhysicsBody | null = null;
       if (scene.isPhysicsEnabled() && this.sharedShape) {
@@ -78,14 +77,40 @@ export class ProjectileSystem implements ISystem {
         body.disablePreStep = false;
       }
 
-      this.projectilePool.push({
-        mesh: sphere,
-        body: body,
+      this.context.stores.get<TransformComponent>("transform").add(projId, {
+        x: 0,
+        y: -999,
+        z: 0,
+        qx: 0,
+        qy: 0,
+        qz: 0,
+        qw: 1,
+        prevX: 0,
+        prevY: -999,
+        prevZ: 0,
+        prevQx: 0,
+        prevQy: 0,
+        prevQz: 0,
+        prevQw: 1
+      });
+
+      this.context.stores.get<KinematicVelocityComponent>("velocity").add(projId, {
+        x: 0,
+        y: 0,
+        z: 0
+      });
+
+      this.context.stores.get<ProjectileComponent>("projectile").add(projId, {
+        isActive: false,
         isStuck: false,
         isStuckOnWall: false,
         lifeTime: 0.0,
-        fallbackVelocity: new BABYLON.Vector3(0, 0, 0)
+        fallbackX: 0.0,
+        fallbackY: 0.0
       });
+
+      this.context.visualRegistry.registerTransformNode(projId, sphere);
+      this.bodiesMap.set(projId, body);
     }
 
     this.unsubShoot = this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
@@ -109,44 +134,84 @@ export class ProjectileSystem implements ISystem {
   }
 
   private spawnProjectile(x: number, y: number, tx: number, ty: number): void {
-    let proj: ActiveProjectile | null = null;
+    let projId = -1;
+    const projStore = this.context.stores.get<ProjectileComponent>("projectile");
+
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const idx = (this.nextPoolIndex + i) % this.POOL_SIZE;
-      const p = this.projectilePool[idx];
-      if (!p.mesh.isVisible) {
-        proj = p;
+      const pid = this.projectileEntities[idx];
+      const pComp = projStore.get(pid);
+      if (pComp && !pComp.isActive) {
+        projId = pid;
         this.nextPoolIndex = (idx + 1) % this.POOL_SIZE;
         break;
       }
     }
-    if (!proj) {
-      proj = this.projectilePool[this.nextPoolIndex];
-      this.recycleProjectile(proj);
+
+    if (projId === -1) {
+      projId = this.projectileEntities[this.nextPoolIndex];
+      const pComp = projStore.get(projId);
+      if (pComp) {
+        this.recycleProjectile(projId, pComp);
+      }
       this.nextPoolIndex = (this.nextPoolIndex + 1) % this.POOL_SIZE;
     }
 
-    proj.isStuck = false;
-    proj.isStuckOnWall = false;
-    proj.lifeTime = 0.0;
-    proj.mesh.isVisible = true;
-    proj.mesh.position.set(x, y, 0);
-    proj.mesh.material = this.projMatActive;
+    const pComp = projStore.get(projId);
+    const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
+    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+    const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
+
+    if (!pComp || !trans || !vel || !mesh) return;
+
+    pComp.isActive = true;
+    pComp.isStuck = false;
+    pComp.isStuckOnWall = false;
+    pComp.lifeTime = 0.0;
+
+    trans.x = x;
+    trans.y = y;
+    trans.z = 0;
+    trans.prevX = x;
+    trans.prevY = y;
+    trans.prevZ = 0;
+
+    mesh.position.set(x, y, 0);
+    mesh.scaling.set(0.7, 1.5, 0.7);
+    mesh.material = this.projMatActive;
+    mesh.isVisible = true;
+    mesh.setEnabled(true);
 
     const dx = tx - x;
     const dy = ty - y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
-    proj.fallbackVelocity.set((dx / dist) * speed, (dy / dist) * speed, 0);
 
-    const angle = Math.atan2(proj.fallbackVelocity.y, proj.fallbackVelocity.x) - Math.PI / 2;
-    if (!proj.mesh.rotationQuaternion) {
-      proj.mesh.rotationQuaternion = new BABYLON.Quaternion();
+    vel.x = (dx / dist) * speed;
+    vel.y = (dy / dist) * speed;
+
+    pComp.fallbackX = vel.x;
+    pComp.fallbackY = vel.y;
+
+    const angle = Math.atan2(vel.y, vel.x) - Math.PI / 2;
+    if (!mesh.rotationQuaternion) {
+      mesh.rotationQuaternion = new BABYLON.Quaternion();
     }
-    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, proj.mesh.rotationQuaternion);
-    proj.mesh.scaling.set(0.7, 1.5, 0.7);
+    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, mesh.rotationQuaternion);
 
-    if (proj.body) {
-      proj.body.setTargetTransform(proj.mesh.position, proj.mesh.rotationQuaternion);
+    trans.qx = mesh.rotationQuaternion.x;
+    trans.qy = mesh.rotationQuaternion.y;
+    trans.qz = mesh.rotationQuaternion.z;
+    trans.qw = mesh.rotationQuaternion.w;
+
+    trans.prevQx = trans.qx;
+    trans.prevQy = trans.qy;
+    trans.prevQz = trans.qz;
+    trans.prevQw = trans.qw;
+
+    const body = this.bodiesMap.get(projId);
+    if (body) {
+      body.setTargetTransform(mesh.position, mesh.rotationQuaternion);
     }
   }
 
@@ -154,6 +219,9 @@ export class ProjectileSystem implements ISystem {
     const healthStore = this.context.stores.get<HealthComponent>("health");
     const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
     const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
+    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    const projStore = this.context.stores.get<ProjectileComponent>("projectile");
 
     const pHealth = healthStore.get(this.context.refs.player);
     const wHealth = healthStore.get(this.context.refs.weaver);
@@ -183,54 +251,68 @@ export class ProjectileSystem implements ISystem {
     const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
-      const p = this.projectilePool[i];
-      if (!p.mesh.isVisible) continue;
+      const projId = this.projectileEntities[i];
+      const p = projStore.get(projId);
+      if (!p || !p.isActive) continue;
 
       p.lifeTime += dt;
 
-      if (!p.isStuck) {
-        p.fallbackVelocity.scaleToRef(dt, this._velocityTickScratch);
-        p.mesh.position.addInPlace(this._velocityTickScratch);
+      const trans = transformStore.get(projId);
+      const vel = velStore.get(projId);
+      const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
+      if (!trans || !vel || !mesh) continue;
 
-        if (p.body) {
-          p.body.setTargetTransform(
-            p.mesh.position,
-            p.mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+      if (!p.isStuck) {
+        trans.x += vel.x * dt;
+        trans.y += vel.y * dt;
+        mesh.position.set(trans.x, trans.y, 0);
+
+        const body = this.bodiesMap.get(projId);
+        if (body) {
+          body.setTargetTransform(
+            mesh.position,
+            mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
           );
         }
 
-        if (Math.abs(p.mesh.position.x) >= wallLimit) {
+        if (Math.abs(trans.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
-          p.mesh.scaling.set(0.24, 1.45, 1.45);
-          p.mesh.position.x = Math.sign(p.mesh.position.x) * (wallLimit - 0.05);
-          p.mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-          p.mesh.material = this.projMatStuck;
+          mesh.scaling.set(0.24, 1.45, 1.45);
+          trans.x = Math.sign(trans.x) * (wallLimit - 0.05);
+          mesh.position.x = trans.x;
+          mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+          mesh.material = this.projMatStuck;
 
-          if (p.body) {
-            p.body.setTargetTransform(p.mesh.position, p.mesh.rotationQuaternion);
+          trans.qx = 0;
+          trans.qy = 0;
+          trans.qz = 0;
+          trans.qw = 1;
+
+          if (body) {
+            body.setTargetTransform(mesh.position, mesh.rotationQuaternion);
           }
 
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-            x: p.mesh.position.x,
-            y: p.mesh.position.y,
+            x: trans.x,
+            y: trans.y,
             isWall: true
           });
         }
 
         if (!p.isStuck && pMesh) {
-          if (p.mesh.intersectsMesh(pMesh, false)) {
+          if (mesh.intersectsMesh(pMesh, false)) {
             const isLaunching = pTrav && pTrav.state === "LAUNCHING";
             const hasIframe = pIframe.timeRemaining > 0;
 
             if (isLaunching) {
-              const dx = p.mesh.position.x - pMesh.position.x;
-              const dy = p.mesh.position.y - pMesh.position.y;
+              const dx = trans.x - pMesh.position.x;
+              const dy = trans.y - pMesh.position.y;
               const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
               this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-                x: p.mesh.position.x,
-                y: p.mesh.position.y,
+                x: trans.x,
+                y: trans.y,
                 isWall: false
               });
               this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
@@ -239,7 +321,7 @@ export class ProjectileSystem implements ISystem {
                 dirX: dx / dist,
                 dirY: dy / dist
               });
-              this.recycleProjectile(p);
+              this.recycleProjectile(projId, p);
               continue;
             } else if (!hasIframe) {
               this.context.commands.dispatch({
@@ -250,15 +332,15 @@ export class ProjectileSystem implements ISystem {
               });
 
               this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-                x: p.mesh.position.x,
-                y: p.mesh.position.y,
+                x: trans.x,
+                y: trans.y,
                 isWall: false
               });
               this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                 amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
                 duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
               });
-              this.recycleProjectile(p);
+              this.recycleProjectile(projId, p);
               continue;
             }
           }
@@ -266,45 +348,78 @@ export class ProjectileSystem implements ISystem {
       }
 
       if (p.isStuckOnWall) {
-        p.mesh.position.y -= currentScrollSpeed * dt;
-        if (p.body) {
-          p.body.setTargetTransform(
-            p.mesh.position,
-            p.mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+        trans.y -= currentScrollSpeed * dt;
+        mesh.position.y = trans.y;
+        const body = this.bodiesMap.get(projId);
+        if (body) {
+          body.setTargetTransform(
+            mesh.position,
+            mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
           );
         }
       }
 
       if (
-        p.mesh.position.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y ||
-        p.mesh.position.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y ||
+        trans.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y ||
+        trans.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y ||
         p.lifeTime > WEAVER_AI_TUNING.SHOOT.MAX_LIFE
       ) {
-        this.recycleProjectile(p);
+        this.recycleProjectile(projId, p);
       }
     }
   }
 
-  private recycleProjectile(p: ActiveProjectile): void {
+  private recycleProjectile(projId: EntityId, p: ProjectileComponent): void {
     if (!p) return;
-    p.mesh.isVisible = false;
-    p.mesh.position.set(0, -999, 0);
-    p.mesh.scaling.set(1.0, 1.0, 1.0);
-    p.mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-    p.fallbackVelocity.set(0, 0, 0);
+    p.isActive = false;
     p.isStuck = false;
     p.isStuckOnWall = false;
     p.lifeTime = 0.0;
-    p.mesh.material = this.projMatActive;
-    if (p.body) {
-      p.body.setTargetTransform(p.mesh.position, p.mesh.rotationQuaternion);
+    p.fallbackX = 0.0;
+    p.fallbackY = 0.0;
+
+    const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
+    const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+    const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
+
+    if (trans) {
+      trans.x = 0;
+      trans.y = -999;
+      trans.z = 0;
+      trans.prevX = 0;
+      trans.prevY = -999;
+      trans.prevZ = 0;
+    }
+
+    if (vel) {
+      vel.x = 0;
+      vel.y = 0;
+    }
+
+    if (mesh) {
+      mesh.isVisible = false;
+      mesh.setEnabled(false);
+      mesh.position.set(0, -999, 0);
+      mesh.scaling.set(1.0, 1.0, 1.0);
+      mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+      mesh.material = this.projMatActive;
+    }
+
+    const body = this.bodiesMap.get(projId);
+    if (body) {
+      body.setTargetTransform(
+        mesh ? mesh.position : BABYLON.Vector3.Zero(),
+        mesh ? (mesh.rotationQuaternion || BABYLON.Quaternion.Identity()) : BABYLON.Quaternion.Identity()
+      );
     }
   }
 
   private clearAll(): void {
-    if (!this.projectilePool || this.projectilePool.length === 0) return;
+    const projStore = this.context.stores.get<ProjectileComponent>("projectile");
     for (let i = 0; i < this.POOL_SIZE; i++) {
-      if (this.projectilePool[i]) this.recycleProjectile(this.projectilePool[i]);
+      const projId = this.projectileEntities[i];
+      const p = projStore.get(projId);
+      if (p) this.recycleProjectile(projId, p);
     }
   }
 
@@ -313,13 +428,17 @@ export class ProjectileSystem implements ISystem {
     if (this.unsubReset) this.unsubReset();
     this.clearAll();
     if (this.sharedShape) this.sharedShape.dispose();
-    this.projectilePool.forEach((p) => {
-      if (p) {
-        if (p.body) p.body.dispose();
-        p.mesh.dispose();
-      }
+
+    this.bodiesMap.forEach((body) => {
+      if (body) body.dispose();
     });
-    this.projectilePool = [];
+    this.bodiesMap.clear();
+
+    this.projectileEntities.forEach((id) => {
+      this.context.world.destroy(id);
+    });
+    this.projectileEntities = [];
+
     if (this.projMatActive) this.projMatActive.dispose();
     if (this.projMatStuck) this.projMatStuck.dispose();
   }

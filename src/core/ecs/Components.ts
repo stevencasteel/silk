@@ -120,6 +120,15 @@ export interface StickySurfaceComponent {
   speed: number;
 }
 
+export interface ProjectileComponent {
+  isActive: boolean;
+  isStuck: boolean;
+  isStuckOnWall: boolean;
+  lifeTime: number;
+  fallbackX: number;
+  fallbackY: number;
+}
+
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
 
 export interface WeaverSweepComponent {
