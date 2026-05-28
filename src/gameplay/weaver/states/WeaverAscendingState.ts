@@ -1,5 +1,9 @@
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
-import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import {
+  ARENA_CONFIG,
+  WEAVER_AI_TUNING,
+  VISUAL_JUICE_CONFIG
+} from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { TransformComponent, WeaverAIComponent } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";

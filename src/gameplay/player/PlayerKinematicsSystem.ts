@@ -18,11 +18,7 @@ import { PlayerAirborneState } from "./states/PlayerAirborneState";
 import { PlayerWallSlidingState } from "./states/PlayerWallSlidingState";
 import { PlayerLaunchingState } from "./states/PlayerLaunchingState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
-import {
-  ARENA_CONFIG,
-  CANONICAL_UNITS,
-  GAMEPLAY_TUNING
-} from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;

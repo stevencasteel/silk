@@ -59,10 +59,7 @@ export class ProfilePersistenceSystem implements ISystem {
 
   private saveStats(): void {
     try {
-      localStorage.setItem(
-        "silk_stats",
-        JSON.stringify({ wins: this.wins, losses: this.losses })
-      );
+      localStorage.setItem("silk_stats", JSON.stringify({ wins: this.wins, losses: this.losses }));
     } catch (e) {
       console.warn("ProfilePersistenceSystem: Failed to save stats", e);
     }

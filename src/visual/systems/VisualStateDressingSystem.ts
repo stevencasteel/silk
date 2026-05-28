@@ -93,7 +93,12 @@ export class VisualStateDressingSystem implements ISystem {
           const MathAngle =
             Math.sin(wAI.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
             WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-          BABYLON.Quaternion.RotationYawPitchRollToRef(MathAngle, 0, rollAngle, this._weaverTargetQuat);
+          BABYLON.Quaternion.RotationYawPitchRollToRef(
+            MathAngle,
+            0,
+            rollAngle,
+            this._weaverTargetQuat
+          );
         } else if (wAI.state === "STRIKING") {
           const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
           if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {

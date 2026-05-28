@@ -2,7 +2,11 @@ import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, WallBugComponent, StickySurfaceComponent } from "../../core/ecs/Components";
+import {
+  TransformComponent,
+  WallBugComponent,
+  StickySurfaceComponent
+} from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";

@@ -78,7 +78,8 @@ export class PlayerLaunchingState implements IPlayerState {
               trav.wallNormalX = -bugWallDir;
               trav.wallNormalY = 0;
               trav.stickyEntityId = bugId;
-              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+              trav.stickyWallX =
+                bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
               trav.stickyWallYOffset = nextY - bugTrans.y;
 
               target.x = trav.stickyWallX;

@@ -184,7 +184,9 @@ export class CollisionResolutionSystem implements ISystem {
               z: 0
             });
 
-            const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(hb.ownerId);
+            const trav = this.context.stores
+              .get<TraversalStateComponent>("traversal")
+              .get(hb.ownerId);
             if (trav) {
               trav.state = "AIRBORNE";
               trav.launchPower = 0;

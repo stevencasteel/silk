@@ -304,7 +304,9 @@ export class ProjectileSystem implements ISystem {
     if (body) {
       body.setTargetTransform(
         mesh ? mesh.position : BABYLON.Vector3.Zero(),
-        mesh ? (mesh.rotationQuaternion || BABYLON.Quaternion.Identity()) : BABYLON.Quaternion.Identity()
+        mesh
+          ? mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          : BABYLON.Quaternion.Identity()
       );
     }
   }

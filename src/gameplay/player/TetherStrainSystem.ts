@@ -2,16 +2,12 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import {
-  TetherComponent,
-  HealthComponent,
-  TetherStrainComponent
-} from "../../core/ecs/Components";
+import { TetherComponent, HealthComponent, TetherStrainComponent } from "../../core/ecs/Components";
 import { CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class TetherStrainSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
-  
+
   private readonly OVERLOAD_THRESHOLD = CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT;
   private readonly SNAP_LIMIT = CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT;
 

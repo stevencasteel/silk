@@ -47,7 +47,8 @@ export class CombatSystem implements ISystem {
     const tuning = GAMEPLAY_TUNING.COMBAT;
 
     if (pHb && pTrav) {
-      pHb.isActive = pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD;
+      pHb.isActive =
+        pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD;
     }
     if (wHb && wAI) {
       wHb.isActive = wAI.state === "STRIKING";
