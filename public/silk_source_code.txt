@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/27/2026, 7:00:27 PM
+ [SYSTEM] Generated: 5/27/2026, 7:02:47 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -10308,6 +10308,23 @@ export class ArenaGeometry {
     rightGroove.material = verticalGrooveMaterial;
     rightGroove.receiveShadows = false;
 
+    // Allocate single unit-sized template meshes to create instances
+    const panelBase = BABYLON.MeshBuilder.CreateBox(
+      "panelBase",
+      { width: 1.0, height: 1.0, depth: 1.0 },
+      this.scene
+    );
+    panelBase.material = panelMaterial;
+    panelBase.isVisible = false;
+
+    const ribBase = BABYLON.MeshBuilder.CreateBox(
+      "ribBase",
+      { width: 0.25, height: 1.0, depth: 1.0 },
+      this.scene
+    );
+    ribBase.material = verticalGrooveMaterial;
+    ribBase.isVisible = false;
+
     const panelCount = 20;
     const panelSpacing = wallHeight / panelCount;
     for (let i = 0; i < panelCount; i++) {
@@ -10322,23 +10339,15 @@ export class ArenaGeometry {
       const depthScale = 0.7 + Math.abs(Math.sin(i * 3.3)) * 0.45;
       const panelDepth = 3.6 * depthScale;
 
-      const lp = BABYLON.MeshBuilder.CreateBox(
-        `leftPanel_${i}`,
-        { width: panelWidth, height: panelHeight, depth: panelDepth },
-        this.scene
-      );
+      const lp = panelBase.createInstance(`leftPanel_${i}`);
       lp.position.set(-wallX + wallThickness / 2 - 0.02, panelY, 0);
-      lp.material = panelMaterial;
+      lp.scaling.set(panelWidth, panelHeight, panelDepth);
       lp.receiveShadows = true;
       lp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
 
-      const rp = BABYLON.MeshBuilder.CreateBox(
-        `rightPanel_${i}`,
-        { width: panelWidth, height: panelHeight, depth: panelDepth },
-        this.scene
-      );
+      const rp = panelBase.createInstance(`rightPanel_${i}`);
       rp.position.set(wallX - wallThickness / 2 + 0.02, panelY, 0);
-      rp.material = panelMaterial;
+      rp.scaling.set(panelWidth, panelHeight, panelDepth);
       rp.receiveShadows = true;
       rp.metadata = { type: "scrolling_panel", index: i, initialY: panelY };
     }
@@ -10351,23 +10360,15 @@ export class ArenaGeometry {
       const ribHeight = 0.18 + Math.abs(Math.sin(i * 1.9)) * 0.22;
       const ribDepth = 4.15;
 
-      const leftRib = BABYLON.MeshBuilder.CreateBox(
-        `leftRib_${i}`,
-        { width: 0.25, height: ribHeight, depth: ribDepth },
-        this.scene
-      );
+      const leftRib = ribBase.createInstance(`leftRib_${i}`);
       leftRib.position.set(-wallX + wallThickness / 2, ribY, 0);
-      leftRib.material = verticalGrooveMaterial;
+      leftRib.scaling.set(1.0, ribHeight, ribDepth);
       leftRib.receiveShadows = true;
       leftRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
 
-      const rightRib = BABYLON.MeshBuilder.CreateBox(
-        `rightRib_${i}`,
-        { width: 0.25, height: ribHeight, depth: ribDepth },
-        this.scene
-      );
+      const rightRib = ribBase.createInstance(`rightRib_${i}`);
       rightRib.position.set(wallX - wallThickness / 2, ribY, 0);
-      rightRib.material = verticalGrooveMaterial;
+      rightRib.scaling.set(1.0, ribHeight, ribDepth);
       rightRib.receiveShadows = true;
       rightRib.metadata = { type: "scrolling_rib", index: i, initialY: ribY };
     }
@@ -10379,6 +10380,14 @@ export class ArenaGeometry {
     tickMat.emissiveColor = new BABYLON.Color3(0.45, 0.65, 0.85);
     tickMat.emissiveIntensity = 1.1;
 
+    const tickBase = BABYLON.MeshBuilder.CreateBox(
+      "tickBase",
+      { width: 0.2, height: 0.08, depth: 2.1 },
+      this.scene
+    );
+    tickBase.material = tickMat;
+    tickBase.isVisible = false;
+
     const tickCount = 70;
     const tickSpacing = 2.0;
     const initialYOffset = -56.0;
@@ -10387,22 +10396,12 @@ export class ArenaGeometry {
     for (let i = 0; i < tickCount; i++) {
       const initialY = i * tickSpacing + initialYOffset;
 
-      const leftTick = BABYLON.MeshBuilder.CreateBox(
-        `leftTick_${i}`,
-        { width: 0.2, height: 0.08, depth: 2.1 },
-        this.scene
-      );
+      const leftTick = tickBase.createInstance(`leftTick_${i}`);
       leftTick.position.set(-tickX, initialY, 0);
-      leftTick.material = tickMat;
       leftTick.metadata = { type: "scrolling_tick", index: i, initialY: initialY };
 
-      const rightTick = BABYLON.MeshBuilder.CreateBox(
-        `rightTick_${i}`,
-        { width: 0.2, height: 0.08, depth: 2.1 },
-        this.scene
-      );
+      const rightTick = tickBase.createInstance(`rightTick_${i}`);
       rightTick.position.set(tickX, initialY, 0);
-      rightTick.material = tickMat;
       rightTick.metadata = { type: "scrolling_tick", index: i, initialY: initialY };
     }
   }
