@@ -1,7 +1,12 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { HealthComponent, InvulnerabilityComponent } from "../../core/ecs/Components";
+import {
+  HealthComponent,
+  InvulnerabilityComponent,
+  TransformComponent,
+  ParticleRequestComponent
+} from "../../core/ecs/Components";
 import { DamageRequestCommand } from "./CombatCommands";
 import { GameEvent } from "../../core/events/GameEvents";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
@@ -23,6 +28,23 @@ export class HealthSystem implements ISystem {
     if (!health || health.current <= 0) return;
 
     const isPlayer = cmd.targetId === this.context.refs.player;
+
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const targetTrans = transforms.get(cmd.targetId);
+
+    // Spawn purely decoupled visual request in ECS
+    if (targetTrans) {
+      const reqId = this.context.world.create();
+      const requestStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+      if (requestStore) {
+        requestStore.add(reqId, {
+          type: isPlayer ? "PLAYER_SPARK" : "WEAVER_SPARK",
+          x: targetTrans.x,
+          y: targetTrans.y,
+          z: targetTrans.z
+        });
+      }
+    }
 
     if (isPlayer) {
       const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");

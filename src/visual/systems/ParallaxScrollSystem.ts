@@ -11,6 +11,7 @@ import {
   HealthComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
+import { ArenaProfileService } from "../../core/engine/ArenaProfileService";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
@@ -48,6 +49,7 @@ export class ParallaxScrollSystem implements ISystem {
         this.prevScrollOffset = 0.0;
         this.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
         ParallaxScrollSystem.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
+        ArenaProfileService.setAltitude(0);
       })
     );
   }
@@ -79,6 +81,11 @@ export class ParallaxScrollSystem implements ISystem {
 
     this.prevScrollOffset = this.currentScrollOffset;
     this.currentScrollOffset += this.scrollSpeed * dt;
+
+    // Track traveled altitude scaling within our global profile service
+    if (this.scrollSpeed > 0) {
+      ArenaProfileService.setAltitude(ArenaProfileService.getAltitude() + this.scrollSpeed * dt);
+    }
   }
 
   public static getDesiredScrollSpeed(
@@ -90,9 +97,11 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
+    const profile = ArenaProfileService.getActiveProfile();
+
     if (wAI.state === "PATROLLING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
-      return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
+      return isBerserk ? profile.scrollSpeed * 1.5 : profile.scrollSpeed;
     }
 
     if (wAI.state === "STRIKING") {
@@ -108,7 +117,7 @@ export class ParallaxScrollSystem implements ISystem {
 
     if (wAI.state === "ASCENDING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
-      return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
+      return isBerserk ? profile.scrollSpeed * 1.5 : profile.scrollSpeed;
     }
 
     return 0.0;

@@ -188,3 +188,12 @@ export interface HurtboxComponent {
   radius: number;
   layer: "PLAYER" | "WEAVER";
 }
+
+export interface ParticleRequestComponent {
+  type: "PLAYER_SPARK" | "WEAVER_SPARK" | "LANDING_DUST" | "WALL_SPARK" | "PROJECTILE_SPLAT";
+  x: number;
+  y: number;
+  z: number;
+  count?: number;
+  wallNormalX?: number;
+}

@@ -15,8 +15,12 @@ export class TetherReelingSystem implements ISystem {
 
   public update(dt: number): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
 
     if (!tether || !input || !trav) return;
 

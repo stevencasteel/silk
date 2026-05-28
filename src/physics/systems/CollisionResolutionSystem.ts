@@ -11,7 +11,8 @@ import {
   InvulnerabilityComponent,
   TraversalStateComponent,
   HealthComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -152,6 +153,18 @@ export class CollisionResolutionSystem implements ISystem {
           const dy = trans.y - pMesh.position.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
+          // Dispatch ECS request component instead of direct subscription triggers
+          const reqId = this.context.world.create();
+          const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            reqStore.add(reqId, {
+              type: "PROJECTILE_SPLAT",
+              x: trans.x,
+              y: trans.y,
+              z: trans.z
+            });
+          }
+
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: trans.x,
             y: trans.y,
@@ -172,6 +185,18 @@ export class CollisionResolutionSystem implements ISystem {
             amount: 1,
             source: "PROJECTILE"
           });
+
+          // Dispatch ECS request component instead of direct subscription triggers
+          const reqId = this.context.world.create();
+          const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            reqStore.add(reqId, {
+              type: "PROJECTILE_SPLAT",
+              x: trans.x,
+              y: trans.y,
+              z: trans.z
+            });
+          }
 
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: trans.x,

@@ -1,9 +1,4 @@
-import {
-  VISUAL_JUICE_CONFIG,
-  CANONICAL_UNITS,
-  ARENA_CONFIG,
-  GAMEPLAY_TUNING
-} from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -13,7 +8,8 @@ import {
   TransformComponent,
   TetherComponent,
   TraversalStateComponent,
-  ParticleEmitterComponent
+  ParticleEmitterComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -64,135 +60,8 @@ export class JuiceSystem implements ISystem {
       });
     }
 
-    const config = VISUAL_JUICE_CONFIG.PARTICLES;
-    const colors = config.COLORS;
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-        if (playerNode) {
-          this._colorScratch.set(
-            colors.PLAYER_SPARK.r,
-            colors.PLAYER_SPARK.g,
-            colors.PLAYER_SPARK.b
-          );
-          this.spawnBurst(
-            playerNode.position,
-            this._colorScratch,
-            config.BURST.PLAYER.COUNT,
-            config.BURST.PLAYER
-          );
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-        if (weaverNode) {
-          this._colorScratch.set(
-            colors.WEAVER_SPARK.r,
-            colors.WEAVER_SPARK.g,
-            colors.WEAVER_SPARK.b
-          );
-          this.spawnBurst(
-            weaverNode.position,
-            this._colorScratch,
-            config.BURST.WEAVER.COUNT,
-            config.BURST.WEAVER
-          );
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.PLAYER_LANDED,
-        (payload: { x: number; y: number }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnLandingDust(this._particleOriginScratch);
-        }
-      )
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.PLAYER_WALL_HIT,
-        (payload: { x: number; y: number; wallNormalX: number }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnWallSparks(this._particleOriginScratch, payload.wallNormalX);
-        }
-      )
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.WEAVER_WALL_HIT,
-        (payload: { x: number; y: number; wallNormalX: number }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnWallSparks(this._particleOriginScratch, payload.wallNormalX);
-        }
-      )
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.PROJECTILE_IMPACT,
-        (payload: { x: number; y: number; isWall: boolean }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnWebSplat(this._particleOriginScratch);
-        }
-      )
-    );
-
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
-        if (payload.state === "LAUNCHING" && this.playerState !== "LAUNCHING") {
-          const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-          if (playerNode) {
-            const configObj = VISUAL_JUICE_CONFIG.PARTICLES;
-            const colorsObj = configObj.COLORS;
-
-            const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
-            const pTrav = traversal.get(this.context.refs.player);
-
-            this._colorScratch.set(
-              colorsObj.PLAYER_SPARK.r,
-              colorsObj.PLAYER_SPARK.g,
-              colorsObj.PLAYER_SPARK.b
-            );
-            let particleCount = 15;
-            let burstSettings: {
-              readonly VELOCITY_Y_MIN: number;
-              readonly VELOCITY_Y_MAX: number;
-              readonly VELOCITY_Z_MAX: number;
-              readonly VELOCITY_SPEED_MIN: number;
-              readonly VELOCITY_SPEED_MAX: number;
-              readonly LIFE_MIN: number;
-              readonly LIFE_MAX: number;
-            } = configObj.BURST.PLAYER;
-
-            if (pTrav) {
-              const reelConfig = GAMEPLAY_TUNING.REEL;
-              const power = pTrav.launchPower;
-
-              if (power >= 1.0) {
-                this._colorScratch.set(1.0, 0.15, 0.15);
-                particleCount = 25;
-                burstSettings = {
-                  ...configObj.BURST.PLAYER,
-                  VELOCITY_SPEED_MIN: configObj.BURST.PLAYER.VELOCITY_SPEED_MIN * 1.5,
-                  VELOCITY_SPEED_MAX: configObj.BURST.PLAYER.VELOCITY_SPEED_MAX * 1.8
-                };
-              } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-                this._colorScratch.set(0.95, 0.95, 1.0);
-                particleCount = 22;
-              }
-            }
-
-            this.spawnBurst(playerNode.position, this._colorScratch, particleCount, burstSettings);
-          }
-        }
         this.playerState = payload.state;
       })
     );
@@ -343,7 +212,7 @@ export class JuiceSystem implements ISystem {
     pTrav: TraversalStateComponent,
     dt: number
   ): void {
-    const wallX = pTrav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const wallX = pTrav.wallDir * pTrans.x;
     this._particleOriginScratch.set(wallX, pTrans.y, 0);
 
     const tension = Math.max(0, pTether.tension);
@@ -387,6 +256,41 @@ export class JuiceSystem implements ISystem {
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
+
+    // Passive ECS Component Polling for isolated visual triggers
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    for (const [id, req] of reqStore.entries()) {
+      this._particleOriginScratch.set(req.x, req.y, req.z);
+
+      if (req.type === "PLAYER_SPARK") {
+        const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+        this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+        this.spawnBurst(
+          this._particleOriginScratch,
+          this._colorScratch,
+          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER.COUNT,
+          VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER
+        );
+      } else if (req.type === "WEAVER_SPARK") {
+        const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+        this._colorScratch.set(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+        this.spawnBurst(
+          this._particleOriginScratch,
+          this._colorScratch,
+          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER.COUNT,
+          VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER
+        );
+      } else if (req.type === "LANDING_DUST") {
+        this.spawnLandingDust(this._particleOriginScratch);
+      } else if (req.type === "WALL_SPARK") {
+        this.spawnWallSparks(this._particleOriginScratch, req.wallNormalX ?? 1);
+      } else if (req.type === "PROJECTILE_SPLAT") {
+        this.spawnWebSplat(this._particleOriginScratch);
+      }
+
+      this.context.world.destroy(id);
+    }
+
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
       if (!p.active) continue;
@@ -434,7 +338,6 @@ export class JuiceSystem implements ISystem {
       }
     }
 
-    // Query active component-based emitters generically
     const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const tetherStore = this.context.stores.get<TetherComponent>("tether");

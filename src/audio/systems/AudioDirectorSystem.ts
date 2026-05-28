@@ -108,7 +108,10 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.impactSynth?.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+          this.sfxRegistry.impactSynth?.triggerAttackRelease(
+            presets.DAMAGED_NOTE,
+            presets.DAMAGED_DURATION
+          );
           this.sfxRegistry.noiseSynth?.triggerAttackRelease(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
@@ -224,7 +227,10 @@ export class AudioDirectorSystem implements ISystem {
     if (!this.sfxRegistry) return;
 
     if (this.sfxRegistry.impactSynth) {
-      this.sfxRegistry.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+      this.sfxRegistry.impactSynth.triggerAttackRelease(
+        presets.DEATH_NOTE_1,
+        presets.DEATH_NOTE_1_DURATION
+      );
       this.sfxRegistry.impactSynth.triggerAttackRelease(
         presets.DEATH_NOTE_2,
         presets.DEATH_NOTE_2_DURATION,

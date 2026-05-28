@@ -6,7 +6,8 @@ import {
   KinematicTargetComponent,
   TransformComponent,
   KinematicVelocityComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import { SpatialPartitionService } from "../../core/engine/SpatialPartitionService";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
@@ -54,6 +55,19 @@ export class VerticalBoundarySystem implements ISystem {
       } else {
         if (vel.y < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
           this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
+
+          // Spawn landing particles purely via ECS component
+          const reqId = this.context.world.create();
+          const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            reqStore.add(reqId, {
+              type: "LANDING_DUST",
+              x: target.x,
+              y: minY,
+              z: 0
+            });
+          }
+
           const transforms = this.context.stores.get<TransformComponent>("transform");
           const pTrans = transforms.get(this.context.refs.player);
 

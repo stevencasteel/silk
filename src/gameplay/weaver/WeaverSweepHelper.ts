@@ -1,4 +1,9 @@
-import { WeaverSweepComponent, HealthComponent, KinematicVelocityComponent, TransformComponent } from "../../core/ecs/Components";
+import {
+  WeaverSweepComponent,
+  HealthComponent,
+  KinematicVelocityComponent,
+  TransformComponent
+} from "../../core/ecs/Components";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 
 export class WeaverSweepHelper {
