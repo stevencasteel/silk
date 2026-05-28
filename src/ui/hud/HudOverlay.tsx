@@ -261,14 +261,14 @@ export const HudOverlay: React.FC = () => {
   const displayTensionPercent = Math.round(clampedTension * 100);
   const tensionScaleX = clampedTension / snapLimit;
 
-  let tensionBarColor = "var(--neon-cyan)";
-  let tensionTextColor = "#ffffff";
+  let tensionBarColor = "rgb(16, 185, 129)";
+  let tensionTextColor = "rgb(244, 244, 245)";
   if (clampedTension >= 1.0) {
-    tensionBarColor = "var(--neon-pink)";
-    tensionTextColor = "var(--neon-pink)";
+    tensionBarColor = "rgb(239, 68, 68)";
+    tensionTextColor = "rgb(239, 68, 68)";
   } else if (clampedTension >= 0.75) {
-    tensionBarColor = "var(--sulfur-yellow)";
-    tensionTextColor = "var(--sulfur-yellow)";
+    tensionBarColor = "rgb(245, 158, 11)";
+    tensionTextColor = "rgb(245, 158, 11)";
   }
 
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
@@ -314,9 +314,9 @@ export const HudOverlay: React.FC = () => {
       ) : (
         <div className="hud-root select-none pointer-events-none">
           <div className={`cabinet-header-panel ${isCriticalHp || hurtShakeActive ? "hud-stress-shiver" : ""}`}>
-            <div className="header-left flex flex-col gap-1">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--neon-cyan)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                [+] <Heart size={11} fill="var(--neon-cyan)" style={{ color: "var(--neon-cyan)", flexShrink: 0 }} /> HP
+            <div className="header-left flex flex-col gap-1.5">
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-green)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                [+] <Heart size={13} fill="var(--signal-green)" style={{ color: "var(--signal-green)", flexShrink: 0 }} /> HP
               </span>
               <div className="hud-hp-row" style={{ display: "flex", gap: "6px" }}>
                 {[...Array(5)].map((_, i) => {
@@ -327,7 +327,7 @@ export const HudOverlay: React.FC = () => {
                       className={`led-dot ${isLit ? "led-green" : ""} ${hpAnims[i]}`}
                       style={{
                         border: "1px solid rgba(0,0,0,0.6)",
-                        background: isLit ? undefined : "#0a0414",
+                        background: isLit ? undefined : "#07080b",
                         width: "14px",
                         height: "14px"
                       }}
@@ -347,30 +347,30 @@ export const HudOverlay: React.FC = () => {
               )}
             </div>
 
-            <div className="header-right flex flex-col items-end gap-1">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--neon-pink)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                <Skull size={11} fill="var(--neon-pink)" style={{ color: "var(--neon-pink)", flexShrink: 0 }} /> BOSS [-]
+            <div className="header-right flex flex-col items-end gap-1.5">
+              <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--signal-red)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                <Skull size={13} fill="var(--signal-red)" style={{ color: "var(--signal-red)", flexShrink: 0 }} /> BOSS
               </span>
               <div
                 className="neo-pressed"
                 style={{
                   width: "140px",
                   height: "12px",
-                  borderRadius: "2px",
+                  borderRadius: "6px",
                   padding: "2px",
                   boxSizing: "border-box",
                   overflow: "hidden",
-                  background: "#0a0414",
-                  border: "1px solid var(--border-subtle)"
+                  background: "#07080b",
+                  border: "1px solid rgba(0,0,0,0.4)"
                 }}
               >
                 <div
                   className={weaverHp > 0 ? "led-red" : ""}
                   style={{
                     height: "100%",
-                    borderRadius: "1px",
+                    borderRadius: "4px",
                     width: `${(weaverHpRatio * 100).toFixed(1)}%`,
-                    transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                    transition: "width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
                   }}
                 />
               </div>
@@ -390,10 +390,10 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className={`flex flex-col items-center gap-1.5 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
+            <div className={`flex flex-col items-center gap-2 ${clampedTension >= 1.0 ? "hud-stress-shiver" : ""}`} style={{ width: "320px" }}>
               <div className="flex justify-between w-full font-bold" style={{ padding: "0 4px", alignItems: "center" }}>
-                <span style={{ color: "var(--neon-cyan)", fontSize: "11px", fontWeight: "900", letterSpacing: "0.25em", textTransform: "uppercase" }}>|||||| TENSION</span>
-                <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "13px", fontWeight: "900", letterSpacing: "0.05em" }}>
+                <span style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: "900", letterSpacing: "0.2em", textTransform: "uppercase" }}>TENSION</span>
+                <span style={{ color: tensionTextColor, fontFamily: "monospace", fontSize: "14px", fontWeight: "900", letterSpacing: "0.05em" }}>
                   {displayTensionPercent}%
                 </span>
               </div>
@@ -402,22 +402,22 @@ export const HudOverlay: React.FC = () => {
                 style={{
                   width: "100%",
                   height: "14px",
-                  borderRadius: "2px",
+                  borderRadius: "7px",
                   padding: "2px",
                   boxSizing: "border-box",
                   overflow: "hidden",
-                  background: "#0a0414",
-                  border: "1px solid var(--border-subtle)"
+                  background: "#07080b",
+                  border: "1px solid rgba(0,0,0,0.4)"
                 }}
               >
                 <div
                   style={{
                     height: "100%",
-                    borderRadius: "1px",
+                    borderRadius: "5px",
                     width: `${(tensionScaleX * 100).toFixed(1)}%`,
-                    transition: "width 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
+                    transition: "width 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.2)",
                     background: tensionBarColor,
-                    boxShadow: `0 0 10px ${tensionBarColor}`
+                    boxShadow: `0 0 8px ${tensionBarColor}`
                   }}
                 />
               </div>
@@ -448,13 +448,13 @@ export const HudOverlay: React.FC = () => {
                     <Skull
                       size={48}
                       className="defeat-icon-anim"
-                      style={{ color: "var(--neon-pink)", filter: "drop-shadow(0 0 12px var(--neon-pink-glow))" }}
+                      style={{ color: "var(--accent-danger)", filter: "drop-shadow(0 0 10px rgba(239, 68, 68, 0.45))" }}
                     />
                   ) : (
                     <Trophy
                       size={48}
                       className="victory-icon-anim"
-                      style={{ color: "var(--neon-cyan)", filter: "drop-shadow(0 0 12px var(--neon-cyan-glow))" }}
+                      style={{ color: "var(--accent-success)", filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))" }}
                     />
                   )}
                   <h1
@@ -547,10 +547,10 @@ export const HudOverlay: React.FC = () => {
       {isPaused && !isBooting && !awaitingGesture && (
         <div
           className="overlay-root font-mono pointer-events-auto flex items-center justify-center"
-          style={{ background: "rgba(10, 4, 20, 0.75)" }}
+          style={{ background: "rgba(12, 13, 17, 0.65)" }}
         >
           <div className="flex flex-col items-center justify-center text-center animate-bounce-short">
-            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--sulfur-yellow)" }}>
+            <h1 className="text-3xl font-black tracking-[0.25em] paused-title-glow" style={{ color: "var(--accent-tension)" }}>
               PAUSED
             </h1>
             <p className="text-[11px] text-zinc-400 tracking-[0.15em] uppercase mt-2">
