@@ -1,3 +1,4 @@
+import { getDistance2D } from "../../core/utils/EngineUtils";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -33,15 +34,16 @@ export class CombatSystem implements ISystem {
     const wTrans = transforms.get(this.context.refs.weaver);
     if (!pTrans || !wTrans) return;
 
-    const dx = pTrans.x - wTrans.x;
-    const dy = pTrans.y - wTrans.y;
-    const distSq = dx * dx + dy * dy;
+    const dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
+    const distSq = dist * dist;
 
     if (distSq > this.BROADPHASE_ENVELOPE) return;
 
-    const dist = Math.sqrt(distSq) || 1.0;
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
     if (!isColliding) return;
+
+    const dx = pTrans.x - wTrans.x;
+    const dy = pTrans.y - wTrans.y;
 
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")

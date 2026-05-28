@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveDebris {
@@ -320,7 +320,7 @@ export class WeaverShatterSystem implements ISystem {
     const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
     const scene = this.context.visualRegistry.getScene();
-    const defaultCameraY = 14.0;
+    const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const cameraYOffset = scene && scene.activeCamera
       ? (scene.activeCamera.position.y - defaultCameraY)
       : 0.0;

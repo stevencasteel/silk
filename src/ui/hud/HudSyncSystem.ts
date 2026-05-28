@@ -1,3 +1,4 @@
+import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -58,11 +59,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step0Completed && overlayStore.calibrationStep === 0 && this.currentState === "WALL_SLIDING" && tension >= 0.5) {
           this.step0Completed = true;
           overlayStore.setCalibrationStep(1);
-          try {
-            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-          } catch (err) {
-            void err;
-          }
+          dispatchUIFeedback("silk-play-confirm")
         }
 
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
@@ -84,11 +81,7 @@ export class HudSyncSystem implements ISystem {
             if (!this.step1Completed && this.reeledUp && this.reeledDown) {
               this.step1Completed = true;
               overlayStore.setCalibrationStep(2);
-              try {
-                window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-              } catch (err) {
-                void err;
-              }
+              dispatchUIFeedback("silk-play-confirm")
             }
           }
         }
@@ -175,11 +168,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step1Completed && this.reeledUp && this.reeledDown) {
           this.step1Completed = true;
           overlayStore.setCalibrationStep(2);
-          try {
-            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-          } catch (err) {
-            void err;
-          }
+          dispatchUIFeedback("silk-play-confirm")
         }
       }
     }
@@ -191,11 +180,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step2Completed) {
           this.step2Completed = true;
           overlayStore.setCalibrationStep(3);
-          try {
-            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-          } catch (err) {
-            void err;
-          }
+          dispatchUIFeedback("silk-play-confirm")
         }
       }
     }

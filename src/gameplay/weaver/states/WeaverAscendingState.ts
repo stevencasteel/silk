@@ -6,14 +6,14 @@ import {
 } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { TransformComponent } from "../../../core/ecs/Components";
-import { setKinematicVelocity } from "../../../core/utils/EngineUtils";
+import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
-const HASH = String.fromCharCode(35);
+
 
 export class WeaverAscendingState implements IWeaverState {
   public readonly type: WeaverStateType = "ASCENDING";
   public readonly name = "ASCENDING TO CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
+  public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
 
   public enter(ctx: SystemContext): void {
     void ctx;

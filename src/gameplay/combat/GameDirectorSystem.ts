@@ -5,6 +5,7 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { HASH_PREFIX } from "../../core/utils/EngineUtils";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -12,7 +13,7 @@ export class GameDirectorSystem implements ISystem {
 
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
-  private HASH = String.fromCharCode(35);
+  
   private unsubscribes: (() => void)[] = [];
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
@@ -168,7 +169,7 @@ export class GameDirectorSystem implements ISystem {
     });
     this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: "PATROLLING",
-      hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
+      hue: HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
       hp: wHealth?.current || 100,

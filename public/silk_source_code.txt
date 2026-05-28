@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 3:27:07 PM
+ [SYSTEM] Generated: 5/28/2026, 3:36:01 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3454,6 +3454,22 @@ export class SystemManager {
 ────────────────────────────────────────────────────
 import * as BABYLON from "@babylonjs/core";
 
+export const HASH_PREFIX = String.fromCharCode(35);
+
+export function getDistance2D(x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  return Math.sqrt(dx * dx + dy * dy) || 1.0;
+}
+
+export function dispatchUIFeedback(event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"): void {
+  try {
+    window.dispatchEvent(new CustomEvent(event));
+  } catch (err) {
+    void err;
+  }
+}
+
 export function solveSpringDamper(
   current: number,
   target: number,
@@ -3942,6 +3958,7 @@ export interface DamageRequestCommand extends ICommand {
 
 ● ./src/gameplay/combat/CombatSystem.ts
 ────────────────────────────────────────────────────
+import { getDistance2D } from "../../core/utils/EngineUtils";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -3977,15 +3994,16 @@ export class CombatSystem implements ISystem {
     const wTrans = transforms.get(this.context.refs.weaver);
     if (!pTrans || !wTrans) return;
 
-    const dx = pTrans.x - wTrans.x;
-    const dy = pTrans.y - wTrans.y;
-    const distSq = dx * dx + dy * dy;
+    const dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
+    const distSq = dist * dist;
 
     if (distSq > this.BROADPHASE_ENVELOPE) return;
 
-    const dist = Math.sqrt(distSq) || 1.0;
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
     if (!isColliding) return;
+
+    const dx = pTrans.x - wTrans.x;
+    const dy = pTrans.y - wTrans.y;
 
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
@@ -4091,6 +4109,7 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { HASH_PREFIX } from "../../core/utils/EngineUtils";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -4098,7 +4117,7 @@ export class GameDirectorSystem implements ISystem {
 
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
-  private HASH = String.fromCharCode(35);
+  
   private unsubscribes: (() => void)[] = [];
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
@@ -4254,7 +4273,7 @@ export class GameDirectorSystem implements ISystem {
     });
     this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: "PATROLLING",
-      hue: this.HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
+      hue: HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
     });
     this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
       hp: wHealth?.current || 100,
@@ -5540,7 +5559,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, CANONICAL_UNITS, VISUAL_JUICE_CONFIG, POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ActiveDebris {
@@ -5858,7 +5877,7 @@ export class WeaverShatterSystem implements ISystem {
     const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
     const scene = this.context.visualRegistry.getScene();
-    const defaultCameraY = 14.0;
+    const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const cameraYOffset = scene && scene.activeCamera
       ? (scene.activeCamera.position.y - defaultCameraY)
       : 0.0;
@@ -6922,6 +6941,7 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, WallBugComponent } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -6995,7 +7015,7 @@ export class WallBugSystem implements ISystem {
       this.spawnBugFromPool();
     }
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
+    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
@@ -7069,7 +7089,7 @@ export class WallBugSystem implements ISystem {
     const pBug = this.bugPool.find(p => !p.active);
     if (!pBug) return;
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
+    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const side = Math.random() < 0.5 ? -1 : 1;
     const startX = side * 6.2;
     const startY = cameraY + 22.0;
@@ -7465,10 +7485,6 @@ export class WeaverTraversalSystem implements ISystem {
   private readonly _targetQuat = new BABYLON.Quaternion();
   private readonly _currentQuat = new BABYLON.Quaternion();
   private readonly _raycastResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _wallRayResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _floorRayResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _leftRayResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _rightRayResult = new BABYLON.PhysicsRaycastResult();
   private readonly _rayStart = new BABYLON.Vector3();
   private readonly _rayEnd = new BABYLON.Vector3();
 
@@ -7615,12 +7631,12 @@ export class WeaverTraversalSystem implements ISystem {
         const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
         this._rayEnd.set(trans.x + dirX * castLength, target.y, 0);
 
-        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._wallRayResult);
+        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
-        if (this._wallRayResult.hasHit && this._wallRayResult.body) {
-          const hitDistance = this._wallRayResult.hitDistance;
+        if (this._raycastResult.hasHit && this._raycastResult.body) {
+          const hitDistance = this._raycastResult.hitDistance;
           if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
-            target.x = this._wallRayResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+            target.x = this._raycastResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             if (vel.x * dirX > 0) vel.x = 0;
           }
         }
@@ -7630,13 +7646,13 @@ export class WeaverTraversalSystem implements ISystem {
       const castLengthDown = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
       this._rayEnd.set(target.x, trans.y - castLengthDown, 0);
 
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._floorRayResult);
+      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
-      if (this._floorRayResult.hasHit && this._floorRayResult.body && !isStriking) {
-        const hitDistance = this._floorRayResult.hitDistance;
+      if (this._raycastResult.hasHit && this._raycastResult.body && !isStriking) {
+        const hitDistance = this._raycastResult.hitDistance;
         if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)) {
           isGrounded = true;
-          target.y = this._floorRayResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          target.y = this._raycastResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (vel.y < 0) vel.y = 0;
         }
       }
@@ -7645,17 +7661,18 @@ export class WeaverTraversalSystem implements ISystem {
       this._rayStart.set(target.x, target.y, 0);
       
       this._rayEnd.set(target.x - wallCheckDist, target.y, 0);
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._leftRayResult);
-      
-      this._rayEnd.set(target.x + wallCheckDist, target.y, 0);
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._rightRayResult);
+      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
-      if (this._leftRayResult.hasHit && this._leftRayResult.body) {
+      if (this._raycastResult.hasHit && this._raycastResult.body) {
         isWallClinging = true;
         wallNormalX = 1;
-      } else if (this._rightRayResult.hasHit && this._rightRayResult.body) {
-        isWallClinging = true;
-        wallNormalX = -1;
+      } else {
+        this._rayEnd.set(target.x + wallCheckDist, target.y, 0);
+        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
+        if (this._raycastResult.hasHit && this._raycastResult.body) {
+          isWallClinging = true;
+          wallNormalX = -1;
+        }
       }
     } else {
       const wallLimitFallback = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
@@ -7802,14 +7819,14 @@ import {
 } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { TransformComponent } from "../../../core/ecs/Components";
-import { setKinematicVelocity } from "../../../core/utils/EngineUtils";
+import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
-const HASH = String.fromCharCode(35);
+
 
 export class WeaverAscendingState implements IWeaverState {
   public readonly type: WeaverStateType = "ASCENDING";
   public readonly name = "ASCENDING TO CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
+  public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
 
   public enter(ctx: SystemContext): void {
     void ctx;
@@ -7845,14 +7862,14 @@ import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { setKinematicVelocity } from "../../../core/utils/EngineUtils";
+import { setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
-const HASH = String.fromCharCode(35);
+
 
 export class WeaverDefeatedState implements IWeaverState {
   public readonly type: WeaverStateType = "DEFEATED";
   public readonly name = "WEAVER DEFEATED";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
+  public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DEFEATED;
 
   public enter(ctx: SystemContext): void {
     setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
@@ -7872,7 +7889,7 @@ export class WeaverDefeatedState implements IWeaverState {
 
 ● ./src/gameplay/weaver/states/WeaverPatrollingState.ts
 ────────────────────────────────────────────────────
-import { getWeaverStingerTip, setKinematicVelocity } from "../../../core/utils/EngineUtils";
+import { getWeaverStingerTip, setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -7883,12 +7900,12 @@ import {
   WeaverAIComponent
 } from "../../../core/ecs/Components";
 
-const HASH = String.fromCharCode(35);
+
 
 export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";
   public readonly name = "PATROLLING CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+  public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 
@@ -7919,7 +7936,7 @@ export class WeaverPatrollingState implements IWeaverState {
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
       if (aiComp) {
-        aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+        aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       }
       ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
     }
@@ -7975,14 +7992,14 @@ import {
   WeaverTraversalComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
-import { setKinematicVelocity } from "../../../core/utils/EngineUtils";
+import { setKinematicVelocity, HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
 
-const HASH = String.fromCharCode(35);
+
 
 export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
   public readonly name = "WEAVER STRIKE";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+  public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
   private strikeCount = 0;
   private maxStrikes = 2;
   private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
@@ -8027,7 +8044,7 @@ export class WeaverStrikingState implements IWeaverState {
 
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
+      aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
     }
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
@@ -8036,7 +8053,7 @@ export class WeaverStrikingState implements IWeaverState {
     if (weaverTrans) {
       const dx = this.targetPos.x - weaverTrans.x;
       const dy = this.targetPos.y - weaverTrans.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+      const dist = getDistance2D(weaverTrans.x, weaverTrans.y, this.targetPos.x, this.targetPos.y);
       const speed =
         this.maxStrikes === 3
           ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK
@@ -8055,7 +8072,7 @@ export class WeaverStrikingState implements IWeaverState {
 
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
+      aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
     }
 
     setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
@@ -8073,8 +8090,8 @@ export class WeaverStrikingState implements IWeaverState {
       if (aiComp) {
         aiComp.hue =
           step % 2 === 0
-            ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
-            : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+            ? HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
+            : HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       }
 
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
@@ -9521,6 +9538,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
 ● ./src/ui/hud/HudOverlay.tsx
 ────────────────────────────────────────────────────
+import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
@@ -9631,27 +9649,15 @@ export const HudOverlay: React.FC = () => {
   }, []);
 
   const playTickSynth = useCallback(() => {
-    try {
-      window.dispatchEvent(new CustomEvent("silk-stats-tick"));
-    } catch {
-      // Ignored
-    }
+    dispatchUIFeedback("silk-stats-tick");
   }, []);
 
   const playConfirmSynth = useCallback(() => {
-    try {
-      window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-    } catch {
-      // Ignored
-    }
+    dispatchUIFeedback("silk-play-confirm");
   }, []);
 
   const playTensionAlarm = useCallback(() => {
-    try {
-      window.dispatchEvent(new CustomEvent("silk-tension-alarm"));
-    } catch {
-      // Ignored
-    }
+    dispatchUIFeedback("silk-tension-alarm");
   }, []);
 
   const handleClearStats = useCallback(() => {
@@ -10315,6 +10321,7 @@ export const HudOverlay: React.FC = () => {
 
 ● ./src/ui/hud/HudSyncSystem.ts
 ────────────────────────────────────────────────────
+import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
@@ -10375,11 +10382,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step0Completed && overlayStore.calibrationStep === 0 && this.currentState === "WALL_SLIDING" && tension >= 0.5) {
           this.step0Completed = true;
           overlayStore.setCalibrationStep(1);
-          try {
-            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-          } catch (err) {
-            void err;
-          }
+          dispatchUIFeedback("silk-play-confirm")
         }
 
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
@@ -10401,11 +10404,7 @@ export class HudSyncSystem implements ISystem {
             if (!this.step1Completed && this.reeledUp && this.reeledDown) {
               this.step1Completed = true;
               overlayStore.setCalibrationStep(2);
-              try {
-                window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-              } catch (err) {
-                void err;
-              }
+              dispatchUIFeedback("silk-play-confirm")
             }
           }
         }
@@ -10492,11 +10491,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step1Completed && this.reeledUp && this.reeledDown) {
           this.step1Completed = true;
           overlayStore.setCalibrationStep(2);
-          try {
-            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-          } catch (err) {
-            void err;
-          }
+          dispatchUIFeedback("silk-play-confirm")
         }
       }
     }
@@ -10508,11 +10503,7 @@ export class HudSyncSystem implements ISystem {
         if (!this.step2Completed) {
           this.step2Completed = true;
           overlayStore.setCalibrationStep(3);
-          try {
-            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-          } catch (err) {
-            void err;
-          }
+          dispatchUIFeedback("silk-play-confirm")
         }
       }
     }

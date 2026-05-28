@@ -3,6 +3,7 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, WallBugComponent } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
@@ -76,7 +77,7 @@ export class WallBugSystem implements ISystem {
       this.spawnBugFromPool();
     }
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
+    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
@@ -150,7 +151,7 @@ export class WallBugSystem implements ISystem {
     const pBug = this.bugPool.find(p => !p.active);
     if (!pBug) return;
 
-    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : 14.0;
+    const cameraY = scene.activeCamera ? scene.activeCamera.position.y : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const side = Math.random() < 0.5 ? -1 : 1;
     const startX = side * 6.2;
     const startY = cameraY + 22.0;

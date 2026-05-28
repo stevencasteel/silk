@@ -1,5 +1,21 @@
 import * as BABYLON from "@babylonjs/core";
 
+export const HASH_PREFIX = String.fromCharCode(35);
+
+export function getDistance2D(x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  return Math.sqrt(dx * dx + dy * dy) || 1.0;
+}
+
+export function dispatchUIFeedback(event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"): void {
+  try {
+    window.dispatchEvent(new CustomEvent(event));
+  } catch (err) {
+    void err;
+  }
+}
+
 export function solveSpringDamper(
   current: number,
   target: number,

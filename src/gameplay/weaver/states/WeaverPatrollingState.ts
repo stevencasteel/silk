@@ -1,4 +1,4 @@
-import { getWeaverStingerTip, setKinematicVelocity } from "../../../core/utils/EngineUtils";
+import { getWeaverStingerTip, setKinematicVelocity, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -9,12 +9,12 @@ import {
   WeaverAIComponent
 } from "../../../core/ecs/Components";
 
-const HASH = String.fromCharCode(35);
+
 
 export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";
   public readonly name = "PATROLLING CEILING";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+  public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
   private shootTimer = 0.0;
   private hasTelegraphed = false;
 
@@ -45,7 +45,7 @@ export class WeaverPatrollingState implements IWeaverState {
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
       if (aiComp) {
-        aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+        aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       }
       ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.12, duration: 0.15 });
     }

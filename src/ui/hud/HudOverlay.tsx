@@ -1,3 +1,4 @@
+import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
@@ -108,27 +109,15 @@ export const HudOverlay: React.FC = () => {
   }, []);
 
   const playTickSynth = useCallback(() => {
-    try {
-      window.dispatchEvent(new CustomEvent("silk-stats-tick"));
-    } catch {
-      // Ignored
-    }
+    dispatchUIFeedback("silk-stats-tick");
   }, []);
 
   const playConfirmSynth = useCallback(() => {
-    try {
-      window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-    } catch {
-      // Ignored
-    }
+    dispatchUIFeedback("silk-play-confirm");
   }, []);
 
   const playTensionAlarm = useCallback(() => {
-    try {
-      window.dispatchEvent(new CustomEvent("silk-tension-alarm"));
-    } catch {
-      // Ignored
-    }
+    dispatchUIFeedback("silk-tension-alarm");
   }, []);
 
   const handleClearStats = useCallback(() => {

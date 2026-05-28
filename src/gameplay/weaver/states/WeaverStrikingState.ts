@@ -8,14 +8,14 @@ import {
   WeaverTraversalComponent,
   WeaverAIComponent
 } from "../../../core/ecs/Components";
-import { setKinematicVelocity } from "../../../core/utils/EngineUtils";
+import { setKinematicVelocity, HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
 
-const HASH = String.fromCharCode(35);
+
 
 export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
   public readonly name = "WEAVER STRIKE";
-  public readonly hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+  public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
   private strikeCount = 0;
   private maxStrikes = 2;
   private currentPhase: "PREP" | "THRUST" | "RECOVER" = "PREP";
@@ -60,7 +60,7 @@ export class WeaverStrikingState implements IWeaverState {
 
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
+      aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
     }
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
@@ -69,7 +69,7 @@ export class WeaverStrikingState implements IWeaverState {
     if (weaverTrans) {
       const dx = this.targetPos.x - weaverTrans.x;
       const dy = this.targetPos.y - weaverTrans.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+      const dist = getDistance2D(weaverTrans.x, weaverTrans.y, this.targetPos.x, this.targetPos.y);
       const speed =
         this.maxStrikes === 3
           ? WEAVER_AI_TUNING.DASH.SPEED_BERSERK
@@ -88,7 +88,7 @@ export class WeaverStrikingState implements IWeaverState {
 
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
-      aiComp.hue = HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
+      aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
     }
 
     setKinematicVelocity(ctx, ctx.refs.weaver, 0, 0);
@@ -106,8 +106,8 @@ export class WeaverStrikingState implements IWeaverState {
       if (aiComp) {
         aiComp.hue =
           step % 2 === 0
-            ? HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
-            : HASH + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
+            ? HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
+            : HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
       }
 
       if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {

@@ -29,10 +29,6 @@ export class WeaverTraversalSystem implements ISystem {
   private readonly _targetQuat = new BABYLON.Quaternion();
   private readonly _currentQuat = new BABYLON.Quaternion();
   private readonly _raycastResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _wallRayResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _floorRayResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _leftRayResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _rightRayResult = new BABYLON.PhysicsRaycastResult();
   private readonly _rayStart = new BABYLON.Vector3();
   private readonly _rayEnd = new BABYLON.Vector3();
 
@@ -179,12 +175,12 @@ export class WeaverTraversalSystem implements ISystem {
         const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
         this._rayEnd.set(trans.x + dirX * castLength, target.y, 0);
 
-        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._wallRayResult);
+        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
-        if (this._wallRayResult.hasHit && this._wallRayResult.body) {
-          const hitDistance = this._wallRayResult.hitDistance;
+        if (this._raycastResult.hasHit && this._raycastResult.body) {
+          const hitDistance = this._raycastResult.hitDistance;
           if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)) {
-            target.x = this._wallRayResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+            target.x = this._raycastResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             if (vel.x * dirX > 0) vel.x = 0;
           }
         }
@@ -194,13 +190,13 @@ export class WeaverTraversalSystem implements ISystem {
       const castLengthDown = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
       this._rayEnd.set(target.x, trans.y - castLengthDown, 0);
 
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._floorRayResult);
+      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
-      if (this._floorRayResult.hasHit && this._floorRayResult.body && !isStriking) {
-        const hitDistance = this._floorRayResult.hitDistance;
+      if (this._raycastResult.hasHit && this._raycastResult.body && !isStriking) {
+        const hitDistance = this._raycastResult.hitDistance;
         if (hitDistance <= ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)) {
           isGrounded = true;
-          target.y = this._floorRayResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          target.y = this._raycastResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (vel.y < 0) vel.y = 0;
         }
       }
@@ -209,17 +205,18 @@ export class WeaverTraversalSystem implements ISystem {
       this._rayStart.set(target.x, target.y, 0);
       
       this._rayEnd.set(target.x - wallCheckDist, target.y, 0);
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._leftRayResult);
-      
-      this._rayEnd.set(target.x + wallCheckDist, target.y, 0);
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._rightRayResult);
+      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
-      if (this._leftRayResult.hasHit && this._leftRayResult.body) {
+      if (this._raycastResult.hasHit && this._raycastResult.body) {
         isWallClinging = true;
         wallNormalX = 1;
-      } else if (this._rightRayResult.hasHit && this._rightRayResult.body) {
-        isWallClinging = true;
-        wallNormalX = -1;
+      } else {
+        this._rayEnd.set(target.x + wallCheckDist, target.y, 0);
+        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
+        if (this._raycastResult.hasHit && this._raycastResult.body) {
+          isWallClinging = true;
+          wallNormalX = -1;
+        }
       }
     } else {
       const wallLimitFallback = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
