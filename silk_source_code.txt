@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 9:04:32 PM
+ [SYSTEM] Generated: 5/28/2026, 9:14:21 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1077,7 +1077,8 @@ import {
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
-  WallBugComponent
+  WallBugComponent,
+  WeaverSweepComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { VisualRegistry } from "../visual/scene/VisualRegistry";
@@ -1128,6 +1129,7 @@ export class CompositionRoot {
     const iframes = new ComponentStore<InvulnerabilityComponent>();
     const weaverTraversal = new ComponentStore<WeaverTraversalComponent>();
     const wallBugs = new ComponentStore<WallBugComponent>();
+    const weaverSweep = new ComponentStore<WeaverSweepComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1151,6 +1153,7 @@ export class CompositionRoot {
     registerStore("iframe", iframes);
     registerStore("weaverTraversal", weaverTraversal);
     registerStore("wallBug", wallBugs);
+    registerStore("weaverSweep", weaverSweep);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
 
@@ -2384,6 +2387,15 @@ export interface WallBugComponent {
   height: number;
   speed: number;
   stayDuration: number;
+  gaitPhase: number;
+}
+
+export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
+
+export interface WeaverSweepComponent {
+  phase: SweepPhase;
+  timer: number;
+  direction: number;
 }
 
 
@@ -2574,9 +2586,6 @@ export const ARENA_CONFIG = {
   HORIZONTAL: {
     WALL_LIMIT_X: 14.2,
     WALL_CLING_THRESHOLD_X: 13.6,
-    WEAVER_LIMIT_X: 13.8,
-    WEAVER_PATROL_MIN_X: -13.0,
-    WEAVER_PATROL_MAX_X: 13.0,
     WALL_GEOMETRY_X: 16.0,
     TICK_GEOMETRY_X: 14.9,
     PLAY_AREA_HALF_WIDTH: 15.0
@@ -2597,7 +2606,6 @@ export const ARENA_CONFIG = {
     PLAYER_HALF_HEIGHT: 0.9,
     WEAVER_RADIUS: 4.4,
     WEAVER_ICOSPHERE_SUBDIVISIONS: 5,
-    WEAVER_MESH_POSITION_MODIFY: true,
     PLAYER_CAPSULE_SUBDIVISIONS: 3
   },
   ENTITY_COLORS: {
@@ -2615,7 +2623,6 @@ export const ARENA_CONFIG = {
     OFFSCREEN_MAX_Y: 42.0
   },
   TETHER: {
-    BASE_LENGTH: 10.0,
     MAX_LENGTH: 24.0,
     INITIAL_LENGTH: 12.0
   },
@@ -3574,6 +3581,11 @@ export function setKinematicVelocity(
   });
 }
 
+const _stingerLocalTip = new BABYLON.Vector3();
+const _stingerQ = new BABYLON.Quaternion();
+const _stingerWorldOffset = new BABYLON.Vector3();
+const _stingerResult = new BABYLON.Vector3();
+
 export function getWeaverStingerTip(
   weaverX: number,
   weaverY: number,
@@ -3585,15 +3597,15 @@ export function getWeaverStingerTip(
   radius: number,
   scaleMultiplier: number = 1.18
 ): BABYLON.Vector3 {
-  const localTip = new BABYLON.Vector3(0, -radius * scaleMultiplier, 0);
-  const q = new BABYLON.Quaternion(qx, qy, qz, qw);
-  const worldTipOffset = new BABYLON.Vector3();
-  localTip.rotateByQuaternionToRef(q, worldTipOffset);
-  return new BABYLON.Vector3(
-    weaverX + worldTipOffset.x,
-    weaverY + worldTipOffset.y,
-    weaverZ + worldTipOffset.z
+  _stingerLocalTip.set(0, -radius * scaleMultiplier, 0);
+  _stingerQ.set(qx, qy, qz, qw);
+  _stingerLocalTip.rotateByQuaternionToRef(_stingerQ, _stingerWorldOffset);
+  _stingerResult.set(
+    weaverX + _stingerWorldOffset.x,
+    weaverY + _stingerWorldOffset.y,
+    weaverZ + _stingerWorldOffset.z
   );
+  return _stingerResult;
 }
 
 export function configurePBRTextures(
@@ -3665,7 +3677,8 @@ import {
   WeaverTag,
   TraversalStateComponent,
   InvulnerabilityComponent,
-  WeaverTraversalComponent
+  WeaverTraversalComponent,
+  WeaverSweepComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { decorateWeaverVisual } from "../visual/mesh/WeaverVisualFactory";
@@ -3759,6 +3772,12 @@ export class EntitySpawnerSystem implements ISystem {
       isGrounded: false,
       isWallClinging: false,
       wallNormalX: 0
+    });
+
+    this.context.stores.get<WeaverSweepComponent>("weaverSweep").add(weaverId, {
+      phase: "SWEEP",
+      timer: 0.0,
+      direction: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X >= 0 ? 1 : -1
     });
 
     this.context.refs.weaver = weaverId;
@@ -4576,6 +4595,10 @@ export class ProjectileSystem implements ISystem {
     }
     BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, proj.mesh.rotationQuaternion);
     proj.mesh.scaling.set(0.7, 1.5, 0.7);
+
+    if (proj.body) {
+      proj.body.setTargetTransform(proj.mesh.position, proj.mesh.rotationQuaternion);
+    }
   }
 
   public update(dt: number): void {
@@ -4620,6 +4643,13 @@ export class ProjectileSystem implements ISystem {
         p.fallbackVelocity.scaleToRef(dt, this._velocityTickScratch);
         p.mesh.position.addInPlace(this._velocityTickScratch);
 
+        if (p.body) {
+          p.body.setTargetTransform(
+            p.mesh.position,
+            p.mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          );
+        }
+
         if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
@@ -4627,6 +4657,11 @@ export class ProjectileSystem implements ISystem {
           p.mesh.position.x = Math.sign(p.mesh.position.x) * (wallLimit - 0.05);
           p.mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
           p.mesh.material = this.projMatStuck;
+
+          if (p.body) {
+            p.body.setTargetTransform(p.mesh.position, p.mesh.rotationQuaternion);
+          }
+
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: p.mesh.position.x,
             y: p.mesh.position.y,
@@ -4683,6 +4718,12 @@ export class ProjectileSystem implements ISystem {
 
       if (p.isStuckOnWall) {
         p.mesh.position.y -= currentScrollSpeed * dt;
+        if (p.body) {
+          p.body.setTargetTransform(
+            p.mesh.position,
+            p.mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          );
+        }
       }
 
       if (
@@ -4706,6 +4747,9 @@ export class ProjectileSystem implements ISystem {
     p.isStuckOnWall = false;
     p.lifeTime = 0.0;
     p.mesh.material = this.projMatActive;
+    if (p.body) {
+      p.body.setTargetTransform(p.mesh.position, p.mesh.rotationQuaternion);
+    }
   }
 
   private clearAll(): void {
@@ -6096,6 +6140,9 @@ import * as BABYLON from "@babylonjs/core";
 export class PlayerAnimationSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
+  private readonly _currentQuat = new BABYLON.Quaternion();
+  private readonly _targetQuat = new BABYLON.Quaternion();
+
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
@@ -6168,16 +6215,21 @@ export class PlayerAnimationSystem implements ISystem {
     }
 
     const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
-    const targetQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, targetAngle);
+    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, targetAngle, this._targetQuat);
 
-    const currentQuat = new BABYLON.Quaternion(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
+    this._currentQuat.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
 
-    BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, tuning.SLERP_FACTOR, currentQuat);
+    BABYLON.Quaternion.SlerpToRef(
+      this._currentQuat,
+      this._targetQuat,
+      tuning.SLERP_FACTOR,
+      this._currentQuat
+    );
 
-    pTrans.qx = currentQuat.x;
-    pTrans.qy = currentQuat.y;
-    pTrans.qz = currentQuat.z;
-    pTrans.qw = currentQuat.w;
+    pTrans.qx = this._currentQuat.x;
+    pTrans.qy = this._currentQuat.y;
+    pTrans.qz = this._currentQuat.z;
+    pTrans.qw = this._currentQuat.w;
   }
 }
 
@@ -6460,7 +6512,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    this.updateTensionMeter(dt, tether, trav, input);
+    this.updateTensionMeter(dt, tether, trav);
 
     this.tensionPayload.tension = tether.tension;
     this.context.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
@@ -6479,8 +6531,9 @@ export class PlayerKinematicsSystem implements ISystem {
   }
 
   private applyWallImpactSquash(pTrans: TransformComponent): void {
-    pTrans.scaleX = 0.72;
-    pTrans.scaleY = 1.22;
+    const squash = GAMEPLAY_TUNING.PLAYER.SQUASH_STRETCH;
+    pTrans.scaleX = squash.SQUASH_WALL_X;
+    pTrans.scaleY = squash.SQUASH_WALL_Y;
     pTrans.scaleZ = 1.0;
     pTrans.scaleVelX = 0;
     pTrans.scaleVelY = 0;
@@ -6833,10 +6886,8 @@ export class PlayerKinematicsSystem implements ISystem {
   private updateTensionMeter(
     dt: number,
     tether: TetherComponent,
-    trav: TraversalStateComponent,
-    input: InputIntentComponent
+    trav: TraversalStateComponent
   ): void {
-    void input;
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
     if (trav.state === "WALL_SLIDING") {
@@ -6931,11 +6982,11 @@ export class VerticalBoundarySystem implements ISystem {
           const transforms = this.context.stores.get<TransformComponent>("transform");
           const pTrans = transforms.get(this.context.refs.player);
 
-          // Tactical Heavy Boundary Squash on floor limit
           if (pTrans) {
-            pTrans.scaleX = 1.22;
-            pTrans.scaleY = 0.72;
-            pTrans.scaleZ = 1.22;
+            const squash = GAMEPLAY_TUNING.PLAYER.SQUASH_STRETCH;
+            pTrans.scaleX = squash.SQUASH_LAND_X;
+            pTrans.scaleY = squash.SQUASH_LAND_Y;
+            pTrans.scaleZ = squash.SQUASH_LAND_Z;
             pTrans.scaleVelX = 0;
             pTrans.scaleVelY = 0;
             pTrans.scaleVelZ = 0;
@@ -7100,13 +7151,10 @@ export class WallBugSystem implements ISystem {
 
       const node = pBug.rootNode;
       if (node) {
-        if (!node.metadata) {
-          node.metadata = {};
-        }
-        let bugPhase = node.metadata.gaitPhase ?? 0.0;
+        let bugPhase = bug.gaitPhase;
         const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
         bugPhase += legFrequency * dt;
-        node.metadata.gaitPhase = bugPhase;
+        bug.gaitPhase = bugPhase;
 
         node.getChildren().forEach((child) => {
           if (child.name.startsWith("leg_joint_left")) {
@@ -7176,7 +7224,8 @@ export class WallBugSystem implements ISystem {
       width: 1.15,
       height: 7.2,
       speed: 3.8,
-      stayDuration: 0.0
+      stayDuration: 0.0,
+      gaitPhase: 0.0
     });
 
     pBug.active = true;
@@ -7520,23 +7569,15 @@ import {
   TransformComponent,
   KinematicTargetComponent,
   WeaverAIComponent,
-  HealthComponent
+  HealthComponent,
+  WeaverSweepComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
-type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
-
-interface SweepState {
-  phase: SweepPhase;
-  timer: number;
-  direction: number;
-}
-
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private sweepStates = new Map<number, SweepState>();
 
   private readonly _targetQuat = new BABYLON.Quaternion();
   private readonly _currentQuat = new BABYLON.Quaternion();
@@ -7561,12 +7602,13 @@ export class WeaverTraversalSystem implements ISystem {
       .get(this.context.refs.weaver);
     const ai = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+    const sweepStore = this.context.stores.get<WeaverSweepComponent>("weaverSweep");
 
     if (!vel || !trav || !trans || !target) return;
 
     const isStriking = ai && ai.state === "STRIKING";
     const isPatrolling = ai && ai.state === "PATROLLING";
-    let sState = this.sweepStates.get(this.context.refs.weaver);
+    let sState = sweepStore.get(this.context.refs.weaver);
 
     const scene = this.context.visualRegistry.getScene();
     const physicsEngine = scene?.getPhysicsEngine();
@@ -7587,7 +7629,7 @@ export class WeaverTraversalSystem implements ISystem {
           timer: 0.0,
           direction: dir
         };
-        this.sweepStates.set(this.context.refs.weaver, sState);
+        sweepStore.add(this.context.refs.weaver, sState);
       }
 
       if (sState.phase === "SWEEP" || sState.phase === "LAUNCH") {
@@ -7679,7 +7721,7 @@ export class WeaverTraversalSystem implements ISystem {
       target.x = trans.x + vel.x * dt;
       target.y = trans.y + vel.y * dt;
       target.active = true;
-      this.sweepStates.delete(this.context.refs.weaver);
+      sweepStore.remove(this.context.refs.weaver);
     }
 
     let isGrounded = false;
@@ -13260,6 +13302,7 @@ export class VisualStateDressingSystem implements ISystem {
   private readonly _footWorldTarget = new BABYLON.Vector3();
   private readonly _rootWorldInv = new BABYLON.Matrix();
   private readonly _targetLocal = new BABYLON.Vector3();
+  private readonly _ikResult = { coxaZ: 0, tibiaZ: 0 };
 
   constructor(private context: SystemContext) {}
 
@@ -13311,18 +13354,15 @@ export class VisualStateDressingSystem implements ISystem {
     const cosGamma = (L1 * L1 + L2 * L2 - dist * dist) / (2 * L1 * L2);
     const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma)));
 
-    let coxaZ: number;
-    let tibiaZ: number;
-
     if (sideSign > 0) {
-      coxaZ = angleTargetLocalY + beta;
-      tibiaZ = -(Math.PI - gamma);
+      this._ikResult.coxaZ = angleTargetLocalY + beta;
+      this._ikResult.tibiaZ = -(Math.PI - gamma);
     } else {
-      coxaZ = angleTargetLocalY - beta;
-      tibiaZ = Math.PI - gamma;
+      this._ikResult.coxaZ = angleTargetLocalY - beta;
+      this._ikResult.tibiaZ = Math.PI - gamma;
     }
 
-    return { coxaZ, tibiaZ };
+    return this._ikResult;
   }
 
   private updateAestheticDressing(): void {
@@ -13453,15 +13493,10 @@ export class VisualStateDressingSystem implements ISystem {
 
       parts.legRoots.forEach((node) => {
         const transNode = node as BABYLON.TransformNode;
-        const partsName = transNode.name.split("_");
-        const sideSign = parseFloat(partsName[2]);
-        const index = parseFloat(partsName[3]);
-
-        if (isNaN(sideSign) || isNaN(index)) return;
 
         const rootMeta = transNode.metadata as {
-          sideSign?: number;
-          index?: number;
+          sideSign: number;
+          index: number;
           baseRootZ?: number;
           basePositionZ?: number;
           coxaLength?: number;
@@ -13469,16 +13504,19 @@ export class VisualStateDressingSystem implements ISystem {
           baseFootLocal?: BABYLON.Vector3;
         } | null;
 
+        if (!rootMeta) return;
+
+        const sideSign = rootMeta.sideSign;
+        const index = rootMeta.index;
         const legJoints = parts?.legs.get(transNode.name);
 
         if (
-          !rootMeta ||
           rootMeta.coxaLength === undefined ||
           rootMeta.tibiaLength === undefined ||
           !rootMeta.baseFootLocal ||
           !legJoints
         ) {
-          const baseRootZ = rootMeta?.baseRootZ ?? 0;
+          const baseRootZ = rootMeta.baseRootZ ?? 0;
           const diagonalOffset = (index + (sideSign > 0 ? 0 : 1)) % 2 === 0 ? 0 : Math.PI;
           const rowOffset = index * 0.18;
           const phase = this.gaitClock + diagonalOffset + rowOffset;
@@ -13489,7 +13527,7 @@ export class VisualStateDressingSystem implements ISystem {
 
           transNode.rotation.z = baseRootZ + sideSign * sweep;
           transNode.rotation.y = 0;
-          transNode.position.z = rootMeta?.basePositionZ ?? transNode.position.z;
+          transNode.position.z = rootMeta.basePositionZ ?? transNode.position.z;
 
           const coxa = legJoints?.coxa;
           if (coxa) {
