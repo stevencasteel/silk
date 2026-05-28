@@ -239,7 +239,7 @@ export class EntitySpawnerSystem implements ISystem {
       });
     this.context.stores
       .get<InputIntentComponent>("input")
-      .add(playerId, { x: 0, y: 0, jump: false });
+      .add(playerId, { x: 0, y: 0,  });
     this.context.stores
       .get<PlayerTag>("playerTag")
       .add(playerId, {});

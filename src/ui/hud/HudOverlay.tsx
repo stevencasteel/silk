@@ -68,6 +68,38 @@ export const HudOverlay: React.FC = () => {
   const [hurtShakeActive, setHurtShakeActive] = useState<boolean>(false);
   const prevHpRef = useRef(playerHp);
 
+  // Stateful interactive key listener matching the Box Battle visual calibration depth
+  const [pressedKeys, setPressedKeys] = useState<Record<string, boolean>>({});
+  const [useWasd, setUseWasd] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      setPressedKeys((prev) => ({ ...prev, [key]: true, [e.code.toLowerCase()]: true }));
+      
+      if (["w", "a", "s", "d"].includes(key)) {
+        setUseWasd(true);
+      } else if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+        setUseWasd(false);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      setPressedKeys((prev) => ({ ...prev, [key]: false, [e.code.toLowerCase()]: false }));
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
+  const isLeftPressed = !!(pressedKeys["a"] || pressedKeys["arrowleft"]);
+  const isRightPressed = !!(pressedKeys["d"] || pressedKeys["arrowright"]);
+  const isUpPressed = !!(pressedKeys["w"] || pressedKeys["arrowup"]);
+  const isDownPressed = !!(pressedKeys["s"] || pressedKeys["arrowdown"]);
+
   const handleRetryClick = useCallback(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
   }, []);
@@ -208,7 +240,7 @@ export const HudOverlay: React.FC = () => {
         e.preventDefault();
         playTickSynth();
         setMenuIndex((menuIndex + 1) % 2);
-      } else if (code === "Enter" || code === "Space") {
+      } else if (code === "Enter") {
         e.preventDefault();
         playConfirmSynth();
         if (menuIndex === 0) {
@@ -370,8 +402,12 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     style={{ display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <span className="keycap-box">A</span>
-                    <span className="keycap-box">D</span>
+                    <span className={`keycap-box ${isLeftPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "A" : "◀"}
+                    </span>
+                    <span className={`keycap-box ${isRightPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "D" : "▶"}
+                    </span>
                     <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>CLING TO WALL</span>
                   </motion.div>
                 )}
@@ -385,8 +421,12 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     style={{ display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <span className="keycap-box">W</span>
-                    <span className="keycap-box">S</span>
+                    <span className={`keycap-box ${isUpPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "W" : "▲"}
+                    </span>
+                    <span className={`keycap-box ${isDownPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "S" : "▼"}
+                    </span>
                     <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>REEL TETHER</span>
                   </motion.div>
                 )}
@@ -400,8 +440,10 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     style={{ display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <span className="keycap-box" style={{ padding: "3px 8px" }}>SPACE</span>
-                    <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>SWEET-SPOT FLING</span>
+                    <span className="keycap-box" style={{ padding: "3px 8px" }}>
+                      RELEASE CLING
+                    </span>
+                    <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>LET GO TO LAUNCH</span>
                   </motion.div>
                 )}
 

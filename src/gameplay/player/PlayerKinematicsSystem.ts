@@ -299,10 +299,7 @@ export class PlayerKinematicsSystem implements ISystem {
         tether.tension += stretchRatio * dt;
 
         this.wasWallSliding = true;
-        if (input.jump) {
-          this.triggerFling(vel, tether, target, trav);
-          input.jump = false;
-        }
+        
       }
       this.lastCameraYOffset = cameraYOffset;
       return;
@@ -344,10 +341,7 @@ export class PlayerKinematicsSystem implements ISystem {
       target.y = finalY;
       this.wasWallSliding = true;
 
-      if (input.jump) {
-        this.triggerFling(vel, tether, target, trav);
-        input.jump = false;
-      }
+      
       this.lastCameraYOffset = cameraYOffset;
       return;
     }

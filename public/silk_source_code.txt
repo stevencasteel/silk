@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 1:56:32 PM
+ [SYSTEM] Generated: 5/28/2026, 2:22:45 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2351,8 +2351,7 @@ export interface HealthComponent {
 export interface InputIntentComponent {
   x: number;
   y: number;
-  jump: boolean;
-}
+  }
 
 export interface WeaverAIComponent {
   state: string;
@@ -3692,7 +3691,7 @@ export class EntitySpawnerSystem implements ISystem {
       });
     this.context.stores
       .get<InputIntentComponent>("input")
-      .add(playerId, { x: 0, y: 0, jump: false });
+      .add(playerId, { x: 0, y: 0,  });
     this.context.stores
       .get<PlayerTag>("playerTag")
       .add(playerId, {});
@@ -6015,7 +6014,7 @@ export class PlayerInputSystem implements ISystem {
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       input.x = 0;
       input.y = 0;
-      input.jump = false;
+      
       return;
     }
 
@@ -6029,7 +6028,7 @@ export class PlayerInputSystem implements ISystem {
 
     input.x = x;
     input.y = y;
-    input.jump = !!this.keysPressed[" "];
+    
   }
 
   public dispose(): void {
@@ -6352,10 +6351,7 @@ export class PlayerKinematicsSystem implements ISystem {
         tether.tension += stretchRatio * dt;
 
         this.wasWallSliding = true;
-        if (input.jump) {
-          this.triggerFling(vel, tether, target, trav);
-          input.jump = false;
-        }
+        
       }
       this.lastCameraYOffset = cameraYOffset;
       return;
@@ -6397,10 +6393,7 @@ export class PlayerKinematicsSystem implements ISystem {
       target.y = finalY;
       this.wasWallSliding = true;
 
-      if (input.jump) {
-        this.triggerFling(vel, tether, target, trav);
-        input.jump = false;
-      }
+      
       this.lastCameraYOffset = cameraYOffset;
       return;
     }
@@ -9584,6 +9577,38 @@ export const HudOverlay: React.FC = () => {
   const [hurtShakeActive, setHurtShakeActive] = useState<boolean>(false);
   const prevHpRef = useRef(playerHp);
 
+  // Stateful interactive key listener matching the Box Battle visual calibration depth
+  const [pressedKeys, setPressedKeys] = useState<Record<string, boolean>>({});
+  const [useWasd, setUseWasd] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      setPressedKeys((prev) => ({ ...prev, [key]: true, [e.code.toLowerCase()]: true }));
+      
+      if (["w", "a", "s", "d"].includes(key)) {
+        setUseWasd(true);
+      } else if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+        setUseWasd(false);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      setPressedKeys((prev) => ({ ...prev, [key]: false, [e.code.toLowerCase()]: false }));
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
+  const isLeftPressed = !!(pressedKeys["a"] || pressedKeys["arrowleft"]);
+  const isRightPressed = !!(pressedKeys["d"] || pressedKeys["arrowright"]);
+  const isUpPressed = !!(pressedKeys["w"] || pressedKeys["arrowup"]);
+  const isDownPressed = !!(pressedKeys["s"] || pressedKeys["arrowdown"]);
+
   const handleRetryClick = useCallback(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
   }, []);
@@ -9724,7 +9749,7 @@ export const HudOverlay: React.FC = () => {
         e.preventDefault();
         playTickSynth();
         setMenuIndex((menuIndex + 1) % 2);
-      } else if (code === "Enter" || code === "Space") {
+      } else if (code === "Enter") {
         e.preventDefault();
         playConfirmSynth();
         if (menuIndex === 0) {
@@ -9886,8 +9911,12 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     style={{ display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <span className="keycap-box">A</span>
-                    <span className="keycap-box">D</span>
+                    <span className={`keycap-box ${isLeftPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "A" : "◀"}
+                    </span>
+                    <span className={`keycap-box ${isRightPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "D" : "▶"}
+                    </span>
                     <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>CLING TO WALL</span>
                   </motion.div>
                 )}
@@ -9901,8 +9930,12 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     style={{ display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <span className="keycap-box">W</span>
-                    <span className="keycap-box">S</span>
+                    <span className={`keycap-box ${isUpPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "W" : "▲"}
+                    </span>
+                    <span className={`keycap-box ${isDownPressed ? "keycap-used" : ""}`}>
+                      {useWasd ? "S" : "▼"}
+                    </span>
                     <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>REEL TETHER</span>
                   </motion.div>
                 )}
@@ -9916,8 +9949,10 @@ export const HudOverlay: React.FC = () => {
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     style={{ display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <span className="keycap-box" style={{ padding: "3px 8px" }}>SPACE</span>
-                    <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>SWEET-SPOT FLING</span>
+                    <span className="keycap-box" style={{ padding: "3px 8px" }}>
+                      RELEASE CLING
+                    </span>
+                    <span className="bezel-panel-label" style={{ color: "var(--signal-yellow)" }}>LET GO TO LAUNCH</span>
                   </motion.div>
                 )}
 
@@ -10181,9 +10216,9 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
 import {
-  TraversalStateComponent
+  TraversalStateComponent,
+  InputIntentComponent
 } from "../../core/ecs/Components";
-import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   usePlayerStore,
@@ -10200,6 +10235,13 @@ export class HudSyncSystem implements ISystem {
   private currentState: string = "AIRBORNE";
 
   private lastTetherLength = 0.0;
+  private reeledUp = false;
+  private reeledDown = false;
+
+  // Strict state guards to prevent multi-trigger static/nasty sounds on rapid frame ticks
+  private step0Completed = false;
+  private step1Completed = false;
+  private step2Completed = false;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -10230,6 +10272,17 @@ export class HudSyncSystem implements ISystem {
         this.updateHint(tension);
         tetherStore.setTetherTension(tension);
 
+        // Step 0 Calibration: Complete step only after sticking to the wall up to 50% tension
+        if (!this.step0Completed && overlayStore.calibrationStep === 0 && this.currentState === "WALL_SLIDING" && tension >= 0.5) {
+          this.step0Completed = true;
+          overlayStore.setCalibrationStep(1);
+          try {
+            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
+          } catch (err) {
+            void err;
+          }
+        }
+
         // React Bypass: Dispatch custom event directly into the window thread for instant direct DOM updates
         const evt = new CustomEvent("silk-tension-render-tick", { detail: { tension } });
         window.dispatchEvent(evt);
@@ -10238,11 +10291,18 @@ export class HudSyncSystem implements ISystem {
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_LENGTH_CHANGE, ({ maxLength }) => {
-        // Active Calibration: Check if W/S reeling is actively performed while sliding on wall
-        if (this.currentState === "WALL_SLIDING") {
-          const delta = Math.abs(maxLength - this.lastTetherLength);
-          if (delta > 0.01) {
-            if (overlayStore.calibrationStep === 1) {
+        // Active Calibration: Check physical delta as a secondary check
+        if (this.lastTetherLength > 0.0) {
+          const delta = maxLength - this.lastTetherLength;
+          if (overlayStore.calibrationStep === 1) {
+            if (delta < -0.01) {
+              this.reeledUp = true;
+            } else if (delta > 0.01) {
+              this.reeledDown = true;
+            }
+
+            if (!this.step1Completed && this.reeledUp && this.reeledDown) {
+              this.step1Completed = true;
               overlayStore.setCalibrationStep(2);
               try {
                 window.dispatchEvent(new CustomEvent("silk-play-confirm"));
@@ -10251,22 +10311,14 @@ export class HudSyncSystem implements ISystem {
               }
             }
           }
-          this.lastTetherLength = maxLength;
         }
+        this.lastTetherLength = maxLength;
       })
     );
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
-        // Active Calibration: Mark Wall-Cling milestone complete (Step 0 -> Step 1)
-        if (overlayStore.calibrationStep === 0) {
-          overlayStore.setCalibrationStep(1);
-          try {
-            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-          } catch (err) {
-            void err;
-          }
-        }
+        // Visual/Audio tick feedback
       })
     );
 
@@ -10274,26 +10326,6 @@ export class HudSyncSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, ({ state }) => {
         this.currentState = state;
         playerStore.setCurrentState(state);
-
-        // Active Calibration: Detect if player performed a fling transition within sweet spot boundaries
-        if (state === "LAUNCHING") {
-          const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
-          const pTrav = travStore.get(this.context.refs.player);
-          if (pTrav) {
-            const reelConfig = GAMEPLAY_TUNING.REEL;
-            const power = pTrav.launchPower;
-            if (overlayStore.calibrationStep === 2) {
-              if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-                overlayStore.setCalibrationStep(3);
-                try {
-                  window.dispatchEvent(new CustomEvent("silk-play-confirm"));
-                } catch (err) {
-                  void err;
-                }
-              }
-            }
-          }
-        }
 
         if (state !== "WALL_SLIDING") {
           this.setHint("none");
@@ -10335,6 +10367,11 @@ export class HudSyncSystem implements ISystem {
         resetAllStores();
         overlayStore.loadStats();
         this.lastTetherLength = 0.0;
+        this.reeledUp = false;
+        this.reeledDown = false;
+        this.step0Completed = false;
+        this.step1Completed = false;
+        this.step2Completed = false;
       })
     );
     this.subscriptions.push(
@@ -10348,6 +10385,52 @@ export class HudSyncSystem implements ISystem {
         overlayStore.setBootStatus("READY");
       })
     );
+  }
+
+  // Continuous frame updates reading exact, zero-latency physical components directly from ECS
+  public update(dt: number): void {
+    void dt;
+    const overlayStore = useOverlayStore.getState();
+
+    // Failsafe Step 1 check (reeling in both directions):
+    if (overlayStore.calibrationStep === 1) {
+      const inputStore = this.context.stores.get<InputIntentComponent>("input");
+      const input = inputStore.get(this.context.refs.player);
+      if (input) {
+        if (input.y > 0) {
+          this.reeledUp = true;
+        } else if (input.y < 0) {
+          this.reeledDown = true;
+        }
+
+        if (!this.step1Completed && this.reeledUp && this.reeledDown) {
+          this.step1Completed = true;
+          overlayStore.setCalibrationStep(2);
+          try {
+            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
+          } catch (err) {
+            void err;
+          }
+        }
+      }
+    }
+
+    // Failsafe Step 2 check (launching with >= 60% power):
+    if (overlayStore.calibrationStep === 2) {
+      const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+      const pTrav = travStore.get(this.context.refs.player);
+      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.60) {
+        if (!this.step2Completed) {
+          this.step2Completed = true;
+          overlayStore.setCalibrationStep(3);
+          try {
+            window.dispatchEvent(new CustomEvent("silk-play-confirm"));
+          } catch (err) {
+            void err;
+          }
+        }
+      }
+    }
   }
 
   private updateHint(tension: number): void {
@@ -10375,10 +10458,10 @@ export class HudSyncSystem implements ISystem {
         store.setTraversalHint("HOLD — CHARGING TETHER", "rgb(161, 161, 170)", 1);
         break;
       case "ready":
-        store.setTraversalHint("RELEASE TO FLING", "rgb(245, 158, 11)", 1);
+        store.setTraversalHint("RELEASE CLING TO LAUNCH", "rgb(245, 158, 11)", 1);
         break;
       case "maxout":
-        store.setTraversalHint("MAX TENSION — FLING NOW", "rgb(239, 68, 68)", 1);
+        store.setTraversalHint("MAX TENSION — LET GO NOW", "rgb(239, 68, 68)", 1);
         break;
     }
   }

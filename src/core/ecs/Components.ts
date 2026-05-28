@@ -57,8 +57,7 @@ export interface HealthComponent {
 export interface InputIntentComponent {
   x: number;
   y: number;
-  jump: boolean;
-}
+  }
 
 export interface WeaverAIComponent {
   state: string;

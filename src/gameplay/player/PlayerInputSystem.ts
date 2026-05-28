@@ -26,7 +26,7 @@ export class PlayerInputSystem implements ISystem {
     if ((pHealth && pHealth.current <= 0) || (wHealth && wHealth.current <= 0)) {
       input.x = 0;
       input.y = 0;
-      input.jump = false;
+      
       return;
     }
 
@@ -40,7 +40,7 @@ export class PlayerInputSystem implements ISystem {
 
     input.x = x;
     input.y = y;
-    input.jump = !!this.keysPressed[" "];
+    
   }
 
   public dispose(): void {
