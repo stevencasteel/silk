@@ -203,7 +203,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    this.updateTensionMeter(dt, tether, trav, input);
+    this.updateTensionMeter(dt, tether, trav);
 
     this.tensionPayload.tension = tether.tension;
     this.context.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
@@ -222,8 +222,9 @@ export class PlayerKinematicsSystem implements ISystem {
   }
 
   private applyWallImpactSquash(pTrans: TransformComponent): void {
-    pTrans.scaleX = 0.72;
-    pTrans.scaleY = 1.22;
+    const squash = GAMEPLAY_TUNING.PLAYER.SQUASH_STRETCH;
+    pTrans.scaleX = squash.SQUASH_WALL_X;
+    pTrans.scaleY = squash.SQUASH_WALL_Y;
     pTrans.scaleZ = 1.0;
     pTrans.scaleVelX = 0;
     pTrans.scaleVelY = 0;
@@ -576,10 +577,8 @@ export class PlayerKinematicsSystem implements ISystem {
   private updateTensionMeter(
     dt: number,
     tether: TetherComponent,
-    trav: TraversalStateComponent,
-    input: InputIntentComponent
+    trav: TraversalStateComponent
   ): void {
-    void input;
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
     if (trav.state === "WALL_SLIDING") {

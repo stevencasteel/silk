@@ -36,6 +36,7 @@ export class VisualStateDressingSystem implements ISystem {
   private readonly _footWorldTarget = new BABYLON.Vector3();
   private readonly _rootWorldInv = new BABYLON.Matrix();
   private readonly _targetLocal = new BABYLON.Vector3();
+  private readonly _ikResult = { coxaZ: 0, tibiaZ: 0 };
 
   constructor(private context: SystemContext) {}
 
@@ -87,18 +88,15 @@ export class VisualStateDressingSystem implements ISystem {
     const cosGamma = (L1 * L1 + L2 * L2 - dist * dist) / (2 * L1 * L2);
     const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma)));
 
-    let coxaZ: number;
-    let tibiaZ: number;
-
     if (sideSign > 0) {
-      coxaZ = angleTargetLocalY + beta;
-      tibiaZ = -(Math.PI - gamma);
+      this._ikResult.coxaZ = angleTargetLocalY + beta;
+      this._ikResult.tibiaZ = -(Math.PI - gamma);
     } else {
-      coxaZ = angleTargetLocalY - beta;
-      tibiaZ = Math.PI - gamma;
+      this._ikResult.coxaZ = angleTargetLocalY - beta;
+      this._ikResult.tibiaZ = Math.PI - gamma;
     }
 
-    return { coxaZ, tibiaZ };
+    return this._ikResult;
   }
 
   private updateAestheticDressing(): void {
@@ -229,15 +227,10 @@ export class VisualStateDressingSystem implements ISystem {
 
       parts.legRoots.forEach((node) => {
         const transNode = node as BABYLON.TransformNode;
-        const partsName = transNode.name.split("_");
-        const sideSign = parseFloat(partsName[2]);
-        const index = parseFloat(partsName[3]);
-
-        if (isNaN(sideSign) || isNaN(index)) return;
 
         const rootMeta = transNode.metadata as {
-          sideSign?: number;
-          index?: number;
+          sideSign: number;
+          index: number;
           baseRootZ?: number;
           basePositionZ?: number;
           coxaLength?: number;
@@ -245,16 +238,19 @@ export class VisualStateDressingSystem implements ISystem {
           baseFootLocal?: BABYLON.Vector3;
         } | null;
 
+        if (!rootMeta) return;
+
+        const sideSign = rootMeta.sideSign;
+        const index = rootMeta.index;
         const legJoints = parts?.legs.get(transNode.name);
 
         if (
-          !rootMeta ||
           rootMeta.coxaLength === undefined ||
           rootMeta.tibiaLength === undefined ||
           !rootMeta.baseFootLocal ||
           !legJoints
         ) {
-          const baseRootZ = rootMeta?.baseRootZ ?? 0;
+          const baseRootZ = rootMeta.baseRootZ ?? 0;
           const diagonalOffset = (index + (sideSign > 0 ? 0 : 1)) % 2 === 0 ? 0 : Math.PI;
           const rowOffset = index * 0.18;
           const phase = this.gaitClock + diagonalOffset + rowOffset;
@@ -265,7 +261,7 @@ export class VisualStateDressingSystem implements ISystem {
 
           transNode.rotation.z = baseRootZ + sideSign * sweep;
           transNode.rotation.y = 0;
-          transNode.position.z = rootMeta?.basePositionZ ?? transNode.position.z;
+          transNode.position.z = rootMeta.basePositionZ ?? transNode.position.z;
 
           const coxa = legJoints?.coxa;
           if (coxa) {

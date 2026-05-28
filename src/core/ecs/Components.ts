@@ -110,4 +110,13 @@ export interface WallBugComponent {
   height: number;
   speed: number;
   stayDuration: number;
+  gaitPhase: number;
+}
+
+export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
+
+export interface WeaverSweepComponent {
+  phase: SweepPhase;
+  timer: number;
+  direction: number;
 }

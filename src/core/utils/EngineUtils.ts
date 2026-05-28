@@ -134,6 +134,11 @@ export function setKinematicVelocity(
   });
 }
 
+const _stingerLocalTip = new BABYLON.Vector3();
+const _stingerQ = new BABYLON.Quaternion();
+const _stingerWorldOffset = new BABYLON.Vector3();
+const _stingerResult = new BABYLON.Vector3();
+
 export function getWeaverStingerTip(
   weaverX: number,
   weaverY: number,
@@ -145,15 +150,15 @@ export function getWeaverStingerTip(
   radius: number,
   scaleMultiplier: number = 1.18
 ): BABYLON.Vector3 {
-  const localTip = new BABYLON.Vector3(0, -radius * scaleMultiplier, 0);
-  const q = new BABYLON.Quaternion(qx, qy, qz, qw);
-  const worldTipOffset = new BABYLON.Vector3();
-  localTip.rotateByQuaternionToRef(q, worldTipOffset);
-  return new BABYLON.Vector3(
-    weaverX + worldTipOffset.x,
-    weaverY + worldTipOffset.y,
-    weaverZ + worldTipOffset.z
+  _stingerLocalTip.set(0, -radius * scaleMultiplier, 0);
+  _stingerQ.set(qx, qy, qz, qw);
+  _stingerLocalTip.rotateByQuaternionToRef(_stingerQ, _stingerWorldOffset);
+  _stingerResult.set(
+    weaverX + _stingerWorldOffset.x,
+    weaverY + _stingerWorldOffset.y,
+    weaverZ + _stingerWorldOffset.z
   );
+  return _stingerResult;
 }
 
 export function configurePBRTextures(

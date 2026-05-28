@@ -8,23 +8,15 @@ import {
   TransformComponent,
   KinematicTargetComponent,
   WeaverAIComponent,
-  HealthComponent
+  HealthComponent,
+  WeaverSweepComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
-type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
-
-interface SweepState {
-  phase: SweepPhase;
-  timer: number;
-  direction: number;
-}
-
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
-  private sweepStates = new Map<number, SweepState>();
 
   private readonly _targetQuat = new BABYLON.Quaternion();
   private readonly _currentQuat = new BABYLON.Quaternion();
@@ -49,12 +41,13 @@ export class WeaverTraversalSystem implements ISystem {
       .get(this.context.refs.weaver);
     const ai = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
     const health = this.context.stores.get<HealthComponent>("health").get(this.context.refs.weaver);
+    const sweepStore = this.context.stores.get<WeaverSweepComponent>("weaverSweep");
 
     if (!vel || !trav || !trans || !target) return;
 
     const isStriking = ai && ai.state === "STRIKING";
     const isPatrolling = ai && ai.state === "PATROLLING";
-    let sState = this.sweepStates.get(this.context.refs.weaver);
+    let sState = sweepStore.get(this.context.refs.weaver);
 
     const scene = this.context.visualRegistry.getScene();
     const physicsEngine = scene?.getPhysicsEngine();
@@ -75,7 +68,7 @@ export class WeaverTraversalSystem implements ISystem {
           timer: 0.0,
           direction: dir
         };
-        this.sweepStates.set(this.context.refs.weaver, sState);
+        sweepStore.add(this.context.refs.weaver, sState);
       }
 
       if (sState.phase === "SWEEP" || sState.phase === "LAUNCH") {
@@ -167,7 +160,7 @@ export class WeaverTraversalSystem implements ISystem {
       target.x = trans.x + vel.x * dt;
       target.y = trans.y + vel.y * dt;
       target.active = true;
-      this.sweepStates.delete(this.context.refs.weaver);
+      sweepStore.remove(this.context.refs.weaver);
     }
 
     let isGrounded = false;

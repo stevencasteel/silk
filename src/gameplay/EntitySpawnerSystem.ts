@@ -15,7 +15,8 @@ import {
   WeaverTag,
   TraversalStateComponent,
   InvulnerabilityComponent,
-  WeaverTraversalComponent
+  WeaverTraversalComponent,
+  WeaverSweepComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { decorateWeaverVisual } from "../visual/mesh/WeaverVisualFactory";
@@ -109,6 +110,12 @@ export class EntitySpawnerSystem implements ISystem {
       isGrounded: false,
       isWallClinging: false,
       wallNormalX: 0
+    });
+
+    this.context.stores.get<WeaverSweepComponent>("weaverSweep").add(weaverId, {
+      phase: "SWEEP",
+      timer: 0.0,
+      direction: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X >= 0 ? 1 : -1
     });
 
     this.context.refs.weaver = weaverId;

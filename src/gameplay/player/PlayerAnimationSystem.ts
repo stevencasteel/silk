@@ -15,6 +15,9 @@ import * as BABYLON from "@babylonjs/core";
 export class PlayerAnimationSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
+  private readonly _currentQuat = new BABYLON.Quaternion();
+  private readonly _targetQuat = new BABYLON.Quaternion();
+
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
@@ -87,15 +90,20 @@ export class PlayerAnimationSystem implements ISystem {
     }
 
     const targetAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
-    const targetQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, targetAngle);
+    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, targetAngle, this._targetQuat);
 
-    const currentQuat = new BABYLON.Quaternion(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
+    this._currentQuat.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
 
-    BABYLON.Quaternion.SlerpToRef(currentQuat, targetQuat, tuning.SLERP_FACTOR, currentQuat);
+    BABYLON.Quaternion.SlerpToRef(
+      this._currentQuat,
+      this._targetQuat,
+      tuning.SLERP_FACTOR,
+      this._currentQuat
+    );
 
-    pTrans.qx = currentQuat.x;
-    pTrans.qy = currentQuat.y;
-    pTrans.qz = currentQuat.z;
-    pTrans.qw = currentQuat.w;
+    pTrans.qx = this._currentQuat.x;
+    pTrans.qy = this._currentQuat.y;
+    pTrans.qz = this._currentQuat.z;
+    pTrans.qw = this._currentQuat.w;
   }
 }

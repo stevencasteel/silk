@@ -110,13 +110,10 @@ export class WallBugSystem implements ISystem {
 
       const node = pBug.rootNode;
       if (node) {
-        if (!node.metadata) {
-          node.metadata = {};
-        }
-        let bugPhase = node.metadata.gaitPhase ?? 0.0;
+        let bugPhase = bug.gaitPhase;
         const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
         bugPhase += legFrequency * dt;
-        node.metadata.gaitPhase = bugPhase;
+        bug.gaitPhase = bugPhase;
 
         node.getChildren().forEach((child) => {
           if (child.name.startsWith("leg_joint_left")) {
@@ -186,7 +183,8 @@ export class WallBugSystem implements ISystem {
       width: 1.15,
       height: 7.2,
       speed: 3.8,
-      stayDuration: 0.0
+      stayDuration: 0.0,
+      gaitPhase: 0.0
     });
 
     pBug.active = true;

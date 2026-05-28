@@ -144,6 +144,10 @@ export class ProjectileSystem implements ISystem {
     }
     BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, proj.mesh.rotationQuaternion);
     proj.mesh.scaling.set(0.7, 1.5, 0.7);
+
+    if (proj.body) {
+      proj.body.setTargetTransform(proj.mesh.position, proj.mesh.rotationQuaternion);
+    }
   }
 
   public update(dt: number): void {
@@ -188,6 +192,13 @@ export class ProjectileSystem implements ISystem {
         p.fallbackVelocity.scaleToRef(dt, this._velocityTickScratch);
         p.mesh.position.addInPlace(this._velocityTickScratch);
 
+        if (p.body) {
+          p.body.setTargetTransform(
+            p.mesh.position,
+            p.mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          );
+        }
+
         if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
           p.isStuckOnWall = true;
@@ -195,6 +206,11 @@ export class ProjectileSystem implements ISystem {
           p.mesh.position.x = Math.sign(p.mesh.position.x) * (wallLimit - 0.05);
           p.mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
           p.mesh.material = this.projMatStuck;
+
+          if (p.body) {
+            p.body.setTargetTransform(p.mesh.position, p.mesh.rotationQuaternion);
+          }
+
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: p.mesh.position.x,
             y: p.mesh.position.y,
@@ -251,6 +267,12 @@ export class ProjectileSystem implements ISystem {
 
       if (p.isStuckOnWall) {
         p.mesh.position.y -= currentScrollSpeed * dt;
+        if (p.body) {
+          p.body.setTargetTransform(
+            p.mesh.position,
+            p.mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          );
+        }
       }
 
       if (
@@ -274,6 +296,9 @@ export class ProjectileSystem implements ISystem {
     p.isStuckOnWall = false;
     p.lifeTime = 0.0;
     p.mesh.material = this.projMatActive;
+    if (p.body) {
+      p.body.setTargetTransform(p.mesh.position, p.mesh.rotationQuaternion);
+    }
   }
 
   private clearAll(): void {
