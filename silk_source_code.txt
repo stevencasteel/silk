@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 8:49:54 PM
+ [SYSTEM] Generated: 5/28/2026, 8:54:47 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2062,12 +2062,13 @@ import { Profiler } from "./Profiler";
 import { TransformComponent, TetherComponent, KinematicVelocityComponent } from "../ecs/Components";
 import { GameEvent } from "../events/GameEvents";
 import { SystemContext } from "../engine/SystemContext";
+import { SubscriptionTracker } from "../utils/EngineUtils";
 
 export class DebugTelemetryOverlay implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private overlay: HTMLElement | null = null;
   private sysText: HTMLElement | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
   private isGameOver: boolean = false;
   private isPaused: boolean = false;
 
@@ -2092,25 +2093,25 @@ export class DebugTelemetryOverlay implements ISystem {
     this.overlay.appendChild(this.sysText);
     root.appendChild(this.overlay);
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
         if (this.overlay) this.overlay.style.display = "block";
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
         this.isGameOver = true;
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.isGameOver = false;
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
         this.isPaused = isPaused;
       })
@@ -2168,8 +2169,7 @@ export class DebugTelemetryOverlay implements ISystem {
   }
 
   public dispose(): void {
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
   }
 }
@@ -3612,6 +3612,18 @@ export class ColorCache {
   }
 }
 
+export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON.Scene): void {
+  scene.lights.forEach((light) => {
+    const shadowGen = light.getShadowGenerator();
+    if (shadowGen) {
+      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (m: BABYLON.AbstractMesh) => void };
+      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
+        concreteGen.removeShadowCaster(mesh);
+      }
+    }
+  });
+}
+
 
 
 ● ./src/gameplay/EntitySpawnerSystem.ts
@@ -4122,7 +4134,7 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
-import { HASH_PREFIX } from "../../core/utils/EngineUtils";
+import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -4131,7 +4143,7 @@ export class GameDirectorSystem implements ISystem {
   private gameState: "PLAYING" | "GAME_OVER" | "VICTORY" = "PLAYING";
   private resetRequested = false;
   
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   private activeCinematic: "NONE" | "PLAYER_DEATH" | "WEAVER_DEATH" = "NONE";
   private cinematicTimer = 0.0;
@@ -4146,7 +4158,7 @@ export class GameDirectorSystem implements ISystem {
   ) {}
 
   public init(): void {
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         console.log("[GameDirectorSystem] PLAYER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
@@ -4171,7 +4183,7 @@ export class GameDirectorSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         console.log("[GameDirectorSystem] WEAVER_DIED event received!");
         if (this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
@@ -4189,7 +4201,7 @@ export class GameDirectorSystem implements ISystem {
       })
     );
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
         if (payload.hp === 1 && this.gameState === "PLAYING" && this.activeCinematic === "NONE") {
           console.log("[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo...");
@@ -4296,8 +4308,7 @@ export class GameDirectorSystem implements ISystem {
 
   public dispose(): void {
     window.removeEventListener("keydown", this.handleKeyDown);
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
   }
 }
 
@@ -4434,7 +4445,6 @@ export class ProjectileSystem implements ISystem {
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
 
-  // Reusable scratch fields to prevent dynamic GC allocations in the physics update loop
   private readonly _velocityTickScratch = new BABYLON.Vector3();
 
   constructor(private context: SystemContext) {}
@@ -4443,23 +4453,12 @@ export class ProjectileSystem implements ISystem {
     const scene = this.context.visualRegistry.getScene();
     if (!scene) return;
 
-    this.projMatActive = new BABYLON.PBRMaterial("projectileMatActive", scene);
-    this.projMatActive.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
-    this.projMatActive.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
-    this.projMatActive.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
-    this.projMatActive.sheen.isEnabled = true;
-    this.projMatActive.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
-
+    this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive", scene);
     const noisePlugin = new ProjectileNoisePlugin(this.projMatActive);
     (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin =
       noisePlugin;
 
-    this.projMatStuck = new BABYLON.PBRMaterial("projectileMatStuck", scene);
-    this.projMatStuck.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
-    this.projMatStuck.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
-    this.projMatStuck.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
-    this.projMatStuck.sheen.isEnabled = true;
-    this.projMatStuck.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+    this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
 
     if (scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
@@ -4506,6 +4505,16 @@ export class ProjectileSystem implements ISystem {
       this.clearAll();
       this.noiseTime = 0.0;
     });
+  }
+
+  private createBaseProjectileMaterial(name: string, scene: BABYLON.Scene): BABYLON.PBRMaterial {
+    const mat = new BABYLON.PBRMaterial(name, scene);
+    mat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
+    mat.metallic = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.METALLIC;
+    mat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.ROUGHNESS;
+    mat.sheen.isEnabled = true;
+    mat.sheen.intensity = VISUAL_JUICE_CONFIG.MATERIALS.PROJECTILE.SHEEN_INTENSITY;
+    return mat;
   }
 
   private spawnProjectile(x: number, y: number, tx: number, ty: number): void {
@@ -4585,7 +4594,6 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       if (!p.isStuck) {
-        // Zero allocation displacement using static scratch vector scaling
         p.fallbackVelocity.scaleToRef(dt, this._velocityTickScratch);
         p.mesh.position.addInPlace(this._velocityTickScratch);
 
@@ -4618,7 +4626,6 @@ export class ProjectileSystem implements ISystem {
                 y: p.mesh.position.y,
                 isWall: false
               });
-              // High-Juice: Smash projectile triggers high-power directional camera shake matching impact angle
               this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                 amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
                 duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
@@ -11452,7 +11459,7 @@ export class ArenaGeometry {
 
 ● ./src/visual/mesh/PlayerSilkVisualFactory.ts
 ────────────────────────────────────────────────────
-import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
 
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -11470,15 +11477,7 @@ export function decoratePlayerSilkVisual(
     childMeshes[i].dispose();
   }
 
-  scene.lights.forEach((light) => {
-    const shadowGen = light.getShadowGenerator();
-    if (shadowGen) {
-      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (mesh: BABYLON.AbstractMesh) => void };
-      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
-        concreteGen.removeShadowCaster(pMesh);
-      }
-    }
-  });
+  removeMeshFromShadows(pMesh, scene);
 
   const innerBody = BABYLON.MeshBuilder.CreateCapsule(
     "player_inner_body",
@@ -11528,7 +11527,7 @@ export function decoratePlayerSilkVisual(
   silkMat.sheen.isEnabled = true;
   silkMat.sheen.intensity = 0.95;
   silkMat.sheen.roughness = 0.05;
-  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0); // Neutral white sheen reflection
+  silkMat.sheen.color = new BABYLON.Color3(1.0, 1.0, 1.0); 
   silkMat.emissiveColor = new BABYLON.Color3(0.1, 0.0, 0.2);
   silkMat.enableSpecularAntiAliasing = true;
   silkMat.forceIrradianceInFragment = true;
@@ -11608,7 +11607,7 @@ export function decoratePlayerSilkVisual(
 
 ● ./src/visual/mesh/WeaverVisualFactory.ts
 ────────────────────────────────────────────────────
-import { applyProceduralTextures } from "../../core/utils/EngineUtils";
+import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
 
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
@@ -11717,15 +11716,7 @@ export function decorateWeaverVisual(
     childMeshes[i].dispose();
   }
 
-  scene.lights.forEach((light) => {
-    const shadowGen = light.getShadowGenerator();
-    if (shadowGen) {
-      const concreteGen = shadowGen as unknown as { removeShadowCaster?: (mesh: BABYLON.AbstractMesh) => void };
-      if (concreteGen && typeof concreteGen.removeShadowCaster === "function") {
-        concreteGen.removeShadowCaster(wMesh);
-      }
-    }
-  });
+  removeMeshFromShadows(wMesh, scene);
 
   const textureGen = new ProceduralTextureGenerator();
 
@@ -12221,6 +12212,7 @@ import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { VisualRegistry } from "./VisualRegistry";
 import { EventBroker } from "../../core/events/EventBroker";
 import { GameEvent } from "../../core/events/GameEvents";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem {
@@ -12230,7 +12222,7 @@ export class RenderSystem implements ISystem {
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
   private pipeline: BABYLON.DefaultRenderingPipeline | null = null;
-  private unsubscribes: (() => void)[] = [];
+  private _tracker = new SubscriptionTracker();
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -12385,21 +12377,21 @@ export class RenderSystem implements ISystem {
     const arenaGeo = new ArenaGeometry(this.scene);
     arenaGeo.generateElevatorShaft();
 
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 45.0;
         }
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 25.0;
         }
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
         if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
           if (this.pipeline) {
@@ -12408,7 +12400,7 @@ export class RenderSystem implements ISystem {
         }
       })
     );
-    this.unsubscribes.push(
+    this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
         if (this.pipeline) {
           this.pipeline.chromaticAberration.aberrationAmount = 0.0;
@@ -12442,8 +12434,7 @@ export class RenderSystem implements ISystem {
 
   public dispose(): void {
     window.removeEventListener("resize", this.handleResize);
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
+    this._tracker.clear();
     this.visualRegistry.clear();
     if (this.scene) this.scene.dispose();
     if (this.engine) this.engine.dispose();
