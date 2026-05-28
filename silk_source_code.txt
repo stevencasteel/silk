@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 3:04:40 PM
+ [SYSTEM] Generated: 5/28/2026, 3:14:45 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -10312,9 +10312,60 @@ export class ArenaGeometry {
     verticalGrooveMaterial.roughness = 0.98;
     verticalGrooveMaterial.metallic = 0.0;
 
+    const backdropMaterial = new BABYLON.PBRMaterial("shaftBackdropMat", this.scene);
+    backdropMaterial.metallic = 0.0;
+    backdropMaterial.roughness = 0.94;
+    backdropMaterial.albedoColor = new BABYLON.Color3(0.026, 0.03, 0.037);
+
+    textureGen.generatePBRTextures("shaftBackdropConcrete", this.scene, {
+      resolution: 1024,
+      noiseScale: 12.0,
+      bumpStrength: 3.1,
+      baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
+      roughnessMin: 0.82,
+      roughnessMax: 0.99,
+      metallic: 0.0,
+      ridgeStrength: 0.16,
+      ridgeScale: 0.34,
+      ridgeDirectionX: 0.65,
+      ridgeDirectionY: 1.0,
+      colorVariation: 0.2
+    }).then((backdropTexs) => {
+      backdropMaterial.albedoTexture = backdropTexs.albedo;
+      backdropMaterial.bumpTexture = backdropTexs.normal;
+      backdropMaterial.metallicTexture = backdropTexs.orm;
+      backdropMaterial.useAmbientOcclusionFromMetallicTextureRed = true;
+      backdropMaterial.useRoughnessFromMetallicTextureGreen = true;
+      backdropMaterial.useMetallnessFromMetallicTextureBlue = true;
+      backdropMaterial.useRoughnessFromMetallicTextureAlpha = false;
+      backdropMaterial.enableSpecularAntiAliasing = true;
+      backdropMaterial.forceIrradianceInFragment = true;
+    });
+
+    const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
+    backdropPanelMaterial.metallic = 0.05;
+    backdropPanelMaterial.roughness = 0.88;
+    backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
+
+    const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
+    gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
+    gashMaterial.roughness = 1.0;
+    gashMaterial.metallic = 0.0;
+
     const wallThickness = 2.0;
     const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
     const wallX = ARENA_CONFIG.HORIZONTAL.WALL_GEOMETRY_X;
+    const backdropWidth = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH * 1.92;
+    const backdropZ = 2.35;
+
+    const backWall = BABYLON.MeshBuilder.CreateBox(
+      "shaftBackdropWall",
+      { width: backdropWidth, height: wallHeight, depth: 0.36 },
+      this.scene
+    );
+    backWall.position.set(0, wallHeight * 0.1, backdropZ);
+    backWall.material = backdropMaterial;
+    backWall.receiveShadows = true;
 
     const leftWall = BABYLON.MeshBuilder.CreateBox(
       "leftWall",
@@ -10367,6 +10418,68 @@ export class ArenaGeometry {
     );
     ribBase.material = verticalGrooveMaterial;
     ribBase.isVisible = false;
+
+    const backdropPanelBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase.material = backdropPanelMaterial;
+    backdropPanelBase.isVisible = false;
+
+    const backdropGashBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropGashBase",
+      { width: 1.0, height: 1.0, depth: 0.1 },
+      this.scene
+    );
+    backdropGashBase.material = gashMaterial;
+    backdropGashBase.isVisible = false;
+
+    const backdropPanelCount = 28;
+    const backdropPanelSpacing = wallHeight / backdropPanelCount;
+    for (let i = 0; i < backdropPanelCount; i++) {
+      const panelY = (i - backdropPanelCount / 2) * backdropPanelSpacing + wallHeight * 0.1;
+      const bandOffset = Math.sin(i * 2.17) * backdropWidth * 0.16;
+      const panelWidth = backdropWidth * (0.28 + Math.abs(Math.sin(i * 1.31)) * 0.24);
+      const panelHeight = backdropPanelSpacing * (0.62 + Math.abs(Math.cos(i * 0.93)) * 0.42);
+      const panelDepth = 0.09 + Math.abs(Math.sin(i * 4.73)) * 0.07;
+
+      const backdropPanel = backdropPanelBase.createInstance(`backdropPanel_${i}`);
+      backdropPanel.position.set(bandOffset, panelY, backdropZ - 0.22);
+      backdropPanel.scaling.set(panelWidth, panelHeight, panelDepth);
+      backdropPanel.receiveShadows = true;
+      backdropPanel.metadata = { type: "scrolling_backdrop_panel", index: i, initialY: panelY };
+
+      if (i % 3 !== 1) {
+        const seam = backdropGashBase.createInstance(`backdropPanelSeam_${i}`);
+        seam.position.set(
+          bandOffset + Math.sin(i * 5.1) * panelWidth * 0.38,
+          panelY + Math.cos(i * 2.9) * panelHeight * 0.24,
+          backdropZ - 0.285
+        );
+        seam.scaling.set(panelWidth * (0.32 + Math.abs(Math.cos(i * 1.7)) * 0.24), 0.035, 0.12);
+        seam.rotation.z = Math.sin(i * 1.9) * 0.34;
+        seam.receiveShadows = false;
+        seam.metadata = { type: "scrolling_backdrop_gash", index: i, initialY: seam.position.y };
+      }
+    }
+
+    const gashCount = 34;
+    const gashSpacing = wallHeight / gashCount;
+    for (let i = 0; i < gashCount; i++) {
+      const scratchY = (i - gashCount / 2) * gashSpacing + wallHeight * 0.1;
+      const scratchX = Math.sin(i * 3.83) * backdropWidth * 0.43;
+      const scratch = backdropGashBase.createInstance(`backdropGash_${i}`);
+      scratch.position.set(scratchX, scratchY, backdropZ - 0.31);
+      scratch.scaling.set(
+        0.06 + Math.abs(Math.sin(i * 1.41)) * 0.08,
+        0.75 + Math.abs(Math.cos(i * 2.37)) * 1.15,
+        0.14
+      );
+      scratch.rotation.z = Math.sin(i * 2.61) * 0.92;
+      scratch.receiveShadows = false;
+      scratch.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
+    }
 
     const panelCount = 20;
     const panelSpacing = wallHeight / panelCount;
@@ -11315,30 +11428,32 @@ export class RenderSystem implements ISystem {
       this.scene
     );
     this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 0.95;
+    this.scene.environmentIntensity = 0.82;
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
       new BABYLON.Vector3(0, 1, 0),
       this.scene
     );
-    ambientLight.intensity = 0.18;
+    ambientLight.intensity = 0.12;
 
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.35, -0.75, 0.55),
       this.scene
     );
-    dirLight.intensity = 1.65;
-    dirLight.specular = new BABYLON.Color3(0.6, 0.6, 0.65);
+    dirLight.intensity = 1.25;
+    dirLight.diffuse = new BABYLON.Color3(0.78, 0.84, 0.92);
+    dirLight.specular = new BABYLON.Color3(0.48, 0.52, 0.6);
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
       new BABYLON.Vector3(0.35, -0.75, 0.55),
       this.scene
     );
-    dirFillLight.intensity = 1.35;
-    dirFillLight.specular = new BABYLON.Color3(0.4, 0.4, 0.45);
+    dirFillLight.intensity = 0.72;
+    dirFillLight.diffuse = new BABYLON.Color3(0.48, 0.55, 0.64);
+    dirFillLight.specular = new BABYLON.Color3(0.25, 0.28, 0.34);
     dirFillLight.setEnabled(true);
 
     const leftPointLight = new BABYLON.PointLight(
@@ -11346,10 +11461,10 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(-13.5, 14.0, -1.0),
       this.scene
     );
-    leftPointLight.intensity = 1.35;
-    leftPointLight.range = 35.0;
-    leftPointLight.diffuse = new BABYLON.Color3(0.5, 0.6, 0.7);
-    leftPointLight.specular = new BABYLON.Color3(0.2, 0.2, 0.25);
+    leftPointLight.intensity = 1.1;
+    leftPointLight.range = 34.0;
+    leftPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
+    leftPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
     leftPointLight.setEnabled(true);
 
     const rightPointLight = new BABYLON.PointLight(
@@ -11357,11 +11472,44 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(13.5, 14.0, -1.0),
       this.scene
     );
-    rightPointLight.intensity = 1.35;
-    rightPointLight.range = 35.0;
-    rightPointLight.diffuse = new BABYLON.Color3(0.5, 0.6, 0.7);
-    rightPointLight.specular = new BABYLON.Color3(0.2, 0.2, 0.25);
+    rightPointLight.intensity = 1.1;
+    rightPointLight.range = 34.0;
+    rightPointLight.diffuse = new BABYLON.Color3(0.36, 0.48, 0.62);
+    rightPointLight.specular = new BABYLON.Color3(0.18, 0.22, 0.28);
     rightPointLight.setEnabled(true);
+
+    const lowerBackLight = new BABYLON.SpotLight(
+      "shaftLowerBackUplight",
+      new BABYLON.Vector3(0.0, -8.5, -7.5),
+      new BABYLON.Vector3(0.0, 1.0, 0.55),
+      Math.PI * 0.42,
+      2.8,
+      this.scene
+    );
+    lowerBackLight.intensity = 3.2;
+    lowerBackLight.range = 58.0;
+    lowerBackLight.diffuse = new BABYLON.Color3(0.34, 0.46, 0.62);
+    lowerBackLight.specular = new BABYLON.Color3(0.24, 0.32, 0.42);
+
+    const leftUplight = new BABYLON.PointLight(
+      "leftShaftUplight",
+      new BABYLON.Vector3(-10.5, -9.0, -4.2),
+      this.scene
+    );
+    leftUplight.intensity = 1.75;
+    leftUplight.range = 32.0;
+    leftUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
+    leftUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
+
+    const rightUplight = new BABYLON.PointLight(
+      "rightShaftUplight",
+      new BABYLON.Vector3(10.5, -9.0, -4.2),
+      this.scene
+    );
+    rightUplight.intensity = 1.75;
+    rightUplight.range = 32.0;
+    rightUplight.diffuse = new BABYLON.Color3(0.2, 0.48, 0.72);
+    rightUplight.specular = new BABYLON.Color3(0.1, 0.22, 0.34);
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -11699,10 +11847,14 @@ export class ParallaxScrollSystem implements ISystem {
 
     const leftWall = scene.getMeshByName("leftWall");
     const rightWall = scene.getMeshByName("rightWall");
+    const backdropWall = scene.getMeshByName("shaftBackdropWall");
     if (leftWall && rightWall) {
       const defaultWallY = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT * 0.1;
       leftWall.position.y = defaultWallY + cameraYOffset;
       rightWall.position.y = defaultWallY + cameraYOffset;
+      if (backdropWall) {
+        backdropWall.position.y = defaultWallY + cameraYOffset;
+      }
     }
 
     if (!this.cachedScrollables) {
