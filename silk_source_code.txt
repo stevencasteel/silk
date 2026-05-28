@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 8:42:22 PM
+ [SYSTEM] Generated: 5/28/2026, 8:49:54 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1135,34 +1135,26 @@ export class CompositionRoot {
     const weaverTags = new ComponentStore<WeaverTag>();
     const refs = new EntityRefs(playerTags, weaverTags);
 
-    world.registerStore(transforms);
-    world.registerStore(velocities);
-    world.registerStore(targets);
-    world.registerStore(tethers);
-    world.registerStore(healths);
-    world.registerStore(inputs);
-    world.registerStore(weaverAIs);
-    world.registerStore(traversal);
-    world.registerStore(iframes);
-    world.registerStore(weaverTraversal);
-    world.registerStore(wallBugs);
-    world.registerStore(playerTags);
-    world.registerStore(weaverTags);
-
     const storeContainer = new StoreContainer();
-    storeContainer.register("transform", transforms);
-    storeContainer.register("velocity", velocities);
-    storeContainer.register("target", targets);
-    storeContainer.register("tether", tethers);
-    storeContainer.register("health", healths);
-    storeContainer.register("input", inputs);
-    storeContainer.register("weaverAI", weaverAIs);
-    storeContainer.register("traversal", traversal);
-    storeContainer.register("iframe", iframes);
-    storeContainer.register("weaverTraversal", weaverTraversal);
-    storeContainer.register("wallBug", wallBugs);
-    storeContainer.register("playerTag", playerTags);
-    storeContainer.register("weaverTag", weaverTags);
+
+    const registerStore = <T>(key: string, store: ComponentStore<T>) => {
+      world.registerStore(store);
+      storeContainer.register(key, store);
+    };
+
+    registerStore("transform", transforms);
+    registerStore("velocity", velocities);
+    registerStore("target", targets);
+    registerStore("tether", tethers);
+    registerStore("health", healths);
+    registerStore("input", inputs);
+    registerStore("weaverAI", weaverAIs);
+    registerStore("traversal", traversal);
+    registerStore("iframe", iframes);
+    registerStore("weaverTraversal", weaverTraversal);
+    registerStore("wallBug", wallBugs);
+    registerStore("playerTag", playerTags);
+    registerStore("weaverTag", weaverTags);
 
     const visualRegistry = new VisualRegistry();
 
@@ -1374,14 +1366,12 @@ export class AudioDirectorSystem implements ISystem {
         if (this.initialized && this.noiseSynth) {
           this.noiseSynth.triggerAttackRelease(presets.DAMAGED_DURATION);
         }
-        // State-driven Audio Coupling: Reset player's swing-charge combo instantly when hit
         this.hitComboCount = 0;
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
-        // State-driven Audio Coupling: Reset player's swing-charge combo instantly on ground contact
         this.hitComboCount = 0;
       })
     );
@@ -1469,25 +1459,7 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         if (this.initialized) {
-          const presets = AUDIO_PRESETS.WEAVER;
-          if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_1,
-              presets.DEATH_NOTE_1_DURATION
-            );
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_2,
-              presets.DEATH_NOTE_2_DURATION,
-              presets.DEATH_NOTE_2_DELAY
-            );
-          }
-          if (this.noiseSynth) {
-            this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-            this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-            setTimeout(() => {
-              if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-            }, presets.DEATH_NOISE_RESTORE_DELAY);
-          }
+          this.triggerDeathSequence(AUDIO_PRESETS.WEAVER);
         }
       })
     );
@@ -1495,28 +1467,31 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         if (this.initialized) {
-          const presets = AUDIO_PRESETS.PLAYER;
-          if (this.impactSynth) {
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_1,
-              presets.DEATH_NOTE_1_DURATION
-            );
-            this.impactSynth.triggerAttackRelease(
-              presets.DEATH_NOTE_2,
-              presets.DEATH_NOTE_2_DURATION,
-              presets.DEATH_NOTE_2_DELAY
-            );
-          }
-          if (this.noiseSynth) {
-            this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-            this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-            setTimeout(() => {
-              if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-            }, presets.DEATH_NOISE_RESTORE_DELAY);
-          }
+          this.triggerDeathSequence(AUDIO_PRESETS.PLAYER);
         }
       })
     );
+  }
+
+  private triggerDeathSequence(presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER): void {
+    if (this.impactSynth) {
+      this.impactSynth.triggerAttackRelease(
+        presets.DEATH_NOTE_1,
+        presets.DEATH_NOTE_1_DURATION
+      );
+      this.impactSynth.triggerAttackRelease(
+        presets.DEATH_NOTE_2,
+        presets.DEATH_NOTE_2_DURATION,
+        presets.DEATH_NOTE_2_DELAY
+      );
+    }
+    if (this.noiseSynth) {
+      this.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
+      this.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
+      setTimeout(() => {
+        if (this.noiseSynth) this.noiseSynth.envelope.decay = presets.NOISE_DECAY;
+      }, presets.DEATH_NOISE_RESTORE_DELAY);
+    }
   }
 
   public update(): void {
@@ -6237,7 +6212,7 @@ export class PlayerInputSystem implements ISystem {
 
 ● ./src/gameplay/player/PlayerKinematicsSystem.ts
 ────────────────────────────────────────────────────
-import { getWeaverStingerTip } from "../../core/utils/EngineUtils";
+import { getWeaverStingerTip, getDistance2D } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -6342,9 +6317,7 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.anchorY = tipWorld.y;
     tether.anchorZ = tipWorld.z;
 
-    const dx = target.x - tether.anchorX;
-    const dy = target.y - tether.anchorY;
-    tether.currentLength = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWallSliding = trav.state === "WALL_SLIDING";
@@ -6416,7 +6389,7 @@ export class PlayerKinematicsSystem implements ISystem {
         if (input.y > 0 && tether.isAttached) {
           const dxVal = tether.anchorX - target.x;
           const dyVal = tether.anchorY - target.y;
-          const dist = Math.sqrt(dxVal * dxVal + dyVal * dyVal) || 1.0;
+          const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
           const pullForce = 15.0;
           vel.x += (dxVal / dist) * pullForce * dt;
           vel.y += (dyVal / dist) * pullForce * dt;
@@ -6437,9 +6410,7 @@ export class PlayerKinematicsSystem implements ISystem {
       this.enforcePendulumConstraint(target, vel, tether);
     }
 
-    const finalDx = target.x - tether.anchorX;
-    const finalDy = target.y - tether.anchorY;
-    tether.currentLength = Math.sqrt(finalDx * finalDx + finalDy * finalDy) || 1.0;
+    tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     this.updateTensionMeter(dt, tether, trav, input);
 
@@ -6457,6 +6428,15 @@ export class PlayerKinematicsSystem implements ISystem {
         launchPower: trav.launchPower
       });
     }
+  }
+
+  private applyWallImpactSquash(pTrans: TransformComponent): void {
+    pTrans.scaleX = 0.72;
+    pTrans.scaleY = 1.22;
+    pTrans.scaleZ = 1.0;
+    pTrans.scaleVelX = 0;
+    pTrans.scaleVelY = 0;
+    pTrans.scaleVelZ = 0;
   }
 
   private resolveWallContact(
@@ -6512,14 +6492,10 @@ export class PlayerKinematicsSystem implements ISystem {
           slideSpeed = -5.0;
         }
         trav.stickyWallYOffset += slideSpeed * dt;
-        
         trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
 
         const finalY = bugTrans.y + trav.stickyWallYOffset;
-
-        const dx = target.x - tether.anchorX;
-        const dy = finalY - tether.anchorY;
-        const requiredLength = Math.sqrt(dx * dx + dy * dy);
+        const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
         if (input.y <= 0 && requiredLength > tether.maxLength) {
           const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
@@ -6543,7 +6519,6 @@ export class PlayerKinematicsSystem implements ISystem {
         tether.tension += stretchRatio * dt;
 
         this.wasWallSliding = true;
-        
       }
       this.lastCameraYOffset = cameraYOffset;
       return;
@@ -6560,7 +6535,6 @@ export class PlayerKinematicsSystem implements ISystem {
       }
 
       target.x = trav.wallDir * this.WALL_LIMIT_X;
-
       vel.x = 0;
       vel.y = -currentScrollSpeed;
 
@@ -6570,10 +6544,7 @@ export class PlayerKinematicsSystem implements ISystem {
       }
 
       const finalY = target.y + vel.y * dt + cameraDeltaY;
-
-      const dx = target.x - tether.anchorX;
-      const dy = finalY - tether.anchorY;
-      const requiredLength = Math.sqrt(dx * dx + dy * dy);
+      const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
       if (input.y <= 0 && requiredLength > tether.maxLength) {
         const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
@@ -6584,8 +6555,6 @@ export class PlayerKinematicsSystem implements ISystem {
       }
       target.y = finalY;
       this.wasWallSliding = true;
-
-      
       this.lastCameraYOffset = cameraYOffset;
       return;
     }
@@ -6613,14 +6582,8 @@ export class PlayerKinematicsSystem implements ISystem {
               const transforms = this.context.stores.get<TransformComponent>("transform");
               const pTrans = transforms.get(this.context.refs.player);
 
-              // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
               if (pTrans) {
-                pTrans.scaleX = 0.72;
-                pTrans.scaleY = 1.22;
-                pTrans.scaleZ = 1.0;
-                pTrans.scaleVelX = 0;
-                pTrans.scaleVelY = 0;
-                pTrans.scaleVelZ = 0;
+                this.applyWallImpactSquash(pTrans);
               }
 
               trav.state = "WALL_SLIDING";
@@ -6662,14 +6625,8 @@ export class PlayerKinematicsSystem implements ISystem {
           wallNormalX: -wallDir
         });
 
-        // Tactile Wall Impact: Compress horizontally against wall normal (scaleX = 0.72, scaleY = 1.22)
         if (pTrans) {
-          pTrans.scaleX = 0.72;
-          pTrans.scaleY = 1.22;
-          pTrans.scaleZ = 1.0;
-          pTrans.scaleVelX = 0;
-          pTrans.scaleVelY = 0;
-          pTrans.scaleVelZ = 0;
+          this.applyWallImpactSquash(pTrans);
         }
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;
@@ -6678,7 +6635,6 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.stickyEntityId = -1;
 
         target.x = wallDir * this.WALL_LIMIT_X;
-
         vel.x = 0;
         vel.y = -currentScrollSpeed;
 
@@ -6688,10 +6644,7 @@ export class PlayerKinematicsSystem implements ISystem {
         }
 
         const finalY = target.y + vel.y * dt + cameraDeltaY;
-
-        const dx = target.x - tether.anchorX;
-        const dy = finalY - tether.anchorY;
-        const requiredLength = Math.sqrt(dx * dx + dy * dy);
+        const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
         if (input.y <= 0 && requiredLength > tether.maxLength) {
           const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
@@ -6748,7 +6701,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     const dx = tether.anchorX - target.x;
     const dy = tether.anchorY - target.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const tensionPower = Math.min(1.0, storedTension);
     const reelBonus = tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
@@ -6766,7 +6719,6 @@ export class PlayerKinematicsSystem implements ISystem {
     trav.launchPower = powerScale;
     trav.wallDir = 0;
 
-    // Fling Launch Stretch Impulse: apply a strong scaling impulse proportional to launch power
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(this.context.refs.player);
     if (pTrans) {
@@ -6801,7 +6753,7 @@ export class PlayerKinematicsSystem implements ISystem {
   ) {
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     const activeMaxLength = tether.maxLength;
 
@@ -8912,99 +8864,6 @@ body,
 }
 
 
-/* ==========================================================================
-   PROJECT SILK - HIGH JUICE NEOMORPHIC KEYFRAMES & CALIBRATION STYLES
-   ========================================================================== */
-@keyframes led-squash-spring {
-  0% { transform: scale(1); }
-  25% { transform: scale(1.22, 0.78); filter: brightness(1.2); }
-  60% { transform: scale(0.9, 1.1); }
-  100% { transform: scale(1); }
-}
-.led-spring-impact {
-  animation: led-squash-spring 0.38s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-}
-
-@keyframes led-elastic-pop {
-  0% { transform: scale(0.3); opacity: 0; }
-  55% { transform: scale(1.3); filter: brightness(1.35); }
-  80% { transform: scale(0.95); }
-  100% { transform: scale(1); opacity: 1; }
-}
-.led-elastic-spring {
-  animation: led-elastic-pop 0.42s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
-}
-
-@keyframes led-shake-die-decay {
-  0% {
-    transform: translate(2px, 2px) scale(1.3) rotate(5deg);
-    filter: brightness(1.8) saturate(1.8);
-    background: #ef4444;
-  }
-  20% {
-    transform: translate(-3px, -2px) scale(1.1) rotate(-8deg);
-    background: #ef4444;
-  }
-  40% {
-    transform: translate(-2px, 2px) scale(1) rotate(8deg);
-  }
-  60% {
-    transform: translate(3px, -2px) scale(0.9) rotate(-4deg);
-  }
-  80% {
-    transform: translate(-2px, -2px) scale(0.8) rotate(4deg);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1) rotate(0deg);
-  }
-}
-.led-shaking-die {
-  animation: led-shake-die-decay 0.45s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-}
-
-@keyframes stress-shiver {
-  0%, 100% { transform: translate(0, 0); }
-  20% { transform: translate(-1.2px, 0.8px); filter: brightness(1.15); }
-  40% { transform: translate(1.2px, -0.8px); }
-  60% { transform: translate(-0.8px, -1.2px); }
-  80% { transform: translate(0.8px, 1.2px); }
-}
-.hud-stress-shiver {
-  animation: stress-shiver 0.12s infinite linear !important;
-}
-
-.keycap-box {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #0f1218;
-  color: #718096;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 
-    -1px -1px 3px rgba(255, 255, 255, 0.01),
-    2px 2px 5px rgba(0, 0, 0, 0.8),
-    inset 1px 1px 0px rgba(255, 255, 255, 0.03);
-  padding: 3px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 9px;
-  font-weight: bold;
-  transition: all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
-  text-align: center;
-}
-
-.keycap-used {
-  border-color: var(--signal-green);
-  color: #ffffff;
-  background: #0c0e12;
-  box-shadow: 
-    0 0 8px rgba(34, 197, 94, 0.25),
-    inset 0 0 3px rgba(34, 197, 94, 0.15),
-    2px 2px 5px rgba(0, 0, 0, 0.9);
-  text-shadow: 0 0 4px var(--signal-green-glow);
-}
-
-
 
 ● ./src/main.tsx
 ────────────────────────────────────────────────────
@@ -9591,6 +9450,68 @@ import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 
+interface CalibrationStepMeta {
+  successTitle: string;
+  activeTitle: string;
+  subtitle: string;
+  renderKeys: (useWasd: boolean, isLeft: boolean, isRight: boolean, isUp: boolean, isDown: boolean) => React.ReactNode;
+}
+
+const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
+  0: {
+    successTitle: "1. Cling Successful!",
+    activeTitle: "1. Cling to a Wall",
+    subtitle: "Hold direction against a wall to stick",
+    renderKeys: (useWasd, isLeft, isRight) => (
+      <>
+        <motion.span
+          animate={isLeft ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isLeft ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "A" : "◀"}
+        </motion.span>
+        <motion.span
+          animate={isRight ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isRight ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "D" : "▶"}
+        </motion.span>
+      </>
+    )
+  },
+  1: {
+    successTitle: "2. Tether Adjusted!",
+    activeTitle: "2. Adjust Silk Tether",
+    subtitle: "Press up/down to change length",
+    renderKeys: (useWasd, _, __, isUp, isDown) => (
+      <>
+        <motion.span
+          animate={isUp ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isUp ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "W" : "▲"}
+        </motion.span>
+        <motion.span
+          animate={isDown ? { scale: 0.85 } : { scale: 1 }}
+          className={`keycap-box ${isDown ? "keycap-used" : ""}`}
+        >
+          {useWasd ? "S" : "▼"}
+        </motion.span>
+      </>
+    )
+  },
+  2: {
+    successTitle: "3. Fling Successful!",
+    activeTitle: "3. Let Go to Fling",
+    subtitle: "Release key under tension to launch",
+    renderKeys: () => (
+      <span className="keycap-box" style={{ padding: "3px 8px" }}>
+        RELEASE KEY
+      </span>
+    )
+  }
+};
+
 export const HudOverlay: React.FC = () => {
   const playerState = usePlayerStore(
     useShallow((s) => ({ playerHp: s.playerHp }))
@@ -9657,7 +9578,6 @@ export const HudOverlay: React.FC = () => {
   const pressedKeys = useInputStore((state) => state.keysPressed);
   const [useWasd, setUseWasd] = useState<boolean>(false);
 
-  // Decoupled displayed steps to handle the visual success latency
   const [displayedStep, setDisplayedStep] = useState<number>(calibrationStep);
   const [stepSuccess, setStepSuccess] = useState<boolean>(false);
 
@@ -9703,7 +9623,6 @@ export const HudOverlay: React.FC = () => {
     setTickerLosses(0);
   }, [clearStats]);
 
-  // Satisfy transition delays on step progress with deferred macro-tasks
   useEffect(() => {
     let timerA: ReturnType<typeof setTimeout>;
     let timerB: ReturnType<typeof setTimeout>;
@@ -9711,11 +9630,10 @@ export const HudOverlay: React.FC = () => {
     if (calibrationStep > displayedStep) {
       timerA = setTimeout(() => {
         setStepSuccess(true);
-        
         timerB = setTimeout(() => {
           setDisplayedStep(calibrationStep);
           setStepSuccess(false);
-        }, 1500); // Satisfying 1.5s visual registration delay
+        }, 1500);
       }, 0);
     } else if (calibrationStep < displayedStep) {
       timerA = setTimeout(() => {
@@ -9952,6 +9870,7 @@ export const HudOverlay: React.FC = () => {
   const isCriticalHp = playerHp === 1 && !overlayVisible;
 
   const activeLedClass = stepSuccess ? "led-green led-elastic-spring" : "led-yellow led-spring-impact";
+  const activeStep = CALIBRATION_STEPS[displayedStep];
 
   return (
     <>
@@ -10017,9 +9936,9 @@ export const HudOverlay: React.FC = () => {
 
             <div className="header-center" style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}>
               <AnimatePresence mode="wait">
-                {displayedStep === 0 && (
+                {activeStep ? (
                   <motion.div
-                    key="step-0"
+                    key={`step-${displayedStep}`}
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 12 }}
@@ -10027,87 +9946,17 @@ export const HudOverlay: React.FC = () => {
                     style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      <motion.span 
-                        animate={isLeftPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isLeftPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "A" : "◀"}
-                      </motion.span>
-                      <motion.span 
-                        animate={isRightPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isRightPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "D" : "▶"}
-                      </motion.span>
+                      {activeStep.renderKeys(useWasd, isLeftPressed, isRightPressed, isUpPressed, isDownPressed)}
                       <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
                     </div>
                     <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
-                      {stepSuccess ? "1. Cling Successful!" : "1. Cling to a Wall"}
+                      {stepSuccess ? activeStep.successTitle : activeStep.activeTitle}
                     </span>
                     <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      Hold direction against a wall to stick
+                      {activeStep.subtitle}
                     </span>
                   </motion.div>
-                )}
-
-                {displayedStep === 1 && (
-                  <motion.div
-                    key="step-1"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      <motion.span 
-                        animate={isUpPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isUpPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "W" : "▲"}
-                      </motion.span>
-                      <motion.span 
-                        animate={isDownPressed ? { scale: 0.85 } : { scale: 1 }}
-                        className={`keycap-box ${isDownPressed ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "S" : "▼"}
-                      </motion.span>
-                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
-                    </div>
-                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
-                      {stepSuccess ? "2. Tether Adjusted!" : "2. Adjust Silk Tether"}
-                    </span>
-                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      Press up/down to change length
-                    </span>
-                  </motion.div>
-                )}
-
-                {displayedStep === 2 && (
-                  <motion.div
-                    key="step-2"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      <span className="keycap-box" style={{ padding: "3px 8px" }}>
-                        RELEASE KEY
-                      </span>
-                      <div className={`led-dot ${activeLedClass}`} style={{ width: "6px", height: "6px", marginLeft: "4px" }} />
-                    </div>
-                    <span className="bezel-panel-label" style={{ color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)", fontSize: "9px" }}>
-                      {stepSuccess ? "3. Fling Successful!" : "3. Let Go to Fling"}
-                    </span>
-                    <span style={{ fontSize: "7.5px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                      Release key under tension to launch
-                    </span>
-                  </motion.div>
-                )}
-
-                {displayedStep >= 3 && (
+                ) : (
                   <motion.div
                     key="completed"
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -12440,7 +12289,6 @@ export class RenderSystem implements ISystem {
     );
     dirLight.intensity = 1.65;
     dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
 
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
@@ -12449,30 +12297,32 @@ export class RenderSystem implements ISystem {
     );
     dirFillLight.intensity = 1.35;
     dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
     dirFillLight.setEnabled(true);
 
-    const leftPointLight = new BABYLON.PointLight(
-      "leftPointLight",
-      new BABYLON.Vector3(-13.5, 14.0, -1.0),
-      this.scene
-    );
-    leftPointLight.intensity = 1.45;
-    leftPointLight.range = 34.0;
-    leftPointLight.diffuse = new BABYLON.Color3(0.87, 0.99, 0.0); 
-     
-    leftPointLight.setEnabled(true);
+    const pointLightsConfigs = [
+      {
+        name: "leftPointLight",
+        pos: new BABYLON.Vector3(-13.5, 14.0, -1.0),
+        intensity: 1.45,
+        range: 34.0,
+        diffuse: new BABYLON.Color3(0.87, 0.99, 0.0)
+      },
+      {
+        name: "rightPointLight",
+        pos: new BABYLON.Vector3(13.5, 14.0, -1.0),
+        intensity: 1.45,
+        range: 34.0,
+        diffuse: new BABYLON.Color3(1.0, 1.0, 1.0)
+      }
+    ];
 
-    const rightPointLight = new BABYLON.PointLight(
-      "rightPointLight",
-      new BABYLON.Vector3(13.5, 14.0, -1.0),
-      this.scene
-    );
-    rightPointLight.intensity = 1.45;
-    rightPointLight.range = 34.0;
-    rightPointLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
-    rightPointLight.setEnabled(true);
+    pointLightsConfigs.forEach(cfg => {
+      const pl = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
+      pl.intensity = cfg.intensity;
+      pl.range = cfg.range;
+      pl.diffuse = cfg.diffuse;
+      pl.setEnabled(true);
+    });
 
     const lowerBackLight = new BABYLON.SpotLight(
       "shaftLowerBackUplight",
@@ -12485,27 +12335,18 @@ export class RenderSystem implements ISystem {
     lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
     lowerBackLight.diffuse = new BABYLON.Color3(0.1, 0.0, 0.25); 
-     
 
-    const leftUplight = new BABYLON.PointLight(
-      "leftShaftUplight",
-      new BABYLON.Vector3(-10.5, -9.0, -4.2),
-      this.scene
-    );
-    leftUplight.intensity = 1.95;
-    leftUplight.range = 32.0;
-    leftUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
+    const uplightConfigs = [
+      { name: "leftShaftUplight", pos: new BABYLON.Vector3(-10.5, -9.0, -4.2) },
+      { name: "rightShaftUplight", pos: new BABYLON.Vector3(10.5, -9.0, -4.2) }
+    ];
 
-    const rightUplight = new BABYLON.PointLight(
-      "rightShaftUplight",
-      new BABYLON.Vector3(10.5, -9.0, -4.2),
-      this.scene
-    );
-    rightUplight.intensity = 1.95;
-    rightUplight.range = 32.0;
-    rightUplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0); 
-     
+    uplightConfigs.forEach(cfg => {
+      const uplight = new BABYLON.PointLight(cfg.name, cfg.pos, this.scene!);
+      uplight.intensity = 1.95;
+      uplight.range = 32.0;
+      uplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
+    });
 
     const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
       camera
@@ -12560,7 +12401,6 @@ export class RenderSystem implements ISystem {
     );
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
-        // High-Power Fling launch: spike chromatic aberration based on release power
         if (payload.state === "LAUNCHING" && payload.launchPower !== undefined && payload.launchPower >= 0.72) {
           if (this.pipeline) {
             this.pipeline.chromaticAberration.aberrationAmount = 20.0 * payload.launchPower;
@@ -12588,7 +12428,6 @@ export class RenderSystem implements ISystem {
     }
   }
 
-  // Future-proof framework updates wrap rendering frame constraints to satisfy WebGPU/WebGL layout structures
   public render(): void {
     if (this.scene && this.engine) {
       this.engine.beginFrame();
