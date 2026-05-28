@@ -225,3 +225,15 @@ export interface WeaverCosmeticComponent {
   gaitFrequency: number;
   gaitTuck: number;
 }
+
+export interface CollisionResponseComponent {
+  layer: "PLAYER" | "WEAVER" | "PROJECTILE" | "HAZARD";
+  onHit?: (
+    damage: number,
+    source: string,
+    directionX: number,
+    directionY: number,
+    context: unknown
+  ) => void;
+  onOverlap?: (otherId: number, context: unknown) => void;
+}

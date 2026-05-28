@@ -122,8 +122,10 @@ export class WeaverStrikingState implements IWeaverState {
         cosmetic.targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
         cosmetic.targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
         const wobbleFreq = 12.0;
-        const wobbleAmp = 0.08 * Math.max(0.0, 1.0 - aiComp.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-        cosmetic.wobbleAngle = Math.sin(aiComp.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+        const wobbleAmp =
+          0.08 * Math.max(0.0, 1.0 - aiComp.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+        cosmetic.wobbleAngle =
+          Math.sin(aiComp.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
         cosmetic.rotationAngle = 0.0;
         cosmetic.gaitAmplitude = 0.035;
         cosmetic.gaitFrequency = 13.0;
@@ -131,7 +133,7 @@ export class WeaverStrikingState implements IWeaverState {
       } else {
         const stretch = Math.min(
           WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-          (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) * 
+          (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
             WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
         );
         cosmetic.targetScaleY = 1.0 + stretch;

@@ -45,7 +45,7 @@ export class PlayerAirborneState implements IPlayerState {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       const stretchFactor = Math.min(
         tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX,
-        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) * 
+        (speed / tuning.SQUASH_STRETCH.AIRBORNE_SPEED_BASIS) *
           tuning.SQUASH_STRETCH.AIRBORNE_STRETCH_MAX
       );
       cosmetic.targetScaleY = 1.0 + stretchFactor;

@@ -69,9 +69,18 @@ export class VisualStateDressingSystem implements ISystem {
 
       this._weaverTargetQuat.set(0, 0, 0, 1);
       if (cosmetic.rotationAngle !== 0) {
-        BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, cosmetic.rotationAngle, this._weaverTargetQuat);
+        BABYLON.Quaternion.RotationAxisToRef(
+          BABYLON.Axis.Z,
+          cosmetic.rotationAngle,
+          this._weaverTargetQuat
+        );
       } else if (cosmetic.wobbleAngle !== 0) {
-        BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, cosmetic.wobbleAngle, this._weaverTargetQuat);
+        BABYLON.Quaternion.RotationYawPitchRollToRef(
+          0,
+          0,
+          cosmetic.wobbleAngle,
+          this._weaverTargetQuat
+        );
       }
 
       this._weaverCurrentQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
@@ -126,7 +135,11 @@ export class VisualStateDressingSystem implements ISystem {
       });
 
       pbrMaterials.forEach((mat) => {
-        this._targetEmissiveColor.set(pCosmetic.emissiveR, pCosmetic.emissiveG, pCosmetic.emissiveB);
+        this._targetEmissiveColor.set(
+          pCosmetic.emissiveR,
+          pCosmetic.emissiveG,
+          pCosmetic.emissiveB
+        );
         BABYLON.Color3.LerpToRef(
           this.currentEmissiveColor,
           this._targetEmissiveColor,

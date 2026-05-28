@@ -1,8 +1,6 @@
 import { SystemContext } from "../core/engine/SystemContext";
 import { EntityId } from "../core/ecs/Entity";
 import {
-  PlayerCosmeticComponent,
-  WeaverCosmeticComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -17,12 +15,16 @@ import {
   WeaverTraversalComponent,
   WeaverSweepComponent,
   HurtboxComponent,
-  HitboxComponent
+  HitboxComponent,
+  PlayerCosmeticComponent,
+  WeaverCosmeticComponent,
+  CollisionResponseComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { createWeaverVisualMesh } from "../visual/mesh/WeaverVisualFactory";
 import { createPlayerVisualMesh } from "../visual/mesh/PlayerSilkVisualFactory";
 import * as BABYLON from "@babylonjs/core";
+import { GameEvent } from "../core/events/GameEvents";
 
 export class EntityAssembler {
   public static assembleWeaver(
@@ -92,6 +94,43 @@ export class EntityAssembler {
       gaitAmplitude: 0.12,
       gaitFrequency: 8.0,
       gaitTuck: 0.0
+    });
+
+    context.stores.get<CollisionResponseComponent>("collisionResponse").add(weaverId, {
+      layer: "WEAVER",
+      onHit: (damage, source, dx, dy, ctx) => {
+        const sysCtx = ctx as SystemContext;
+        const tuning = GAMEPLAY_TUNING.COMBAT;
+        sysCtx.commands.dispatch({
+          type: "DAMAGE_REQUEST",
+          targetId: weaverId,
+          amount: damage,
+          source
+        });
+
+        sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 1.4,
+          duration: 0.55,
+          dirX: dx,
+          dirY: dy
+        });
+
+        const pId = sysCtx.refs.player;
+        sysCtx.commands.dispatch({
+          type: "APPLY_IMPULSE",
+          entityId: pId,
+          x: -dx * tuning.REBOUND_FORCE,
+          y: -dy * tuning.REBOUND_FORCE,
+          z: 0
+        });
+
+        const trav = sysCtx.stores.get<TraversalStateComponent>("traversal").get(pId);
+        if (trav) {
+          trav.state = "AIRBORNE";
+          trav.launchPower = 0;
+          trav.launchTimer = 0;
+        }
+      }
     });
 
     context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
@@ -226,6 +265,36 @@ export class EntityAssembler {
       springDamping: 14,
       rotationAngle: 0.0,
       slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR
+    });
+
+    context.stores.get<CollisionResponseComponent>("collisionResponse").add(playerId, {
+      layer: "PLAYER",
+      onHit: (damage, source, dx, dy, ctx) => {
+        const sysCtx = ctx as SystemContext;
+        const iframeStore = sysCtx.stores.get<InvulnerabilityComponent>("iframe");
+        const pIframe = iframeStore.get(playerId);
+        if (pIframe && pIframe.timeRemaining <= 0) {
+          const tuning = GAMEPLAY_TUNING.COMBAT;
+          const kbX = dx * tuning.KNOCKBACK_FORCE_X;
+          const kbY = dy * tuning.KNOCKBACK_FORCE_Y + tuning.KNOCKBACK_BONUS_Y;
+
+          sysCtx.commands.dispatch({
+            type: "DAMAGE_REQUEST",
+            targetId: playerId,
+            amount: damage,
+            source,
+            knockbackX: kbX,
+            knockbackY: kbY
+          });
+
+          sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+            amplitude: 0.5,
+            duration: 0.3,
+            dirX: dx,
+            dirY: dy
+          });
+        }
+      }
     });
 
     context.stores.get<TraversalStateComponent>("traversal").add(playerId, {

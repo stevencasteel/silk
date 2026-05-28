@@ -8,7 +8,11 @@ import {
   TransformComponent,
   KinematicVelocityComponent,
   ProjectileComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  CollisionResponseComponent,
+  TraversalStateComponent,
+  InvulnerabilityComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
@@ -104,6 +108,84 @@ export class ProjectileSystem implements ISystem {
         lifeTime: 0.0,
         fallbackX: 0.0,
         fallbackY: 0.0
+      });
+
+      this.context.stores.get<CollisionResponseComponent>("collisionResponse").add(projId, {
+        layer: "PROJECTILE",
+        onOverlap: (otherId, ctx) => {
+          const sysCtx = ctx as SystemContext;
+          const pTrav = sysCtx.stores.get<TraversalStateComponent>("traversal").get(otherId);
+          const pIframe = sysCtx.stores.get<InvulnerabilityComponent>("iframe").get(otherId);
+          const pComp = sysCtx.stores.get<ProjectileComponent>("projectile").get(projId);
+          const trans = sysCtx.stores.get<TransformComponent>("transform").get(projId);
+          const pTrans = sysCtx.stores.get<TransformComponent>("transform").get(otherId);
+
+          if (!pComp || !trans || !pTrans) return;
+
+          const isLaunching = pTrav && pTrav.state === "LAUNCHING";
+          const hasIframe = pIframe && pIframe.timeRemaining > 0;
+
+          if (isLaunching) {
+            const dx = trans.x - pTrans.x;
+            const dy = trans.y - pTrans.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+            const reqId = sysCtx.world.create();
+            const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+            if (reqStore) {
+              reqStore.add(reqId, {
+                type: "PROJECTILE_SPLAT",
+                x: trans.x,
+                y: trans.y,
+                z: trans.z
+              });
+            }
+
+            sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: trans.x,
+              y: trans.y,
+              isWall: false
+            });
+            sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
+              dirX: dx / dist,
+              dirY: dy / dist
+            });
+
+            this.recycleProjectile(projId, pComp);
+          } else if (!hasIframe) {
+            sysCtx.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: otherId,
+              amount: 1,
+              source: "PROJECTILE"
+            });
+
+            const reqId = sysCtx.world.create();
+            const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+            if (reqStore) {
+              reqStore.add(reqId, {
+                type: "PROJECTILE_SPLAT",
+                x: trans.x,
+                y: trans.y,
+                z: trans.z
+              });
+            }
+
+            sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: trans.x,
+              y: trans.y,
+              isWall: false
+            });
+            sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+            });
+
+            this.recycleProjectile(projId, pComp);
+          }
+        }
       });
 
       this.context.visualRegistry.registerTransformNode(projId, sphere);

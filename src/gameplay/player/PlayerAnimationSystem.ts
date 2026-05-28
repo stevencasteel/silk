@@ -2,10 +2,7 @@ import { solveScaleSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  TransformComponent,
-  PlayerCosmeticComponent
-} from "../../core/ecs/Components";
+import { TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {

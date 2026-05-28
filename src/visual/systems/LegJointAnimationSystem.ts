@@ -1,10 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  WallBugComponent,
-  WeaverCosmeticComponent
-} from "../../core/ecs/Components";
+import { WallBugComponent, WeaverCosmeticComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 interface CachedWeaverParts {

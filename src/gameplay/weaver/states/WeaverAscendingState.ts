@@ -5,7 +5,11 @@ import {
   VISUAL_JUICE_CONFIG
 } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { TransformComponent, WeaverAIComponent, WeaverCosmeticComponent } from "../../../core/ecs/Components";
+import {
+  TransformComponent,
+  WeaverAIComponent,
+  WeaverCosmeticComponent
+} from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverAscendingState implements IWeaverState {
