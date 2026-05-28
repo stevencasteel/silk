@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 2:37:53 PM
+ [SYSTEM] Generated: 5/28/2026, 2:40:23 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -9826,40 +9826,60 @@ export const HudOverlay: React.FC = () => {
       setStaggerPhase(2);
     }, 900);
 
+    let tickTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const t3 = setTimeout(() => {
       let currentW = 0;
       let currentL = 0;
       const targetW = wins;
       const targetL = losses;
 
-      const statsInterval = setInterval(() => {
-        let changed = false;
+      const getDelay = (current: number, target: number) => {
+        if (target <= 1) return 180;
+        const progress = current / target;
+        const minDelay = 25;
+        const maxDelay = 260;
+        return minDelay + (maxDelay - minDelay) * Math.pow(progress, 2);
+      };
+
+      const tickWins = () => {
         if (currentW < targetW) {
+          const delay = getDelay(currentW, targetW);
           currentW++;
           setTickerWins(currentW);
-          changed = true;
+          playTickSynth();
+          tickTimeout = setTimeout(tickWins, delay);
+        } else {
+          tickTimeout = setTimeout(tickLosses, 150);
         }
+      };
+
+      const tickLosses = () => {
         if (currentL < targetL) {
+          const delay = getDelay(currentL, targetL);
           currentL++;
           setTickerLosses(currentL);
-          changed = true;
-        }
-
-        if (changed) {
           playTickSynth();
+          tickTimeout = setTimeout(tickLosses, delay);
         } else {
-          clearInterval(statsInterval);
           setStaggerPhase(3);
         }
-      }, 70);
+      };
 
-      return () => clearInterval(statsInterval);
+      if (targetW > 0) {
+        tickWins();
+      } else if (targetL > 0) {
+        tickLosses();
+      } else {
+        setStaggerPhase(3);
+      }
     }, 1800);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      if (tickTimeout) clearTimeout(tickTimeout);
     };
   }, [overlayVisible, wins, losses, playTickSynth]);
 
