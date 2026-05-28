@@ -20,6 +20,10 @@ export class WeaverShatterSystem implements ISystem {
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
 
+  // Reusable scratch fields to completely eliminate dynamic GC allocations in update loops
+  private readonly _linearVelocityScratch = new BABYLON.Vector3();
+  private readonly _angularVelocityScratch = new BABYLON.Vector3();
+
   constructor(private context: SystemContext) {}
 
   public init(): void {
@@ -335,13 +339,11 @@ export class WeaverShatterSystem implements ISystem {
       } else {
         if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
           if (d.body) {
-            const currentVelocity = new BABYLON.Vector3();
-            d.body.getLinearVelocityToRef(currentVelocity);
-            d.velocity.copyFrom(currentVelocity);
+            d.body.getLinearVelocityToRef(this._linearVelocityScratch);
+            d.velocity.copyFrom(this._linearVelocityScratch);
 
-            const currentAngular = new BABYLON.Vector3();
-            d.body.getAngularVelocityToRef(currentAngular);
-            d.angularVelocity.copyFrom(currentAngular);
+            d.body.getAngularVelocityToRef(this._angularVelocityScratch);
+            d.angularVelocity.copyFrom(this._angularVelocityScratch);
 
             if (d.body.shape) d.body.shape.dispose();
             d.body.dispose();

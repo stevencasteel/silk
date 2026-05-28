@@ -28,6 +28,10 @@ export class JuiceSystem implements ISystem {
   private unsubscribes: (() => void)[] = [];
   private playerState: string = "AIRBORNE";
 
+  // Reusable scratch fields to completely eliminate dynamic GC allocations in update/render loops
+  private readonly _colorScratch = new BABYLON.Color3();
+  private readonly _particleOriginScratch = new BABYLON.Vector3();
+
   constructor(private context: SystemContext) {}
 
   public init(): void {
@@ -61,14 +65,10 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
         if (playerNode) {
-          const colorRef = new BABYLON.Color3(
-            colors.PLAYER_SPARK.r,
-            colors.PLAYER_SPARK.g,
-            colors.PLAYER_SPARK.b
-          );
+          this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
           this.spawnBurst(
             playerNode.position,
-            colorRef,
+            this._colorScratch,
             config.BURST.PLAYER.COUNT,
             config.BURST.PLAYER
           );
@@ -80,14 +80,10 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
         const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const colorRef = new BABYLON.Color3(
-            colors.WEAVER_SPARK.r,
-            colors.WEAVER_SPARK.g,
-            colors.WEAVER_SPARK.b
-          );
+          this._colorScratch.set(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
           this.spawnBurst(
             weaverNode.position,
-            colorRef,
+            this._colorScratch,
             config.BURST.WEAVER.COUNT,
             config.BURST.WEAVER
           );
@@ -99,8 +95,8 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(
         GameEvent.PLAYER_LANDED,
         (payload: { x: number; y: number }) => {
-          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-          this.spawnLandingDust(pos);
+          this._particleOriginScratch.set(payload.x, payload.y, 0);
+          this.spawnLandingDust(this._particleOriginScratch);
         }
       )
     );
@@ -109,8 +105,8 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(
         GameEvent.PLAYER_WALL_HIT,
         (payload: { x: number; y: number; wallNormalX: number }) => {
-          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-          this.spawnWallSparks(pos, payload.wallNormalX);
+          this._particleOriginScratch.set(payload.x, payload.y, 0);
+          this.spawnWallSparks(this._particleOriginScratch, payload.wallNormalX);
         }
       )
     );
@@ -119,8 +115,8 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(
         GameEvent.WEAVER_WALL_HIT,
         (payload: { x: number; y: number; wallNormalX: number }) => {
-          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-          this.spawnWallSparks(pos, payload.wallNormalX);
+          this._particleOriginScratch.set(payload.x, payload.y, 0);
+          this.spawnWallSparks(this._particleOriginScratch, payload.wallNormalX);
         }
       )
     );
@@ -129,8 +125,8 @@ export class JuiceSystem implements ISystem {
       this.context.broker.subscribe(
         GameEvent.PROJECTILE_IMPACT,
         (payload: { x: number; y: number; isWall: boolean }) => {
-          const pos = new BABYLON.Vector3(payload.x, payload.y, 0);
-          this.spawnWebSplat(pos);
+          this._particleOriginScratch.set(payload.x, payload.y, 0);
+          this.spawnWebSplat(this._particleOriginScratch);
         }
       )
     );
@@ -140,17 +136,13 @@ export class JuiceSystem implements ISystem {
         if (payload.state === "LAUNCHING" && this.playerState !== "LAUNCHING") {
           const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
           if (playerNode) {
-            const config = VISUAL_JUICE_CONFIG.PARTICLES;
-            const colors = config.COLORS;
+            const configObj = VISUAL_JUICE_CONFIG.PARTICLES;
+            const colorsObj = configObj.COLORS;
             
             const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
             const pTrav = traversal.get(this.context.refs.player);
             
-            let colorRef = new BABYLON.Color3(
-              colors.PLAYER_SPARK.r,
-              colors.PLAYER_SPARK.g,
-              colors.PLAYER_SPARK.b
-            );
+            this._colorScratch.set(colorsObj.PLAYER_SPARK.r, colorsObj.PLAYER_SPARK.g, colorsObj.PLAYER_SPARK.b);
             let particleCount = 15;
             let burstSettings: {
               readonly VELOCITY_Y_MIN: number;
@@ -160,29 +152,29 @@ export class JuiceSystem implements ISystem {
               readonly VELOCITY_SPEED_MAX: number;
               readonly LIFE_MIN: number;
               readonly LIFE_MAX: number;
-            } = config.BURST.PLAYER;
+            } = configObj.BURST.PLAYER;
             
             if (pTrav) {
               const reelConfig = GAMEPLAY_TUNING.REEL;
               const power = pTrav.launchPower;
               
               if (power >= 1.0) {
-                colorRef = new BABYLON.Color3(1.0, 0.15, 0.15);
+                this._colorScratch.set(1.0, 0.15, 0.15);
                 particleCount = 25;
                 burstSettings = {
-                  ...config.BURST.PLAYER,
-                  VELOCITY_SPEED_MIN: config.BURST.PLAYER.VELOCITY_SPEED_MIN * 1.5,
-                  VELOCITY_SPEED_MAX: config.BURST.PLAYER.VELOCITY_SPEED_MAX * 1.8
+                  ...configObj.BURST.PLAYER,
+                  VELOCITY_SPEED_MIN: configObj.BURST.PLAYER.VELOCITY_SPEED_MIN * 1.5,
+                  VELOCITY_SPEED_MAX: configObj.BURST.PLAYER.VELOCITY_SPEED_MAX * 1.8
                 };
               } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-                colorRef = new BABYLON.Color3(0.95, 0.95, 1.0);
+                this._colorScratch.set(0.95, 0.95, 1.0);
                 particleCount = 22;
               }
             }
             
             this.spawnBurst(
               playerNode.position,
-              colorRef,
+              this._colorScratch,
               particleCount,
               burstSettings
             );
@@ -245,11 +237,7 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.LANDING;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(
-      colors.LANDING_DUST.r,
-      colors.LANDING_DUST.g,
-      colors.LANDING_DUST.b
-    );
+    this._colorScratch.set(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -266,7 +254,7 @@ export class JuiceSystem implements ISystem {
       particle.mesh.setEnabled(true);
 
       const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(color);
+      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
 
       this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
     }
@@ -276,7 +264,7 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.WALL;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
+    this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -294,7 +282,7 @@ export class JuiceSystem implements ISystem {
       particle.mesh.setEnabled(true);
 
       const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(color);
+      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
 
       this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
     }
@@ -304,11 +292,7 @@ export class JuiceSystem implements ISystem {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.BURST.PROJECTILE;
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
-    const color = new BABYLON.Color3(
-      colors.PROJECTILE_SPLAT.r,
-      colors.PROJECTILE_SPLAT.g,
-      colors.PROJECTILE_SPLAT.b
-    );
+    this._colorScratch.set(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
     for (let i = 0; i < count; i++) {
       const particle = this.particlePool[this.nextPoolIndex];
       particle.mesh.position.copyFrom(position);
@@ -327,7 +311,7 @@ export class JuiceSystem implements ISystem {
       particle.mesh.setEnabled(true);
 
       const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(color);
+      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
 
       this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
     }
@@ -367,7 +351,8 @@ export class JuiceSystem implements ISystem {
     dt: number
   ): void {
     const wallX = pTrav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const contactPos = new BABYLON.Vector3(wallX, pTrans.y, 0);
+    // Direct zero-allocation setting of origin vectors
+    this._particleOriginScratch.set(wallX, pTrans.y, 0);
 
     const tension = Math.max(0, pTether.tension);
     const baseChance = 0.15;
@@ -377,7 +362,7 @@ export class JuiceSystem implements ISystem {
     const ticks = Math.max(1, Math.round(dt * 60.0));
     for (let t = 0; t < ticks; t++) {
       if (Math.random() < totalChance) {
-        this.spawnSingleSlideSpark(contactPos, pTrav.wallNormalX, tension);
+        this.spawnSingleSlideSpark(this._particleOriginScratch, pTrav.wallNormalX, tension);
       }
     }
   }

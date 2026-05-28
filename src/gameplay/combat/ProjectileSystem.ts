@@ -35,6 +35,9 @@ export class ProjectileSystem implements ISystem {
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
 
+  // Reusable scratch fields to prevent dynamic GC allocations in the physics update loop
+  private readonly _velocityTickScratch = new BABYLON.Vector3();
+
   constructor(private context: SystemContext) {}
 
   public init(): void {
@@ -136,9 +139,11 @@ export class ProjectileSystem implements ISystem {
     const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
     proj.fallbackVelocity.set((dx / dist) * speed, (dy / dist) * speed, 0);
 
-    // Compute rotation angle matching the velocity direction and apply organic squash & stretch
     const angle = Math.atan2(proj.fallbackVelocity.y, proj.fallbackVelocity.x) - Math.PI / 2;
-    proj.mesh.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, angle);
+    if (!proj.mesh.rotationQuaternion) {
+      proj.mesh.rotationQuaternion = new BABYLON.Quaternion();
+    }
+    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, proj.mesh.rotationQuaternion);
     proj.mesh.scaling.set(0.7, 1.5, 0.7);
   }
 
@@ -181,7 +186,9 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       if (!p.isStuck) {
-        p.mesh.position.addInPlace(p.fallbackVelocity.scale(dt));
+        // Zero allocation displacement using static scratch vector scaling
+        p.fallbackVelocity.scaleToRef(dt, this._velocityTickScratch);
+        p.mesh.position.addInPlace(this._velocityTickScratch);
 
         if (Math.abs(p.mesh.position.x) >= wallLimit) {
           p.isStuck = true;
