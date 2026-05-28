@@ -1,4 +1,4 @@
-import { solveSpringDamper } from "../../core/utils/EngineUtils";
+import { solveScaleSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -297,10 +297,10 @@ export class WeaverTraversalSystem implements ISystem {
             targetScaleY = 1.0 - pulse;
 
             const rollAngle = -vel.x * WEAVER_AI_TUNING.ANIMATION.ROLL_ANGLE_SCALE;
-            const yawAngle =
+            const MathAngle =
               Math.sin(ai.timeInState * WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_FREQ) *
               WEAVER_AI_TUNING.ANIMATION.YAW_PITCH_ROLL_AMP;
-            BABYLON.Quaternion.RotationYawPitchRollToRef(yawAngle, 0, rollAngle, this._targetQuat);
+            BABYLON.Quaternion.RotationYawPitchRollToRef(MathAngle, 0, rollAngle, this._targetQuat);
           } else if (ai.state === "STRIKING") {
             const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
             if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
@@ -333,20 +333,7 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
 
-      const stiffness = 120;
-      const damping = 22;
-
-      const springX = solveSpringDamper(trans.scaleX!, targetScaleX, trans.scaleVelX!, dt, stiffness, damping);
-      trans.scaleX = springX.value;
-      trans.scaleVelX = springX.velocity;
-
-      const springY = solveSpringDamper(trans.scaleY!, targetScaleY, trans.scaleVelY!, dt, stiffness, damping);
-      trans.scaleY = springY.value;
-      trans.scaleVelY = springY.velocity;
-
-      const springZ = solveSpringDamper(trans.scaleZ!, targetScaleZ, trans.scaleVelZ!, dt, stiffness, damping);
-      trans.scaleZ = springZ.value;
-      trans.scaleVelZ = springZ.velocity;
+      solveScaleSpring(trans, targetScaleX, targetScaleY, targetScaleZ, dt, 120, 22);
 
       this._currentQuat.set(trans.qx, trans.qy, trans.qz, trans.qw);
       BABYLON.Quaternion.SlerpToRef(

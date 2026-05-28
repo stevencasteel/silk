@@ -15,6 +15,44 @@ export function solveSpringDamper(
   return { value: nextValue, velocity: nextVelocity };
 }
 
+export interface ScaleTransformLike {
+  scaleX?: number;
+  scaleY?: number;
+  scaleZ?: number;
+  scaleVelX?: number;
+  scaleVelY?: number;
+  scaleVelZ?: number;
+}
+
+export function solveScaleSpring(
+  trans: ScaleTransformLike,
+  targetX: number,
+  targetY: number,
+  targetZ: number,
+  dt: number,
+  stiffness: number,
+  damping: number
+): void {
+  const sx = trans.scaleX ?? 1.0;
+  const sy = trans.scaleY ?? 1.0;
+  const sz = trans.scaleZ ?? 1.0;
+  const vx = trans.scaleVelX ?? 0.0;
+  const vy = trans.scaleVelY ?? 0.0;
+  const vz = trans.scaleVelZ ?? 0.0;
+
+  const springX = solveSpringDamper(sx, targetX, vx, dt, stiffness, damping);
+  trans.scaleX = springX.value;
+  trans.scaleVelX = springX.velocity;
+
+  const springY = solveSpringDamper(sy, targetY, vy, dt, stiffness, damping);
+  trans.scaleY = springY.value;
+  trans.scaleVelY = springY.velocity;
+
+  const springZ = solveSpringDamper(sz, targetZ, vz, dt, stiffness, damping);
+  trans.scaleZ = springZ.value;
+  trans.scaleVelZ = springZ.velocity;
+}
+
 export function getWeaverStingerTip(
   weaverX: number,
   weaverY: number,

@@ -28,7 +28,6 @@ export class JuiceSystem implements ISystem {
   private unsubscribes: (() => void)[] = [];
   private playerState: string = "AIRBORNE";
 
-  // Reusable scratch fields to completely eliminate dynamic GC allocations in update/render loops
   private readonly _colorScratch = new BABYLON.Color3();
   private readonly _particleOriginScratch = new BABYLON.Vector3();
 
@@ -191,6 +190,28 @@ export class JuiceSystem implements ISystem {
     );
   }
 
+  private emitRawParticle(
+    position: BABYLON.Vector3,
+    velocity: BABYLON.Vector3,
+    life: number,
+    color: BABYLON.Color3
+  ): void {
+    const particle = this.particlePool[this.nextPoolIndex];
+    particle.mesh.position.copyFrom(position);
+    particle.velocity.copyFrom(velocity);
+    particle.lifeRemaining = life;
+    particle.maxLife = life;
+    particle.active = true;
+    particle.mesh.setEnabled(true);
+
+    const mat = particle.mesh.material as BABYLON.StandardMaterial;
+    if (mat) {
+      mat.emissiveColor.copyFrom(color);
+    }
+
+    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+  }
+
   private spawnBurst(
     position: BABYLON.Vector3,
     color: BABYLON.Color3,
@@ -205,10 +226,8 @@ export class JuiceSystem implements ISystem {
       readonly LIFE_MAX: number;
     }
   ): void {
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const theta = Math.random() * 2.0 * Math.PI;
       const speedSpan = settings.VELOCITY_SPEED_MAX - settings.VELOCITY_SPEED_MIN;
       const r = settings.VELOCITY_SPEED_MIN + Math.random() * speedSpan;
@@ -217,19 +236,10 @@ export class JuiceSystem implements ISystem {
       const vy = settings.VELOCITY_Y_MIN + Math.random() * ySpan;
       const vz = (Math.random() - 0.5) * settings.VELOCITY_Z_MAX;
 
-      particle.velocity.set(Math.cos(theta) * r, vy, vz);
-      particle.lifeRemaining =
-        settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(Math.cos(theta) * r, vy, vz);
+      const life = settings.LIFE_MIN + Math.random() * (settings.LIFE_MAX - settings.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) {
-        mat.emissiveColor.copyFrom(color);
-      }
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, color);
     }
   }
 
@@ -238,25 +248,16 @@ export class JuiceSystem implements ISystem {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
     this._colorScratch.set(colors.LANDING_DUST.r, colors.LANDING_DUST.g, colors.LANDING_DUST.b);
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const vx = (Math.random() - 0.5) * config.VELOCITY_X_MAX;
       const vy = Math.random() * config.VELOCITY_Y_MAX;
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
-      particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining =
-        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(vx, vy, vz);
+      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, this._colorScratch);
     }
   }
 
@@ -265,26 +266,17 @@ export class JuiceSystem implements ISystem {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
     this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const xSpan = config.VELOCITY_X_MAX - config.VELOCITY_X_MIN;
       const vx = wallNormalX * (config.VELOCITY_X_MIN + Math.random() * xSpan);
       const vy = (Math.random() - 0.3) * config.VELOCITY_Y_MAX;
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
-      particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining =
-        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(vx, vy, vz);
+      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, this._colorScratch);
     }
   }
 
@@ -293,55 +285,38 @@ export class JuiceSystem implements ISystem {
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const count = config.COUNT;
     this._colorScratch.set(colors.PROJECTILE_SPLAT.r, colors.PROJECTILE_SPLAT.g, colors.PROJECTILE_SPLAT.b);
+    const tempVel = new BABYLON.Vector3();
     for (let i = 0; i < count; i++) {
-      const particle = this.particlePool[this.nextPoolIndex];
-      particle.mesh.position.copyFrom(position);
-
       const angle = Math.random() * Math.PI * 2.0;
       const speed = config.SPEED_MIN + Math.random() * (config.SPEED_MAX - config.SPEED_MIN);
       const vx = Math.cos(angle) * speed;
       const vy = Math.sin(angle) * speed;
       const vz = (Math.random() - 0.5) * config.VELOCITY_Z_MAX;
 
-      particle.velocity.set(vx, vy, vz);
-      particle.lifeRemaining =
-        config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
-      particle.maxLife = particle.lifeRemaining;
-      particle.active = true;
-      particle.mesh.setEnabled(true);
+      tempVel.set(vx, vy, vz);
+      const life = config.LIFE_MIN + Math.random() * (config.LIFE_MAX - config.LIFE_MIN);
 
-      const mat = particle.mesh.material as BABYLON.StandardMaterial;
-      if (mat) mat.emissiveColor.copyFrom(this._colorScratch);
-
-      this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+      this.emitRawParticle(position, tempVel, life, this._colorScratch);
     }
   }
 
   private spawnLaunchTrail(position: BABYLON.Vector3): void {
-    const particle = this.particlePool[this.nextPoolIndex];
     const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const trail = VISUAL_JUICE_CONFIG.PARTICLES.BURST.TRAIL;
 
-    particle.mesh.position.copyFrom(position);
-    particle.mesh.position.x += (Math.random() - 0.5) * trail.OFFSET_X;
-    particle.mesh.position.y += (Math.random() - 0.5) * trail.OFFSET_Y;
+    const tempPos = position.clone();
+    tempPos.x += (Math.random() - 0.5) * trail.OFFSET_X;
+    tempPos.y += (Math.random() - 0.5) * trail.OFFSET_Y;
 
     const vx = (Math.random() - 0.5) * trail.VELOCITY_X_MAX;
     const vy = (Math.random() - 0.5) * trail.VELOCITY_Y_MAX;
     const vz = (Math.random() - 0.5) * trail.VELOCITY_Z_MAX;
 
-    particle.velocity.set(vx, vy, vz);
-    particle.lifeRemaining = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
-    particle.maxLife = particle.lifeRemaining;
-    particle.active = true;
-    particle.mesh.setEnabled(true);
+    const tempVel = new BABYLON.Vector3(vx, vy, vz);
+    const life = trail.LIFE_MIN + Math.random() * (trail.LIFE_MAX - trail.LIFE_MIN);
 
-    const mat = particle.mesh.material as BABYLON.StandardMaterial;
-    if (mat) {
-      mat.emissiveColor.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
-    }
-
-    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+    this.emitRawParticle(tempPos, tempVel, life, this._colorScratch);
   }
 
   private emitWallSlideSparks(
@@ -351,7 +326,6 @@ export class JuiceSystem implements ISystem {
     dt: number
   ): void {
     const wallX = pTrav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    // Direct zero-allocation setting of origin vectors
     this._particleOriginScratch.set(wallX, pTrans.y, 0);
 
     const tension = Math.max(0, pTether.tension);
@@ -372,33 +346,24 @@ export class JuiceSystem implements ISystem {
     wallNormalX: number,
     tension: number
   ): void {
-    const particle = this.particlePool[this.nextPoolIndex];
-    particle.mesh.position.copyFrom(position);
-
+    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
     const speedMult = 1.0 + tension * 1.5;
     const vx = wallNormalX * (3.0 + Math.random() * 5.0) * speedMult;
     const vy = (Math.random() - 0.2) * 4.0 * speedMult;
     const vz = (Math.random() - 0.5) * 1.5;
 
-    particle.velocity.set(vx, vy, vz);
-    particle.lifeRemaining = 0.15 + Math.random() * 0.25;
-    particle.maxLife = particle.lifeRemaining;
-    particle.active = true;
-    particle.mesh.setEnabled(true);
+    const tempVel = new BABYLON.Vector3(vx, vy, vz);
+    const life = 0.15 + Math.random() * 0.25;
 
-    const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
-    const mat = particle.mesh.material as BABYLON.StandardMaterial;
-    if (mat) {
-      if (tension > 0.8) {
-        mat.emissiveColor.set(1.0, 0.95, 0.8);
-      } else if (tension > 0.4) {
-        mat.emissiveColor.set(1.0, 0.65, 0.15);
-      } else {
-        mat.emissiveColor.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
-      }
+    if (tension > 0.8) {
+      this._colorScratch.set(1.0, 0.95, 0.8);
+    } else if (tension > 0.4) {
+      this._colorScratch.set(1.0, 0.65, 0.15);
+    } else {
+      this._colorScratch.set(colors.WALL_SPARK.r, colors.WALL_SPARK.g, colors.WALL_SPARK.b);
     }
 
-    this.nextPoolIndex = (this.nextPoolIndex + 1) % this.poolSize;
+    this.emitRawParticle(position, tempVel, life, this._colorScratch);
   }
 
   public update(dt: number): void {
@@ -425,7 +390,6 @@ export class JuiceSystem implements ISystem {
 
       const ratio = p.lifeRemaining / p.maxLife;
 
-      // Velocity-Aligned Spark Stream Particles
       const speed = p.velocity.length();
       if (speed > 10.0) {
         if (!p.mesh.rotationQuaternion) {

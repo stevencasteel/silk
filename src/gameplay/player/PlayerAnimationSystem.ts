@@ -1,4 +1,4 @@
-import { solveSpringDamper } from "../../core/utils/EngineUtils";
+import { solveScaleSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -65,20 +65,7 @@ export class PlayerAnimationSystem implements ISystem {
       targetScaleZ = 1.0 - stretchFactor * 0.5;
     }
 
-    const stiffness = 220;
-    const damping = 14;
-
-    const springX = solveSpringDamper(pTrans.scaleX!, targetScaleX, pTrans.scaleVelX!, dt, stiffness, damping);
-    pTrans.scaleX = springX.value;
-    pTrans.scaleVelX = springX.velocity;
-
-    const springY = solveSpringDamper(pTrans.scaleY!, targetScaleY, pTrans.scaleVelY!, dt, stiffness, damping);
-    pTrans.scaleY = springY.value;
-    pTrans.scaleVelY = springY.velocity;
-
-    const springZ = solveSpringDamper(pTrans.scaleZ!, targetScaleZ, pTrans.scaleVelZ!, dt, stiffness, damping);
-    pTrans.scaleZ = springZ.value;
-    pTrans.scaleVelZ = springZ.velocity;
+    solveScaleSpring(pTrans, targetScaleX, targetScaleY, targetScaleZ, dt, 220, 14);
 
     pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);

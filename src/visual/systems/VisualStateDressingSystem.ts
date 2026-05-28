@@ -23,16 +23,15 @@ interface CachedWeaverParts {
 export class VisualStateDressingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
-  private currentEmissiveR = 0.05;
-  private currentEmissiveG = 0.15;
-  private currentEmissiveB = 0.05;
+  private currentEmissiveColor = new BABYLON.Color3(0.05, 0.15, 0.05);
+  private readonly _targetEmissiveColor = new BABYLON.Color3();
+  
   private visualClock = 0.0;
   private gaitClock = 0.0;
   private gaitAmp = 0.12;
   private gaitFreq = 8.0;
   private gaitTuck = 0.0;
 
-  // Reusable scratch objects to completely prevent dynamic GC allocations in rendering loops
   private readonly _footLocalTarget = new BABYLON.Vector3();
   private readonly _footWorldTarget = new BABYLON.Vector3();
   private readonly _rootWorldInv = new BABYLON.Matrix();
@@ -171,7 +170,6 @@ export class VisualStateDressingSystem implements ISystem {
         }
       });
 
-      // Query cache implementation - dynamically resolves and caches parts once to prevent high-frequency getChildren array allocations
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
         const legRoots = mesh.getChildren((node) => node.name.startsWith("leg_root_"), false) as BABYLON.TransformNode[];
@@ -423,15 +421,13 @@ export class VisualStateDressingSystem implements ISystem {
       targetB = emissive.PLAYER_EMISSIVE_DEFAULT.B;
     }
 
-    const lerpRate = emissive.PLAYER_LERP_RATE;
-    this.currentEmissiveR += (targetR - this.currentEmissiveR) * lerpRate;
-    this.currentEmissiveG += (targetG - this.currentEmissiveG) * lerpRate;
-    this.currentEmissiveB += (targetB - this.currentEmissiveB) * lerpRate;
+    this._targetEmissiveColor.set(targetR, targetG, targetB);
+    BABYLON.Color3.LerpToRef(this.currentEmissiveColor, this._targetEmissiveColor, emissive.PLAYER_LERP_RATE, this.currentEmissiveColor);
 
     mat.emissiveColor.set(
-      this.currentEmissiveR * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveG * emissive.PLAYER_EMISSIVE_SCALE,
-      this.currentEmissiveB * emissive.PLAYER_EMISSIVE_SCALE
+      this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
+      this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
+      this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
     );
   }
 }
