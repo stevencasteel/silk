@@ -10,6 +10,7 @@ export class TensionSynthesizer {
 
   private playerPanner: Panner | null = null;
   private weaverPanner: Panner | null = null;
+  private ratchetPanner: Panner | null = null;
 
   private ratchetSynth: Synth | null = null;
   private heartbeatSynth: MembraneSynth | null = null;
@@ -37,6 +38,7 @@ export class TensionSynthesizer {
 
     this.playerPanner = new Tone.Panner(0).connect(this.lowpassFilter);
     this.weaverPanner = new Tone.Panner(0).connect(this.lowpassFilter);
+    this.ratchetPanner = new Tone.Panner(0).toDestination(); // Bypasses lowpass to keep clicks crisp
 
     this.fmOsc = new Tone.FMOscillator({
       frequency: presets.DRONE_BASE_FREQ,
@@ -67,7 +69,7 @@ export class TensionSynthesizer {
         sustain: 0,
         release: 0.015
       }
-    }).connect(this.playerPanner);
+    }).connect(this.ratchetPanner);
     this.ratchetSynth.volume.value = synthConfig.RATCHET_VOLUME;
 
     this.heartbeatSynth = new Tone.MembraneSynth({
@@ -98,9 +100,11 @@ export class TensionSynthesizer {
   }
 
   public updatePositions(playerX: number, weaverX: number): void {
-    if (this.playerPanner && this.weaverPanner && this.toneModule) {
+    if (this.playerPanner && this.weaverPanner && this.ratchetPanner && this.toneModule) {
       const now = this.toneModule.now();
-      this.playerPanner.pan.setTargetAtTime(this.getPanFromX(playerX), now, 0.05);
+      const panVal = this.getPanFromX(playerX);
+      this.playerPanner.pan.setTargetAtTime(panVal, now, 0.05);
+      this.ratchetPanner.pan.setTargetAtTime(panVal, now, 0.05);
       this.weaverPanner.pan.setTargetAtTime(this.getPanFromX(weaverX), now, 0.05);
     }
   }
@@ -236,6 +240,9 @@ export class TensionSynthesizer {
     }
     if (this.weaverPanner) {
       this.weaverPanner.dispose();
+    }
+    if (this.ratchetPanner) {
+      this.ratchetPanner.dispose();
     }
     if (this.ratchetSynth) {
       this.ratchetSynth.dispose();
