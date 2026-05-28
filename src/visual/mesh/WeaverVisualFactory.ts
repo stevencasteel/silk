@@ -53,13 +53,13 @@ function createFoot(
   const foot = BABYLON.MeshBuilder.CreateSphere(
     name,
     {
-      diameterX: radius * 0.11,
-      diameterY: radius * 0.16,
-      diameterZ: radius * 0.09
+      diameterX: radius * 0.10,
+      diameterY: radius * 0.28,
+      diameterZ: radius * 0.10
     },
     scene
   );
-  foot.scaling.set(1.5, 0.8, 0.5);
+  foot.scaling.set(1.0, 1.0, 1.0);
   foot.material = material;
   return foot;
 }
@@ -328,7 +328,7 @@ export function decorateWeaverVisual(
 
       const legRoot = new BABYLON.TransformNode(`leg_root_${sideSign}_${l}`, scene);
       legRoot.parent = wMesh;
-      legRoot.position.set(hipX, hipY, radius * 0.035);
+      legRoot.position.set(hipX, hipY, radius * -0.15);
       
       const coxaDx = kneeX - hipX;
       const coxaDy = kneeY - hipY;
@@ -343,7 +343,7 @@ export function decorateWeaverVisual(
         carapaceMat
       );
       coxa.rotation.z = angleFromLocalY(coxaDx, coxaDy);
-      coxa.rotation.x = -0.34;
+      coxa.rotation.x = -0.1;
       coxa.parent = legRoot;
 
       const tibiaDx = footX - kneeX;
@@ -360,12 +360,12 @@ export function decorateWeaverVisual(
       );
       tibia.position.set(0, coxaLength, 0);
       tibia.rotation.z = angleFromLocalY(tibiaDx, tibiaDy) - coxa.rotation.z;
-      tibia.rotation.x = 0.82;
+      tibia.rotation.x = 0.15;
       tibia.parent = coxa;
 
-      const foot = createFoot(scene, `foot_${sideSign}_${l}`, radius, legMat);
-      foot.position.set(0, tibiaLength, radius * 0.08);
-      foot.rotation.x = -0.24;
+      const foot = createFoot(scene, `foot_${sideSign}_${l}`, radius, carapaceMat);
+      foot.position.set(0, tibiaLength, 0);
+      foot.rotation.set(0, 0, 0);
       foot.parent = tibia;
 
       legRoot.metadata = {
