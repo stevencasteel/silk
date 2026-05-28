@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 5:33:33 PM
+ [SYSTEM] Generated: 5/28/2026, 5:39:40 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -4171,7 +4171,8 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   HealthComponent,
   InvulnerabilityComponent,
-  WeaverAIComponent
+  WeaverAIComponent,
+  TraversalStateComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
@@ -4309,10 +4310,12 @@ export class ProjectileSystem implements ISystem {
   public update(dt: number): void {
     const healthStore = this.context.stores.get<HealthComponent>("health");
     const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
+    const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
 
     const pHealth = healthStore.get(this.context.refs.player);
     const wHealth = healthStore.get(this.context.refs.weaver);
     const pIframe = iframeStore.get(this.context.refs.player);
+    const pTrav = traversalStore.get(this.context.refs.player);
 
     if (!pHealth || !wHealth || !pIframe) return;
     if (pHealth.current <= 0 || wHealth.current <= 0) return;
@@ -4359,26 +4362,43 @@ export class ProjectileSystem implements ISystem {
           });
         }
 
-        if (!p.isStuck && pMesh && pIframe.timeRemaining <= 0) {
+        if (!p.isStuck && pMesh) {
           if (p.mesh.intersectsMesh(pMesh, false)) {
-            this.context.commands.dispatch({
-              type: "DAMAGE_REQUEST",
-              targetId: this.context.refs.player,
-              amount: 1,
-              source: "PROJECTILE"
-            });
+            const isLaunching = pTrav && pTrav.state === "LAUNCHING";
+            const hasIframe = pIframe.timeRemaining > 0;
 
-            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-              x: p.mesh.position.x,
-              y: p.mesh.position.y,
-              isWall: false
-            });
-            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-            });
-            this.recycleProjectile(p);
-            continue;
+            if (isLaunching) {
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: p.mesh.position.x,
+                y: p.mesh.position.y,
+                isWall: false
+              });
+              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.5,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 0.5
+              });
+              this.recycleProjectile(p);
+              continue;
+            } else if (!hasIframe) {
+              this.context.commands.dispatch({
+                type: "DAMAGE_REQUEST",
+                targetId: this.context.refs.player,
+                amount: 1,
+                source: "PROJECTILE"
+              });
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: p.mesh.position.x,
+                y: p.mesh.position.y,
+                isWall: false
+              });
+              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+              this.recycleProjectile(p);
+              continue;
+            }
           }
         }
       }
