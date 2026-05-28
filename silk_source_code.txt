@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 10:38:13 PM
+ [SYSTEM] Generated: 5/28/2026, 10:46:35 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -58,6 +58,7 @@
 │   │   │   └── StoreContainer.ts
 │   │   ├── engine/
 │   │   │   ├── ArenaConfig.ts
+│   │   │   ├── ArenaProfileService.ts
 │   │   │   ├── Engine.ts
 │   │   │   ├── EngineTime.ts
 │   │   │   ├── SpatialPartitionService.ts
@@ -113,6 +114,7 @@
 │   │   │   ├── WeaverBrainSystem.ts
 │   │   │   ├── WeaverSweepHelper.ts
 │   │   │   └── WeaverTraversalSystem.ts
+│   │   ├── EntityAssembler.ts
 │   │   └── EntitySpawnerSystem.ts
 │   ├── physics/
 │   │   ├── commands/
@@ -1133,7 +1135,8 @@ import {
   TetherStrainComponent,
   ParticleEmitterComponent,
   HitboxComponent,
-  HurtboxComponent
+  HurtboxComponent,
+  ParticleRequestComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -1201,6 +1204,7 @@ export class CompositionRoot {
     const particleEmitters = new ComponentStore<ParticleEmitterComponent>();
     const hitboxes = new ComponentStore<HitboxComponent>();
     const hurtboxes = new ComponentStore<HurtboxComponent>();
+    const particleRequests = new ComponentStore<ParticleRequestComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1234,6 +1238,7 @@ export class CompositionRoot {
     registerStore("hurtbox", hurtboxes);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
+    registerStore("particleRequest", particleRequests);
 
     const visualRegistry = new VisualRegistry();
 
@@ -1445,7 +1450,10 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.impactSynth?.triggerAttackRelease(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+          this.sfxRegistry.impactSynth?.triggerAttackRelease(
+            presets.DAMAGED_NOTE,
+            presets.DAMAGED_DURATION
+          );
           this.sfxRegistry.noiseSynth?.triggerAttackRelease(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
@@ -1561,7 +1569,10 @@ export class AudioDirectorSystem implements ISystem {
     if (!this.sfxRegistry) return;
 
     if (this.sfxRegistry.impactSynth) {
-      this.sfxRegistry.impactSynth.triggerAttackRelease(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+      this.sfxRegistry.impactSynth.triggerAttackRelease(
+        presets.DEATH_NOTE_1,
+        presets.DEATH_NOTE_1_DURATION
+      );
       this.sfxRegistry.impactSynth.triggerAttackRelease(
         presets.DEATH_NOTE_2,
         presets.DEATH_NOTE_2_DURATION,
@@ -2579,6 +2590,15 @@ export interface HurtboxComponent {
   layer: "PLAYER" | "WEAVER";
 }
 
+export interface ParticleRequestComponent {
+  type: "PLAYER_SPARK" | "WEAVER_SPARK" | "LANDING_DUST" | "WALL_SPARK" | "PROJECTILE_SPLAT";
+  x: number;
+  y: number;
+  z: number;
+  count?: number;
+  wallNormalX?: number;
+}
+
 
 
 ● ./src/core/ecs/EcsWorld.ts
@@ -3116,6 +3136,42 @@ export const POST_PROCESSING_PRESETS = {
 
 
 
+● ./src/core/engine/ArenaProfileService.ts
+────────────────────────────────────────────────────
+import { ARENA_CONFIG } from "./ArenaConfig";
+
+export interface ArenaProfile {
+  scrollSpeed: number;
+  projectileSpeed: number;
+  reloadTime: number;
+  weaverSpeed: number;
+}
+
+export class ArenaProfileService {
+  private static currentAltitude = 0.0;
+
+  public static setAltitude(altitude: number): void {
+    this.currentAltitude = Math.max(0, altitude);
+  }
+
+  public static getAltitude(): number {
+    return this.currentAltitude;
+  }
+
+  public static getActiveProfile(): ArenaProfile {
+    const factor = Math.min(1.0, this.currentAltitude / 1000.0);
+
+    return {
+      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE + factor * 6.0,
+      projectileSpeed: 15.0 + factor * 8.0,
+      reloadTime: Math.max(1.2, 2.4 - factor * 0.8),
+      weaverSpeed: 4.5 + factor * 3.5
+    };
+  }
+}
+
+
+
 ● ./src/core/engine/Engine.ts
 ────────────────────────────────────────────────────
 import { GameLoop } from "../loop/GameLoop";
@@ -3268,7 +3324,7 @@ export class SpatialPartitionService {
   public static readonly WALL_LIMIT_X = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
   public static readonly FLOOR_Y = ARENA_CONFIG.VERTICAL.FLOOR_Y;
   public static readonly CEILING_Y = ARENA_CONFIG.VERTICAL.CEILING_Y;
-  
+
   public static clampX(x: number, radius: number): number {
     const limit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - radius;
     return Math.max(-limit, Math.min(limit, x));
@@ -3932,12 +3988,10 @@ export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON
 
 
 
-● ./src/gameplay/EntitySpawnerSystem.ts
+● ./src/gameplay/EntityAssembler.ts
 ────────────────────────────────────────────────────
-import { ISystem } from "../contracts/ISystem";
-import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
-import { EntityId } from "../core/ecs/Entity";
 import { SystemContext } from "../core/engine/SystemContext";
+import { EntityId } from "../core/ecs/Entity";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -3952,53 +4006,21 @@ import {
   InvulnerabilityComponent,
   WeaverTraversalComponent,
   WeaverSweepComponent,
-  HitboxComponent,
-  HurtboxComponent
+  HurtboxComponent,
+  HitboxComponent
 } from "../core/ecs/Components";
 import { ARENA_CONFIG, GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../core/engine/ArenaConfig";
 import { createWeaverVisualMesh } from "../visual/mesh/WeaverVisualFactory";
 import { createPlayerVisualMesh } from "../visual/mesh/PlayerSilkVisualFactory";
 import * as BABYLON from "@babylonjs/core";
 
-export class EntitySpawnerSystem implements ISystem {
-  readonly phase = SystemPhase.Intents;
-  readonly initPhase = InitPhase.World;
-  private sharedWeaverShape: BABYLON.PhysicsShapeSphere | null = null;
-  private sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null = null;
-
-  constructor(private context: SystemContext) {}
-
-  public init(): void {
-    const scene = this.context.visualRegistry.getScene();
-    if (scene && scene.isPhysicsEnabled()) {
-      this.sharedWeaverShape = new BABYLON.PhysicsShapeSphere(
-        BABYLON.Vector3.Zero(),
-        ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
-        scene
-      );
-      const cylHalfHeight =
-        (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
-      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(
-        new BABYLON.Vector3(0, -cylHalfHeight, 0),
-        new BABYLON.Vector3(0, cylHalfHeight, 0),
-        ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
-        scene
-      );
-    }
-    this.spawnWeaver();
-    this.spawnPlayer();
-  }
-
-  public spawnWeaver(existingId?: EntityId): EntityId {
-    const scene = this.context.visualRegistry.getScene();
-    if (!scene) return -1;
-
-    const weaverId = existingId ?? this.context.world.create();
-    this.context.world.clearEntityComponents(weaverId);
-
-    const existingNode = this.context.visualRegistry.getTransformNode(weaverId);
-
-    this.context.stores.get<TransformComponent>("transform").add(weaverId, {
+export class EntityAssembler {
+  public static assembleWeaver(
+    context: SystemContext,
+    weaverId: EntityId,
+    scene: BABYLON.Scene
+  ): void {
+    context.stores.get<TransformComponent>("transform").add(weaverId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       z: 0,
@@ -4024,14 +4046,14 @@ export class EntitySpawnerSystem implements ISystem {
       scaleVelZ: 0.0
     });
 
-    this.context.stores
+    context.stores
       .get<KinematicVelocityComponent>("velocity")
       .add(weaverId, { x: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X, y: 0, z: 0 });
-    this.context.stores
+    context.stores
       .get<KinematicTargetComponent>("target")
       .add(weaverId, { x: 0, y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, z: 0, active: true });
 
-    this.context.stores.get<WeaverAIComponent>("weaverAI").add(weaverId, {
+    context.stores.get<WeaverAIComponent>("weaverAI").add(weaverId, {
       state: "PATROLLING",
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
@@ -4044,29 +4066,29 @@ export class EntitySpawnerSystem implements ISystem {
       shakeRequested: false
     });
 
-    this.context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
-    this.context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
+    context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
+    context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
 
-    this.context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
+    context.stores.get<WeaverTraversalComponent>("weaverTraversal").add(weaverId, {
       isGrounded: false,
       isWallClinging: false,
       wallNormalX: 0
     });
 
-    this.context.stores.get<WeaverSweepComponent>("weaverSweep").add(weaverId, {
+    context.stores.get<WeaverSweepComponent>("weaverSweep").add(weaverId, {
       phase: "SWEEP",
       timer: 0.0,
       direction: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X >= 0 ? 1 : -1
     });
 
-    this.context.stores.get<HurtboxComponent>("hurtbox").add(weaverId, {
+    context.stores.get<HurtboxComponent>("hurtbox").add(weaverId, {
       ownerId: weaverId,
       isActive: true,
       radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
       layer: "WEAVER"
     });
 
-    this.context.stores.get<HitboxComponent>("hitbox").add(weaverId, {
+    context.stores.get<HitboxComponent>("hitbox").add(weaverId, {
       ownerId: weaverId,
       isActive: false,
       radius: ARENA_CONFIG.ENTITY.WEAVER_RADIUS,
@@ -4074,19 +4096,18 @@ export class EntitySpawnerSystem implements ISystem {
       targetLayer: "PLAYER"
     });
 
-    this.context.refs.weaver = weaverId;
-
+    const existingNode = context.visualRegistry.getTransformNode(weaverId);
     if (existingNode) {
       existingNode.position.set(0, ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, 0);
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
       existingNode.scaling.set(1.0, 1.0, 1.0);
       existingNode.setEnabled(true);
-      return weaverId;
+      return;
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const regCaster = this.context.visualRegistry.registerShadowCaster
-      ? (m: BABYLON.AbstractMesh) => this.context.visualRegistry.registerShadowCaster!(m)
+    const regCaster = context.visualRegistry.registerShadowCaster
+      ? (m: BABYLON.AbstractMesh) => context.visualRegistry.registerShadowCaster!(m)
       : undefined;
 
     const wMesh = createWeaverVisualMesh(
@@ -4096,7 +4117,7 @@ export class EntitySpawnerSystem implements ISystem {
       regCaster
     );
 
-    this.context.visualRegistry.registerTransformNode(weaverId, wMesh);
+    context.visualRegistry.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled()) {
       const wBody = new BABYLON.PhysicsBody(
@@ -4110,20 +4131,15 @@ export class EntitySpawnerSystem implements ISystem {
       wBody.shape = wShape;
       wBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_PHYSICS_MASS });
     }
-
-    return weaverId;
   }
 
-  public spawnPlayer(existingId?: EntityId): EntityId {
-    const scene = this.context.visualRegistry.getScene();
-    if (!scene) return -1;
-
-    const playerId = existingId ?? this.context.world.create();
-    this.context.world.clearEntityComponents(playerId);
-
-    const existingNode = this.context.visualRegistry.getTransformNode(playerId);
-
-    this.context.stores.get<TransformComponent>("transform").add(playerId, {
+  public static assemblePlayer(
+    context: SystemContext,
+    playerId: EntityId,
+    scene: BABYLON.Scene,
+    sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null
+  ): void {
+    context.stores.get<TransformComponent>("transform").add(playerId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
       z: 0,
@@ -4149,14 +4165,12 @@ export class EntitySpawnerSystem implements ISystem {
       scaleVelZ: 0.0
     });
 
-    this.context.stores
-      .get<KinematicVelocityComponent>("velocity")
-      .add(playerId, { x: 0, y: 0, z: 0 });
-    this.context.stores
+    context.stores.get<KinematicVelocityComponent>("velocity").add(playerId, { x: 0, y: 0, z: 0 });
+    context.stores
       .get<KinematicTargetComponent>("target")
       .add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
 
-    this.context.stores.get<TetherComponent>("tether").add(playerId, {
+    context.stores.get<TetherComponent>("tether").add(playerId, {
       anchorX: 0,
       anchorY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       anchorZ: 0,
@@ -4169,14 +4183,14 @@ export class EntitySpawnerSystem implements ISystem {
       reelHeat: 0.0
     });
 
-    this.context.stores.get<HealthComponent>("health").add(playerId, {
+    context.stores.get<HealthComponent>("health").add(playerId, {
       current: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
       max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
-    this.context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
-    this.context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+    context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
+    context.stores.get<PlayerTag>("playerTag").add(playerId, {});
 
-    this.context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
+    context.stores.get<TraversalStateComponent>("traversal").add(playerId, {
       state: "AIRBORNE",
       wallNormalX: 0,
       wallNormalY: 0,
@@ -4185,16 +4199,16 @@ export class EntitySpawnerSystem implements ISystem {
       launchPower: 0.0
     });
 
-    this.context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
+    context.stores.get<InvulnerabilityComponent>("iframe").add(playerId, { timeRemaining: 0 });
 
-    this.context.stores.get<HurtboxComponent>("hurtbox").add(playerId, {
+    context.stores.get<HurtboxComponent>("hurtbox").add(playerId, {
       ownerId: playerId,
       isActive: true,
       radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
       layer: "PLAYER"
     });
 
-    this.context.stores.get<HitboxComponent>("hitbox").add(playerId, {
+    context.stores.get<HitboxComponent>("hitbox").add(playerId, {
       ownerId: playerId,
       isActive: false,
       radius: ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
@@ -4202,14 +4216,13 @@ export class EntitySpawnerSystem implements ISystem {
       targetLayer: "WEAVER"
     });
 
-    this.context.refs.player = playerId;
-
+    const existingNode = context.visualRegistry.getTransformNode(playerId);
     if (existingNode) {
       existingNode.position.set(0, ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, 0);
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
       existingNode.scaling.set(1.0, 1.0, 1.0);
       existingNode.setEnabled(true);
-      return playerId;
+      return;
     }
 
     const pMesh = createPlayerVisualMesh(
@@ -4219,9 +4232,9 @@ export class EntitySpawnerSystem implements ISystem {
       ARENA_CONFIG.ENTITY.PLAYER_CAPSULE_SUBDIVISIONS
     );
 
-    this.context.visualRegistry.registerTransformNode(playerId, pMesh);
+    context.visualRegistry.registerTransformNode(playerId, pMesh);
 
-    if (scene.isPhysicsEnabled() && this.sharedPlayerShape) {
+    if (scene.isPhysicsEnabled() && sharedPlayerShape) {
       const pBody = new BABYLON.PhysicsBody(
         pMesh,
         BABYLON.PhysicsMotionType.ANIMATED,
@@ -4229,15 +4242,74 @@ export class EntitySpawnerSystem implements ISystem {
         scene
       );
       pBody.disablePreStep = false;
-      pBody.shape = this.sharedPlayerShape;
+      pBody.shape = sharedPlayerShape;
       pBody.setMassProperties({ mass: ARENA_CONFIG.ENTITY_SPAWNER.PLAYER_PHYSICS_MASS });
     }
+  }
+}
+
+
+
+● ./src/gameplay/EntitySpawnerSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../contracts/ISystem";
+import { SystemPhase, InitPhase } from "../contracts/SystemPhase";
+import { EntityId } from "../core/ecs/Entity";
+import { SystemContext } from "../core/engine/SystemContext";
+import { ARENA_CONFIG } from "../core/engine/ArenaConfig";
+import { EntityAssembler } from "./EntityAssembler";
+import * as BABYLON from "@babylonjs/core";
+
+export class EntitySpawnerSystem implements ISystem {
+  readonly phase = SystemPhase.Intents;
+  readonly initPhase = InitPhase.World;
+  private sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null = null;
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    const scene = this.context.visualRegistry.getScene();
+    if (scene && scene.isPhysicsEnabled()) {
+      const cylHalfHeight =
+        (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
+      this.sharedPlayerShape = new BABYLON.PhysicsShapeCapsule(
+        new BABYLON.Vector3(0, -cylHalfHeight, 0),
+        new BABYLON.Vector3(0, cylHalfHeight, 0),
+        ARENA_CONFIG.ENTITY.PLAYER_RADIUS,
+        scene
+      );
+    }
+    this.spawnWeaver();
+    this.spawnPlayer();
+  }
+
+  public spawnWeaver(existingId?: EntityId): EntityId {
+    const scene = this.context.visualRegistry.getScene();
+    if (!scene) return -1;
+
+    const weaverId = existingId ?? this.context.world.create();
+    this.context.world.clearEntityComponents(weaverId);
+
+    EntityAssembler.assembleWeaver(this.context, weaverId, scene);
+    this.context.refs.weaver = weaverId;
+
+    return weaverId;
+  }
+
+  public spawnPlayer(existingId?: EntityId): EntityId {
+    const scene = this.context.visualRegistry.getScene();
+    if (!scene) return -1;
+
+    const playerId = existingId ?? this.context.world.create();
+    this.context.world.clearEntityComponents(playerId);
+
+    EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedPlayerShape);
+    this.context.refs.player = playerId;
 
     return playerId;
   }
 
   public dispose(): void {
-    if (this.sharedWeaverShape) this.sharedWeaverShape.dispose();
     if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
   }
 }
@@ -4598,7 +4670,12 @@ export class GameDirectorSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { HealthComponent, InvulnerabilityComponent } from "../../core/ecs/Components";
+import {
+  HealthComponent,
+  InvulnerabilityComponent,
+  TransformComponent,
+  ParticleRequestComponent
+} from "../../core/ecs/Components";
 import { DamageRequestCommand } from "./CombatCommands";
 import { GameEvent } from "../../core/events/GameEvents";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
@@ -4620,6 +4697,23 @@ export class HealthSystem implements ISystem {
     if (!health || health.current <= 0) return;
 
     const isPlayer = cmd.targetId === this.context.refs.player;
+
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const targetTrans = transforms.get(cmd.targetId);
+
+    // Spawn purely decoupled visual request in ECS
+    if (targetTrans) {
+      const reqId = this.context.world.create();
+      const requestStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+      if (requestStore) {
+        requestStore.add(reqId, {
+          type: isPlayer ? "PLAYER_SPARK" : "WEAVER_SPARK",
+          x: targetTrans.x,
+          y: targetTrans.y,
+          z: targetTrans.z
+        });
+      }
+    }
 
     if (isPlayer) {
       const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
@@ -5034,12 +5128,7 @@ export class ProjectileSystem implements ISystem {
 
 ● ./src/gameplay/juice/JuiceSystem.ts
 ────────────────────────────────────────────────────
-import {
-  VISUAL_JUICE_CONFIG,
-  CANONICAL_UNITS,
-  ARENA_CONFIG,
-  GAMEPLAY_TUNING
-} from "../../core/engine/ArenaConfig";
+import { VISUAL_JUICE_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -5049,7 +5138,8 @@ import {
   TransformComponent,
   TetherComponent,
   TraversalStateComponent,
-  ParticleEmitterComponent
+  ParticleEmitterComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -5100,135 +5190,8 @@ export class JuiceSystem implements ISystem {
       });
     }
 
-    const config = VISUAL_JUICE_CONFIG.PARTICLES;
-    const colors = config.COLORS;
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-        if (playerNode) {
-          this._colorScratch.set(
-            colors.PLAYER_SPARK.r,
-            colors.PLAYER_SPARK.g,
-            colors.PLAYER_SPARK.b
-          );
-          this.spawnBurst(
-            playerNode.position,
-            this._colorScratch,
-            config.BURST.PLAYER.COUNT,
-            config.BURST.PLAYER
-          );
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
-        if (weaverNode) {
-          this._colorScratch.set(
-            colors.WEAVER_SPARK.r,
-            colors.WEAVER_SPARK.g,
-            colors.WEAVER_SPARK.b
-          );
-          this.spawnBurst(
-            weaverNode.position,
-            this._colorScratch,
-            config.BURST.WEAVER.COUNT,
-            config.BURST.WEAVER
-          );
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.PLAYER_LANDED,
-        (payload: { x: number; y: number }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnLandingDust(this._particleOriginScratch);
-        }
-      )
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.PLAYER_WALL_HIT,
-        (payload: { x: number; y: number; wallNormalX: number }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnWallSparks(this._particleOriginScratch, payload.wallNormalX);
-        }
-      )
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.WEAVER_WALL_HIT,
-        (payload: { x: number; y: number; wallNormalX: number }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnWallSparks(this._particleOriginScratch, payload.wallNormalX);
-        }
-      )
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(
-        GameEvent.PROJECTILE_IMPACT,
-        (payload: { x: number; y: number; isWall: boolean }) => {
-          this._particleOriginScratch.set(payload.x, payload.y, 0);
-          this.spawnWebSplat(this._particleOriginScratch);
-        }
-      )
-    );
-
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload: { state: string }) => {
-        if (payload.state === "LAUNCHING" && this.playerState !== "LAUNCHING") {
-          const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
-          if (playerNode) {
-            const configObj = VISUAL_JUICE_CONFIG.PARTICLES;
-            const colorsObj = configObj.COLORS;
-
-            const traversal = this.context.stores.get<TraversalStateComponent>("traversal");
-            const pTrav = traversal.get(this.context.refs.player);
-
-            this._colorScratch.set(
-              colorsObj.PLAYER_SPARK.r,
-              colorsObj.PLAYER_SPARK.g,
-              colorsObj.PLAYER_SPARK.b
-            );
-            let particleCount = 15;
-            let burstSettings: {
-              readonly VELOCITY_Y_MIN: number;
-              readonly VELOCITY_Y_MAX: number;
-              readonly VELOCITY_Z_MAX: number;
-              readonly VELOCITY_SPEED_MIN: number;
-              readonly VELOCITY_SPEED_MAX: number;
-              readonly LIFE_MIN: number;
-              readonly LIFE_MAX: number;
-            } = configObj.BURST.PLAYER;
-
-            if (pTrav) {
-              const reelConfig = GAMEPLAY_TUNING.REEL;
-              const power = pTrav.launchPower;
-
-              if (power >= 1.0) {
-                this._colorScratch.set(1.0, 0.15, 0.15);
-                particleCount = 25;
-                burstSettings = {
-                  ...configObj.BURST.PLAYER,
-                  VELOCITY_SPEED_MIN: configObj.BURST.PLAYER.VELOCITY_SPEED_MIN * 1.5,
-                  VELOCITY_SPEED_MAX: configObj.BURST.PLAYER.VELOCITY_SPEED_MAX * 1.8
-                };
-              } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-                this._colorScratch.set(0.95, 0.95, 1.0);
-                particleCount = 22;
-              }
-            }
-
-            this.spawnBurst(playerNode.position, this._colorScratch, particleCount, burstSettings);
-          }
-        }
         this.playerState = payload.state;
       })
     );
@@ -5379,7 +5342,7 @@ export class JuiceSystem implements ISystem {
     pTrav: TraversalStateComponent,
     dt: number
   ): void {
-    const wallX = pTrav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const wallX = pTrav.wallDir * pTrans.x;
     this._particleOriginScratch.set(wallX, pTrans.y, 0);
 
     const tension = Math.max(0, pTether.tension);
@@ -5423,6 +5386,41 @@ export class JuiceSystem implements ISystem {
   public update(dt: number): void {
     const gravity = CANONICAL_UNITS.GRAVITY.JUICE_PARTICLE;
     const particleDrag = Math.pow(VISUAL_JUICE_CONFIG.PARTICLES.DRAG, dt * 60.0);
+
+    // Passive ECS Component Polling for isolated visual triggers
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    for (const [id, req] of reqStore.entries()) {
+      this._particleOriginScratch.set(req.x, req.y, req.z);
+
+      if (req.type === "PLAYER_SPARK") {
+        const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+        this._colorScratch.set(colors.PLAYER_SPARK.r, colors.PLAYER_SPARK.g, colors.PLAYER_SPARK.b);
+        this.spawnBurst(
+          this._particleOriginScratch,
+          this._colorScratch,
+          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER.COUNT,
+          VISUAL_JUICE_CONFIG.PARTICLES.BURST.PLAYER
+        );
+      } else if (req.type === "WEAVER_SPARK") {
+        const colors = VISUAL_JUICE_CONFIG.PARTICLES.COLORS;
+        this._colorScratch.set(colors.WEAVER_SPARK.r, colors.WEAVER_SPARK.g, colors.WEAVER_SPARK.b);
+        this.spawnBurst(
+          this._particleOriginScratch,
+          this._colorScratch,
+          req.count ?? VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER.COUNT,
+          VISUAL_JUICE_CONFIG.PARTICLES.BURST.WEAVER
+        );
+      } else if (req.type === "LANDING_DUST") {
+        this.spawnLandingDust(this._particleOriginScratch);
+      } else if (req.type === "WALL_SPARK") {
+        this.spawnWallSparks(this._particleOriginScratch, req.wallNormalX ?? 1);
+      } else if (req.type === "PROJECTILE_SPLAT") {
+        this.spawnWebSplat(this._particleOriginScratch);
+      }
+
+      this.context.world.destroy(id);
+    }
+
     for (let i = 0; i < this.poolSize; i++) {
       const p = this.particlePool[i];
       if (!p.active) continue;
@@ -5470,7 +5468,6 @@ export class JuiceSystem implements ISystem {
       }
     }
 
-    // Query active component-based emitters generically
     const emitterStore = this.context.stores.get<ParticleEmitterComponent>("particleEmitter");
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const tetherStore = this.context.stores.get<TetherComponent>("tether");
@@ -6753,8 +6750,12 @@ export class TetherReelingSystem implements ISystem {
 
   public update(dt: number): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-    const trav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
+    const trav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
 
     if (!tether || !input || !trav) return;
 
@@ -7011,7 +7012,8 @@ import {
   KinematicTargetComponent,
   TransformComponent,
   KinematicVelocityComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import { SpatialPartitionService } from "../../core/engine/SpatialPartitionService";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
@@ -7059,6 +7061,19 @@ export class VerticalBoundarySystem implements ISystem {
       } else {
         if (vel.y < tuning.SQUASH_STRETCH.LAND_VEL_THRESHOLD) {
           this.context.broker.publish(GameEvent.PLAYER_LANDED, { x: target.x, y: minY });
+
+          // Spawn landing particles purely via ECS component
+          const reqId = this.context.world.create();
+          const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            reqStore.add(reqId, {
+              type: "LANDING_DUST",
+              x: target.x,
+              y: minY,
+              z: 0
+            });
+          }
+
           const transforms = this.context.stores.get<TransformComponent>("transform");
           const pTrans = transforms.get(this.context.refs.player);
 
@@ -8119,7 +8134,12 @@ export class WeaverBrainSystem implements ISystem {
 
 ● ./src/gameplay/weaver/WeaverSweepHelper.ts
 ────────────────────────────────────────────────────
-import { WeaverSweepComponent, HealthComponent, KinematicVelocityComponent, TransformComponent } from "../../core/ecs/Components";
+import {
+  WeaverSweepComponent,
+  HealthComponent,
+  KinematicVelocityComponent,
+  TransformComponent
+} from "../../core/ecs/Components";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 
 export class WeaverSweepHelper {
@@ -9953,7 +9973,8 @@ import {
   InvulnerabilityComponent,
   TraversalStateComponent,
   HealthComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING, WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -10094,6 +10115,18 @@ export class CollisionResolutionSystem implements ISystem {
           const dy = trans.y - pMesh.position.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
+          // Dispatch ECS request component instead of direct subscription triggers
+          const reqId = this.context.world.create();
+          const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            reqStore.add(reqId, {
+              type: "PROJECTILE_SPLAT",
+              x: trans.x,
+              y: trans.y,
+              z: trans.z
+            });
+          }
+
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: trans.x,
             y: trans.y,
@@ -10114,6 +10147,18 @@ export class CollisionResolutionSystem implements ISystem {
             amount: 1,
             source: "PROJECTILE"
           });
+
+          // Dispatch ECS request component instead of direct subscription triggers
+          const reqId = this.context.world.create();
+          const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            reqStore.add(reqId, {
+              type: "PROJECTILE_SPLAT",
+              x: trans.x,
+              y: trans.y,
+              z: trans.z
+            });
+          }
 
           this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
             x: trans.x,
@@ -14390,6 +14435,7 @@ import {
   HealthComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
+import { ArenaProfileService } from "../../core/engine/ArenaProfileService";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
@@ -14427,6 +14473,7 @@ export class ParallaxScrollSystem implements ISystem {
         this.prevScrollOffset = 0.0;
         this.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
         ParallaxScrollSystem.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
+        ArenaProfileService.setAltitude(0);
       })
     );
   }
@@ -14458,6 +14505,11 @@ export class ParallaxScrollSystem implements ISystem {
 
     this.prevScrollOffset = this.currentScrollOffset;
     this.currentScrollOffset += this.scrollSpeed * dt;
+
+    // Track traveled altitude scaling within our global profile service
+    if (this.scrollSpeed > 0) {
+      ArenaProfileService.setAltitude(ArenaProfileService.getAltitude() + this.scrollSpeed * dt);
+    }
   }
 
   public static getDesiredScrollSpeed(
@@ -14469,9 +14521,11 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
+    const profile = ArenaProfileService.getActiveProfile();
+
     if (wAI.state === "PATROLLING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
-      return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
+      return isBerserk ? profile.scrollSpeed * 1.5 : profile.scrollSpeed;
     }
 
     if (wAI.state === "STRIKING") {
@@ -14487,7 +14541,7 @@ export class ParallaxScrollSystem implements ISystem {
 
     if (wAI.state === "ASCENDING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;
-      return isBerserk ? ARENA_CONFIG.SCROLL_SPEED.BERSERK : ARENA_CONFIG.SCROLL_SPEED.BASE;
+      return isBerserk ? profile.scrollSpeed * 1.5 : profile.scrollSpeed;
     }
 
     return 0.0;
