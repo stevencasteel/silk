@@ -220,7 +220,6 @@ export class ProjectileSystem implements ISystem {
     const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
     const traversalStore = this.context.stores.get<TraversalStateComponent>("traversal");
     const transformStore = this.context.stores.get<TransformComponent>("transform");
-    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
     const projStore = this.context.stores.get<ProjectileComponent>("projectile");
 
     const pHealth = healthStore.get(this.context.refs.player);
@@ -248,7 +247,6 @@ export class ProjectileSystem implements ISystem {
     const pMesh = this.context.visualRegistry.getTransformNode(
       this.context.refs.player
     ) as BABYLON.AbstractMesh;
-    const wallLimit = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const projId = this.projectileEntities[i];
@@ -258,95 +256,11 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       const trans = transformStore.get(projId);
-      const vel = velStore.get(projId);
       const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
-      if (!trans || !vel || !mesh) continue;
+      if (!trans || !mesh) continue;
 
-      if (!p.isStuck) {
-        trans.x += vel.x * dt;
-        trans.y += vel.y * dt;
-        mesh.position.set(trans.x, trans.y, 0);
-
-        const body = this.bodiesMap.get(projId);
-        if (body) {
-          body.setTargetTransform(
-            mesh.position,
-            mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
-          );
-        }
-
-        if (Math.abs(trans.x) >= wallLimit) {
-          p.isStuck = true;
-          p.isStuckOnWall = true;
-          mesh.scaling.set(0.24, 1.45, 1.45);
-          trans.x = Math.sign(trans.x) * (wallLimit - 0.05);
-          mesh.position.x = trans.x;
-          mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-          mesh.material = this.projMatStuck;
-
-          trans.qx = 0;
-          trans.qy = 0;
-          trans.qz = 0;
-          trans.qw = 1;
-
-          if (body) {
-            body.setTargetTransform(mesh.position, mesh.rotationQuaternion);
-          }
-
-          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-            x: trans.x,
-            y: trans.y,
-            isWall: true
-          });
-        }
-
-        if (!p.isStuck && pMesh) {
-          if (mesh.intersectsMesh(pMesh, false)) {
-            const isLaunching = pTrav && pTrav.state === "LAUNCHING";
-            const hasIframe = pIframe.timeRemaining > 0;
-
-            if (isLaunching) {
-              const dx = trans.x - pMesh.position.x;
-              const dy = trans.y - pMesh.position.y;
-              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-
-              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-                x: trans.x,
-                y: trans.y,
-                isWall: false
-              });
-              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
-                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
-                dirX: dx / dist,
-                dirY: dy / dist
-              });
-              this.recycleProjectile(projId, p);
-              continue;
-            } else if (!hasIframe) {
-              this.context.commands.dispatch({
-                type: "DAMAGE_REQUEST",
-                targetId: this.context.refs.player,
-                amount: 1,
-                source: "PROJECTILE"
-              });
-
-              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-                x: trans.x,
-                y: trans.y,
-                isWall: false
-              });
-              this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-              });
-              this.recycleProjectile(projId, p);
-              continue;
-            }
-          }
-        }
-      }
-
+      // Projectile translation is now cleanly handled by KinematicIntegrationSystem.
+      // We only execute programmatic scroll-tracking of stuck wall projectiles and intersection triggers.
       if (p.isStuckOnWall) {
         trans.y -= currentScrollSpeed * dt;
         mesh.position.y = trans.y;
@@ -356,6 +270,51 @@ export class ProjectileSystem implements ISystem {
             mesh.position,
             mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
           );
+        }
+      } else {
+        // Evaluate dynamic collisions against player capsule mesh bounds
+        if (pMesh && mesh.intersectsMesh(pMesh, false)) {
+          const isLaunching = pTrav && pTrav.state === "LAUNCHING";
+          const hasIframe = pIframe.timeRemaining > 0;
+
+          if (isLaunching) {
+            const dx = trans.x - pMesh.position.x;
+            const dy = trans.y - pMesh.position.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: trans.x,
+              y: trans.y,
+              isWall: false
+            });
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
+              dirX: dx / dist,
+              dirY: dy / dist
+            });
+            this.recycleProjectile(projId, p);
+            continue;
+          } else if (!hasIframe) {
+            this.context.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: this.context.refs.player,
+              amount: 1,
+              source: "PROJECTILE"
+            });
+
+            this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+              x: trans.x,
+              y: trans.y,
+              isWall: false
+            });
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+            });
+            this.recycleProjectile(projId, p);
+            continue;
+          }
         }
       }
 

@@ -95,6 +95,8 @@ export class WallBugSystem implements ISystem {
 
       bug.timer += dt;
 
+      // Wall bug kinematics translation is cleanly handled by KinematicIntegrationSystem.
+      // We only execute scroll-tracking updates and check vertical bounds.
       const extraCrawlSpeed = 3.8;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
@@ -108,39 +110,11 @@ export class WallBugSystem implements ISystem {
 
       pBug.rootNode.position.set(bug.x, bug.y, 0);
 
-      const node = pBug.rootNode;
-      if (node) {
-        let bugPhase = bug.gaitPhase;
-        const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
-        bugPhase += legFrequency * dt;
-        bug.gaitPhase = bugPhase;
-
-        node.getChildren().forEach((child) => {
-          if (child.name.startsWith("leg_joint_left")) {
-            const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
-            const childTrans = child as BABYLON.TransformNode;
-            childTrans.rotation.z = Math.sin(bugPhase + index * 1.5) * 0.22;
-
-            childTrans.getChildren().forEach((subChild) => {
-              if (subChild.name.startsWith("tibia_joint_left")) {
-                const subTrans = subChild as BABYLON.TransformNode;
-                subTrans.rotation.z = Math.PI / 4 + Math.cos(bugPhase + index * 1.5) * 0.32;
-              }
-            });
-          } else if (child.name.startsWith("leg_joint_right")) {
-            const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
-            const childTrans = child as BABYLON.TransformNode;
-            childTrans.rotation.z = -Math.sin(bugPhase + index * 1.5) * 0.22;
-
-            childTrans.getChildren().forEach((subChild) => {
-              if (subChild.name.startsWith("tibia_joint_right")) {
-                const subTrans = subChild as BABYLON.TransformNode;
-                subTrans.rotation.z = -Math.PI / 4 - Math.cos(bugPhase + index * 1.5) * 0.32;
-              }
-            });
-          }
-        });
-      }
+      // Simple kinematic frequency tracker (Procedural joint animation is isolated to RenderSync)
+      let bugPhase = bug.gaitPhase;
+      const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
+      bugPhase += legFrequency * dt;
+      bug.gaitPhase = bugPhase;
     }
   }
 

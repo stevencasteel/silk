@@ -136,3 +136,19 @@ export interface WeaverSweepComponent {
   timer: number;
   direction: number;
 }
+
+export interface CollisionStateComponent {
+  isGrounded: boolean;
+  isWallClinging: boolean;
+  wallNormalX: number;
+  wallNormalY: number;
+  lastHitType: "NONE" | "WALL" | "GROUND" | "PROJECTILE";
+  hitPointX: number;
+  hitPointY: number;
+}
+
+export interface TetherStrainComponent {
+  strain: number;
+  strainTimer: number;
+  isOverloaded: boolean;
+}

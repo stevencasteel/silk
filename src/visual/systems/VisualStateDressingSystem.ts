@@ -10,7 +10,8 @@ import {
   WeaverAIComponent,
   KinematicVelocityComponent,
   TransformComponent,
-  WeaverTraversalComponent
+  WeaverTraversalComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -164,6 +165,7 @@ export class VisualStateDressingSystem implements ISystem {
 
   public render(): void {
     this.updateAestheticDressing();
+    this.dressWallBugLegs();
   }
 
   private solveIK(
@@ -197,6 +199,41 @@ export class VisualStateDressingSystem implements ISystem {
     }
 
     return this._ikResult;
+  }
+
+  private dressWallBugLegs(): void {
+    const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+    for (const [id, bug] of bugStore.entries()) {
+      const node = this.context.visualRegistry.getTransformNode(id);
+      if (!node) continue;
+
+      const bugPhase = bug.gaitPhase;
+      node.getChildren().forEach((child) => {
+        if (child.name.startsWith("leg_joint_left")) {
+          const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
+          const childTrans = child as BABYLON.TransformNode;
+          childTrans.rotation.z = Math.sin(bugPhase + index * 1.5) * 0.22;
+
+          childTrans.getChildren().forEach((subChild) => {
+            if (subChild.name.startsWith("tibia_joint_left")) {
+              const subTrans = subChild as BABYLON.TransformNode;
+              subTrans.rotation.z = Math.PI / 4 + Math.cos(bugPhase + index * 1.5) * 0.32;
+            }
+          });
+        } else if (child.name.startsWith("leg_joint_right")) {
+          const index = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1));
+          const childTrans = child as BABYLON.TransformNode;
+          childTrans.rotation.z = -Math.sin(bugPhase + index * 1.5) * 0.22;
+
+          childTrans.getChildren().forEach((subChild) => {
+            if (subChild.name.startsWith("tibia_joint_right")) {
+              const subTrans = subChild as BABYLON.TransformNode;
+              subTrans.rotation.z = -Math.PI / 4 - Math.cos(bugPhase + index * 1.5) * 0.32;
+            }
+          });
+        }
+      });
+    }
   }
 
   private updateAestheticDressing(): void {

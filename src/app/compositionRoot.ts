@@ -23,9 +23,13 @@ import {
   WallBugComponent,
   StickySurfaceComponent,
   ProjectileComponent,
-  WeaverSweepComponent
+  WeaverSweepComponent,
+  CollisionStateComponent,
+  TetherStrainComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
+import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
+import { CollisionResolutionSystem } from "../physics/systems/CollisionResolutionSystem";
 import { VisualRegistry } from "../visual/scene/VisualRegistry";
 import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
@@ -78,6 +82,8 @@ export class CompositionRoot {
     const stickySurfaces = new ComponentStore<StickySurfaceComponent>();
     const projectiles = new ComponentStore<ProjectileComponent>();
     const weaverSweep = new ComponentStore<WeaverSweepComponent>();
+    const collisionStates = new ComponentStore<CollisionStateComponent>();
+    const tetherStrains = new ComponentStore<TetherStrainComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -104,6 +110,8 @@ export class CompositionRoot {
     registerStore("stickySurface", stickySurfaces);
     registerStore("projectile", projectiles);
     registerStore("weaverSweep", weaverSweep);
+    registerStore("collisionState", collisionStates);
+    registerStore("tetherStrain", tetherStrains);
     registerStore("playerTag", playerTags);
     registerStore("weaverTag", weaverTags);
 
@@ -127,6 +135,8 @@ export class CompositionRoot {
     const audioSystem = new AudioDirectorSystem(context);
 
     const physicsSystem = new HavokPhysicsSystem(context);
+    const kinematicIntegrationSystem = new KinematicIntegrationSystem(context);
+    const collisionResolutionSystem = new CollisionResolutionSystem(context);
 
     const playerKinematics = new PlayerKinematicsSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
@@ -156,6 +166,8 @@ export class CompositionRoot {
     systemManager.register(spawner);
     systemManager.register(renderSystem);
     systemManager.register(physicsSystem);
+    systemManager.register(kinematicIntegrationSystem);
+    systemManager.register(collisionResolutionSystem);
     systemManager.register(inputSystem);
     systemManager.register(weaverBrain);
     systemManager.register(playerKinematics);

@@ -8,7 +8,8 @@ import {
   HealthComponent,
   TransformComponent,
   KinematicVelocityComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  TetherStrainComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -35,10 +36,18 @@ export class VerticalBoundarySystem implements ISystem {
     const trav = this.context.stores
       .get<TraversalStateComponent>("traversal")
       .get(this.context.refs.player);
+    const strainStore = this.context.stores.get<TetherStrainComponent>("tetherStrain");
 
     if (!tether || !target || !health || !vel || !trav) return;
+
+    const pId = this.context.refs.player;
+    if (!strainStore.has(pId)) {
+      strainStore.add(pId, { strain: 0, strainTimer: 0, isOverloaded: false });
+    }
+    const tStrain = strainStore.get(pId)!;
+
     this.clampToArenaBounds(target, vel, trav);
-    this.updateStrainMeter(tether, health);
+    this.updateStrainMeter(tether, health, tStrain);
   }
 
   private clampToArenaBounds(
@@ -84,8 +93,10 @@ export class VerticalBoundarySystem implements ISystem {
     }
   }
 
-  private updateStrainMeter(tether: TetherComponent, health: HealthComponent): void {
+  private updateStrainMeter(tether: TetherComponent, health: HealthComponent, tStrain: TetherStrainComponent): void {
     const isOverloaded = tether.tension >= this.OVERLOAD_THRESHOLD;
+    tStrain.isOverloaded = isOverloaded;
+    tStrain.strain = tether.tension;
 
     if (isOverloaded) {
       const overloadDelta = tether.tension - this.OVERLOAD_THRESHOLD;
