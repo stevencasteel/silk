@@ -361,7 +361,25 @@ export const HudOverlay: React.FC = () => {
               {currentState === "LAUNCHING" ? (
                 <span className="warn-text warn-launch">LAUNCH SUCCESS</span>
               ) : (
-                <span className="warn-text">▧ SILK ▨</span>
+                <span className="warn-text" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                    <line x1="12" y1="2" x2="12" y2="22" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <line x1="5" y1="5" x2="19" y2="19" />
+                    <line x1="5" y1="19" x2="19" y2="5" />
+                    <path d="M12,8 Q13.5,8.5 15,9.5 Q15.5,11 16,12 Q15.5,13 15,14.5 Q13.5,15.5 12,16 Q10.5,15.5 9,14.5 Q8.5,13 8,12 Q8.5,11 9,9.5 Q10.5,8.5 12,8 Z" />
+                    <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
+                  </svg>
+                  <span style={{ transform: "translateY(1px)" }}>SILK</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                    <line x1="12" y1="2" x2="12" y2="22" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <line x1="5" y1="5" x2="19" y2="19" />
+                    <line x1="5" y1="19" x2="19" y2="5" />
+                    <path d="M12,8 Q13.5,8.5 15,9.5 Q15.5,11 16,12 Q15.5,13 15,14.5 Q13.5,15.5 12,16 Q10.5,15.5 9,14.5 Q8.5,13 8,12 Q8.5,11 9,9.5 Q10.5,8.5 12,8 Z" />
+                    <path d="M12,4 Q15.5,5 18,7 Q19,10.5 20,12 Q19,13.5 18,17 Q15.5,19 12,20 Q8.5,19 6,17 Q5,13.5 4,12 Q5,10.5 6,7 Q8.5,5 12,4 Z" />
+                  </svg>
+                </span>
               )}
             </div>
 
