@@ -96,7 +96,6 @@ export const HudOverlay: React.FC = () => {
   const { weaverHp, weaverMaxHp } = weaverState;
 
   const tensionBarFillRef = useRef<HTMLDivElement | null>(null);
-  const tensionTextValRef = useRef<HTMLSpanElement | null>(null);
 
   const overlayState = useOverlayStore(
     useShallow((s) => ({
@@ -250,10 +249,6 @@ export const HudOverlay: React.FC = () => {
         tensionBarFillRef.current.style.boxShadow = `0 0 12px ${color}`;
       }
 
-      if (tensionTextValRef.current) {
-        tensionTextValRef.current.innerHTML = `<span style="font-size: 8px; font-weight: 900; letter-spacing: 0.1em; color: ${textColor}; margin-right: 8px;">${stageText}</span>${displayPercent}%`;
-        tensionTextValRef.current.style.color = textColor;
-      }
     };
 
     window.addEventListener("silk-tension-render-tick", handleTensionTick);
@@ -741,23 +736,14 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className="flex items-center gap-2.5" style={{ width: "320px", height: "100%", justifyContent: "space-between" }}>
-              
-              {/* 1. Tension Label & Percent */}
-              <div className="flex items-baseline gap-1" style={{ flexShrink: 0 }}>
-                <span style={{ color: "var(--text-muted)", fontSize: "9px", fontWeight: "900", letterSpacing: "0.08em" }}>
-                  TEN:
-                </span>
-                <span ref={tensionTextValRef} style={{ fontFamily: "monospace", fontSize: "11px", fontWeight: "900", color: "rgb(161, 161, 170)" }}>
-                  0%
-                </span>
-              </div>
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "16px", width: "100%", height: "100%", justifyContent: "space-between" }}>
 
-              {/* 2. Segmented LED Bar with Integrated Demarcations */}
+              {/* 1. Segmented LED Bar with Integrated Demarcations */}
               <div
-                className="neo-pressed flex-1"
+                className="neo-pressed"
                 style={{
-                  height: "12px",
+                  flexGrow: 1,
+                  height: "22px",
                   borderRadius: "6px",
                   padding: "2px",
                   boxSizing: "border-box",
@@ -795,7 +781,7 @@ export const HudOverlay: React.FC = () => {
                 />
 
                 {/* Integrated 0 / 1 / 2 / SKULL Demarcations overlay */}
-                <div style={{ position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none", display: "flex", alignItems: "center", fontSize: "6.5px", fontWeight: "900", color: "rgba(255,255,255,0.22)" }}>
+                <div style={{ position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none", display: "flex", alignItems: "center", fontSize: "8px", fontWeight: "900", color: "rgba(255,255,255,0.22)" }}>
                   <span style={{ position: "absolute", left: "5%" }}>0</span>
                   <span style={{ position: "absolute", left: "55%", color: "rgba(234,179,8,0.35)" }}>1</span>
                   <span style={{ position: "absolute", left: "85%", color: "rgba(239,68,68,0.35)" }}>2</span>
@@ -814,10 +800,9 @@ export const HudOverlay: React.FC = () => {
                 />
               </div>
 
-              {/* 3. Tether Integrity Life Indicators */}
-              <div className="flex items-center gap-1" style={{ flexShrink: 0 }}>
-                <span style={{ fontSize: "6.5px", fontWeight: "900", color: "var(--text-muted)", letterSpacing: "0.05em" }}>LIFE:</span>
-                <div className="flex gap-1">
+              {/* 2. Tether Integrity Life Indicators */}
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                <div style={{ display: "flex", flexDirection: "row", gap: "6px" }}>
                   {[...Array(3)].map((_, idx) => {
                     const isDamaged = idx < tetherDamage;
                     return (
@@ -825,8 +810,8 @@ export const HudOverlay: React.FC = () => {
                         key={idx}
                         className={`led-dot ${isDamaged ? "led-red" : "led-green"}`}
                         style={{
-                          width: "7.5px",
-                          height: "7.5px",
+                          width: "12px",
+                          height: "12px",
                           border: "1px solid rgba(0,0,0,0.55)",
                           transition: "all 0.15s ease"
                         }}
@@ -835,7 +820,6 @@ export const HudOverlay: React.FC = () => {
                   })}
                 </div>
               </div>
-
             </div>
           </div>
         </div>
