@@ -175,10 +175,12 @@ export class PlayerAirborneState implements IPlayerState {
               trav.stickyEntityId = bugId;
               trav.stickyWallX =
                 bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-              trav.stickyWallYOffset = nextY - bugTrans.y;
+
+              const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
+              trav.stickyWallYOffset = clampedOffsetY;
 
               target.x = trav.stickyWallX;
-              target.y = nextY;
+              target.y = bugTrans.y + clampedOffsetY;
               vel.x = 0;
               vel.y = -(9.0 + sticky.speed);
 
