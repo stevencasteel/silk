@@ -1,8 +1,8 @@
-import { useInputStore } from "../../ui/hud/hudStore";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { InputIntentComponent } from "../../core/ecs/Components";
+import { GameEvent } from "../../core/events/GameEvents";
 
 export class PlayerInputSystem implements ISystem {
   readonly phase = SystemPhase.Input;
@@ -41,14 +41,20 @@ export class PlayerInputSystem implements ISystem {
   private handleKeyDown = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = true;
-    useInputStore.getState().setKeyPressed(key, true);
-    useInputStore.getState().setKeyPressed(e.code.toLowerCase(), true);
+    this.context.broker.publish(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, {
+      key,
+      code: e.code.toLowerCase(),
+      pressed: true
+    });
   };
 
   private handleKeyUp = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = false;
-    useInputStore.getState().setKeyPressed(key, false);
-    useInputStore.getState().setKeyPressed(e.code.toLowerCase(), false);
+    this.context.broker.publish(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, {
+      key,
+      code: e.code.toLowerCase(),
+      pressed: false
+    });
   };
 }

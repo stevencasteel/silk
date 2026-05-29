@@ -1,10 +1,7 @@
-export interface ICommand {
-  readonly type: string;
-}
+import { ICommandBus, ICommand, CommandHandler } from "../../contracts/ICore";
+export type { ICommand, CommandHandler };
 
-export type CommandHandler<T extends ICommand> = (cmd: T) => void;
-
-export class CommandBus {
+export class CommandBus implements ICommandBus {
   private handlers = new Map<string, CommandHandler<ICommand>[]>();
   private queueA: ICommand[] = [];
   private queueB: ICommand[] = [];

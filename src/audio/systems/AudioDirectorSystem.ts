@@ -1,19 +1,20 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TensionSynthesizer } from "../tone/TensionSynthesizer";
-import { SfxSynthesizerRegistry } from "../tone/SfxSynthesizerRegistry";
+import { ITensionDrone, ISfxInstrument } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { TensionSynthesizer } from "../tone/TensionSynthesizer";
+import { SfxSynthesizerRegistry } from "../tone/SfxSynthesizerRegistry";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-  private tensionSynth: TensionSynthesizer | null = null;
-  private sfxRegistry: SfxSynthesizerRegistry | null = null;
+  private tensionSynth: ITensionDrone | null = null;
+  private sfxRegistry: ISfxInstrument | null = null;
 
   private windowTickListener: (() => void) | null = null;
   private windowConfirmListener: (() => void) | null = null;
@@ -21,7 +22,7 @@ export class AudioDirectorSystem implements ISystem {
   private initialized: boolean = false;
   private isBooting: boolean = false;
 
-  private broker: EventBroker;
+  private broker: IEventBroker;
   private _tracker = new SubscriptionTracker();
   private gestureTriggerRef: (() => void) | null = null;
 
@@ -46,22 +47,22 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("mousedown", this.gestureTriggerRef);
 
     this.windowTickListener = () => {
-      if (this.initialized && this.sfxRegistry?.tickSynth && this.toneModule) {
+      if (this.initialized && this.sfxRegistry && this.toneModule) {
         const nowMs = performance.now();
         if (nowMs - this.lastTickTime > 30) {
           this.lastTickTime = nowMs;
-          this.sfxRegistry.tickSynth.triggerAttackRelease("E6", "32n", this.toneModule.now());
+          this.sfxRegistry.triggerTick("E6", "32n", this.toneModule.now());
         }
       }
     };
     window.addEventListener("silk-stats-tick", this.windowTickListener);
 
     this.windowConfirmListener = () => {
-      if (this.initialized && this.sfxRegistry?.confirmSynth && this.toneModule) {
+      if (this.initialized && this.sfxRegistry && this.toneModule) {
         const nowMs = performance.now();
         if (nowMs - this.lastConfirmTime > 50) {
           this.lastConfirmTime = nowMs;
-          this.sfxRegistry.confirmSynth.triggerAttackRelease("C6", "16n", this.toneModule.now());
+          this.sfxRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
         }
       }
     };
@@ -70,14 +71,14 @@ export class AudioDirectorSystem implements ISystem {
     this.windowTensionAlarmListener = () => {
       if (
         this.initialized &&
-        this.sfxRegistry?.tensionAlarmSynth &&
+        this.sfxRegistry &&
         this.toneModule &&
         Math.random() < 0.1
       ) {
         const nowMs = performance.now();
         if (nowMs - this.lastAlarmTime > 80) {
           this.lastAlarmTime = nowMs;
-          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease(
+          this.sfxRegistry.triggerAlarm(
             "F6",
             "32n",
             this.toneModule.now()
@@ -107,13 +108,13 @@ export class AudioDirectorSystem implements ISystem {
             const power = pTrav.launchPower;
 
             if (power >= 1.0) {
-              this.sfxRegistry.impactSynth?.triggerAttackRelease("A1", "4n");
-              this.sfxRegistry.noiseSynth?.triggerAttackRelease("4n");
+              this.sfxRegistry.triggerImpact("A1", "4n");
+              this.sfxRegistry.triggerNoise("4n");
             } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-              this.sfxRegistry.tickSynth?.triggerAttackRelease("G6", "16n");
-              this.sfxRegistry.impactSynth?.triggerAttackRelease("D4", "16n");
+              this.sfxRegistry.triggerTick("G6", "16n");
+              this.sfxRegistry.triggerImpact("D4", "16n");
             } else {
-              this.sfxRegistry.impactSynth?.triggerAttackRelease("C3", "16n");
+              this.sfxRegistry.triggerImpact("C3", "16n");
             }
           }
         }
@@ -132,11 +133,11 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.impactSynth?.triggerAttackRelease(
+          this.sfxRegistry.triggerImpact(
             presets.DAMAGED_NOTE,
             presets.DAMAGED_DURATION
           );
-          this.sfxRegistry.noiseSynth?.triggerAttackRelease(presets.DAMAGED_DURATION);
+          this.sfxRegistry.triggerNoise(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
       })
@@ -150,7 +151,7 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        if (this.initialized && this.sfxRegistry?.impactSynth) {
+        if (this.initialized && this.sfxRegistry) {
           const nowMs = performance.now();
           if (nowMs - this.lastHitTime < 1500) {
             this.hitComboCount++;
@@ -165,7 +166,7 @@ export class AudioDirectorSystem implements ISystem {
           const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
 
-          this.sfxRegistry.impactSynth.triggerAttackRelease(freq, "16n");
+          this.sfxRegistry.triggerImpact(freq, "16n");
         }
       })
     );
@@ -250,26 +251,23 @@ export class AudioDirectorSystem implements ISystem {
   ): void {
     if (!this.sfxRegistry) return;
 
-    if (this.sfxRegistry.impactSynth) {
-      this.sfxRegistry.impactSynth.triggerAttackRelease(
-        presets.DEATH_NOTE_1,
-        presets.DEATH_NOTE_1_DURATION
-      );
-      this.sfxRegistry.impactSynth.triggerAttackRelease(
-        presets.DEATH_NOTE_2,
-        presets.DEATH_NOTE_2_DURATION,
-        presets.DEATH_NOTE_2_DELAY
-      );
-    }
-    if (this.sfxRegistry.noiseSynth) {
-      this.sfxRegistry.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-      this.sfxRegistry.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-      setTimeout(() => {
-        if (this.sfxRegistry?.noiseSynth) {
-          this.sfxRegistry.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-        }
-      }, presets.DEATH_NOISE_RESTORE_DELAY);
-    }
+    this.sfxRegistry.triggerImpact(
+      presets.DEATH_NOTE_1,
+      presets.DEATH_NOTE_1_DURATION
+    );
+    this.sfxRegistry.triggerImpact(
+      presets.DEATH_NOTE_2,
+      presets.DEATH_NOTE_2_DURATION,
+      presets.DEATH_NOTE_2_DELAY
+    );
+    this.sfxRegistry.setNoiseDecay(presets.DEATH_NOISE_DECAY);
+    this.sfxRegistry.triggerNoise(presets.DEATH_NOTE_1_DURATION);
+
+    setTimeout(() => {
+      if (this.sfxRegistry) {
+        this.sfxRegistry.setNoiseDecay(presets.NOISE_DECAY);
+      }
+    }, presets.DEATH_NOISE_RESTORE_DELAY);
   }
 
   public update(): void {
@@ -281,9 +279,9 @@ export class AudioDirectorSystem implements ISystem {
         if (this.tensionSynth) {
           this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
         }
-        if (this.sfxRegistry?.sfxPanner && this.toneModule) {
+        if (this.sfxRegistry && this.toneModule) {
           const panVal = (Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0) * 0.45;
-          this.sfxRegistry.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
+          this.sfxRegistry.setSfxPan(panVal, this.toneModule.now());
         }
       }
     }
@@ -310,10 +308,12 @@ export class AudioDirectorSystem implements ISystem {
 
         Tone.getDestination().mute = false;
 
-        this.sfxRegistry = new SfxSynthesizerRegistry();
-        this.sfxRegistry.initialize(Tone).then(() => {
-          this.tensionSynth = new TensionSynthesizer();
-          this.tensionSynth.initialize().then(() => {
+        const rawSfx = new SfxSynthesizerRegistry();
+        rawSfx.initialize(Tone).then(() => {
+          this.sfxRegistry = rawSfx;
+          const rawDrone = new TensionSynthesizer();
+          rawDrone.initialize().then(() => {
+            this.tensionSynth = rawDrone;
             this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
           });
         });

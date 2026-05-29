@@ -1,6 +1,7 @@
+import { ISfxInstrument } from "../../contracts/IAudio";
 import type { MembraneSynth, NoiseSynth, Synth, Panner } from "tone";
 
-export class SfxSynthesizerRegistry {
+export class SfxSynthesizerRegistry implements ISfxInstrument {
   public impactSynth: MembraneSynth | null = null;
   public noiseSynth: NoiseSynth | null = null;
   public tickSynth: Synth | null = null;
@@ -8,7 +9,8 @@ export class SfxSynthesizerRegistry {
   public tensionAlarmSynth: Synth | null = null;
   public sfxPanner: Panner | null = null;
 
-  public async initialize(Tone: typeof import("tone")): Promise<void> {
+  public async initialize(ToneRaw: unknown): Promise<void> {
+    const Tone = ToneRaw as typeof import("tone");
     this.sfxPanner = new Tone.Panner(0).toDestination();
 
     this.impactSynth = new Tone.MembraneSynth({
@@ -67,6 +69,48 @@ export class SfxSynthesizerRegistry {
       }
     }).toDestination();
     this.tensionAlarmSynth.volume.value = -18;
+  }
+
+  public triggerImpact(pitch: string | number, duration: string, delay?: string | number): void {
+    if (this.impactSynth) {
+      this.impactSynth.triggerAttackRelease(pitch, duration, delay);
+    }
+  }
+
+  public triggerNoise(duration: string, delay?: string | number): void {
+    if (this.noiseSynth) {
+      this.noiseSynth.triggerAttackRelease(duration, delay);
+    }
+  }
+
+  public triggerTick(pitch: string, duration: string, time?: number): void {
+    if (this.tickSynth) {
+      this.tickSynth.triggerAttackRelease(pitch, duration, time);
+    }
+  }
+
+  public triggerConfirm(pitch: string, duration: string, time?: number): void {
+    if (this.confirmSynth) {
+      this.confirmSynth.triggerAttackRelease(pitch, duration, time);
+    }
+  }
+
+  public triggerAlarm(pitch: string, duration: string, time?: number): void {
+    if (this.tensionAlarmSynth) {
+      this.tensionAlarmSynth.triggerAttackRelease(pitch, duration, time);
+    }
+  }
+
+  public setSfxPan(pan: number, time: number): void {
+    if (this.sfxPanner) {
+      this.sfxPanner.pan.setTargetAtTime(pan, time, 0.05);
+    }
+  }
+
+  public setNoiseDecay(value: number): void {
+    if (this.noiseSynth) {
+      this.noiseSynth.envelope.decay = value;
+    }
   }
 
   public dispose(): void {

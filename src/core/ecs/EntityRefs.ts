@@ -1,14 +1,14 @@
 import { EntityId } from "./Entity";
-import { ComponentStore } from "./ComponentStore";
+import { IComponentStore, IEntityRefs } from "../../contracts/ICore";
 import { PlayerTag, WeaverTag } from "./Components";
 
-export class EntityRefs {
+export class EntityRefs implements IEntityRefs {
   private _player: EntityId = -1;
   private _weaver: EntityId = -1;
 
   constructor(
-    private playerTags: ComponentStore<PlayerTag>,
-    private weaverTags: ComponentStore<WeaverTag>
+    private playerTags: IComponentStore<PlayerTag>,
+    private weaverTags: IComponentStore<WeaverTag>
   ) {}
 
   public get player(): EntityId {

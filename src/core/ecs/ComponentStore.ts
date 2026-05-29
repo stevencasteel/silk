@@ -1,11 +1,7 @@
 import { EntityId } from "./Entity";
+import { IComponentStore } from "../../contracts/ICore";
 
-export interface IComponentStore {
-  remove(id: EntityId): void;
-  clear(): void;
-}
-
-export class ComponentStore<T> implements IComponentStore {
+export class ComponentStore<T> implements IComponentStore<T> {
   private data: Map<EntityId, T> = new Map();
 
   public add(id: EntityId, component: T): void {

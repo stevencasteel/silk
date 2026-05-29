@@ -1,9 +1,9 @@
 import { EntityId, EntityRegistry } from "./Entity";
-import { IComponentStore } from "./ComponentStore";
+import { IEcsWorld, IComponentStoreBase } from "../../contracts/ICore";
 
-export class EcsWorld {
+export class EcsWorld implements IEcsWorld {
   private entities = new EntityRegistry();
-  private stores = new Set<IComponentStore>();
+  private stores = new Set<IComponentStoreBase>();
 
   public create(): EntityId {
     return this.entities.create();
@@ -22,11 +22,11 @@ export class EcsWorld {
     }
   }
 
-  public registerStore(store: IComponentStore): void {
+  public registerStore(store: IComponentStoreBase): void {
     this.stores.add(store);
   }
 
-  public unregisterStore(store: IComponentStore): void {
+  public unregisterStore(store: IComponentStoreBase): void {
     this.stores.delete(store);
   }
 

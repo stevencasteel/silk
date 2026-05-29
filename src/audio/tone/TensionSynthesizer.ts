@@ -1,7 +1,8 @@
+import { ITensionDrone } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "./AudioPresets";
 import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner } from "tone";
 
-export class TensionSynthesizer {
+export class TensionSynthesizer implements ITensionDrone {
   private fmOsc: FMOscillator | null = null;
   private lowpassFilter: Filter | null = null;
   private gainNode: Gain | null = null;

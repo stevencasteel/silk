@@ -1,22 +1,24 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
-import { usePlayerStore, useWeaverStore, useOverlayStore, resetAllStores } from "./hudStore";
+import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore, resetAllStores } from "./hudStore";
 
 export class HudSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private subscriptions: (() => void)[] = [];
   private currentState: string = "AIRBORNE";
+  private broker: IEventBroker;
+
+  private statsUpdateListener: ((e: Event) => void) | null = null;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
     this.registerSubscriptions();
+    this.setupWindowListeners();
   }
-
-  private broker: EventBroker;
 
   public init(): void {}
 
@@ -24,6 +26,7 @@ export class HudSyncSystem implements ISystem {
     const playerStore = usePlayerStore.getState();
     const weaverStore = useWeaverStore.getState();
     const overlayStore = useOverlayStore.getState();
+    const inputStore = useInputStore.getState();
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {
@@ -91,10 +94,32 @@ export class HudSyncSystem implements ISystem {
         overlayStore.setBootStatus("READY");
       })
     );
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, ({ key, pressed }) => {
+        inputStore.setKeyPressed(key, pressed);
+      })
+    );
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.UI_CALIBRATION_STEP_CHANGED, ({ step }) => {
+        overlayStore.setCalibrationStep(step);
+      })
+    );
+  }
+
+  private setupWindowListeners(): void {
+    const overlayStore = useOverlayStore.getState();
+    this.statsUpdateListener = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      overlayStore.setStats(customEvent.detail.wins, customEvent.detail.losses);
+    };
+    window.addEventListener("silk-stats-updated", this.statsUpdateListener);
   }
 
   public dispose(): void {
     this.subscriptions.forEach((u) => u());
     this.subscriptions = [];
+    if (this.statsUpdateListener) {
+      window.removeEventListener("silk-stats-updated", this.statsUpdateListener);
+    }
   }
 }

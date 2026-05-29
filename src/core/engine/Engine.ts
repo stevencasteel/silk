@@ -1,5 +1,5 @@
 import { GameLoop } from "../loop/GameLoop";
-import { EventBroker } from "../events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
@@ -9,7 +9,7 @@ import { EngineTime } from "./EngineTime";
 export class Engine {
   private loop: GameLoop;
   private systemManager: SystemManager;
-  private broker: EventBroker;
+  private broker: IEventBroker;
 
   public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
@@ -17,7 +17,7 @@ export class Engine {
 
   constructor(
     _canvas: HTMLCanvasElement,
-    broker: EventBroker,
+    broker: IEventBroker,
     systemManager: SystemManager,
     clock: IClock,
     scheduler: IScheduler

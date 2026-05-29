@@ -1,8 +1,7 @@
 import { GameEvent, GameEventMap } from "./GameEvents";
+import { IEventBroker, EventCallback } from "../../contracts/ICore";
 
-export type EventCallback<T> = (payload: T) => void;
-
-export class EventBroker {
+export class EventBroker implements IEventBroker {
   private listeners: { [K in GameEvent]?: Set<EventCallback<unknown>> } = {};
   public traffic: Map<string, number> = new Map();
 

@@ -3,7 +3,7 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { ArenaGeometry } from "../mesh/ArenaGeometry";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { VisualRegistry } from "./VisualRegistry";
-import { EventBroker } from "../../core/events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
@@ -20,7 +20,7 @@ export class RenderSystem implements ISystem {
   constructor(
     canvas: HTMLCanvasElement,
     private visualRegistry: VisualRegistry,
-    private broker: EventBroker
+    private broker: IEventBroker
   ) {
     this.canvas = canvas;
   }

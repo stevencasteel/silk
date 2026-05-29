@@ -3,7 +3,6 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../engine/SystemContext";
 import { GameEvent } from "../events/GameEvents";
 import { SubscriptionTracker } from "../utils/EngineUtils";
-import { useOverlayStore } from "../../ui/hud/hudStore";
 
 export class ProfilePersistenceSystem implements ISystem {
   readonly phase = SystemPhase.PostRender;
@@ -44,7 +43,7 @@ export class ProfilePersistenceSystem implements ISystem {
     } catch (e) {
       console.warn("ProfilePersistenceSystem: Failed to load local stats", e);
     }
-    useOverlayStore.getState().setStats(this.wins, this.losses);
+    this.publishStats();
   }
 
   private recordWin(): void {
@@ -63,7 +62,7 @@ export class ProfilePersistenceSystem implements ISystem {
     } catch (e) {
       console.warn("ProfilePersistenceSystem: Failed to save stats", e);
     }
-    useOverlayStore.getState().setStats(this.wins, this.losses);
+    this.publishStats();
   }
 
   private handleClearStats = () => {
@@ -74,8 +73,15 @@ export class ProfilePersistenceSystem implements ISystem {
     } catch (e) {
       console.warn("ProfilePersistenceSystem: Failed to clear stats", e);
     }
-    useOverlayStore.getState().setStats(0, 0);
+    this.publishStats();
   };
+
+  private publishStats(): void {
+    const evt = new CustomEvent("silk-stats-updated", {
+      detail: { wins: this.wins, losses: this.losses }
+    });
+    window.dispatchEvent(evt);
+  }
 
   public dispose(): void {
     this._tracker.clear();
