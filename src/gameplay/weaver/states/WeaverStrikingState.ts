@@ -141,7 +141,10 @@ export class WeaverStrikingState implements IWeaverState {
         cosmetic.targetScaleX = 1.0 - stretch * 0.5;
         cosmetic.targetScaleZ = 1.0 - stretch * 0.5;
         cosmetic.wobbleAngle = 0.0;
-        cosmetic.rotationAngle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+        const rawAngle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+        const normalizedAngle = Math.atan2(Math.sin(rawAngle), Math.cos(rawAngle));
+        const maxRotation = Math.PI * 0.55; // Clamp to ~99 degrees to prevent going upside down
+        cosmetic.rotationAngle = Math.max(-maxRotation, Math.min(maxRotation, normalizedAngle));
         cosmetic.gaitAmplitude = 0.055;
         cosmetic.gaitFrequency = 8.5;
         cosmetic.gaitTuck = -0.42;
