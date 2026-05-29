@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 2:14:57 PM
+ [SYSTEM] Generated: 5/29/2026, 2:20:07 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2925,6 +2925,7 @@ export interface TraversalStateComponent {
   lastEscapeDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | "";
   hasFlingBonus?: boolean;
   safeLaunchTimer?: number;
+  lastStickyEntityId?: number;
   webMass?: number;
 }
 
@@ -8948,12 +8949,29 @@ export class PlayerAirborneState implements IPlayerState {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
 
-    const bypassCollisions = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-    if (stickyStore && bugTransStore && !bypassCollisions) {
+    if (stickyStore && bugTransStore) {
       for (const [bugId, sticky] of stickyStore.entries()) {
         if (!sticky.isActive) continue;
+
         const bugTrans = bugTransStore.get(bugId);
         if (!bugTrans) continue;
+
+        if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
+          const halfW = sticky.width / 2;
+          const halfH = sticky.height / 2;
+          const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+          const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
+          const margin = 1.5;
+
+          const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
+          const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
+
+          if (outX || outY) {
+            trav.lastStickyEntityId = undefined;
+          } else {
+            continue;
+          }
+        }
 
         const halfW = sticky.width / 2;
         const halfH = sticky.height / 2;
@@ -9173,12 +9191,29 @@ export class PlayerLaunchingState implements IPlayerState {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
 
-    const bypassCollisions = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-    if (stickyStore && bugTransStore && !bypassCollisions) {
+    if (stickyStore && bugTransStore) {
       for (const [bugId, sticky] of stickyStore.entries()) {
         if (!sticky.isActive) continue;
+
         const bugTrans = bugTransStore.get(bugId);
         if (!bugTrans) continue;
+
+        if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
+          const halfW = sticky.width / 2;
+          const halfH = sticky.height / 2;
+          const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+          const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
+          const margin = 1.5;
+
+          const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
+          const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
+
+          if (outX || outY) {
+            trav.lastStickyEntityId = undefined;
+          } else {
+            continue;
+          }
+        }
 
         const halfW = sticky.width / 2;
         const halfH = sticky.height / 2;
@@ -9411,11 +9446,11 @@ export class PlayerStateUtils {
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
     const launchedFromBug = trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1;
-    trav.stickyEntityId = -1;
-
     if (launchedFromBug) {
+      trav.lastStickyEntityId = trav.stickyEntityId;
       trav.safeLaunchTimer = 0.4;
     }
+    trav.stickyEntityId = -1;
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
@@ -9581,6 +9616,7 @@ export class PlayerWallSlidingState implements IPlayerState {
       const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
       if (isSpikedOnClingSide && !isTrapped && !inSafeWindow) {
         trav.state = "AIRBORNE";
+        trav.lastStickyEntityId = trav.stickyEntityId;
         trav.stickyEntityId = -1;
         trav.wallDir = 0;
 

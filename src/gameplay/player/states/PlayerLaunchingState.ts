@@ -84,12 +84,29 @@ export class PlayerLaunchingState implements IPlayerState {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
 
-    const bypassCollisions = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-    if (stickyStore && bugTransStore && !bypassCollisions) {
+    if (stickyStore && bugTransStore) {
       for (const [bugId, sticky] of stickyStore.entries()) {
         if (!sticky.isActive) continue;
+
         const bugTrans = bugTransStore.get(bugId);
         if (!bugTrans) continue;
+
+        if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
+          const halfW = sticky.width / 2;
+          const halfH = sticky.height / 2;
+          const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+          const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
+          const margin = 1.5;
+
+          const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
+          const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
+
+          if (outX || outY) {
+            trav.lastStickyEntityId = undefined;
+          } else {
+            continue;
+          }
+        }
 
         const halfW = sticky.width / 2;
         const halfH = sticky.height / 2;

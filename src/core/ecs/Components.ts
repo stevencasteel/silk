@@ -111,6 +111,7 @@ export interface TraversalStateComponent {
   lastEscapeDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | "";
   hasFlingBonus?: boolean;
   safeLaunchTimer?: number;
+  lastStickyEntityId?: number;
   webMass?: number;
 }
 
