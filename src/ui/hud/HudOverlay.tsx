@@ -226,21 +226,14 @@ export const HudOverlay: React.FC = () => {
       const tensionVal = (e as CustomEvent).detail.tension;
       const snapLimit = 1.0;
       const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
-      const displayPercent = Math.round(clamped * 100);
       const scaleX = clamped / snapLimit;
 
       let color = "rgb(34, 197, 94)"; // Stage 0: Green
-      let textColor = "rgb(161, 161, 170)";
-      let stageText = "STAGE 0: WEAK";
 
       if (clamped >= 0.85) {
         color = "rgb(239, 68, 68)"; // Stage 2: Red
-        textColor = "rgb(239, 68, 68)";
-        stageText = "STAGE 2: OVERLOAD!";
       } else if (clamped >= 0.55) {
         color = "rgb(234, 179, 8)"; // Stage 1: Yellow
-        textColor = "rgb(234, 179, 8)";
-        stageText = "STAGE 1: SWEETSPOT!";
       }
 
       if (tensionBarFillRef.current) {
@@ -248,7 +241,6 @@ export const HudOverlay: React.FC = () => {
         tensionBarFillRef.current.style.background = color;
         tensionBarFillRef.current.style.boxShadow = `0 0 12px ${color}`;
       }
-
     };
 
     window.addEventListener("silk-tension-render-tick", handleTensionTick);
@@ -529,7 +521,76 @@ export const HudOverlay: React.FC = () => {
               style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}
             >
               <AnimatePresence mode="wait">
-                {activeStep ? (
+                {isWebTrapped ? (
+                  <motion.div
+                    key="web-trapped-header"
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "2px"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <motion.span
+                        animate={activeStruggleDir === "LEFT" ? { scale: 0.82 } : { scale: 1 }}
+                        className={`keycap-box ${activeStruggleDir === "LEFT" ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "A" : "◀"}
+                      </motion.span>
+                      <motion.span
+                        animate={activeStruggleDir === "UP" ? { scale: 0.82 } : { scale: 1 }}
+                        className={`keycap-box ${activeStruggleDir === "UP" ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "W" : "▲"}
+                      </motion.span>
+                      <motion.span
+                        animate={activeStruggleDir === "DOWN" ? { scale: 0.82 } : { scale: 1 }}
+                        className={`keycap-box ${activeStruggleDir === "DOWN" ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "S" : "▼"}
+                      </motion.span>
+                      <motion.span
+                        animate={activeStruggleDir === "RIGHT" ? { scale: 0.82 } : { scale: 1 }}
+                        className={`keycap-box ${activeStruggleDir === "RIGHT" ? "keycap-used" : ""}`}
+                      >
+                        {useWasd ? "D" : "▶"}
+                      </motion.span>
+                      <div
+                        className="led-dot led-red"
+                        style={{ width: "6px", height: "6px", marginLeft: "4px" }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <ShieldAlert
+                        size={10}
+                        style={{ color: "var(--signal-red)", flexShrink: 0 }}
+                        className="animate-pulse"
+                      />
+                      <span
+                        className="bezel-panel-label warn-alert"
+                        style={{ fontSize: "9px", fontWeight: "900", letterSpacing: "0.15em" }}
+                      >
+                        {webMass > 1 ? `WEB MASS x${webMass}` : "WEB SNAGGED"}
+                      </span>
+                    </div>
+                    <div
+                      className="hud-struggle-bar-track"
+                      style={{ width: "100px", height: "4px", marginTop: "2px" }}
+                    >
+                      <div
+                        className="hud-struggle-bar-fill"
+                        style={{
+                          width: `${((escapeProgress / escapeRequired) * 100).toFixed(1)}%`
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                ) : activeStep ? (
                   <motion.div
                     key={`step-${displayedStep}`}
                     initial={{ opacity: 0, y: -12 }}
@@ -678,51 +739,7 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="hud-bottom">
-            {isWebTrapped ? (
-              <div className="hud-struggle-panel">
-                <div className="flex items-center gap-1.5">
-                  <ShieldAlert size={14} className="text-red-500 animate-pulse" />
-                  <span className="hud-struggle-title">
-                    {webMass > 1 ? `WEB MASS x${webMass}` : "WEB SNAGGED"}
-                  </span>
-                </div>
-                <span className="hud-struggle-subtitle">
-                  Alternate direction keys to struggle out!
-                </span>
-                <div className="hud-struggle-keys">
-                  <motion.span
-                    animate={activeStruggleDir === "LEFT" ? { scale: 0.82 } : { scale: 1 }}
-                    className={`keycap-box ${activeStruggleDir === "LEFT" ? "keycap-used" : ""}`}
-                  >
-                    {useWasd ? "A" : "◀"}
-                  </motion.span>
-                  <motion.span
-                    animate={activeStruggleDir === "UP" ? { scale: 0.82 } : { scale: 1 }}
-                    className={`keycap-box ${activeStruggleDir === "UP" ? "keycap-used" : ""}`}
-                  >
-                    {useWasd ? "W" : "▲"}
-                  </motion.span>
-                  <motion.span
-                    animate={activeStruggleDir === "DOWN" ? { scale: 0.82 } : { scale: 1 }}
-                    className={`keycap-box ${activeStruggleDir === "DOWN" ? "keycap-used" : ""}`}
-                  >
-                    {useWasd ? "S" : "▼"}
-                  </motion.span>
-                  <motion.span
-                    animate={activeStruggleDir === "RIGHT" ? { scale: 0.82 } : { scale: 1 }}
-                    className={`keycap-box ${activeStruggleDir === "RIGHT" ? "keycap-used" : ""}`}
-                  >
-                    {useWasd ? "D" : "▶"}
-                  </motion.span>
-                </div>
-                <div className="hud-struggle-bar-track">
-                  <div
-                    className="hud-struggle-bar-fill"
-                    style={{ width: `${((escapeProgress / escapeRequired) * 100).toFixed(1)}%` }}
-                  />
-                </div>
-              </div>
-            ) : (
+            {!isWebTrapped && (
               <div
                 className="hud-hint"
                 style={{
@@ -736,8 +753,17 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "16px", width: "100%", height: "100%", justifyContent: "space-between" }}>
-
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: "16px",
+                width: "100%",
+                height: "100%",
+                justifyContent: "space-between"
+              }}
+            >
               {/* 1. Segmented LED Bar with Integrated Demarcations */}
               <div
                 className="neo-pressed"
@@ -758,12 +784,13 @@ export const HudOverlay: React.FC = () => {
                   style={{
                     position: "absolute",
                     inset: 0,
-                    background: "repeating-linear-gradient(90deg, transparent, transparent 4px, #07080b 4px, #07080b 6px)",
+                    background:
+                      "repeating-linear-gradient(90deg, transparent, transparent 4px, #07080b 4px, #07080b 6px)",
                     zIndex: 3,
                     pointerEvents: "none"
                   }}
                 />
-                
+
                 {/* Sweetspot background range marker */}
                 <div
                   style={{
@@ -781,11 +808,47 @@ export const HudOverlay: React.FC = () => {
                 />
 
                 {/* Integrated 0 / 1 / 2 / SKULL Demarcations overlay */}
-                <div style={{ position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none", display: "flex", alignItems: "center", fontSize: "8px", fontWeight: "900", color: "rgba(255,255,255,0.22)" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 4,
+                    pointerEvents: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "8px",
+                    fontWeight: "900",
+                    color: "rgba(255,255,255,0.22)"
+                  }}
+                >
                   <span style={{ position: "absolute", left: "5%" }}>0</span>
-                  <span style={{ position: "absolute", left: "55%", color: "rgba(234,179,8,0.35)" }}>1</span>
-                  <span style={{ position: "absolute", left: "85%", color: "rgba(239,68,68,0.35)" }}>2</span>
-                  <span style={{ position: "absolute", right: "5%", color: "rgba(239,68,68,0.55)" }}>💀</span>
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: "55%",
+                      color: "rgba(234,179,8,0.35)"
+                    }}
+                  >
+                    1
+                  </span>
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: "85%",
+                      color: "rgba(239,68,68,0.35)"
+                    }}
+                  >
+                    2
+                  </span>
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: "5%",
+                      color: "rgba(239,68,68,0.55)"
+                    }}
+                  >
+                    💀
+                  </span>
                 </div>
 
                 <div
@@ -801,7 +864,15 @@ export const HudOverlay: React.FC = () => {
               </div>
 
               {/* 2. Tether Integrity Life Indicators */}
-              <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: "6px",
+                  flexShrink: 0
+                }}
+              >
                 <div style={{ display: "flex", flexDirection: "row", gap: "6px" }}>
                   {[...Array(3)].map((_, idx) => {
                     const isDamaged = idx < tetherDamage;
