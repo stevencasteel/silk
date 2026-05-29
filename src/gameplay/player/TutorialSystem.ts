@@ -43,7 +43,7 @@ export class TutorialSystem implements ISystem {
           !this.step0Completed &&
           this.calibrationStep === 0 &&
           currentState === "WALL_SLIDING" &&
-          tension >= 0.5
+          tension >= 0.375
         ) {
           this.step0Completed = true;
           this.calibrationStep = 1;
@@ -79,7 +79,7 @@ export class TutorialSystem implements ISystem {
     if (this.calibrationStep === 2) {
       const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
       const pTrav = travStore.get(this.context.refs.player);
-      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
+      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.45) {
         if (!this.step2Completed) {
           this.step2Completed = true;
           this.calibrationStep = 3;

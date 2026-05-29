@@ -71,7 +71,8 @@ export class PlayerStateUtils {
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    const isSweetSpot = storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
+    const isSweetSpot =
+      storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
     let speedMultiplier = 0.65;

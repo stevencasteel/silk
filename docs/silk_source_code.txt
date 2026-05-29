@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 3:15:51 PM
+ [SYSTEM] Generated: 5/29/2026, 3:32:29 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3209,7 +3209,7 @@ export const CANONICAL_UNITS = {
     JUICE_PARTICLE: -18.0
   },
   TETHER_STRAIN: {
-    OVERLOAD_LIMIT: 0.8,
+    OVERLOAD_LIMIT: 0.80,
     SNAP_LIMIT: 1.0,
     SNAP_DELAY_SECONDS: 2.6
   },
@@ -3328,9 +3328,9 @@ export const GAMEPLAY_TUNING = {
     MAX_REEL_ACCEL: 28.0,
     REEL_IN_TENSION_RATE: 0.35,
     REEL_OUT_TENSION_RELIEF: 0.55,
-    WALL_SLIDE_PASSIVE_TENSION_RATE: 0.36,
-    SWEET_SPOT_MIN: 0.55,
-    SWEET_SPOT_MAX: 0.85
+    WALL_SLIDE_PASSIVE_TENSION_RATE: 0.40,
+    SWEET_SPOT_MIN: 0.375,
+    SWEET_SPOT_MAX: 0.80
   }
 } as const;
 
@@ -5033,8 +5033,7 @@ export class CombatSystem implements ISystem {
     const tuning = GAMEPLAY_TUNING.COMBAT;
 
     if (pHb && pTrav) {
-      pHb.isActive =
-        pTrav.state === "LAUNCHING" && pTrav.launchPower > 0.85;
+      pHb.isActive = pTrav.state === "LAUNCHING" && pTrav.launchPower > 0.80;
     }
     if (wHb && wAI) {
       wHb.isActive = wAI.state === "STRIKING" && wAI.isThrusting === true;
@@ -5653,8 +5652,8 @@ export class ProjectileSystem implements ISystem {
           const isLaunching = pTrav && pTrav.state === "LAUNCHING";
           const hasIframe = pIframe && pIframe.timeRemaining > 0;
 
-          const launchPower = pTrav ? (pTrav.launchPower || 0) : 0;
-          if (isLaunching && launchPower >= 0.55) {
+          const launchPower = pTrav ? pTrav.launchPower || 0 : 0;
+          if (isLaunching && launchPower >= 0.375) {
             const dx = trans.x - pTrans.x;
             const dy = trans.y - pTrans.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
@@ -5676,7 +5675,7 @@ export class ProjectileSystem implements ISystem {
               isWall: false
             });
 
-            if (launchPower > 0.85) {
+            if (launchPower > 0.80) {
               sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                 amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
                 duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
@@ -8112,10 +8111,13 @@ export class PlayerKinematicsSystem implements ISystem {
     trav: TraversalStateComponent
   ): void {
     if (trav.state === "WALL_SLIDING") {
-      const chargeRate = 0.35;
+      const chargeRate = 0.40;
       tether.tension = Math.min(1.0, tether.tension + chargeRate * dt);
     } else {
-      tether.tension = Math.max(0.0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+      tether.tension = Math.max(
+        0.0,
+        tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt
+      );
     }
   }
 }
@@ -8170,10 +8172,7 @@ export class TetherReelingSystem implements ISystem {
         tether.currentLength + AUTO_SLACK_MARGIN
       );
     }
-    tether.desiredLength = Math.max(
-      reelConfig.MIN_LENGTH,
-      Math.min(24.0, tether.desiredLength)
-    );
+    tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(24.0, tether.desiredLength));
 
     let easeSpeed = 0;
     if (tether.maxLength > tether.desiredLength) {
@@ -8224,7 +8223,13 @@ export class TetherStrainSystem implements ISystem {
 
     const pId = this.context.refs.player;
     if (!strainStore.has(pId)) {
-      strainStore.add(pId, { strain: 0, strainTimer: 0, isOverloaded: false, damageCount: 0, lastDamageTime: 0 });
+      strainStore.add(pId, {
+        strain: 0,
+        strainTimer: 0,
+        isOverloaded: false,
+        damageCount: 0,
+        lastDamageTime: 0
+      });
     }
     const tStrain = strainStore.get(pId)!;
     if (tStrain.damageCount === undefined) tStrain.damageCount = 0;
@@ -8259,7 +8264,9 @@ export class TetherStrainSystem implements ISystem {
           tStrain.damageCount! += 1;
           tStrain.lastDamageTime = now;
 
-          window.dispatchEvent(new CustomEvent("silk-tether-damaged", { detail: { count: tStrain.damageCount! } }));
+          window.dispatchEvent(
+            new CustomEvent("silk-tether-damaged", { detail: { count: tStrain.damageCount! } })
+          );
 
           if (tStrain.damageCount! >= 3) {
             this.snapTether(tether, health);
@@ -8338,7 +8345,7 @@ export class TutorialSystem implements ISystem {
           !this.step0Completed &&
           this.calibrationStep === 0 &&
           currentState === "WALL_SLIDING" &&
-          tension >= 0.5
+          tension >= 0.375
         ) {
           this.step0Completed = true;
           this.calibrationStep = 1;
@@ -8374,7 +8381,7 @@ export class TutorialSystem implements ISystem {
     if (this.calibrationStep === 2) {
       const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
       const pTrav = travStore.get(this.context.refs.player);
-      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
+      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.45) {
         if (!this.step2Completed) {
           this.step2Completed = true;
           this.calibrationStep = 3;
@@ -9359,7 +9366,7 @@ export class PlayerStateHints {
     if (tension >= 1.0) {
       return { text: "MAX TENSION — LET GO NOW", color: "rgb(239, 68, 68)", opacity: 1 };
     }
-    if (tension >= 0.85) {
+    if (tension >= 0.80) {
       return { text: "RELEASE CLING TO LAUNCH", color: "rgb(245, 158, 11)", opacity: 1 };
     }
     if (tension > 0.02) {
@@ -9446,7 +9453,8 @@ export class PlayerStateUtils {
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    const isSweetSpot = storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
+    const isSweetSpot =
+      storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
     let speedMultiplier = 0.65;
@@ -10482,7 +10490,9 @@ export class WeaverPatrollingState implements IWeaverState {
     this.hasTelegraphed = false;
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    if (ai) { ai.isThrusting = false; }
+    if (ai) {
+      ai.isThrusting = false;
+    }
     if (ai) {
       const healthStore = ctx.stores.get<HealthComponent>("health");
       const health = healthStore.get(ctx.refs.weaver);
@@ -12941,7 +12951,8 @@ export const HudOverlay: React.FC = () => {
       tetherDamage: s.tetherDamage
     }))
   );
-  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass, tetherDamage } = playerState;
+  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass, tetherDamage } =
+    playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -13086,9 +13097,9 @@ export const HudOverlay: React.FC = () => {
 
       let color = "rgb(34, 197, 94)"; // Stage 0: Green
 
-      if (clamped >= 0.85) {
+      if (clamped >= 0.80) {
         color = "rgb(239, 68, 68)"; // Stage 2: Red
-      } else if (clamped >= 0.55) {
+      } else if (clamped >= 0.375) {
         color = "rgb(234, 179, 8)"; // Stage 1: Yellow
       }
 
@@ -13651,8 +13662,8 @@ export const HudOverlay: React.FC = () => {
                 <div
                   style={{
                     position: "absolute",
-                    left: "55%",
-                    width: "30%",
+                    left: "37.5%",
+                    width: "42.5%",
                     top: 0,
                     bottom: 0,
                     background: "rgba(234, 179, 8, 0.05)",
@@ -13681,7 +13692,7 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "55%",
+                      left: "37.5%",
                       color: "rgba(234,179,8,0.35)"
                     }}
                   >
@@ -13690,7 +13701,7 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "85%",
+                      left: "80%",
                       color: "rgba(239,68,68,0.35)"
                     }}
                   >

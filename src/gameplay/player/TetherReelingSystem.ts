@@ -44,10 +44,7 @@ export class TetherReelingSystem implements ISystem {
         tether.currentLength + AUTO_SLACK_MARGIN
       );
     }
-    tether.desiredLength = Math.max(
-      reelConfig.MIN_LENGTH,
-      Math.min(24.0, tether.desiredLength)
-    );
+    tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(24.0, tether.desiredLength));
 
     let easeSpeed = 0;
     if (tether.maxLength > tether.desiredLength) {

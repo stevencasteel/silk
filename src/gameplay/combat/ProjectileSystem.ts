@@ -216,8 +216,8 @@ export class ProjectileSystem implements ISystem {
           const isLaunching = pTrav && pTrav.state === "LAUNCHING";
           const hasIframe = pIframe && pIframe.timeRemaining > 0;
 
-          const launchPower = pTrav ? (pTrav.launchPower || 0) : 0;
-          if (isLaunching && launchPower >= 0.55) {
+          const launchPower = pTrav ? pTrav.launchPower || 0 : 0;
+          if (isLaunching && launchPower >= 0.375) {
             const dx = trans.x - pTrans.x;
             const dy = trans.y - pTrans.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
@@ -239,7 +239,7 @@ export class ProjectileSystem implements ISystem {
               isWall: false
             });
 
-            if (launchPower > 0.85) {
+            if (launchPower > 0.80) {
               sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                 amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
                 duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,

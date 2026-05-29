@@ -22,7 +22,13 @@ export class TetherStrainSystem implements ISystem {
 
     const pId = this.context.refs.player;
     if (!strainStore.has(pId)) {
-      strainStore.add(pId, { strain: 0, strainTimer: 0, isOverloaded: false, damageCount: 0, lastDamageTime: 0 });
+      strainStore.add(pId, {
+        strain: 0,
+        strainTimer: 0,
+        isOverloaded: false,
+        damageCount: 0,
+        lastDamageTime: 0
+      });
     }
     const tStrain = strainStore.get(pId)!;
     if (tStrain.damageCount === undefined) tStrain.damageCount = 0;
@@ -57,7 +63,9 @@ export class TetherStrainSystem implements ISystem {
           tStrain.damageCount! += 1;
           tStrain.lastDamageTime = now;
 
-          window.dispatchEvent(new CustomEvent("silk-tether-damaged", { detail: { count: tStrain.damageCount! } }));
+          window.dispatchEvent(
+            new CustomEvent("silk-tether-damaged", { detail: { count: tStrain.damageCount! } })
+          );
 
           if (tStrain.damageCount! >= 3) {
             this.snapTether(tether, health);

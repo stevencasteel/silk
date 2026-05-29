@@ -224,10 +224,13 @@ export class PlayerKinematicsSystem implements ISystem {
     trav: TraversalStateComponent
   ): void {
     if (trav.state === "WALL_SLIDING") {
-      const chargeRate = 0.35;
+      const chargeRate = 0.40;
       tether.tension = Math.min(1.0, tether.tension + chargeRate * dt);
     } else {
-      tether.tension = Math.max(0.0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
+      tether.tension = Math.max(
+        0.0,
+        tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt
+      );
     }
   }
 }

@@ -85,7 +85,8 @@ export const HudOverlay: React.FC = () => {
       tetherDamage: s.tetherDamage
     }))
   );
-  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass, tetherDamage } = playerState;
+  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass, tetherDamage } =
+    playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -230,9 +231,9 @@ export const HudOverlay: React.FC = () => {
 
       let color = "rgb(34, 197, 94)"; // Stage 0: Green
 
-      if (clamped >= 0.85) {
+      if (clamped >= 0.80) {
         color = "rgb(239, 68, 68)"; // Stage 2: Red
-      } else if (clamped >= 0.55) {
+      } else if (clamped >= 0.375) {
         color = "rgb(234, 179, 8)"; // Stage 1: Yellow
       }
 
@@ -795,8 +796,8 @@ export const HudOverlay: React.FC = () => {
                 <div
                   style={{
                     position: "absolute",
-                    left: "55%",
-                    width: "30%",
+                    left: "37.5%",
+                    width: "42.5%",
                     top: 0,
                     bottom: 0,
                     background: "rgba(234, 179, 8, 0.05)",
@@ -825,7 +826,7 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "55%",
+                      left: "37.5%",
                       color: "rgba(234,179,8,0.35)"
                     }}
                   >
@@ -834,7 +835,7 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "85%",
+                      left: "80%",
                       color: "rgba(239,68,68,0.35)"
                     }}
                   >
