@@ -1,7 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WallBugComponent, WeaverCosmeticComponent } from "../../core/ecs/Components";
+import { WallBugComponent, WeaverCosmeticComponent, KinematicVelocityComponent, WeaverAIComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 interface CachedWeaverParts {
@@ -27,6 +27,9 @@ export class LegJointAnimationSystem implements ISystem {
 
   public update(dt: number): void {
     const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const velocityStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    const aiStore = this.context.stores.get<WeaverAIComponent>("weaverAI");
+
     let firstCosmetic: WeaverCosmeticComponent | undefined;
     for (const [, cosmetic] of weaverCosmetics.entries()) {
       firstCosmetic = cosmetic;
@@ -34,11 +37,34 @@ export class LegJointAnimationSystem implements ISystem {
     }
 
     if (firstCosmetic) {
-      const target = this.resolveWeaverGaitTargets(firstCosmetic);
+      const wVel = velocityStore.get(this.context.refs.weaver);
+      const ai = aiStore.get(this.context.refs.weaver);
+
+      const velX = wVel ? wVel.x : 0.0;
+      const velY = wVel ? wVel.y : 0.0;
+      const scrollSpeed = ai ? ai.scrollSpeed : 9.0;
+
+      const relX = velX;
+      const relY = velY + scrollSpeed;
+      const relativeSpeed = Math.sqrt(relX * relX + relY * relY);
+
+      const TRACTION_RATIO = 0.135;
+
+      let dynamicFreq = 0.0;
+      if (firstCosmetic.gaitFrequency > 0.0) {
+        dynamicFreq = firstCosmetic.gaitFrequency;
+      } else if (firstCosmetic.gaitAmplitude > 0.001) {
+        dynamicFreq = (relativeSpeed * TRACTION_RATIO) / firstCosmetic.gaitAmplitude;
+      }
+
+      if (ai && ai.state === "DEFEATED") {
+        dynamicFreq = 0.0;
+      }
+
       const blend = 1.0 - Math.exp(-dt * 8.0);
-      this.gaitAmp += (target.amp - this.gaitAmp) * blend;
-      this.gaitFreq += (target.freq - this.gaitFreq) * blend;
-      this.gaitTuck += (target.tuck - this.gaitTuck) * blend;
+      this.gaitAmp += (firstCosmetic.gaitAmplitude - this.gaitAmp) * blend;
+      this.gaitFreq += (dynamicFreq - this.gaitFreq) * blend;
+      this.gaitTuck += (firstCosmetic.gaitTuck - this.gaitTuck) * blend;
     }
 
     this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);
@@ -240,6 +266,11 @@ export class LegJointAnimationSystem implements ISystem {
         const lift = liftWave * this.gaitAmp * 1.2;
 
         this._footLocalTarget.copyFrom(baseFootLocal);
+
+        // Apply dynamic horizontal stretching/reaching via gaitTuck
+        const tuckFactor = 1.0 - this.gaitTuck * 0.35;
+        this._footLocalTarget.x *= tuckFactor;
+
         this._footLocalTarget.x += sweep * 4.4;
         this._footLocalTarget.y += lift * 4.4;
 
@@ -298,15 +329,5 @@ export class LegJointAnimationSystem implements ISystem {
     }
   }
 
-  private resolveWeaverGaitTargets(cosmetic: WeaverCosmeticComponent): {
-    amp: number;
-    freq: number;
-    tuck: number;
-  } {
-    return {
-      amp: cosmetic.gaitAmplitude,
-      freq: cosmetic.gaitFrequency,
-      tuck: cosmetic.gaitTuck
-    };
-  }
+
 }

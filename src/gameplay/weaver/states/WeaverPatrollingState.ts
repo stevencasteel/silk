@@ -73,7 +73,7 @@ export class WeaverPatrollingState implements IWeaverState {
       cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
 
       cosmetic.gaitAmplitude = 0.13 * speedScale;
-      cosmetic.gaitFrequency = 7.2 + speed * 0.75;
+      cosmetic.gaitFrequency = 0.0; // Use dynamic traction
       cosmetic.gaitTuck = 0.0;
     }
 

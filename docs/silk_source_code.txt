@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 9:41:47 AM
+ [SYSTEM] Generated: 5/29/2026, 10:07:58 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -9099,9 +9099,8 @@ export class WeaverAscendingState implements IWeaverState {
         cosmetic.wobbleAngle = 0.0;
         cosmetic.rotationAngle = 0.0;
         cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
-        cosmetic.gaitAmplitude = 0.055;
-        cosmetic.gaitFrequency = 7.5;
-        cosmetic.gaitTuck = 0.28;
+        cosmetic.gaitAmplitude = 0.14; // Visible active crawl upward
+        cosmetic.gaitTuck = 0.2; // Keep legs pulled in slightly
       }
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
@@ -9248,7 +9247,7 @@ export class WeaverPatrollingState implements IWeaverState {
       cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
 
       cosmetic.gaitAmplitude = 0.13 * speedScale;
-      cosmetic.gaitFrequency = 7.2 + speed * 0.75;
+      cosmetic.gaitFrequency = 0.0; // Use dynamic traction
       cosmetic.gaitTuck = 0.0;
     }
 
@@ -9311,7 +9310,6 @@ import {
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
-  HealthComponent,
   WeaverTraversalComponent,
   WeaverAIComponent,
   WeaverCosmeticComponent,
@@ -9332,13 +9330,8 @@ export class WeaverStrikingState implements IWeaverState {
   private thrustVelocity = { x: 0, y: 0 };
 
   public enter(ctx: SystemContext): void {
-    const healthStore = ctx.stores.get<HealthComponent>("health");
-    const health = healthStore.get(ctx.refs.weaver);
-    const isBerserk = health
-      ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD
-      : false;
     this.strikeCount = 0;
-    this.maxStrikes = isBerserk ? 3 : 2;
+    this.maxStrikes = 1;
     this.startPrep(ctx);
   }
 
@@ -9421,7 +9414,15 @@ export class WeaverStrikingState implements IWeaverState {
     if (cosmetic && wVel) {
       cosmetic.emissiveHue = aiComp.hue;
       const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
-      if (speed < WEAVER_AI_TUNING.DASH.SPEED_THRESHOLD) {
+      const rawAngle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+      const normalizedAngle = Math.atan2(Math.sin(rawAngle), Math.cos(rawAngle));
+      const maxRotation = Math.PI * 0.55; // Clamp to ~99 degrees to prevent going upside down
+
+      cosmetic.springStiffness = 120;
+      cosmetic.springDamping = 22;
+      cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
+
+      if (this.currentPhase === "PREP") {
         cosmetic.targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
         cosmetic.targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
         cosmetic.targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
@@ -9431,10 +9432,9 @@ export class WeaverStrikingState implements IWeaverState {
         cosmetic.wobbleAngle =
           Math.sin(aiComp.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
         cosmetic.rotationAngle = 0.0;
-        cosmetic.gaitAmplitude = 0.035;
-        cosmetic.gaitFrequency = 13.0;
-        cosmetic.gaitTuck = 0.72;
-      } else {
+        cosmetic.gaitAmplitude = 0.08; // High frequency visible shivering
+        cosmetic.gaitTuck = 0.65; // Legs coiled in tightly
+      } else if (this.currentPhase === "THRUST") {
         const stretch = Math.min(
           WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
           (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
@@ -9444,14 +9444,21 @@ export class WeaverStrikingState implements IWeaverState {
         cosmetic.targetScaleX = 1.0 - stretch * 0.5;
         cosmetic.targetScaleZ = 1.0 - stretch * 0.5;
         cosmetic.wobbleAngle = 0.0;
-        cosmetic.rotationAngle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
-        cosmetic.gaitAmplitude = 0.055;
-        cosmetic.gaitFrequency = 8.5;
-        cosmetic.gaitTuck = -0.42;
+        cosmetic.rotationAngle = Math.max(-maxRotation, Math.min(maxRotation, normalizedAngle));
+        cosmetic.gaitAmplitude = 0.18; // Wide aggressive lunging steps
+        cosmetic.gaitTuck = -0.5; // Legs reach outwards/reach for traction
+      } else if (this.currentPhase === "RECOVER") {
+        cosmetic.targetScaleY = 0.88;
+        cosmetic.targetScaleX = 1.06;
+        cosmetic.targetScaleZ = 1.06;
+        const breatheFreq = 3.0;
+        const breatheAmp = 0.03;
+        cosmetic.wobbleAngle = Math.sin(aiComp.timeInState * breatheFreq) * breatheAmp;
+        cosmetic.rotationAngle = 0.0;
+        cosmetic.gaitAmplitude = 0.09; // Slow heavy breathing steps
+        cosmetic.gaitFrequency = 3.0; // Exhausted frequency override (no traction lock)
+        cosmetic.gaitTuck = 0.3; // Loose relaxed pose
       }
-      cosmetic.springStiffness = 120;
-      cosmetic.springDamping = 22;
-      cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
     }
 
     if (this.currentPhase === "PREP") {
@@ -14680,7 +14687,7 @@ export class EntityInterpolationSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WallBugComponent, WeaverCosmeticComponent } from "../../core/ecs/Components";
+import { WallBugComponent, WeaverCosmeticComponent, KinematicVelocityComponent, WeaverAIComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 interface CachedWeaverParts {
@@ -14706,6 +14713,9 @@ export class LegJointAnimationSystem implements ISystem {
 
   public update(dt: number): void {
     const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const velocityStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    const aiStore = this.context.stores.get<WeaverAIComponent>("weaverAI");
+
     let firstCosmetic: WeaverCosmeticComponent | undefined;
     for (const [, cosmetic] of weaverCosmetics.entries()) {
       firstCosmetic = cosmetic;
@@ -14713,11 +14723,34 @@ export class LegJointAnimationSystem implements ISystem {
     }
 
     if (firstCosmetic) {
-      const target = this.resolveWeaverGaitTargets(firstCosmetic);
+      const wVel = velocityStore.get(this.context.refs.weaver);
+      const ai = aiStore.get(this.context.refs.weaver);
+
+      const velX = wVel ? wVel.x : 0.0;
+      const velY = wVel ? wVel.y : 0.0;
+      const scrollSpeed = ai ? ai.scrollSpeed : 9.0;
+
+      const relX = velX;
+      const relY = velY + scrollSpeed;
+      const relativeSpeed = Math.sqrt(relX * relX + relY * relY);
+
+      const TRACTION_RATIO = 0.135;
+
+      let dynamicFreq = 0.0;
+      if (firstCosmetic.gaitFrequency > 0.0) {
+        dynamicFreq = firstCosmetic.gaitFrequency;
+      } else if (firstCosmetic.gaitAmplitude > 0.001) {
+        dynamicFreq = (relativeSpeed * TRACTION_RATIO) / firstCosmetic.gaitAmplitude;
+      }
+
+      if (ai && ai.state === "DEFEATED") {
+        dynamicFreq = 0.0;
+      }
+
       const blend = 1.0 - Math.exp(-dt * 8.0);
-      this.gaitAmp += (target.amp - this.gaitAmp) * blend;
-      this.gaitFreq += (target.freq - this.gaitFreq) * blend;
-      this.gaitTuck += (target.tuck - this.gaitTuck) * blend;
+      this.gaitAmp += (firstCosmetic.gaitAmplitude - this.gaitAmp) * blend;
+      this.gaitFreq += (dynamicFreq - this.gaitFreq) * blend;
+      this.gaitTuck += (firstCosmetic.gaitTuck - this.gaitTuck) * blend;
     }
 
     this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);
@@ -14919,6 +14952,11 @@ export class LegJointAnimationSystem implements ISystem {
         const lift = liftWave * this.gaitAmp * 1.2;
 
         this._footLocalTarget.copyFrom(baseFootLocal);
+
+        // Apply dynamic horizontal stretching/reaching via gaitTuck
+        const tuckFactor = 1.0 - this.gaitTuck * 0.35;
+        this._footLocalTarget.x *= tuckFactor;
+
         this._footLocalTarget.x += sweep * 4.4;
         this._footLocalTarget.y += lift * 4.4;
 
