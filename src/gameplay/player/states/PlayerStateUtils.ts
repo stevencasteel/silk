@@ -57,6 +57,7 @@ export class PlayerStateUtils {
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
       trav.wallDir = 0;
+    trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
       trav.launchPower = 0;
       return;
     }

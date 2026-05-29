@@ -84,7 +84,8 @@ export class PlayerLaunchingState implements IPlayerState {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
 
-    if (stickyStore && bugTransStore) {
+    const bypassCollisions = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+    if (stickyStore && bugTransStore && !bypassCollisions) {
       for (const [bugId, sticky] of stickyStore.entries()) {
         if (!sticky.isActive) continue;
         const bugTrans = bugTransStore.get(bugId);
@@ -105,7 +106,8 @@ export class PlayerLaunchingState implements IPlayerState {
               const bug = bugStore ? bugStore.get(bugId) : undefined;
               const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
-              if (bug && bug.spikedSide === contactedSpikedSide && !isTrapped) {
+              const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+              if (bug && bug.spikedSide === contactedSpikedSide && !isTrapped && !inSafeWindow) {
                 const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
                 const pCol = colStore.get(ctx.refs.player);
                 if (pCol) {

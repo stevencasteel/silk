@@ -52,7 +52,8 @@ export class PlayerWallSlidingState implements IPlayerState {
         (trav.wallDir === 1 && bug.spikedSide === "LEFT")
       );
 
-      if (isSpikedOnClingSide && !isTrapped) {
+      const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+      if (isSpikedOnClingSide && !isTrapped && !inSafeWindow) {
         trav.state = "AIRBORNE";
         trav.stickyEntityId = -1;
         trav.wallDir = 0;

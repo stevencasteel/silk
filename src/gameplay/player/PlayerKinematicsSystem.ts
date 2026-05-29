@@ -137,6 +137,7 @@ export class PlayerKinematicsSystem implements ISystem {
           trav.isWebTrapped = false;
           trav.escapeProgress = 0;
           trav.lastEscapeDirection = "";
+          trav.safeLaunchTimer = 1.5;
 
           // Apply Fling Bonus if escaping directly while attached to wall
           if (trav.state === "WALL_SLIDING") {
@@ -171,6 +172,10 @@ export class PlayerKinematicsSystem implements ISystem {
           window.dispatchEvent(new CustomEvent("silk-web-break"));
         }
       }
+    }
+
+    if (trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0) {
+      trav.safeLaunchTimer = Math.max(0, trav.safeLaunchTimer - dt);
     }
 
     const stateObj = this.states.get(trav.state);

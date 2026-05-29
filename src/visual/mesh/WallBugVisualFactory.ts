@@ -10,7 +10,6 @@ export class WallBugVisualFactory {
   ): BABYLON.TransformNode {
     const bugRoot = new BABYLON.TransformNode(`wall_bug_root_${id}`, scene);
 
-    // Overhaul: Main body capsule represents a dark, dense carapace (passes through bugMaterial)
     const capsule = BABYLON.MeshBuilder.CreateCapsule(
       `wall_bug_capsule_${id}`,
       { height: 7.2, radius: 0.58, subdivisions: 2 },
@@ -19,7 +18,6 @@ export class WallBugVisualFactory {
     capsule.material = bugMaterial;
     capsule.parent = bugRoot;
 
-    // Glowing navigation blue stripe rings (indicates safe-grabbing vertical surfaces)
     const stripeMat = new BABYLON.StandardMaterial(`wallBugStripeMat_${id}`, scene);
     const stripeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.BLUE_STRIPE;
     stripeMat.emissiveColor = new BABYLON.Color3(stripeColor.r, stripeColor.g, stripeColor.b);
@@ -47,7 +45,6 @@ export class WallBugVisualFactory {
     eyeR.material = eyeMaterial;
     eyeR.parent = bugRoot;
 
-    // Overhaul: Highly prominent, massive warning-red spikes projecting outward laterally
     const spikeMat = new BABYLON.StandardMaterial(`wallBugSpikeMat_${id}`, scene);
     const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
     spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
@@ -59,10 +56,10 @@ export class WallBugVisualFactory {
     const rightSpikes = new BABYLON.TransformNode("right_spikes", scene);
     rightSpikes.parent = bugRoot;
 
-    for (let s = 0; s < 3; s++) {
-      const spikeY = -1.8 + s * 1.8;
+    // High Density Spikes: Fit 11 spikes tightly on each dangerous side
+    for (let s = 0; s < 11; s++) {
+      const spikeY = -3.0 + s * 0.6;
 
-      // Left Spikes: Extended dimensions (height 1.1, base 0.38) and offset (X = -0.95)
       const spikeL = BABYLON.MeshBuilder.CreateCylinder(`spikeL_${id}_${s}`, {
         height: 1.1,
         diameterTop: 0.0,
@@ -70,11 +67,10 @@ export class WallBugVisualFactory {
         tessellation: 6
       }, scene);
       spikeL.position.set(-0.95, spikeY, 0);
-      spikeL.rotation.z = Math.PI / 2; 
+      spikeL.rotation.z = Math.PI / 2;
       spikeL.material = spikeMat;
       spikeL.parent = leftSpikes;
 
-      // Right Spikes: Extended dimensions (height 1.1, base 0.38) and offset (X = 0.95)
       const spikeR = BABYLON.MeshBuilder.CreateCylinder(`spikeR_${id}_${s}`, {
         height: 1.1,
         diameterTop: 0.0,
@@ -82,10 +78,35 @@ export class WallBugVisualFactory {
         tessellation: 6
       }, scene);
       spikeR.position.set(0.95, spikeY, 0);
-      spikeR.rotation.z = -Math.PI / 2; 
+      spikeR.rotation.z = -Math.PI / 2;
       spikeR.material = spikeMat;
       spikeR.parent = rightSpikes;
     }
+
+    // Split Vertically down the middle design language: Blue safety indicator strips
+    const leftSafety = new BABYLON.TransformNode("left_safety", scene);
+    leftSafety.parent = bugRoot;
+
+    const rightSafety = new BABYLON.TransformNode("right_safety", scene);
+    rightSafety.parent = bugRoot;
+
+    const stripL = BABYLON.MeshBuilder.CreateBox(`stripL_${id}`, {
+      width: 0.12,
+      height: 6.2,
+      depth: 0.3
+    }, scene);
+    stripL.position.set(-0.59, 0, 0);
+    stripL.material = stripeMat;
+    stripL.parent = leftSafety;
+
+    const stripR = BABYLON.MeshBuilder.CreateBox(`stripR_${id}`, {
+      width: 0.12,
+      height: 6.2,
+      depth: 0.3
+    }, scene);
+    stripR.position.set(0.59, 0, 0);
+    stripR.material = stripeMat;
+    stripR.parent = rightSafety;
 
     for (let leg = 0; leg < 4; leg++) {
       const legY = -2.0 + leg * 1.35;

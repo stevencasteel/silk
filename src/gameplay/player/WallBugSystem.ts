@@ -235,6 +235,12 @@ export class WallBugSystem implements ISystem {
       if (child.name === "right_spikes") {
         child.setEnabled(spikedSide === "RIGHT");
       }
+      if (child.name === "left_safety") {
+        child.setEnabled(spikedSide === "RIGHT" || spikedSide === "NONE");
+      }
+      if (child.name === "right_safety") {
+        child.setEnabled(spikedSide === "LEFT" || spikedSide === "NONE");
+      }
     });
 
     pBug.active = true;

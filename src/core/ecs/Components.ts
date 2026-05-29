@@ -110,6 +110,7 @@ export interface TraversalStateComponent {
   escapeRequired?: number;
   lastEscapeDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | "";
   hasFlingBonus?: boolean;
+  safeLaunchTimer?: number;
   webMass?: number;
 }
 
