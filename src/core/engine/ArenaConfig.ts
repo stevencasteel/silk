@@ -49,7 +49,7 @@ export const ARENA_CONFIG = {
     PLAYER_CAPSULE_SUBDIVISIONS: 3
   },
   ENTITY_COLORS: {
-    WEAVER_ALBEDO: { r: 0.1, g: 0.0, b: 0.2 },
+    WEAVER_ALBEDO: { r: 0.12, g: 0.0, b: 0.22 }, // Dark imperial purple default carapace
     PLAYER_ALBEDO: { r: 0.95, g: 0.95, b: 1.0 },
     PLAYER_SHEEN: { r: 1.0, g: 0.0, b: 0.5 }
   },
@@ -115,7 +115,11 @@ export const GAMEPLAY_TUNING = {
     BOUNCE_ELASTICITY_MULT: 1.3,
     BROADPHASE_MARGIN: 0.4,
     HITSTOP_PLAYER: 0.08,
-    HITSTOP_WEAVER: 0.15
+    HITSTOP_WEAVER: 0.15,
+    // Spiked Wall Bug hazard configurations
+    SPIKE_DAMAGE: 1,
+    SPIKE_KNOCKBACK_X: 20.0,
+    SPIKE_KNOCKBACK_Y: 8.0
   },
   REEL: {
     MIN_LENGTH: 7.0,
@@ -231,7 +235,9 @@ export const VISUAL_JUICE_CONFIG = {
     WAVINESS_AMP: 0.12,
     WAVINESS_STRETCH: 2.5,
     BEZIER_DEPTH: 0.35,
-    MAX_SNAP_DURATION_SECONDS: 1.5
+    MAX_SNAP_DURATION_SECONDS: 1.5,
+    // Emissive highlights during sweet spot windows
+    SWEET_SPOT_CORE_COLOR: { r: 1.0, g: 1.0, b: 1.0 }
   },
   PARTICLES: {
     DRAG: 0.92,
@@ -340,6 +346,16 @@ export const VISUAL_JUICE_CONFIG = {
       G: 0.0,
       B: 0.2
     }
+  },
+  // Spiked Wall Bug visual markers & Web struggle color decay steps
+  WALL_BUG_COLORS: {
+    BLUE_STRIPE: { r: 0.05, g: 0.45, b: 0.85 }, // Matching elevator wall ticks
+    SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 }    // Danger hazard warning
+  },
+  COCOON_COLORS: {
+    DECAY_START: { r: 1.0, g: 1.0, b: 1.0 },   // Clean, opaque white (tightly bound)
+    DECAY_MID: { r: 0.88, g: 0.75, b: 0.35 },  // Fibrous decaying yellow/amber
+    DECAY_END: { r: 0.15, g: 0.15, b: 0.15 }   // Frayed, decaying dark-grey/black
   }
 } as const;
 

@@ -8,7 +8,10 @@ import {
   InputIntentComponent,
   StickySurfaceComponent,
   TransformComponent,
-  PlayerCosmeticComponent
+  PlayerCosmeticComponent,
+  CollisionStateComponent,
+  WallBugComponent,
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
@@ -16,6 +19,7 @@ import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/en
 import { PlayerStateUtils } from "./PlayerStateUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
+import { WallSparksStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerAirborneState implements IPlayerState {
   public readonly type: TraversalState = "AIRBORNE";
@@ -92,6 +96,8 @@ export class PlayerAirborneState implements IPlayerState {
 
     const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
+    const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
+
     if (stickyStore && bugTransStore) {
       for (const [bugId, sticky] of stickyStore.entries()) {
         if (!sticky.isActive) continue;
@@ -110,6 +116,53 @@ export class PlayerAirborneState implements IPlayerState {
             const pressingIn = input.x === bugWallDir;
 
             if (pressingIn || isTrapped) {
+              const bug = bugStore ? bugStore.get(bugId) : undefined;
+              const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
+
+              // Spike collision check! Trigger pushback & damage if vulnerable
+              if (bug && bug.spikedSide === contactedSpikedSide && !isTrapped) {
+                const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
+                const pCol = colStore.get(ctx.refs.player);
+                if (pCol) {
+                  pCol.lastHitType = "WALL";
+                  pCol.hitPointX = target.x;
+                  pCol.hitPointY = target.y;
+                }
+
+                ctx.commands.dispatch({
+                  type: "DAMAGE_REQUEST",
+                  targetId: ctx.refs.player,
+                  amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
+                  source: "BUG_SPIKES",
+                  knockbackX: bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+                  knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
+                });
+
+                ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                  amplitude: 0.65,
+                  duration: 0.35,
+                  dirX: bugWallDir,
+                  dirY: 1.0
+                });
+
+                const sparkReqId = ctx.world.create();
+                const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+                if (reqStore) {
+                  reqStore.add(sparkReqId, {
+                    strategy: new WallSparksStrategy(-bugWallDir),
+                    x: target.x,
+                    y: target.y,
+                    z: 0
+                  });
+                }
+
+                // Push away. Stay in AIRBORNE trajectory
+                target.x = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+                vel.x = bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+                vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
+                return null;
+              }
+
               PlayerStateUtils.applyWallImpactSquash(ctx);
 
               trav.state = "WALL_SLIDING";

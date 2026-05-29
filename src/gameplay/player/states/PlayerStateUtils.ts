@@ -5,7 +5,8 @@ import {
   TetherComponent,
   TraversalStateComponent,
   TransformComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS } from "../../../core/engine/ArenaConfig";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
@@ -71,7 +72,6 @@ export class PlayerStateUtils {
       storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
 
-    // Apply +10% fling bonus if they broke free from a wall-locked trap!
     const bonusMultiplier = trav.hasFlingBonus ? 1.10 : 1.0;
     const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
     const power = powerScale * tuning.FLING_IMPULSE * bonusMultiplier;
@@ -92,15 +92,26 @@ export class PlayerStateUtils {
       pTrans.scaleVelZ = -powerScale * 7.5;
     }
 
+    // Console-Grade Climax timing: Trigger white capsule flash and active stretch during perfect releases
+    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+    if (pCosmetic && isSweetSpot) {
+      pCosmetic.emissiveR = 2.8; // Peak power white core flash
+      pCosmetic.emissiveG = 2.8;
+      pCosmetic.emissiveB = 2.8;
+      pCosmetic.targetScaleX = 0.55;
+      pCosmetic.targetScaleY = 1.65;
+      pCosmetic.targetScaleZ = 0.55;
+    }
+
     let shakeAmp = 0.25 + powerScale * 0.35;
     let shakeDur = 0.2;
 
     if (trav.hasFlingBonus) {
-      trav.hasFlingBonus = false; // Reset the bonus flag
+      trav.hasFlingBonus = false; 
       shakeAmp += 0.50;
       shakeDur += 0.25;
 
-      // Spawn extra launch exhaustion trails to indicate the powerful breakaway
       const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
       if (reqStore) {
         for (let i = 0; i < 4; i++) {

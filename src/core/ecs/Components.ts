@@ -129,6 +129,7 @@ export interface WallBugComponent {
   speed: number;
   stayDuration: number;
   gaitPhase: number;
+  spikedSide?: "LEFT" | "RIGHT" | "NONE";
 }
 
 export interface StickySurfaceComponent {

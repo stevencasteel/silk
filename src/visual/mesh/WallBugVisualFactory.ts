@@ -1,4 +1,5 @@
 import * as BABYLON from "@babylonjs/core";
+import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
 export class WallBugVisualFactory {
   public static buildBugMeshHierarchy(
@@ -9,6 +10,7 @@ export class WallBugVisualFactory {
   ): BABYLON.TransformNode {
     const bugRoot = new BABYLON.TransformNode(`wall_bug_root_${id}`, scene);
 
+    // Overhaul: Main body capsule represents a dark, dense carapace (passes through bugMaterial)
     const capsule = BABYLON.MeshBuilder.CreateCapsule(
       `wall_bug_capsule_${id}`,
       { height: 7.2, radius: 0.58, subdivisions: 2 },
@@ -17,15 +19,21 @@ export class WallBugVisualFactory {
     capsule.material = bugMaterial;
     capsule.parent = bugRoot;
 
+    // Glowing navigation blue stripe rings (indicates safe-grabbing vertical surfaces)
+    const stripeMat = new BABYLON.StandardMaterial(`wallBugStripeMat_${id}`, scene);
+    const stripeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.BLUE_STRIPE;
+    stripeMat.emissiveColor = new BABYLON.Color3(stripeColor.r, stripeColor.g, stripeColor.b);
+    stripeMat.disableLighting = true;
+
     for (let i = 0; i < 5; i++) {
       const ring = BABYLON.MeshBuilder.CreateTorus(
         `ring_${id}_${i}`,
-        { diameter: 1.2, thickness: 0.1, tessellation: 8 },
+        { diameter: 1.22, thickness: 0.11, tessellation: 10 },
         scene
       );
       ring.position.y = -2.6 + i * 1.3;
       ring.rotation.x = Math.PI / 2;
-      ring.material = bugMaterial;
+      ring.material = stripeMat;
       ring.parent = bugRoot;
     }
 
@@ -38,6 +46,46 @@ export class WallBugVisualFactory {
     eyeR.position.set(0.25, -3.1, -0.42);
     eyeR.material = eyeMaterial;
     eyeR.parent = bugRoot;
+
+    // Overhaul: Highly prominent, massive warning-red spikes projecting outward laterally
+    const spikeMat = new BABYLON.StandardMaterial(`wallBugSpikeMat_${id}`, scene);
+    const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
+    spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
+    spikeMat.disableLighting = true;
+
+    const leftSpikes = new BABYLON.TransformNode("left_spikes", scene);
+    leftSpikes.parent = bugRoot;
+
+    const rightSpikes = new BABYLON.TransformNode("right_spikes", scene);
+    rightSpikes.parent = bugRoot;
+
+    for (let s = 0; s < 3; s++) {
+      const spikeY = -1.8 + s * 1.8;
+
+      // Left Spikes: Extended dimensions (height 1.1, base 0.38) and offset (X = -0.95)
+      const spikeL = BABYLON.MeshBuilder.CreateCylinder(`spikeL_${id}_${s}`, {
+        height: 1.1,
+        diameterTop: 0.0,
+        diameterBottom: 0.38,
+        tessellation: 6
+      }, scene);
+      spikeL.position.set(-0.95, spikeY, 0);
+      spikeL.rotation.z = Math.PI / 2; 
+      spikeL.material = spikeMat;
+      spikeL.parent = leftSpikes;
+
+      // Right Spikes: Extended dimensions (height 1.1, base 0.38) and offset (X = 0.95)
+      const spikeR = BABYLON.MeshBuilder.CreateCylinder(`spikeR_${id}_${s}`, {
+        height: 1.1,
+        diameterTop: 0.0,
+        diameterBottom: 0.38,
+        tessellation: 6
+      }, scene);
+      spikeR.position.set(0.95, spikeY, 0);
+      spikeR.rotation.z = -Math.PI / 2; 
+      spikeR.material = spikeMat;
+      spikeR.parent = rightSpikes;
+    }
 
     for (let leg = 0; leg < 4; leg++) {
       const legY = -2.0 + leg * 1.35;

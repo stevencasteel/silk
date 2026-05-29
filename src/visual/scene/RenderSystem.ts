@@ -6,6 +6,7 @@ import { VisualRegistry } from "./VisualRegistry";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { ProceduralTextureGenerator } from "./ProceduralTextureGenerator";
 import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem {
@@ -26,6 +27,9 @@ export class RenderSystem implements ISystem {
   }
 
   public async init(): Promise<void> {
+    // Force procedural textures to clear cache on boot to generate the new Weaver imperial purple
+    ProceduralTextureGenerator.clearCache();
+
     this.engine = new BABYLON.Engine(this.canvas, true, {
       preserveDrawingBuffer: true,
       stencil: true

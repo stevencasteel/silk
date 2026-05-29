@@ -33,6 +33,7 @@ export class ProjectileSystem implements ISystem {
 
   private projMatActive: BABYLON.PBRMaterial | null = null;
   private projMatStuck: BABYLON.PBRMaterial | null = null;
+  private projMatTrapped: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
@@ -53,6 +54,13 @@ export class ProjectileSystem implements ISystem {
     )._noisePlugin = noisePlugin;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
+    
+    // Trapped material initialization with active vertex displacement shaders
+    this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped", scene);
+    const trappedNoise = new ProjectileNoisePlugin(this.projMatTrapped);
+    (
+      this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+    )._noisePlugin = trappedNoise;
 
     if (scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
@@ -549,13 +557,21 @@ export class ProjectileSystem implements ISystem {
       }
     }
 
+    // Keep dynamic noise time synchronized for the trapped material
+    if (this.projMatTrapped) {
+      const noisePlugin = (
+        this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+      )._noisePlugin;
+      if (noisePlugin) {
+        noisePlugin.time = this.noiseTime;
+      }
+    }
+
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
 
-    // Safety fallback check to see if the Weaver is actively in PATROLLING state.
-    // If wAI component is temporarily missing or unset during a system loop transition, we default to true.
     const isPatrolling = wAI ? wAI.state === "PATROLLING" : true;
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
@@ -578,10 +594,42 @@ export class ProjectileSystem implements ISystem {
           continue;
         }
 
+        const start = VISUAL_JUICE_CONFIG.COCOON_COLORS.DECAY_START;
+        const mid = VISUAL_JUICE_CONFIG.COCOON_COLORS.DECAY_MID;
+        const end = VISUAL_JUICE_CONFIG.COCOON_COLORS.DECAY_END;
+
+        const escProgress = pTrav.escapeProgress || 0;
+        const escRequired = pTrav.escapeRequired || 5;
+        const progressRatio = Math.max(0, Math.min(1.0, escProgress / escRequired));
+
+        let rVal: number;
+        let gVal: number;
+        let bVal: number;
+
+        if (progressRatio >= 1.0) {
+          rVal = 0.0;
+          gVal = 0.0;
+          bVal = 0.0;
+        } else if (progressRatio < 0.5) {
+          const t = progressRatio / 0.5;
+          rVal = start.r + (mid.r - start.r) * t;
+          gVal = start.g + (mid.g - start.g) * t;
+          bVal = start.b + (mid.b - start.b) * t;
+        } else {
+          const t = (progressRatio - 0.5) / 0.5;
+          rVal = mid.r + (end.r - mid.r) * t;
+          gVal = mid.g + (end.g - mid.g) * t;
+          bVal = mid.b + (end.b - mid.b) * t;
+        }
+
+        if (this.projMatTrapped) {
+          this.projMatTrapped.albedoColor.set(rVal, gVal, bVal);
+          this.projMatTrapped.emissiveColor.set(rVal * 0.18, gVal * 0.18, bVal * 0.18);
+        }
+
         const massScale = 1.0 + ((pTrav.webMass || 1) - 1) * 0.18;
 
         if (pTrav.state === "WALL_SLIDING") {
-          // Flatten rotation entirely so it runs aligned and flush to the flat vertical wall
           trans.qx = 0;
           trans.qy = 0;
           trans.qz = 0;
@@ -596,12 +644,10 @@ export class ProjectileSystem implements ISystem {
           }
           mesh.rotationQuaternion.set(0, 0, 0, 1);
 
-          // Squashed flat scale mimicking wall stuck shot geometry
           trans.scaleX = 0.28 * massScale;
           trans.scaleY = 2.0 * massScale;
           trans.scaleZ = 2.0 * massScale;
 
-          // Push the splatted web slightly closer into/towards the wall so the player capsule pokes out
           const wallOffset = pTrav.wallDir * 0.25;
           trans.x = pTrans.x + wallOffset;
           trans.y = pTrans.y;
@@ -611,12 +657,10 @@ export class ProjectileSystem implements ISystem {
           trans.prevY = pTrans.prevY;
           trans.prevZ = pTrans.prevZ;
 
-          // Stop undulations by swapping to the solid static material
-          if (mesh.material !== this.projMatStuck) {
-            mesh.material = this.projMatStuck;
+          if (mesh.material !== this.projMatTrapped) {
+            mesh.material = this.projMatTrapped;
           }
         } else {
-          // If airborne or launching, use standard spherical, undulating web scaling and active material
           trans.scaleX = 1.0 * massScale;
           trans.scaleY = 1.15 * massScale;
           trans.scaleZ = 1.0 * massScale;
@@ -629,8 +673,8 @@ export class ProjectileSystem implements ISystem {
           trans.prevY = pTrans.prevY;
           trans.prevZ = pTrans.prevZ;
 
-          if (mesh.material !== this.projMatActive) {
-            mesh.material = this.projMatActive;
+          if (mesh.material !== this.projMatTrapped) {
+            mesh.material = this.projMatTrapped;
           }
         }
 
@@ -654,8 +698,6 @@ export class ProjectileSystem implements ISystem {
           );
         }
       } else if (p.isCharging) {
-        // Interruption guard: If the boss state shifts away from PATROLLING (takes damage, enters striking/shockwave),
-        // cleanly shatter the actively growing ball to prevent orphaned web nodes.
         if (!isPatrolling) {
           const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
           if (reqStore) {
@@ -854,5 +896,6 @@ export class ProjectileSystem implements ISystem {
 
     if (this.projMatActive) this.projMatActive.dispose();
     if (this.projMatStuck) this.projMatStuck.dispose();
+    if (this.projMatTrapped) this.projMatTrapped.dispose();
   }
 }

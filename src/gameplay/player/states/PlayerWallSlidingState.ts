@@ -9,7 +9,8 @@ import {
   StickySurfaceComponent,
   TransformComponent,
   PlayerCosmeticComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  WallBugComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
@@ -18,6 +19,7 @@ import { PlayerStateUtils } from "./PlayerStateUtils";
 import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
+import { GameEvent } from "../../../core/events/GameEvents";
 
 export class PlayerWallSlidingState implements IPlayerState {
   public readonly type: TraversalState = "WALL_SLIDING";
@@ -38,6 +40,44 @@ export class PlayerWallSlidingState implements IPlayerState {
     const trav = ctx.stores.get<TraversalStateComponent>("traversal").get(ctx.refs.player);
 
     if (!target || !vel || !tether || !input || !trav) return null;
+
+    const isTrapped = !!trav.isWebTrapped;
+
+    // Critical Penalty Exception: If player is attached to spiked side and breaks free, fling them off!
+    if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+      const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
+      const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
+      const isSpikedOnClingSide = bug && (
+        (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
+        (trav.wallDir === 1 && bug.spikedSide === "LEFT")
+      );
+
+      if (isSpikedOnClingSide && !isTrapped) {
+        trav.state = "AIRBORNE";
+        trav.stickyEntityId = -1;
+        trav.wallDir = 0;
+
+        ctx.commands.dispatch({
+          type: "DAMAGE_REQUEST",
+          targetId: ctx.refs.player,
+          amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
+          source: "BUG_SPIKES",
+          knockbackX: -trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+          knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
+        });
+
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.65,
+          duration: 0.35,
+          dirX: -trav.wallNormalX,
+          dirY: 1.0
+        });
+
+        vel.x = -trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+        vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
+        return "AIRBORNE";
+      }
+    }
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -79,7 +119,6 @@ export class PlayerWallSlidingState implements IPlayerState {
     }
 
     const stillPressingIn = input.x === trav.wallDir;
-    const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const controlFactor = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 

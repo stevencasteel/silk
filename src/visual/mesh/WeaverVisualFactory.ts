@@ -169,10 +169,17 @@ export function decorateWeaverVisual(
 
   const textureGen = new ProceduralTextureGenerator();
 
+  // Console-Grade Color Overhaul: Link Weaver base carapace to imperial purple configuration token
+  const imperialPurple = new BABYLON.Color3(
+    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.r,
+    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.g,
+    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b
+  );
+
   const carapaceMat = createWeaverMaterial(
     "carapaceMat",
     scene,
-    new BABYLON.Color3(0.12, 0.0, 0.22),
+    imperialPurple,
     0.98,
     0.06,
     true
@@ -182,7 +189,7 @@ export function decorateWeaverVisual(
     resolution: 512,
     noiseScale: 18.0,
     bumpStrength: 1.65,
-    baseColor: new BABYLON.Color3(0.12, 0.0, 0.22),
+    baseColor: imperialPurple,
     roughnessMin: 0.05,
     roughnessMax: 0.15,
     metallic: 0.98,
@@ -193,10 +200,16 @@ export function decorateWeaverVisual(
     colorVariation: 0.16
   });
 
+  const upperPurple = new BABYLON.Color3(
+    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.r * 1.6,
+    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.g,
+    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
+  );
+
   const shellMat = createWeaverMaterial(
     "carapaceUpperMat",
     scene,
-    new BABYLON.Color3(0.2, 0.0, 0.35),
+    upperPurple,
     0.95,
     0.08,
     true
@@ -206,7 +219,7 @@ export function decorateWeaverVisual(
     resolution: 512,
     noiseScale: 16.0,
     bumpStrength: 1.85,
-    baseColor: new BABYLON.Color3(0.2, 0.0, 0.35),
+    baseColor: upperPurple,
     roughnessMin: 0.05,
     roughnessMax: 0.15,
     metallic: 0.95,

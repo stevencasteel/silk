@@ -24,16 +24,14 @@ export class WallBugSystem implements ISystem {
   readonly initPhase = InitPhase.Gameplay;
 
   private spawnTimer = 0.0;
-  private readonly spawnInterval = 3.2; // Frequent spawns every 3.2 seconds
+  private readonly spawnInterval = 3.2;
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
   private _tracker = new SubscriptionTracker();
 
   private bugPool: PooledBug[] = [];
-  private readonly POOL_SIZE = 2; // Up to two on screen at once
+  private readonly POOL_SIZE = 2;
 
-  // Semi-random Grab Bag containing 7 unique balanced vertical lanes.
-  // Constrained to the central 40% corridor [-5.0, 5.0] to satisfy the 30% wall-exclusion rule.
   private laneBag: number[] = [];
   private readonly LANES = [-5.0, -3.0, -1.0, 0.0, 1.0, 3.0, 5.0];
   private lastSelectedLaneIndex = -1;
@@ -44,18 +42,19 @@ export class WallBugSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
+    // Overhaul: Dark metallic slate-grey carapace (Zero yellow/orange emissive body glow!)
     this.bugMaterial = new BABYLON.PBRMaterial("wallBugCarapace", scene);
-    this.bugMaterial.metallic = 0.95;
-    this.bugMaterial.roughness = 0.12;
-    this.bugMaterial.albedoColor = new BABYLON.Color3(0.18, 0.18, 0.22);
-    this.bugMaterial.emissiveColor = new BABYLON.Color3(0.85, 0.35, 0.0);
-    this.bugMaterial.emissiveIntensity = 1.25;
+    this.bugMaterial.metallic = 0.88;
+    this.bugMaterial.roughness = 0.24;
+    this.bugMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.12);
+    this.bugMaterial.emissiveColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+    this.bugMaterial.emissiveIntensity = 0.0;
 
+    // Subtle glowing orange sensory eyes
     this.eyeMaterial = new BABYLON.StandardMaterial("wallBugEyes", scene);
-    this.eyeMaterial.emissiveColor = new BABYLON.Color3(1.0, 0.55, 0.0);
+    this.eyeMaterial.emissiveColor = new BABYLON.Color3(0.95, 0.35, 0.0);
     this.eyeMaterial.disableLighting = true;
 
-    // Pre-initialize and pre-register pool meshes to visual registry EXACTLY once
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const bugId = this.context.world.create();
       const bugRoot = WallBugVisualFactory.buildBugMeshHierarchy(
@@ -67,7 +66,6 @@ export class WallBugSystem implements ISystem {
       bugRoot.setEnabled(false);
       bugRoot.position.set(0, -999, 0);
 
-      // Register with the visual registry so they are managed during active loops
       this.context.visualRegistration.registerTransformNode(bugId, bugRoot);
 
       this.bugPool.push({
@@ -96,7 +94,6 @@ export class WallBugSystem implements ISystem {
     this.spawnTimer += dt;
     const activeCount = this.bugPool.filter((p) => p.active).length;
 
-    // Spawns up to a maximum of 2 on screen at once
     if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
       this.spawnTimer = 0.0;
       this.spawnBugFromPool();
@@ -122,7 +119,6 @@ export class WallBugSystem implements ISystem {
       const extraCrawlSpeed = 3.8;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
-      // Dispose trigger: Recycle bug once it falls past the bottom viewport threshold
       if (bug.y < cameraY - 24.0) {
         this.recycleBug(pBug);
         continue;
@@ -140,7 +136,6 @@ export class WallBugSystem implements ISystem {
     }
   }
 
-  // Draw non-consecutively repeating lanes using Tetris-style bag-shuffling
   private getNextLane(): number {
     if (this.laneBag.length === 0) {
       this.refillLaneBag();
@@ -153,7 +148,6 @@ export class WallBugSystem implements ISystem {
   private refillLaneBag(): void {
     const indices = [0, 1, 2, 3, 4, 5, 6];
 
-    // Fisher-Yates Shuffle
     for (let i = indices.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       const temp = indices[i];
@@ -161,7 +155,6 @@ export class WallBugSystem implements ISystem {
       indices[j] = temp;
     }
 
-    // Boundary Protection: If first index of new bag matches last indices of old bag, swap it
     if (indices[indices.length - 1] === this.lastSelectedLaneIndex && indices.length > 1) {
       const temp = indices[indices.length - 1];
       indices[indices.length - 1] = indices[0];
@@ -182,19 +175,16 @@ export class WallBugSystem implements ISystem {
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
 
-    // Elevate starting coordinate so bugs spawn completely above the viewport and crawl down naturally into view
     const startY = cameraY + 28.0;
-
-    // Retrieve lane through shuffle bag to block repeat consecutive spawns
     const startX = this.getNextLane();
 
-    // Dynamic height scaling: stretches Y scale dynamically from 1.0x (7.2 short) up to 1.6x (11.52 tall)
     const heightScale = 1.0 + Math.random() * 0.6;
     const finalHeight = 7.2 * heightScale;
     const finalWidth = 1.15;
 
-    // Reset both current and previous coordinates to the spawn position.
-    // This blocks interpolation rendering glitches when a cached mesh is repurposed.
+    const rand = Math.random();
+    const spikedSide: "LEFT" | "RIGHT" | "NONE" = rand < 0.45 ? "LEFT" : (rand < 0.9 ? "RIGHT" : "NONE");
+
     this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,
       y: startY,
@@ -227,7 +217,8 @@ export class WallBugSystem implements ISystem {
       height: finalHeight,
       speed: 3.8,
       stayDuration: 0.0,
-      gaitPhase: 0.0
+      gaitPhase: 0.0,
+      spikedSide
     });
 
     this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
@@ -235,6 +226,15 @@ export class WallBugSystem implements ISystem {
       width: finalWidth,
       height: finalHeight,
       speed: 3.8
+    });
+
+    pBug.rootNode.getChildren().forEach((child) => {
+      if (child.name === "left_spikes") {
+        child.setEnabled(spikedSide === "LEFT");
+      }
+      if (child.name === "right_spikes") {
+        child.setEnabled(spikedSide === "RIGHT");
+      }
     });
 
     pBug.active = true;
@@ -253,7 +253,6 @@ export class WallBugSystem implements ISystem {
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     stickyStore.remove(pBug.entityId);
 
-    // Reposition coordinates out of sight so interpolation scripts ignore them
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const trans = transformStore.get(pBug.entityId);
     if (trans) {
@@ -280,7 +279,6 @@ export class WallBugSystem implements ISystem {
   public dispose(): void {
     this._tracker.clear();
 
-    // Cleanly unregister and dispose of pool meshes ONLY during total system teardown
     for (let i = 0; i < this.bugPool.length; i++) {
       const pBug = this.bugPool[i];
       this.context.visualRegistration.unregisterTransformNode(pBug.entityId);

@@ -158,7 +158,7 @@ export class TetherVisualizerSystem implements ISystem {
           rot.z,
           rot.w,
           radius,
-          1.18
+          1.0
         );
         this.scratchAnchor.copyFrom(tip);
       } else {
@@ -176,14 +176,14 @@ export class TetherVisualizerSystem implements ISystem {
 
       let vibAmp = 0;
       if (tension >= 1.0) {
-        vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.0;
+        vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.5;
       } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
         vibAmp =
           (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
           VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       }
 
-      const vibOffset = Math.sin(vibPhase * (tension >= 1.0 ? 3.0 : 1.0)) * vibAmp;
+      const vibOffset = Math.sin(vibPhase * (tension >= 1.0 ? 3.5 : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
@@ -249,7 +249,8 @@ export class TetherVisualizerSystem implements ISystem {
       if (tension < 0.4) {
         radius *= 0.85;
       } else if (isSweetSpot) {
-        radius *= 1.1;
+        const pulse = Math.sin(timeMs * 0.03) * 0.015;
+        radius = this.MAX_RADIUS * 1.1 + pulse;
       }
 
       this.tetherMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
@@ -260,38 +261,42 @@ export class TetherVisualizerSystem implements ISystem {
         instance: this.tetherMesh
       });
 
-      let r = 1.0;
-      let g = 1.0;
-      let b = 1.0;
+      let r: number;
+      let g: number;
+      let b: number;
+      let eBrightness: number;
 
-      if (tension >= 1.0) {
+      if (tension >= 0.85) {
         r = 1.0;
         g = 0.0;
-        b = 0.5;
-      } else if (tension >= 0.75) {
-        r = 1.0;
-        g = 0.0;
-        b = 0.5;
+        b = 0.15;
+        eBrightness = 4.2;
       } else if (isSweetSpot) {
-        r = 0.87;
-        g = 0.99;
-        b = 0.0;
-      } else if (tension < 0.4) {
+        r = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.r;
+        g = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.g;
+        b = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.b;
+        eBrightness = 5.5; 
+      } else if (tension >= 0.4) {
+        const ratio = (tension - 0.4) / 0.15;
         r = 1.0;
-        g = 1.0;
-        b = 1.0;
+        g = 0.75 + ratio * 0.25;
+        b = 1.0 - ratio;
+        eBrightness = 0.4 + ratio * 1.5;
+      } else {
+        r = 0.82;
+        g = 0.82;
+        b = 0.86;
+        eBrightness = 0.15;
       }
 
       this.tetherMat.albedoColor.set(r, g, b);
 
-      let eBrightness = 0.1 + tension * 0.8 + tether.reelHeat * 0.45;
+      let finalBrightness = eBrightness + tether.reelHeat * 0.45;
       if (isSweetSpot) {
-        eBrightness *= 2.8;
-      } else if (tension >= 1.0) {
-        eBrightness *= 4.0;
+        finalBrightness *= 2.5;
       }
 
-      this.tetherMat.emissiveColor.set(eBrightness * r, eBrightness * g, eBrightness * b);
+      this.tetherMat.emissiveColor.set(finalBrightness * r, finalBrightness * g, finalBrightness * b);
     } else {
       this.tetherMesh.setEnabled(false);
 
