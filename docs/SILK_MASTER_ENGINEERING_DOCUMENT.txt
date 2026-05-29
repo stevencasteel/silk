@@ -1,7 +1,7 @@
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.5 (Single-Responsibility Decoupling & Player State Update)
+Version: 1.6 (Trapping, Struggle & Squashed Wall-Lock Updates)
 Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
 Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
 Architecture: Strict Custom ECS (Entity Component System)
@@ -83,6 +83,21 @@ SILK starts in the vertical portrait arena immediately without title screens.
     triggering satisfying impact particle splats and a minor camera shake without 
     inflicting any damage. Standard post-damage iframes allow projectiles to pass 
     through safely.
+
+- COCOON TRAPPING, STRUGGLE & SQUASHED WALL-LOCK MECHANICS:
+  * Cocoon Encasement: Projectiles have a default diameter of 1.8 units (twice the 
+    player's width). If the player is struck in a vulnerable state, they are encased 
+    in the web cocoon mesh.
+  * Steering and Reeling Dampening: While trapped, lateral steering force and tether 
+    reeling speeds are dampened by 50%.
+  * Trapped Wall-Lock: If the trapped player contacts a wall, they automatically 
+    stick to it. Voluntary release inputs are ignored; the player remains glued 
+    until the web is broken or the line snaps from overloaded tension.
+  * Alternate Key Struggles: Escaping requires 5 alternating directional inputs. 
+    Repeating the same direction consecutively is ignored. On struggle registration, 
+    micro-shiver rumbles and web-splat particles trigger.
+  * Break-Free Super Fling: Escaping the web while holding a wall-lock rewards the 
+    player with a 1.1x fling impulse multiplier and an extra exhaust trail of sparks.
 
 - DECOUPLED COMBAT RESOLUTION:
   CollisionResolutionSystem is the centralized hub for all physical overlapping. 
