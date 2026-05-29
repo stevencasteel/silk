@@ -1,6 +1,7 @@
 import * as BABYLON from "@babylonjs/core";
+import { IProceduralTextureGenerator, ProceduralTextureConfig } from "../../core/utils/EngineUtils";
 
-export class ProceduralTextureGenerator {
+export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
   private p = new Uint8Array(256);
   private static textureCache = new Map<
     string,
@@ -51,20 +52,7 @@ export class ProceduralTextureGenerator {
   public async generatePBRTextures(
     name: string,
     scene: BABYLON.Scene,
-    config: {
-      resolution: number;
-      noiseScale: number;
-      bumpStrength: number;
-      baseColor: BABYLON.Color3;
-      roughnessMin: number;
-      roughnessMax: number;
-      metallic: number;
-      ridgeStrength?: number;
-      ridgeScale?: number;
-      ridgeDirectionX?: number;
-      ridgeDirectionY?: number;
-      colorVariation?: number;
-    },
+    config: ProceduralTextureConfig,
     onProgress?: (percent: number) => void
   ): Promise<{
     albedo: BABYLON.DynamicTexture;

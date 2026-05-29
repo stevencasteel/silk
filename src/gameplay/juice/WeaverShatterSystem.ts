@@ -83,11 +83,7 @@ export class WeaverShatterSystem implements ISystem {
     mesh.position = pos.add(centroid).add(outward.scale(0.35));
     mesh.material = activeMat;
 
-    if (this.context.visualRegistry.registerShadowCaster) {
-      this.context.visualRegistry.registerShadowCaster(mesh);
-    } else {
-      mesh.receiveShadows = true;
-    }
+    this.context.visualRegistry.registerShadowCaster(mesh);
 
     const speed =
       config.VELOCITY_Y_MIN +
@@ -110,9 +106,8 @@ export class WeaverShatterSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverMesh = this.context.visualRegistry.getTransformNode(
-      this.context.refs.weaver
-    ) as BABYLON.Mesh | null;
+    const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+    const weaverMesh = weaverNode instanceof BABYLON.Mesh ? weaverNode : null;
     const activeMat = (weaverMesh?.material || this.debrisMat!) as BABYLON.Material;
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;

@@ -120,9 +120,9 @@ export class VisualStateDressingSystem implements ISystem {
 
     for (const [id, pCosmetic] of pCosmetics.entries()) {
       const pNode = this.context.visualRegistry.getTransformNode(id);
-      if (!pNode) continue;
+      if (!(pNode instanceof BABYLON.AbstractMesh)) continue;
 
-      const mesh = pNode as BABYLON.AbstractMesh;
+      const mesh = pNode;
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);
@@ -159,9 +159,9 @@ export class VisualStateDressingSystem implements ISystem {
 
     for (const [id, wCosmetic] of wCosmetics.entries()) {
       const wNode = this.context.visualRegistry.getTransformNode(id);
-      if (!wNode) continue;
+      if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
 
-      const mesh = wNode as BABYLON.AbstractMesh;
+      const mesh = wNode;
       const pbrMaterials: BABYLON.PBRMaterial[] = [];
       if (mesh.material instanceof BABYLON.PBRMaterial) {
         pbrMaterials.push(mesh.material);

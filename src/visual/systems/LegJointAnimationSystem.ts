@@ -122,9 +122,9 @@ export class LegJointAnimationSystem implements ISystem {
 
     for (const [id] of weaverCosmetics.entries()) {
       const wNode = this.context.visualRegistry.getTransformNode(id);
-      if (!wNode) continue;
+      if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
 
-      const mesh = wNode as BABYLON.AbstractMesh;
+      const mesh = wNode;
       let parts = mesh.metadata?.cachedParts as CachedWeaverParts | undefined;
       if (!parts) {
         const legRoots = mesh.getChildren(

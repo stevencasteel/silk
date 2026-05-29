@@ -135,8 +135,8 @@ export class ProjectileSystem implements ISystem {
               projCol.hitPointX = projTrans.x;
               projCol.hitPointY = projTrans.y;
 
-              const mesh = this.context.visualRegistry.getTransformNode(id) as BABYLON.Mesh;
-              if (mesh) {
+              const mesh = this.context.visualRegistry.getTransformNode(id);
+              if (mesh instanceof BABYLON.AbstractMesh) {
                 mesh.scaling.set(0.24, 1.45, 1.45);
                 mesh.position.x = projTrans.x;
                 mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
@@ -285,9 +285,9 @@ export class ProjectileSystem implements ISystem {
     const pComp = projStore.get(projId);
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
-    const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
+    const mesh = this.context.visualRegistry.getTransformNode(projId);
 
-    if (!pComp || !trans || !vel || !mesh) return;
+    if (!pComp || !trans || !vel || !(mesh instanceof BABYLON.AbstractMesh)) return;
 
     pComp.isActive = true;
     pComp.isStuck = false;
@@ -367,8 +367,8 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       const trans = transformStore.get(projId);
-      const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
-      if (!trans || !mesh) continue;
+      const mesh = this.context.visualRegistry.getTransformNode(projId);
+      if (!trans || !(mesh instanceof BABYLON.AbstractMesh)) continue;
 
       if (p.isStuckOnWall) {
         trans.y -= currentScrollSpeed * dt;
@@ -403,7 +403,7 @@ export class ProjectileSystem implements ISystem {
 
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
-    const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
+    const mesh = this.context.visualRegistry.getTransformNode(projId);
 
     if (trans) {
       trans.x = 0;
@@ -419,7 +419,7 @@ export class ProjectileSystem implements ISystem {
       vel.y = 0;
     }
 
-    if (mesh) {
+    if (mesh instanceof BABYLON.AbstractMesh) {
       mesh.isVisible = false;
       mesh.setEnabled(false);
       mesh.position.set(0, -999, 0);
@@ -431,8 +431,8 @@ export class ProjectileSystem implements ISystem {
     const body = this.bodiesMap.get(projId);
     if (body) {
       body.setTargetTransform(
-        mesh ? mesh.position : BABYLON.Vector3.Zero(),
-        mesh
+        mesh instanceof BABYLON.AbstractMesh ? mesh.position : BABYLON.Vector3.Zero(),
+        mesh instanceof BABYLON.AbstractMesh
           ? mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
           : BABYLON.Quaternion.Identity()
       );

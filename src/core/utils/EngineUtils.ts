@@ -33,11 +33,27 @@ export class SubscriptionTracker {
   }
 }
 
+export interface ProceduralTextureConfig {
+  resolution: number;
+  noiseScale: number;
+  bumpStrength: number;
+  baseColor: BABYLON.Color3;
+  roughnessMin: number;
+  roughnessMax: number;
+  metallic: number;
+  ridgeStrength?: number;
+  ridgeScale?: number;
+  ridgeDirectionX?: number;
+  ridgeDirectionY?: number;
+  colorVariation?: number;
+}
+
 export interface IProceduralTextureGenerator {
   generatePBRTextures(
     name: string,
     scene: BABYLON.Scene,
-    config: unknown
+    config: ProceduralTextureConfig,
+    onProgress?: (percent: number) => void
   ): Promise<{
     albedo: BABYLON.DynamicTexture;
     normal: BABYLON.DynamicTexture;
@@ -50,7 +66,7 @@ export function applyProceduralTextures(
   name: string,
   scene: BABYLON.Scene,
   material: BABYLON.PBRMaterial,
-  config: unknown,
+  config: ProceduralTextureConfig,
   customSetup?: (mat: BABYLON.PBRMaterial) => void
 ): void {
   textureGen.generatePBRTextures(name, scene, config).then((textures) => {

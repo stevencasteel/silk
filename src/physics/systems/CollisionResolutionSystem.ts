@@ -21,7 +21,6 @@ export class CollisionResolutionSystem implements ISystem {
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const responses = this.context.stores.get<CollisionResponseComponent>("collisionResponse");
 
-    // 1. Resolve Hitbox and Hurtbox collisions (Delegated to responses)
     const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
     const hurtboxes = this.context.stores.get<HurtboxComponent>("hurtbox");
 
@@ -54,19 +53,20 @@ export class CollisionResolutionSystem implements ISystem {
       }
     }
 
-    // 2. Resolve Projectile Dynamic Overlaps (Delegated to responses)
     const projectiles = this.context.stores.get<ProjectileComponent>("projectile");
     for (const [projId, pComp] of projectiles.entries()) {
       if (!pComp.isActive || pComp.isStuckOnWall) continue;
 
       const response = responses.get(projId);
       if (response && response.layer === "PROJECTILE" && response.onOverlap) {
-        const mesh = this.context.visualRegistry.getTransformNode(projId) as BABYLON.Mesh;
-        const pMesh = this.context.visualRegistry.getTransformNode(
-          this.context.refs.player
-        ) as BABYLON.AbstractMesh;
+        const mesh = this.context.visualRegistry.getTransformNode(projId);
+        const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player);
 
-        if (mesh && pMesh && mesh.intersectsMesh(pMesh, false)) {
+        if (
+          mesh instanceof BABYLON.AbstractMesh &&
+          pMesh instanceof BABYLON.AbstractMesh &&
+          mesh.intersectsMesh(pMesh, false)
+        ) {
           response.onOverlap(this.context.refs.player, this.context);
         }
       }
