@@ -26,13 +26,15 @@ export class TetherReelingSystem implements ISystem {
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWallSliding = trav.state === "WALL_SLIDING";
+    const isTrapped = !!trav.isWebTrapped;
+    const trappedMultiplier = isTrapped ? 0.5 : 1.0;
 
     if (input.y > 0 && !isWallSliding) {
-      tether.desiredLength -= reelConfig.IN_SPEED * dt;
-      tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2);
+      tether.desiredLength -= reelConfig.IN_SPEED * trappedMultiplier * dt;
+      tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2 * trappedMultiplier);
     } else if (input.y < 0 && !isWallSliding) {
-      tether.desiredLength += reelConfig.OUT_SPEED * dt;
-      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5);
+      tether.desiredLength += reelConfig.OUT_SPEED * trappedMultiplier * dt;
+      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5 * trappedMultiplier);
     } else {
       tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
       const AUTO_SLACK_MARGIN = 2.0;
@@ -49,10 +51,10 @@ export class TetherReelingSystem implements ISystem {
     let easeSpeed = 0;
     if (tether.maxLength > tether.desiredLength) {
       const resistance = Math.max(0.1, 1.0 - tether.tension);
-      easeSpeed = reelConfig.IN_SPEED * resistance;
+      easeSpeed = reelConfig.IN_SPEED * resistance * trappedMultiplier;
       tether.reelVelocity = -easeSpeed;
     } else if (tether.maxLength < tether.desiredLength) {
-      easeSpeed = reelConfig.OUT_SPEED;
+      easeSpeed = reelConfig.OUT_SPEED * trappedMultiplier;
       tether.reelVelocity = easeSpeed;
     } else {
       tether.reelVelocity = 0;

@@ -104,6 +104,11 @@ export interface TraversalStateComponent {
   stickyEntityId?: number;
   stickyWallX?: number;
   stickyWallYOffset?: number;
+  isWebTrapped?: boolean;
+  escapeProgress?: number;
+  escapeRequired?: number;
+  lastEscapeDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | "";
+  hasFlingBonus?: boolean;
 }
 
 export interface WeaverTraversalComponent {
@@ -138,6 +143,7 @@ export interface ProjectileComponent {
   lifeTime: number;
   fallbackX: number;
   fallbackY: number;
+  isTrappingPlayer?: boolean;
 }
 
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";

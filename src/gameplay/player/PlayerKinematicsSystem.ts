@@ -9,12 +9,15 @@ import {
   TraversalStateComponent,
   TransformComponent,
   HealthComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  InputIntentComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { IPlayerState } from "./IPlayerState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
 import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { WebSplatStrategy } from "../juice/ParticleStrategies";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -92,6 +95,83 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.anchorZ = tipWorld.z;
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
+
+    // Trap & Struggle Detection
+    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    if (trav.isWebTrapped && input) {
+      let currentDir: "UP" | "DOWN" | "LEFT" | "RIGHT" | "" = "";
+      if (input.x < -0.1) currentDir = "LEFT";
+      else if (input.x > 0.1) currentDir = "RIGHT";
+      else if (input.y > 0.1) currentDir = "UP";
+      else if (input.y < -0.1) currentDir = "DOWN";
+
+      if (currentDir !== "" && currentDir !== trav.lastEscapeDirection) {
+        trav.escapeProgress = (trav.escapeProgress || 0) + 1;
+        trav.lastEscapeDirection = currentDir;
+
+        // Visual / Audio shake on registration
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.18,
+          duration: 0.12
+        });
+
+        const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+        if (reqStore) {
+          const reqId = this.context.world.create();
+          reqStore.add(reqId, {
+            strategy: new WebSplatStrategy(),
+            x: target.x,
+            y: target.y,
+            z: 0
+          });
+        }
+
+        // Custom window struggle dispatch
+        window.dispatchEvent(
+          new CustomEvent("silk-web-struggle", {
+            detail: { progress: trav.escapeProgress, required: trav.escapeRequired, direction: currentDir }
+          })
+        );
+
+        if (trav.escapeProgress >= (trav.escapeRequired || 5)) {
+          trav.isWebTrapped = false;
+          trav.escapeProgress = 0;
+          trav.lastEscapeDirection = "";
+
+          // Apply Fling Bonus if escaping directly while attached to wall
+          if (trav.state === "WALL_SLIDING") {
+            trav.hasFlingBonus = true;
+          }
+
+          // Visual pop scale burst via spring-damper values
+          const pTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.player);
+          if (pTrans) {
+            pTrans.scaleX = 1.4;
+            pTrans.scaleY = 1.4;
+            pTrans.scaleZ = 1.4;
+          }
+
+          // Escape blast particles
+          this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+            amplitude: 0.8,
+            duration: 0.45
+          });
+          if (reqStore) {
+            for (let i = 0; i < 4; i++) {
+              const reqId = this.context.world.create();
+              reqStore.add(reqId, {
+                strategy: new WebSplatStrategy(),
+                x: target.x,
+                y: target.y,
+                z: 0
+              });
+            }
+          }
+
+          window.dispatchEvent(new CustomEvent("silk-web-break"));
+        }
+      }
+    }
 
     const stateObj = this.states.get(trav.state);
     if (stateObj) {

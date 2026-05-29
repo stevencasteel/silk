@@ -39,6 +39,8 @@ export class PlayerLaunchingState implements IPlayerState {
     if (!target || !vel || !tether || !input || !trav) return null;
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
+    const isTrapped = !!trav.isWebTrapped;
+    const trappedDamping = isTrapped ? 0.5 : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -61,7 +63,7 @@ export class PlayerLaunchingState implements IPlayerState {
     }
 
     trav.launchTimer -= dt;
-    vel.x += input.x * tuning.LAUNCH_STEER_FORCE * dt;
+    vel.x += input.x * tuning.LAUNCH_STEER_FORCE * trappedDamping * dt;
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * tuning.LAUNCH_GRAVITY_MULT * dt;
 
     const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
@@ -94,7 +96,7 @@ export class PlayerLaunchingState implements IPlayerState {
             const bugWallDir = distToBugX > 0 ? -1 : 1;
             const pressingIn = input.x === bugWallDir;
 
-            if (pressingIn) {
+            if (pressingIn || isTrapped) {
               PlayerStateUtils.applyWallImpactSquash(ctx);
 
               trav.state = "WALL_SLIDING";
@@ -125,7 +127,7 @@ export class PlayerLaunchingState implements IPlayerState {
 
     if (wallDir !== 0) {
       const pressingIn = input.x === wallDir;
-      if (pressingIn) {
+      if (pressingIn || isTrapped) {
         PlayerStateUtils.applyWallImpactSquash(ctx);
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;

@@ -4,11 +4,13 @@ import {
   KinematicVelocityComponent,
   TetherComponent,
   TraversalStateComponent,
-  TransformComponent
+  TransformComponent,
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS } from "../../../core/engine/ArenaConfig";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
+import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -69,8 +71,10 @@ export class PlayerStateUtils {
       storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
 
+    // Apply +10% fling bonus if they broke free from a wall-locked trap!
+    const bonusMultiplier = trav.hasFlingBonus ? 1.10 : 1.0;
     const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
-    const power = powerScale * tuning.FLING_IMPULSE;
+    const power = powerScale * tuning.FLING_IMPULSE * bonusMultiplier;
 
     vel.x = (dx / dist) * power;
     vel.y = (dy / dist) * power;
@@ -91,7 +95,25 @@ export class PlayerStateUtils {
     let shakeAmp = 0.25 + powerScale * 0.35;
     let shakeDur = 0.2;
 
-    if (storedTension >= CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+    if (trav.hasFlingBonus) {
+      trav.hasFlingBonus = false; // Reset the bonus flag
+      shakeAmp += 0.50;
+      shakeDur += 0.25;
+
+      // Spawn extra launch exhaustion trails to indicate the powerful breakaway
+      const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+      if (reqStore) {
+        for (let i = 0; i < 4; i++) {
+          const reqId = ctx.world.create();
+          reqStore.add(reqId, {
+            strategy: new LaunchTrailStrategy(),
+            x: target.x,
+            y: target.y,
+            z: 0
+          });
+        }
+      }
+    } else if (storedTension >= CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
       shakeAmp = 0.85;
       shakeDur = 0.45;
     } else if (isSweetSpot) {

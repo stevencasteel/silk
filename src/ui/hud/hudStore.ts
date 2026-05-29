@@ -4,8 +4,12 @@ export interface PlayerState {
   playerHp: number;
   playerMaxHp: number;
   currentState: string;
+  isWebTrapped: boolean;
+  escapeProgress: number;
+  escapeRequired: number;
   setPlayerHp: (hp: number, maxHp: number) => void;
   setCurrentState: (state: string) => void;
+  setWebTrapped: (trapped: boolean, progress: number, required: number) => void;
   reset: () => void;
 }
 
@@ -55,13 +59,22 @@ export interface InputStoreState {
   reset: () => void;
 }
 
-const PLAYER_RESET = { playerHp: 5, playerMaxHp: 5, currentState: "AIRBORNE" };
+const PLAYER_RESET = {
+  playerHp: 5,
+  playerMaxHp: 5,
+  currentState: "AIRBORNE",
+  isWebTrapped: false,
+  escapeProgress: 0,
+  escapeRequired: 5
+};
+
 const WEAVER_RESET = {
   weaverHp: 100,
   weaverMaxHp: 100,
   weaverState: "SWEEPING",
   weaverHue: "rgb(239, 68, 68)"
 };
+
 const OVERLAY_RESET = {
   bootStatus: "READY",
   traversalHint: "",
@@ -81,6 +94,8 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   ...PLAYER_RESET,
   setPlayerHp: (hp, maxHp) => set({ playerHp: hp, playerMaxHp: maxHp }),
   setCurrentState: (state) => set({ currentState: state }),
+  setWebTrapped: (trapped, progress, required) =>
+    set({ isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required }),
   reset: () => set(PLAYER_RESET)
 }));
 

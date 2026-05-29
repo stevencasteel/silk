@@ -54,9 +54,10 @@ export class ProjectileSystem implements ISystem {
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
 
     if (scene.isPhysicsEnabled()) {
+      // Keep collision bounds 3x larger (radius = 0.65 * 3.0 / 2)
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
         BABYLON.Vector3.Zero(),
-        WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2,
+        (WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER * 3.0) / 2,
         scene
       );
       this.sharedShape.material = { friction: 0.1, restitution: 0.6 };
@@ -66,6 +67,7 @@ export class ProjectileSystem implements ISystem {
       const projId = this.context.world.create();
       this.projectileEntities.push(projId);
 
+      // Create base sphere at original tight diameter
       const sphere = BABYLON.MeshBuilder.CreateSphere(
         `projectile_pooled_${i}`,
         { diameter: WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER },
@@ -119,7 +121,8 @@ export class ProjectileSystem implements ISystem {
         isStuckOnWall: false,
         lifeTime: 0.0,
         fallbackX: 0.0,
-        fallbackY: 0.0
+        fallbackY: 0.0,
+        isTrappingPlayer: false
       });
 
       this.context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(projId, {
@@ -128,7 +131,7 @@ export class ProjectileSystem implements ISystem {
         layer: "PROJECTILE",
         onBoundaryHit: (id: number, side: "LEFT" | "RIGHT", currentX: number) => {
           const pComp = this.context.stores.get<ProjectileComponent>("projectile").get(id);
-          if (pComp && !pComp.isStuck) {
+          if (pComp && !pComp.isStuck && !pComp.isTrappingPlayer) {
             const projTrans = this.context.stores.get<TransformComponent>("transform").get(id);
             const projCol = this.context.stores
               .get<CollisionStateComponent>("collisionState")
@@ -155,6 +158,7 @@ export class ProjectileSystem implements ISystem {
               projTrans.prevQz = 0;
               projTrans.prevQw = 1;
 
+              // Revert missed wall splats to original compact sizes
               projTrans.scaleX = 0.24;
               projTrans.scaleY = 1.45;
               projTrans.scaleZ = 1.45;
@@ -199,7 +203,7 @@ export class ProjectileSystem implements ISystem {
           const trans = sysCtx.stores.get<TransformComponent>("transform").get(projId);
           const pTrans = sysCtx.stores.get<TransformComponent>("transform").get(otherId);
 
-          if (!pComp || !trans || !pTrans) return;
+          if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer) return;
 
           const isLaunching = pTrav && pTrav.state === "LAUNCHING";
           const hasIframe = pIframe && pIframe.timeRemaining > 0;
@@ -234,6 +238,27 @@ export class ProjectileSystem implements ISystem {
 
             this.recycleProjectile(projId, pComp);
           } else if (!hasIframe) {
+            const dx = pTrans.x - trans.x;
+            const dy = pTrans.y - trans.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+            const kickbackSpeed = 16.0;
+
+            if (pTrav) {
+              pTrav.isWebTrapped = true;
+              pTrav.escapeProgress = 0;
+              pTrav.escapeRequired = 5;
+              pTrav.lastEscapeDirection = "";
+              pTrav.hasFlingBonus = false;
+            }
+
+            pComp.isTrappingPlayer = true;
+
+            const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
+            if (pVel) {
+              pVel.x = (dx / dist) * kickbackSpeed;
+              pVel.y = (dy / dist) * kickbackSpeed;
+            }
+
             sysCtx.commands.dispatch({
               type: "DAMAGE_REQUEST",
               targetId: otherId,
@@ -261,8 +286,6 @@ export class ProjectileSystem implements ISystem {
               amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
               duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
             });
-
-            this.recycleProjectile(projId, pComp);
           }
         }
       });
@@ -325,6 +348,7 @@ export class ProjectileSystem implements ISystem {
     pComp.isActive = true;
     pComp.isStuck = false;
     pComp.isStuckOnWall = false;
+    pComp.isTrappingPlayer = false;
     pComp.lifeTime = 0.0;
 
     trans.x = x;
@@ -334,18 +358,19 @@ export class ProjectileSystem implements ISystem {
     trans.prevY = y;
     trans.prevZ = 0;
 
-    trans.scaleX = 0.7;
-    trans.scaleY = 1.5;
-    trans.scaleZ = 0.7;
-    trans.prevScaleX = 0.7;
-    trans.prevScaleY = 1.5;
-    trans.prevScaleZ = 0.7;
+    // Apply 3x visual flying cocoon scale relative to 0.65 base diameter
+    trans.scaleX = 0.7 * 3.0;
+    trans.scaleY = 1.5 * 3.0;
+    trans.scaleZ = 0.7 * 3.0;
+    trans.prevScaleX = 0.7 * 3.0;
+    trans.prevScaleY = 1.5 * 3.0;
+    trans.prevScaleZ = 0.7 * 3.0;
     trans.scaleVelX = 0;
     trans.scaleVelY = 0;
     trans.scaleVelZ = 0;
 
     mesh.position.set(x, y, 0);
-    mesh.scaling.set(0.7, 1.5, 0.7);
+    mesh.scaling.set(0.7 * 3.0, 1.5 * 3.0, 0.7 * 3.0);
     mesh.material = this.projMatActive;
     mesh.isVisible = true;
     mesh.setEnabled(true);
@@ -413,7 +438,45 @@ export class ProjectileSystem implements ISystem {
       const mesh = this.context.visualQuery.getTransformNode(projId);
       if (!trans || !(mesh instanceof BABYLON.AbstractMesh)) continue;
 
-      if (p.isStuckOnWall) {
+      if (p.isTrappingPlayer) {
+        const pTrans = transformStore.get(this.context.refs.player);
+        const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+
+        if (!pTrav || !pTrav.isWebTrapped || !pTrans) {
+          this.recycleProjectile(projId, p);
+          continue;
+        }
+
+        trans.x = pTrans.x;
+        trans.y = pTrans.y;
+        trans.z = pTrans.z;
+
+        trans.prevX = pTrans.prevX;
+        trans.prevY = pTrans.prevY;
+        trans.prevZ = pTrans.prevZ;
+
+        // Apply 3x scale relative to compact 0.65 base.
+        if (pTrav.state === "WALL_SLIDING") {
+          // Smooshed flat on wall
+          trans.scaleX = 0.45 * 3.0;
+          trans.scaleY = 1.8 * 3.0;
+          trans.scaleZ = 1.8 * 3.0;
+        } else {
+          // Cocoon enclosing in flight/dangling
+          trans.scaleX = 1.0 * 3.0;
+          trans.scaleY = 1.15 * 3.0;
+          trans.scaleZ = 1.0 * 3.0;
+        }
+
+        mesh.position.set(trans.x, trans.y, trans.z);
+        mesh.scaling.set(trans.scaleX, trans.scaleY, trans.scaleZ);
+
+        const body = this.bodiesMap.get(projId);
+        if (body) {
+          this._scratchPos.set(trans.x, trans.y, trans.z);
+          body.setTargetTransform(this._scratchPos, BABYLON.Quaternion.Identity());
+        }
+      } else if (p.isStuckOnWall) {
         trans.y -= currentScrollSpeed * dt;
         mesh.position.y = trans.y;
         const body = this.bodiesMap.get(projId);
@@ -433,9 +496,9 @@ export class ProjectileSystem implements ISystem {
       }
 
       if (
-        trans.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y ||
-        trans.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y ||
-        p.lifeTime > WEAVER_AI_TUNING.SHOOT.MAX_LIFE
+        (!p.isTrappingPlayer && trans.y < ARENA_CONFIG.PROJECTILE.OFFSCREEN_MIN_Y) ||
+        (!p.isTrappingPlayer && trans.y > ARENA_CONFIG.PROJECTILE.OFFSCREEN_MAX_Y) ||
+        (!p.isTrappingPlayer && p.lifeTime > WEAVER_AI_TUNING.SHOOT.MAX_LIFE)
       ) {
         this.recycleProjectile(projId, p);
       }
@@ -447,6 +510,7 @@ export class ProjectileSystem implements ISystem {
     p.isActive = false;
     p.isStuck = false;
     p.isStuckOnWall = false;
+    p.isTrappingPlayer = false;
     p.lifeTime = 0.0;
     p.fallbackX = 0.0;
     p.fallbackY = 0.0;

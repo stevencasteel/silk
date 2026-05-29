@@ -1,12 +1,13 @@
-import { ISystem } from "../../contracts/ISystem";
+import { ISystem, IUpdateable } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
+import { TraversalStateComponent } from "../../core/ecs/Components";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore, resetAllStores } from "./hudStore";
 
-export class HudSyncSystem implements ISystem {
+export class HudSyncSystem implements ISystem, IUpdateable {
   readonly phase = SystemPhase.RenderSync;
   private subscriptions: (() => void)[] = [];
   private currentState: string = "AIRBORNE";
@@ -21,6 +22,20 @@ export class HudSyncSystem implements ISystem {
   }
 
   public init(): void {}
+
+  public update(dt: number): void {
+    void dt;
+    const playerStore = usePlayerStore.getState();
+    const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+    const pTrav = travStore.get(this.context.refs.player);
+    if (pTrav) {
+      playerStore.setWebTrapped(
+        !!pTrav.isWebTrapped,
+        pTrav.escapeProgress || 0,
+        pTrav.escapeRequired || 5
+      );
+    }
+  }
 
   private registerSubscriptions(): void {
     const playerStore = usePlayerStore.getState();

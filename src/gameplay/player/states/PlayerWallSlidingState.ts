@@ -78,6 +78,15 @@ export class PlayerWallSlidingState implements IPlayerState {
       });
     }
 
+    const stillPressingIn = input.x === trav.wallDir;
+    const isTrapped = !!trav.isWebTrapped;
+
+    // Release/Flinging conditions blocked completely when trapped in cocoon
+    if (!stillPressingIn && !isTrapped) {
+      PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
+      return trav.state;
+    }
+
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
       const sticky = stickyStore ? stickyStore.get(trav.stickyEntityId) : undefined;
@@ -89,12 +98,6 @@ export class PlayerWallSlidingState implements IPlayerState {
         trav.stickyEntityId = -1;
         trav.wallDir = 0;
         return "AIRBORNE";
-      }
-
-      const stillPressingIn = input.x === trav.wallDir;
-      if (!stillPressingIn) {
-        PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
-        return trav.state;
       }
 
       const halfW = sticky.width / 2;
@@ -131,12 +134,6 @@ export class PlayerWallSlidingState implements IPlayerState {
       tether.tension += tensionDelta * dt;
 
       return null;
-    }
-
-    const stillPressingIn = input.x === trav.wallDir;
-    if (!stillPressingIn) {
-      PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
-      return trav.state;
     }
 
     target.x = trav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;

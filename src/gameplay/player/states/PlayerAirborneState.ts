@@ -38,6 +38,8 @@ export class PlayerAirborneState implements IPlayerState {
     if (!target || !vel || !tether || !input || !trav) return null;
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
+    const isTrapped = !!trav.isWebTrapped;
+    const trappedDamping = isTrapped ? 0.5 : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -65,7 +67,7 @@ export class PlayerAirborneState implements IPlayerState {
     }
 
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
-    vel.x += input.x * tuning.SWING_STEER_FORCE * dt;
+    vel.x += input.x * tuning.SWING_STEER_FORCE * trappedDamping * dt;
 
     if (input.y > 0 && tether.isAttached) {
       const dxVal = tether.anchorX - target.x;
@@ -106,7 +108,7 @@ export class PlayerAirborneState implements IPlayerState {
             const bugWallDir = distToBugX > 0 ? -1 : 1;
             const pressingIn = input.x === bugWallDir;
 
-            if (pressingIn) {
+            if (pressingIn || isTrapped) {
               PlayerStateUtils.applyWallImpactSquash(ctx);
 
               trav.state = "WALL_SLIDING";
@@ -137,7 +139,7 @@ export class PlayerAirborneState implements IPlayerState {
 
     if (wallDir !== 0) {
       const pressingIn = input.x === wallDir;
-      if (pressingIn) {
+      if (pressingIn || isTrapped) {
         PlayerStateUtils.applyWallImpactSquash(ctx);
         trav.state = "WALL_SLIDING";
         trav.wallDir = wallDir;

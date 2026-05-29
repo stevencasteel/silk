@@ -2,7 +2,7 @@ import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw, Trash2, Heart } from "lucide-react";
+import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -75,8 +75,13 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
 };
 
 export const HudOverlay: React.FC = () => {
-  const playerState = usePlayerStore(useShallow((s) => ({ playerHp: s.playerHp })));
-  const { playerHp } = playerState;
+  const playerState = usePlayerStore(useShallow((s) => ({
+    playerHp: s.playerHp,
+    isWebTrapped: s.isWebTrapped,
+    escapeProgress: s.escapeProgress,
+    escapeRequired: s.escapeRequired
+  })));
+  const { playerHp, isWebTrapped, escapeProgress, escapeRequired } = playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -139,6 +144,9 @@ export const HudOverlay: React.FC = () => {
   const [displayedStep, setDisplayedStep] = useState<number>(calibrationStep);
   const stepSuccess = calibrationStep > displayedStep;
 
+  // Track active direction register animations for visual struggle feedback
+  const [activeStruggleDir, setActiveStruggleDir] = useState<string>("");
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
@@ -151,6 +159,21 @@ export const HudOverlay: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleStruggleRegistered = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setActiveStruggleDir(customEvent.detail.direction);
+      const timer = setTimeout(() => {
+        setActiveStruggleDir("");
+      }, 180);
+      return () => clearTimeout(timer);
+    };
+    window.addEventListener("silk-web-struggle", handleStruggleRegistered);
+    return () => {
+      window.removeEventListener("silk-web-struggle", handleStruggleRegistered);
     };
   }, []);
 
@@ -652,15 +675,57 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="hud-bottom">
-            <div
-              className="hud-hint"
-              style={{
-                opacity: traversalHintOpacity,
-                color: traversalHintColor
-              }}
-            >
-              {traversalHint}
-            </div>
+            {isWebTrapped ? (
+              <div className="hud-struggle-panel">
+                <div className="flex items-center gap-1.5">
+                  <ShieldAlert size={14} className="text-red-500 animate-pulse" />
+                  <span className="hud-struggle-title">WEB SNAGGED</span>
+                </div>
+                <span className="hud-struggle-subtitle">Alternate direction keys to struggle out!</span>
+                <div className="hud-struggle-keys">
+                  <motion.span
+                    animate={activeStruggleDir === "LEFT" ? { scale: 0.82 } : { scale: 1 }}
+                    className={`keycap-box ${activeStruggleDir === "LEFT" ? "keycap-used" : ""}`}
+                  >
+                    {useWasd ? "A" : "◀"}
+                  </motion.span>
+                  <motion.span
+                    animate={activeStruggleDir === "UP" ? { scale: 0.82 } : { scale: 1 }}
+                    className={`keycap-box ${activeStruggleDir === "UP" ? "keycap-used" : ""}`}
+                  >
+                    {useWasd ? "W" : "▲"}
+                  </motion.span>
+                  <motion.span
+                    animate={activeStruggleDir === "DOWN" ? { scale: 0.82 } : { scale: 1 }}
+                    className={`keycap-box ${activeStruggleDir === "DOWN" ? "keycap-used" : ""}`}
+                  >
+                    {useWasd ? "S" : "▼"}
+                  </motion.span>
+                  <motion.span
+                    animate={activeStruggleDir === "RIGHT" ? { scale: 0.82 } : { scale: 1 }}
+                    className={`keycap-box ${activeStruggleDir === "RIGHT" ? "keycap-used" : ""}`}
+                  >
+                    {useWasd ? "D" : "▶"}
+                  </motion.span>
+                </div>
+                <div className="hud-struggle-bar-track">
+                  <div
+                    className="hud-struggle-bar-fill"
+                    style={{ width: `${((escapeProgress / escapeRequired) * 100).toFixed(1)}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div
+                className="hud-hint"
+                style={{
+                  opacity: traversalHintOpacity,
+                  color: traversalHintColor
+                }}
+              >
+                {traversalHint}
+              </div>
+            )}
           </div>
 
           <div className="cabinet-footer-panel">
