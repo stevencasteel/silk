@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 2:09:42 PM
+ [SYSTEM] Generated: 5/29/2026, 2:14:57 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -8986,14 +8986,14 @@ export class PlayerAirborneState implements IPlayerState {
                   targetId: ctx.refs.player,
                   amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
                   source: "BUG_SPIKES",
-                  knockbackX: bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+                  knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
                   knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
                 });
 
                 ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                   amplitude: 0.65,
                   duration: 0.35,
-                  dirX: bugWallDir,
+                  dirX: -bugWallDir,
                   dirY: 1.0
                 });
 
@@ -9010,8 +9010,8 @@ export class PlayerAirborneState implements IPlayerState {
 
                 // Push away. Stay in AIRBORNE trajectory
                 target.x =
-                  bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
-                vel.x = bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+                  bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+                vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
                 vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
                 return null;
               }
@@ -9212,14 +9212,14 @@ export class PlayerLaunchingState implements IPlayerState {
                   targetId: ctx.refs.player,
                   amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
                   source: "BUG_SPIKES",
-                  knockbackX: bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+                  knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
                   knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
                 });
 
                 ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                   amplitude: 0.65,
                   duration: 0.35,
-                  dirX: bugWallDir,
+                  dirX: -bugWallDir,
                   dirY: 1.0
                 });
 
@@ -9235,8 +9235,8 @@ export class PlayerLaunchingState implements IPlayerState {
                 }
 
                 target.x =
-                  bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
-                vel.x = bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+                  bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+                vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
                 vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
                 return "AIRBORNE"; // Instantly kill high-speed launch, return to AIRBORNE trajectory
               }
@@ -9589,18 +9589,18 @@ export class PlayerWallSlidingState implements IPlayerState {
           targetId: ctx.refs.player,
           amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
           source: "BUG_SPIKES",
-          knockbackX: -trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+          knockbackX: trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
           knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
         });
 
         ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: 0.65,
           duration: 0.35,
-          dirX: -trav.wallNormalX,
+          dirX: trav.wallNormalX,
           dirY: 1.0
         });
 
-        vel.x = -trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+        vel.x = trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
         vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
         return "AIRBORNE";
       }

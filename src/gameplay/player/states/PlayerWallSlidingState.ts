@@ -64,18 +64,18 @@ export class PlayerWallSlidingState implements IPlayerState {
           targetId: ctx.refs.player,
           amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
           source: "BUG_SPIKES",
-          knockbackX: -trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+          knockbackX: trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
           knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
         });
 
         ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: 0.65,
           duration: 0.35,
-          dirX: -trav.wallNormalX,
+          dirX: trav.wallNormalX,
           dirY: 1.0
         });
 
-        vel.x = -trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+        vel.x = trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
         vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
         return "AIRBORNE";
       }

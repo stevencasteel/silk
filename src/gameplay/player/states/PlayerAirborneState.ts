@@ -136,14 +136,14 @@ export class PlayerAirborneState implements IPlayerState {
                   targetId: ctx.refs.player,
                   amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
                   source: "BUG_SPIKES",
-                  knockbackX: bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+                  knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
                   knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
                 });
 
                 ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
                   amplitude: 0.65,
                   duration: 0.35,
-                  dirX: bugWallDir,
+                  dirX: -bugWallDir,
                   dirY: 1.0
                 });
 
@@ -160,8 +160,8 @@ export class PlayerAirborneState implements IPlayerState {
 
                 // Push away. Stay in AIRBORNE trajectory
                 target.x =
-                  bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
-                vel.x = bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+                  bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+                vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
                 vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
                 return null;
               }
