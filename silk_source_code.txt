@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 6:38:17 PM
+ [SYSTEM] Generated: 5/29/2026, 6:53:58 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1082,7 +1082,9 @@ console.log('Manifest and dynamic source assets compiled successfully.');
   gap: 8px;
   background: rgba(12, 14, 18, 0.98);
   border: 1px solid rgba(255, 0, 85, 0.45);
-  box-shadow: 0 0 16px rgba(255, 0, 85, 0.25), inset 0 0 10px rgba(255, 0, 85, 0.15);
+  box-shadow:
+    0 0 16px rgba(255, 0, 85, 0.25),
+    inset 0 0 10px rgba(255, 0, 85, 0.15);
   padding: 12px 20px;
   border-radius: 12px;
   min-width: 200px;
@@ -1543,20 +1545,11 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("silk-play-confirm", this.windowConfirmListener);
 
     this.windowTensionAlarmListener = () => {
-      if (
-        this.initialized &&
-        this.sfxRegistry &&
-        this.toneModule &&
-        Math.random() < 0.1
-      ) {
+      if (this.initialized && this.sfxRegistry && this.toneModule && Math.random() < 0.1) {
         const nowMs = performance.now();
         if (nowMs - this.lastAlarmTime > 80) {
           this.lastAlarmTime = nowMs;
-          this.sfxRegistry.triggerAlarm(
-            "F6",
-            "32n",
-            this.toneModule.now()
-          );
+          this.sfxRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
         }
       }
     };
@@ -1607,10 +1600,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.triggerImpact(
-            presets.DAMAGED_NOTE,
-            presets.DAMAGED_DURATION
-          );
+          this.sfxRegistry.triggerImpact(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
           this.sfxRegistry.triggerNoise(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
@@ -1725,10 +1715,7 @@ export class AudioDirectorSystem implements ISystem {
   ): void {
     if (!this.sfxRegistry) return;
 
-    this.sfxRegistry.triggerImpact(
-      presets.DEATH_NOTE_1,
-      presets.DEATH_NOTE_1_DURATION
-    );
+    this.sfxRegistry.triggerImpact(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
     this.sfxRegistry.triggerImpact(
       presets.DEATH_NOTE_2,
       presets.DEATH_NOTE_2_DURATION,
@@ -2433,7 +2420,7 @@ export interface ISpatialQueryService {
     directionX: number,
     length: number
   ): IRaycastHitResult;
-  
+
   castVerticalRay(
     startX: number,
     startY: number,
@@ -2957,6 +2944,7 @@ export interface WallBugComponent {
   stayDuration: number;
   gaitPhase: number;
   spikedSide?: "LEFT" | "RIGHT" | "NONE";
+  spikesDisarmed?: boolean;
 }
 
 export interface StickySurfaceComponent {
@@ -2975,6 +2963,10 @@ export interface ProjectileComponent {
   fallbackY: number;
   isTrappingPlayer?: boolean;
   isCharging?: boolean;
+  stickyEntityId?: number;
+  stickyOffsetX?: number;
+  stickyOffsetY?: number;
+  isStuckToBug?: boolean;
 }
 
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
@@ -3593,12 +3585,12 @@ export const VISUAL_JUICE_CONFIG = {
   // Spiked Wall Bug visual markers & Web struggle color decay steps
   WALL_BUG_COLORS: {
     BLUE_STRIPE: { r: 0.05, g: 0.45, b: 0.85 }, // Matching elevator wall ticks
-    SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 }    // Danger hazard warning
+    SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 } // Danger hazard warning
   },
   COCOON_COLORS: {
-    DECAY_START: { r: 1.0, g: 1.0, b: 1.0 },   // Clean, opaque white (tightly bound)
-    DECAY_MID: { r: 0.88, g: 0.75, b: 0.35 },  // Fibrous decaying yellow/amber
-    DECAY_END: { r: 0.15, g: 0.15, b: 0.15 }   // Frayed, decaying dark-grey/black
+    DECAY_START: { r: 1.0, g: 1.0, b: 1.0 }, // Clean, opaque white (tightly bound)
+    DECAY_MID: { r: 0.88, g: 0.75, b: 0.35 }, // Fibrous decaying yellow/amber
+    DECAY_END: { r: 0.15, g: 0.15, b: 0.15 } // Frayed, decaying dark-grey/black
   }
 } as const;
 
@@ -3839,8 +3831,18 @@ export class SpatialPartitionService {
 
 ● ./src/core/engine/SystemContext.ts
 ────────────────────────────────────────────────────
-import { IEcsWorld, IEventBroker, ICommandBus, IStoreContainer, IEntityRefs } from "../../contracts/ICore";
-import { IVisualRegistry, IVisualQuery, IVisualRegistration } from "../../contracts/IVisualRegistry";
+import {
+  IEcsWorld,
+  IEventBroker,
+  ICommandBus,
+  IStoreContainer,
+  IEntityRefs
+} from "../../contracts/ICore";
+import {
+  IVisualRegistry,
+  IVisualQuery,
+  IVisualRegistration
+} from "../../contracts/IVisualRegistry";
 
 export class SystemContext {
   public readonly visualQuery: IVisualQuery;
@@ -4195,7 +4197,13 @@ export class ProfilePersistenceSystem implements ISystem {
 
 ● ./src/core/systems/SystemManager.ts
 ────────────────────────────────────────────────────
-import { ISystem, isInitializable, isUpdateable, isRenderable, isDisposable } from "../../contracts/ISystem";
+import {
+  ISystem,
+  isInitializable,
+  isUpdateable,
+  isRenderable,
+  isDisposable
+} from "../../contracts/ISystem";
 import { Profiler } from "../diagnostics/Profiler";
 import { InitPhase, SystemPhase } from "../../contracts/SystemPhase";
 
@@ -4722,7 +4730,8 @@ export class EntityAssembler {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const regCaster = (m: BABYLON.AbstractMesh) => context.visualRegistration.registerShadowCaster(m);
+    const regCaster = (m: BABYLON.AbstractMesh) =>
+      context.visualRegistration.registerShadowCaster(m);
 
     const wMesh = createWeaverVisualMesh(
       scene,
@@ -5480,7 +5489,8 @@ import {
   BoundaryConstraintComponent,
   CollisionStateComponent,
   InvulnerabilityComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { getWeaverAbdomenTip } from "../../core/utils/EngineUtils";
@@ -5519,7 +5529,7 @@ export class ProjectileSystem implements ISystem {
     )._noisePlugin = noisePlugin;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
-    
+
     // Trapped material initialization with active vertex displacement shaders
     this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped", scene);
     const trappedNoise = new ProjectileNoisePlugin(this.projMatTrapped);
@@ -5613,7 +5623,8 @@ export class ProjectileSystem implements ISystem {
               pComp.isStuck = true;
               pComp.isStuckOnWall = true;
 
-              projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
+              projTrans.x =
+                Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
               projTrans.prevX = projTrans.x;
 
               if (projVel) {
@@ -5827,7 +5838,13 @@ export class ProjectileSystem implements ISystem {
     return mat;
   }
 
-  private spawnProjectile(x: number, y: number, tx: number, ty: number, isRelease: boolean = false): void {
+  private spawnProjectile(
+    x: number,
+    y: number,
+    tx: number,
+    ty: number,
+    isRelease: boolean = false
+  ): void {
     const projStore = this.context.stores.get<ProjectileComponent>("projectile");
 
     if (isRelease) {
@@ -5844,13 +5861,15 @@ export class ProjectileSystem implements ISystem {
       if (chargingProjId !== -1) {
         const pComp = projStore.get(chargingProjId)!;
         const trans = this.context.stores.get<TransformComponent>("transform").get(chargingProjId);
-        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(chargingProjId);
+        const vel = this.context.stores
+          .get<KinematicVelocityComponent>("velocity")
+          .get(chargingProjId);
         const mesh = this.context.visualQuery.getTransformNode(chargingProjId);
 
         if (pComp && trans && vel && mesh instanceof BABYLON.AbstractMesh) {
           pComp.isCharging = false;
           pComp.lifeTime = 0.0;
-          
+
           const dx = tx - trans.x;
           const dy = ty - trans.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -6004,7 +6023,10 @@ export class ProjectileSystem implements ISystem {
 
     const body = this.bodiesMap.get(projId);
     if (body) {
-      body.setTargetTransform(mesh.position, mesh.rotationQuaternion || BABYLON.Quaternion.Identity());
+      body.setTargetTransform(
+        mesh.position,
+        mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+      );
     }
   }
 
@@ -6050,9 +6072,96 @@ export class ProjectileSystem implements ISystem {
       const mesh = this.context.visualQuery.getTransformNode(projId);
       if (!trans || !(mesh instanceof BABYLON.AbstractMesh)) continue;
 
+      if (p.isStuckToBug && p.stickyEntityId !== undefined) {
+        const bugTrans = transformStore.get(p.stickyEntityId);
+        if (bugTrans) {
+          trans.x = bugTrans.x + (p.stickyOffsetX || 0);
+          trans.y = bugTrans.y + (p.stickyOffsetY || 0);
+          trans.prevX = trans.x;
+          trans.prevY = trans.y;
+          mesh.position.set(trans.x, trans.y, trans.z);
+          const body = this.bodiesMap.get(projId);
+          if (body) {
+            this._scratchPos.set(trans.x, trans.y, trans.z);
+            this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
+            body.setTargetTransform(this._scratchPos, this._scratchRot);
+          }
+        } else {
+          this.recycleProjectile(projId, p);
+        }
+        continue;
+      }
+
+      if (!p.isStuck && !p.isTrappingPlayer && !p.isCharging) {
+        const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+        if (bugStore) {
+          let hitRegistered = false;
+          for (const [bugId, bug] of bugStore.entries()) {
+            const bugTrans = transformStore.get(bugId);
+            if (!bugTrans) continue;
+
+            const halfW = bug.width / 2;
+            const halfH = bug.height / 2;
+            const projRadius = 0.9;
+
+            const overlapX = Math.abs(trans.x - bugTrans.x) <= halfW + projRadius;
+            const overlapY = Math.abs(trans.y - bugTrans.y) <= halfH + projRadius;
+
+            if (overlapX && overlapY) {
+              const hitLeft = trans.x < bugTrans.x;
+              const hitRight = trans.x > bugTrans.x;
+
+              // Cover and disarm spikes if hit directly on the hazard side
+              if (
+                (bug.spikedSide === "LEFT" && hitLeft) ||
+                (bug.spikedSide === "RIGHT" && hitRight)
+              ) {
+                bug.spikedSide = "NONE";
+              }
+
+              p.isStuck = true;
+              p.isStuckToBug = true;
+              p.stickyEntityId = bugId;
+              p.stickyOffsetX = trans.x - bugTrans.x;
+              p.stickyOffsetY = trans.y - bugTrans.y;
+
+              const vel = this.context.stores
+                .get<KinematicVelocityComponent>("velocity")
+                .get(projId);
+              if (vel) {
+                vel.x = 0;
+                vel.y = 0;
+              }
+
+              trans.scaleX = 0.28;
+              trans.scaleY = 1.35;
+              trans.scaleZ = 1.35;
+              mesh.scaling.set(0.28, 1.35, 1.35);
+
+              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              if (stuckMat) {
+                mesh.material = stuckMat;
+              }
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+
+              hitRegistered = true;
+              break;
+            }
+          }
+          if (hitRegistered) continue;
+        }
+      }
+
       if (p.isTrappingPlayer) {
         const pTrans = transformStore.get(this.context.refs.player);
-        const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+        const pTrav = this.context.stores
+          .get<TraversalStateComponent>("traversal")
+          .get(this.context.refs.player);
 
         if (!pTrav || !pTrav.isWebTrapped || !pTrans) {
           this.recycleProjectile(projId, p);
@@ -6289,6 +6398,10 @@ export class ProjectileSystem implements ISystem {
     p.lifeTime = 0.0;
     p.fallbackX = 0.0;
     p.fallbackY = 0.0;
+    p.isStuckToBug = false;
+    p.stickyEntityId = undefined;
+    p.stickyOffsetX = 0;
+    p.stickyOffsetY = 0;
 
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
@@ -6870,7 +6983,11 @@ export class TetherVisualizerSystem implements ISystem {
       if (pNode) {
         const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
         const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localHeadTop, pNode.getWorldMatrix(), this.scratchPlayer);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          localHeadTop,
+          pNode.getWorldMatrix(),
+          this.scratchPlayer
+        );
       } else {
         const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
         const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
@@ -7009,7 +7126,7 @@ export class TetherVisualizerSystem implements ISystem {
         r = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.r;
         g = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.g;
         b = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.b;
-        eBrightness = 5.5; 
+        eBrightness = 5.5;
       } else if (tension >= 0.4) {
         const ratio = (tension - 0.4) / 0.15;
         r = 1.0;
@@ -7030,7 +7147,11 @@ export class TetherVisualizerSystem implements ISystem {
         finalBrightness *= 2.5;
       }
 
-      this.tetherMat.emissiveColor.set(finalBrightness * r, finalBrightness * g, finalBrightness * b);
+      this.tetherMat.emissiveColor.set(
+        finalBrightness * r,
+        finalBrightness * g,
+        finalBrightness * b
+      );
     } else {
       this.tetherMesh.setEnabled(false);
 
@@ -7048,7 +7169,11 @@ export class TetherVisualizerSystem implements ISystem {
       if (pNode) {
         const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
         const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localHeadTop, pNode.getWorldMatrix(), this.scratchPlayer);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          localHeadTop,
+          pNode.getWorldMatrix(),
+          this.scratchPlayer
+        );
       } else {
         const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
         const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
@@ -7867,7 +7992,9 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     // Trap & Struggle Detection
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
     if (trav.isWebTrapped && input) {
       let currentDir: "UP" | "DOWN" | "LEFT" | "RIGHT" | "" = "";
       if (input.x < -0.1) currentDir = "LEFT";
@@ -7899,7 +8026,11 @@ export class PlayerKinematicsSystem implements ISystem {
         // Custom window struggle dispatch
         window.dispatchEvent(
           new CustomEvent("silk-web-struggle", {
-            detail: { progress: trav.escapeProgress, required: trav.escapeRequired, direction: currentDir }
+            detail: {
+              progress: trav.escapeProgress,
+              required: trav.escapeRequired,
+              direction: currentDir
+            }
           })
         );
 
@@ -7915,7 +8046,9 @@ export class PlayerKinematicsSystem implements ISystem {
           }
 
           // Visual pop scale burst via spring-damper values
-          const pTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.player);
+          const pTrans = this.context.stores
+            .get<TransformComponent>("transform")
+            .get(this.context.refs.player);
           if (pTrans) {
             pTrans.scaleX = 1.4;
             pTrans.scaleY = 1.4;
@@ -8369,7 +8502,8 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TransformComponent,
   WallBugComponent,
-  StickySurfaceComponent
+  StickySurfaceComponent,
+  ProjectileComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
@@ -8497,6 +8631,22 @@ export class WallBugSystem implements ISystem {
       const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
       bugPhase += legFrequency * dt;
       bug.gaitPhase = bugPhase;
+
+      // Sync spikes/safety visibility to the live spikedSide state:
+      pBug.rootNode.getChildren().forEach((child) => {
+        if (child.name === "left_spikes") {
+          child.setEnabled(bug.spikedSide === "LEFT");
+        }
+        if (child.name === "right_spikes") {
+          child.setEnabled(bug.spikedSide === "RIGHT");
+        }
+        if (child.name === "left_safety") {
+          child.setEnabled(bug.spikedSide === "RIGHT" || bug.spikedSide === "NONE");
+        }
+        if (child.name === "right_safety") {
+          child.setEnabled(bug.spikedSide === "LEFT" || bug.spikedSide === "NONE");
+        }
+      });
     }
   }
 
@@ -8547,7 +8697,8 @@ export class WallBugSystem implements ISystem {
     const finalWidth = 1.15;
 
     const rand = Math.random();
-    const spikedSide: "LEFT" | "RIGHT" | "NONE" = rand < 0.45 ? "LEFT" : (rand < 0.9 ? "RIGHT" : "NONE");
+    const spikedSide: "LEFT" | "RIGHT" | "NONE" =
+      rand < 0.45 ? "LEFT" : rand < 0.9 ? "RIGHT" : "NONE";
 
     this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,
@@ -8622,6 +8773,25 @@ export class WallBugSystem implements ISystem {
 
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     stickyStore.remove(pBug.entityId);
+
+    const projStore = this.context.stores.get<ProjectileComponent>("projectile");
+    if (projStore) {
+      for (const [projId, proj] of projStore.entries()) {
+        if (proj.isStuckToBug && proj.stickyEntityId === pBug.entityId) {
+          proj.isActive = false;
+          proj.isStuck = false;
+          proj.isStuckToBug = false;
+          proj.stickyEntityId = undefined;
+          const mesh = this.context.visualQuery.getTransformNode(projId);
+          if (mesh instanceof BABYLON.AbstractMesh) {
+            mesh.isVisible = false;
+            mesh.setEnabled(false);
+            mesh.position.set(0, -999, 0);
+            mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+          }
+        }
+      }
+    }
 
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const trans = transformStore.get(pBug.entityId);
@@ -8825,7 +8995,8 @@ export class PlayerAirborneState implements IPlayerState {
                 }
 
                 // Push away. Stay in AIRBORNE trajectory
-                target.x = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+                target.x =
+                  bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
                 vel.x = bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
                 vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
                 return null;
@@ -9009,7 +9180,9 @@ export class PlayerLaunchingState implements IPlayerState {
               const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
               const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-              if (bug && bug.spikedSide === contactedSpikedSide && !isTrapped && !inSafeWindow) {
+              const spikesActive =
+                bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+              if (spikesActive && !isTrapped && !inSafeWindow) {
                 const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
                 const pCol = colStore.get(ctx.refs.player);
                 if (pCol) {
@@ -9045,7 +9218,8 @@ export class PlayerLaunchingState implements IPlayerState {
                   });
                 }
 
-                target.x = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+                target.x =
+                  bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
                 vel.x = bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
                 vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
                 return "AIRBORNE"; // Instantly kill high-speed launch, return to AIRBORNE trajectory
@@ -9223,7 +9397,7 @@ export class PlayerStateUtils {
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
       trav.wallDir = 0;
-    trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
+      trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
       trav.launchPower = 0;
       return;
     }
@@ -9239,7 +9413,7 @@ export class PlayerStateUtils {
       storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
 
-    const bonusMultiplier = trav.hasFlingBonus ? 1.10 : 1.0;
+    const bonusMultiplier = trav.hasFlingBonus ? 1.1 : 1.0;
     const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
     const power = powerScale * tuning.FLING_IMPULSE * bonusMultiplier;
 
@@ -9275,8 +9449,8 @@ export class PlayerStateUtils {
     let shakeDur = 0.2;
 
     if (trav.hasFlingBonus) {
-      trav.hasFlingBonus = false; 
-      shakeAmp += 0.50;
+      trav.hasFlingBonus = false;
+      shakeAmp += 0.5;
       shakeDur += 0.25;
 
       const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
@@ -9375,10 +9549,10 @@ export class PlayerWallSlidingState implements IPlayerState {
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
-      const isSpikedOnClingSide = bug && (
-        (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
-        (trav.wallDir === 1 && bug.spikedSide === "LEFT")
-      );
+      const isSpikedOnClingSide =
+        bug &&
+        ((trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
+          (trav.wallDir === 1 && bug.spikedSide === "LEFT"));
 
       const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
       if (isSpikedOnClingSide && !isTrapped && !inSafeWindow) {
@@ -9925,8 +10099,13 @@ export class WeaverTraversalSystem implements ISystem {
         if (concreteEngine && Math.abs(vel.x) > 0.001) {
           const castLength =
             ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
-          
-          const hitResult = this.queryService.castHorizontalRay(trans.x, trans.y, sState.direction, castLength);
+
+          const hitResult = this.queryService.castHorizontalRay(
+            trans.x,
+            trans.y,
+            sState.direction,
+            castLength
+          );
 
           if (hitResult.hasHit) {
             const hitDistance = hitResult.hitDistance;
@@ -9982,7 +10161,7 @@ export class WeaverTraversalSystem implements ISystem {
       if (Math.abs(vel.x) > 0.01) {
         const dirX = Math.sign(vel.x);
         const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
-        
+
         const hitResult = this.queryService.castHorizontalRay(trans.x, target.y, dirX, castLength);
 
         if (hitResult.hasHit) {
@@ -9999,8 +10178,13 @@ export class WeaverTraversalSystem implements ISystem {
 
       const castLengthDown =
         ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
-      
-      const floorHitResult = this.queryService.castVerticalRay(target.x, trans.y, -1, castLengthDown);
+
+      const floorHitResult = this.queryService.castVerticalRay(
+        target.x,
+        trans.y,
+        -1,
+        castLengthDown
+      );
 
       if (floorHitResult.hasHit && !isStriking) {
         const hitDistance = floorHitResult.hitDistance;
@@ -10014,7 +10198,11 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
 
-      const wallClingResult = this.queryService.checkAabbWallCling(target.x, target.y, ARENA_CONFIG.ENTITY.WEAVER_RADIUS);
+      const wallClingResult = this.queryService.checkAabbWallCling(
+        target.x,
+        target.y,
+        ARENA_CONFIG.ENTITY.WEAVER_RADIUS
+      );
       isWallClinging = wallClingResult.isWallClinging;
       wallNormalX = wallClingResult.wallNormalX;
     } else {
@@ -10133,7 +10321,7 @@ export class WeaverAscendingState implements IWeaverState {
         cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
         cosmetic.gaitAmplitude = 0.18; // Identical wide scramble steps as dash lunge
         cosmetic.gaitFrequency = 14.0; // Identical fast scrambling frequency as dash lunge
-        cosmetic.gaitTuck = -0.5;      // Identical outward reaching legs as dash lunge
+        cosmetic.gaitTuck = -0.5; // Identical outward reaching legs as dash lunge
       }
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
@@ -10410,7 +10598,7 @@ export class WeaverShockwaveState implements IWeaverState {
     if (ai) {
       ai.desiredVelocityX = 0;
       ai.desiredVelocityY = 0;
-      ai.hue = HASH_PREFIX + "121212"; 
+      ai.hue = HASH_PREFIX + "121212";
     }
   }
 
@@ -10434,11 +10622,15 @@ export class WeaverShockwaveState implements IWeaverState {
     const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
     if (!wTrans) return;
 
-    const ring = BABYLON.MeshBuilder.CreateTorus(`shockwave_ring_${performance.now()}`, {
-      diameter: 1.0,
-      thickness: 0.08,
-      tessellation: 32
-    }, scene);
+    const ring = BABYLON.MeshBuilder.CreateTorus(
+      `shockwave_ring_${performance.now()}`,
+      {
+        diameter: 1.0,
+        thickness: 0.08,
+        tessellation: 32
+      },
+      scene
+    );
 
     ring.position.set(wTrans.x, wTrans.y, 0);
     ring.rotation.x = Math.PI / 2;
@@ -10503,7 +10695,7 @@ export class WeaverShockwaveState implements IWeaverState {
       if (this.timer <= 0) {
         this.phase = "TELEGRAPH";
         this.timer = this.TELEGRAPH_DURATION;
-        ai.hue = HASH_PREFIX + "eab308"; 
+        ai.hue = HASH_PREFIX + "eab308";
       }
     } else if (this.phase === "TELEGRAPH") {
       const pulse = Math.sin(this.timer * 45.0) * 0.15;
@@ -10552,7 +10744,9 @@ export class WeaverShockwaveState implements IWeaverState {
           if (pTrans) {
             const dist = getDistance2D(wTrans.x, wTrans.y, pTrans.x, pTrans.y);
             if (dist <= this.SHOCKWAVE_RADIUS) {
-              const pIframe = ctx.stores.get<InvulnerabilityComponent>("iframe").get(ctx.refs.player);
+              const pIframe = ctx.stores
+                .get<InvulnerabilityComponent>("iframe")
+                .get(ctx.refs.player);
               const hasIframe = pIframe && pIframe.timeRemaining > 0;
 
               if (!hasIframe) {
@@ -10585,7 +10779,7 @@ export class WeaverShockwaveState implements IWeaverState {
         ai.shakeRequested = true;
         ai.shakeAmplitude = 1.35;
         ai.shakeDuration = 0.45;
-        ai.hue = HASH_PREFIX + "ff0022"; 
+        ai.hue = HASH_PREFIX + "ff0022";
       }
 
       cosmetic.targetScaleX = 1.45;
@@ -12673,13 +12867,15 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
 };
 
 export const HudOverlay: React.FC = () => {
-  const playerState = usePlayerStore(useShallow((s) => ({
-    playerHp: s.playerHp,
-    isWebTrapped: s.isWebTrapped,
-    escapeProgress: s.escapeProgress,
-    escapeRequired: s.escapeRequired,
-    webMass: s.webMass
-  })));
+  const playerState = usePlayerStore(
+    useShallow((s) => ({
+      playerHp: s.playerHp,
+      isWebTrapped: s.isWebTrapped,
+      escapeProgress: s.escapeProgress,
+      escapeRequired: s.escapeRequired,
+      webMass: s.webMass
+    }))
+  );
   const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass } = playerState;
 
   const weaverState = useWeaverStore(
@@ -13282,7 +13478,9 @@ export const HudOverlay: React.FC = () => {
                     {webMass > 1 ? `WEB MASS x${webMass}` : "WEB SNAGGED"}
                   </span>
                 </div>
-                <span className="hud-struggle-subtitle">Alternate direction keys to struggle out!</span>
+                <span className="hud-struggle-subtitle">
+                  Alternate direction keys to struggle out!
+                </span>
                 <div className="hud-struggle-keys">
                   <motion.span
                     animate={activeStruggleDir === "LEFT" ? { scale: 0.82 } : { scale: 1 }}
@@ -13570,7 +13768,13 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
 import { TraversalStateComponent } from "../../core/ecs/Components";
-import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore, resetAllStores } from "./hudStore";
+import {
+  usePlayerStore,
+  useWeaverStore,
+  useOverlayStore,
+  useInputStore,
+  resetAllStores
+} from "./hudStore";
 
 export class HudSyncSystem implements ISystem, IUpdateable {
   readonly phase = SystemPhase.RenderSync;
@@ -15019,23 +15223,31 @@ export class WallBugVisualFactory {
     for (let s = 0; s < 11; s++) {
       const spikeY = -3.0 + s * 0.6;
 
-      const spikeL = BABYLON.MeshBuilder.CreateCylinder(`spikeL_${id}_${s}`, {
-        height: 1.1,
-        diameterTop: 0.0,
-        diameterBottom: 0.38,
-        tessellation: 6
-      }, scene);
+      const spikeL = BABYLON.MeshBuilder.CreateCylinder(
+        `spikeL_${id}_${s}`,
+        {
+          height: 1.1,
+          diameterTop: 0.0,
+          diameterBottom: 0.38,
+          tessellation: 6
+        },
+        scene
+      );
       spikeL.position.set(-0.95, spikeY, 0);
       spikeL.rotation.z = Math.PI / 2;
       spikeL.material = spikeMat;
       spikeL.parent = leftSpikes;
 
-      const spikeR = BABYLON.MeshBuilder.CreateCylinder(`spikeR_${id}_${s}`, {
-        height: 1.1,
-        diameterTop: 0.0,
-        diameterBottom: 0.38,
-        tessellation: 6
-      }, scene);
+      const spikeR = BABYLON.MeshBuilder.CreateCylinder(
+        `spikeR_${id}_${s}`,
+        {
+          height: 1.1,
+          diameterTop: 0.0,
+          diameterBottom: 0.38,
+          tessellation: 6
+        },
+        scene
+      );
       spikeR.position.set(0.95, spikeY, 0);
       spikeR.rotation.z = -Math.PI / 2;
       spikeR.material = spikeMat;
@@ -15049,20 +15261,28 @@ export class WallBugVisualFactory {
     const rightSafety = new BABYLON.TransformNode("right_safety", scene);
     rightSafety.parent = bugRoot;
 
-    const stripL = BABYLON.MeshBuilder.CreateBox(`stripL_${id}`, {
-      width: 0.12,
-      height: 6.2,
-      depth: 0.3
-    }, scene);
+    const stripL = BABYLON.MeshBuilder.CreateBox(
+      `stripL_${id}`,
+      {
+        width: 0.12,
+        height: 6.2,
+        depth: 0.3
+      },
+      scene
+    );
     stripL.position.set(-0.59, 0, 0);
     stripL.material = stripeMat;
     stripL.parent = leftSafety;
 
-    const stripR = BABYLON.MeshBuilder.CreateBox(`stripR_${id}`, {
-      width: 0.12,
-      height: 6.2,
-      depth: 0.3
-    }, scene);
+    const stripR = BABYLON.MeshBuilder.CreateBox(
+      `stripR_${id}`,
+      {
+        width: 0.12,
+        height: 6.2,
+        depth: 0.3
+      },
+      scene
+    );
     stripR.position.set(0.59, 0, 0);
     stripR.material = stripeMat;
     stripR.parent = rightSafety;
@@ -15331,14 +15551,7 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b
   );
 
-  const carapaceMat = createWeaverMaterial(
-    "carapaceMat",
-    scene,
-    imperialPurple,
-    0.98,
-    0.06,
-    true
-  );
+  const carapaceMat = createWeaverMaterial("carapaceMat", scene, imperialPurple, 0.98, 0.06, true);
 
   applyProceduralTextures(textureGen, "carapaceShell", scene, carapaceMat, {
     resolution: 512,
@@ -15361,14 +15574,7 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
   );
 
-  const shellMat = createWeaverMaterial(
-    "carapaceUpperMat",
-    scene,
-    upperPurple,
-    0.95,
-    0.08,
-    true
-  );
+  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true);
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
@@ -16220,7 +16426,12 @@ export class EntityInterpolationSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WallBugComponent, WeaverCosmeticComponent, KinematicVelocityComponent, WeaverAIComponent } from "../../core/ecs/Components";
+import {
+  WallBugComponent,
+  WeaverCosmeticComponent,
+  KinematicVelocityComponent,
+  WeaverAIComponent
+} from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 interface CachedWeaverParts {
@@ -16547,8 +16758,6 @@ export class LegJointAnimationSystem implements ISystem {
       });
     }
   }
-
-
 }
 
 
