@@ -216,7 +216,8 @@ export class ProjectileSystem implements ISystem {
           const isLaunching = pTrav && pTrav.state === "LAUNCHING";
           const hasIframe = pIframe && pIframe.timeRemaining > 0;
 
-          if (isLaunching) {
+          const launchPower = pTrav ? (pTrav.launchPower || 0) : 0;
+          if (isLaunching && launchPower >= 0.55) {
             const dx = trans.x - pTrans.x;
             const dy = trans.y - pTrans.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
@@ -237,14 +238,30 @@ export class ProjectileSystem implements ISystem {
               y: trans.y,
               isWall: false
             });
-            sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
-              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
-              dirX: dx / dist,
-              dirY: dy / dist
-            });
 
-            this.recycleProjectile(projId, pComp);
+            if (launchPower > 0.85) {
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
+                dirX: dx / dist,
+                dirY: dy / dist
+              });
+              this.recycleProjectile(projId, pComp);
+            } else {
+              const vel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+              if (vel) {
+                const deflectAngle = Math.PI / 2 + (Math.random() - 0.5) * 1.0;
+                const deflectSpeed = WEAVER_AI_TUNING.SHOOT.SPEED * 0.95;
+                vel.x = Math.cos(deflectAngle) * deflectSpeed;
+                vel.y = Math.sin(deflectAngle) * deflectSpeed;
+                pComp.fallbackX = vel.x;
+                pComp.fallbackY = vel.y;
+              }
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.5,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 0.6
+              });
+            }
           } else {
             const alreadyTrapped = pTrav && pTrav.isWebTrapped;
             if (alreadyTrapped && pTrav) {

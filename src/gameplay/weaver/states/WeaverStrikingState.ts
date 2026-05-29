@@ -43,6 +43,7 @@ export class WeaverStrikingState implements IWeaverState {
     if (ai) {
       ai.desiredVelocityX = 0;
       ai.desiredVelocityY = 0;
+      ai.isThrusting = false;
     }
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
@@ -64,6 +65,7 @@ export class WeaverStrikingState implements IWeaverState {
     const aiComp = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (aiComp) {
       aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST;
+      aiComp.isThrusting = true;
     }
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
@@ -95,6 +97,7 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_RECOVER;
       aiComp.desiredVelocityX = 0;
       aiComp.desiredVelocityY = 0;
+      aiComp.isThrusting = false;
       aiComp.shakeRequested = true;
       aiComp.shakeAmplitude = 0.8;
       aiComp.shakeDuration = 0.4;

@@ -16,7 +16,7 @@ import {
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { IPlayerState } from "./IPlayerState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
-import { ARENA_CONFIG, CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { WebSplatStrategy } from "../juice/ParticleStrategies";
 
 export class PlayerKinematicsSystem implements ISystem {
@@ -223,25 +223,11 @@ export class PlayerKinematicsSystem implements ISystem {
     tether: TetherComponent,
     trav: TraversalStateComponent
   ): void {
-    const reelConfig = GAMEPLAY_TUNING.REEL;
-
     if (trav.state === "WALL_SLIDING") {
-      if (trav.stickyEntityId === undefined || trav.stickyEntityId === -1) {
-        const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
-        tether.tension += tensionDelta * dt;
-
-        const TENSION_STRETCH_RANGE = 2.0;
-        const stretch = Math.max(0, tether.currentLength - tether.maxLength);
-        const stretchRatio = stretch / TENSION_STRETCH_RANGE;
-        tether.tension += stretchRatio * dt;
-      }
+      const chargeRate = 0.35;
+      tether.tension = Math.min(1.0, tether.tension + chargeRate * dt);
     } else {
-      tether.tension -= GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt;
+      tether.tension = Math.max(0.0, tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt);
     }
-
-    tether.tension = Math.max(
-      0.0,
-      Math.min(CANONICAL_UNITS.TETHER_STRAIN.SNAP_LIMIT, tether.tension)
-    );
   }
 }

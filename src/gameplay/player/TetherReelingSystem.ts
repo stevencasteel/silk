@@ -38,7 +38,7 @@ export class TetherReelingSystem implements ISystem {
       tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5 * trappedMultiplier);
     } else {
       tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
-      const AUTO_SLACK_MARGIN = 2.0;
+      const AUTO_SLACK_MARGIN = 0.5;
       tether.desiredLength = Math.min(
         tether.desiredLength,
         tether.currentLength + AUTO_SLACK_MARGIN
@@ -46,7 +46,7 @@ export class TetherReelingSystem implements ISystem {
     }
     tether.desiredLength = Math.max(
       reelConfig.MIN_LENGTH,
-      Math.min(reelConfig.MAX_LENGTH, tether.desiredLength)
+      Math.min(24.0, tether.desiredLength)
     );
 
     let easeSpeed = 0;

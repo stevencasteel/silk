@@ -27,6 +27,7 @@ export class WeaverPatrollingState implements IWeaverState {
     this.hasTelegraphed = false;
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (ai) { ai.isThrusting = false; }
     if (ai) {
       const healthStore = ctx.stores.get<HealthComponent>("health");
       const health = healthStore.get(ctx.refs.weaver);

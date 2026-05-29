@@ -81,10 +81,11 @@ export const HudOverlay: React.FC = () => {
       isWebTrapped: s.isWebTrapped,
       escapeProgress: s.escapeProgress,
       escapeRequired: s.escapeRequired,
-      webMass: s.webMass
+      webMass: s.webMass,
+      tetherDamage: s.tetherDamage
     }))
   );
-  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass } = playerState;
+  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass, tetherDamage } = playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -229,24 +230,28 @@ export const HudOverlay: React.FC = () => {
       const displayPercent = Math.round(clamped * 100);
       const scaleX = clamped / snapLimit;
 
-      let color = "rgb(16, 185, 129)";
-      let textColor = "rgb(244, 244, 245)";
-      if (clamped >= 1.0) {
-        color = "rgb(239, 68, 68)";
+      let color = "rgb(34, 197, 94)"; // Stage 0: Green
+      let textColor = "rgb(161, 161, 170)";
+      let stageText = "STAGE 0: WEAK";
+
+      if (clamped >= 0.85) {
+        color = "rgb(239, 68, 68)"; // Stage 2: Red
         textColor = "rgb(239, 68, 68)";
-      } else if (clamped >= 0.75) {
-        color = "rgb(245, 158, 11)";
-        textColor = "rgb(245, 158, 11)";
+        stageText = "STAGE 2: OVERLOAD!";
+      } else if (clamped >= 0.55) {
+        color = "rgb(234, 179, 8)"; // Stage 1: Yellow
+        textColor = "rgb(234, 179, 8)";
+        stageText = "STAGE 1: SWEETSPOT!";
       }
 
       if (tensionBarFillRef.current) {
         tensionBarFillRef.current.style.width = `${(scaleX * 100).toFixed(1)}%`;
         tensionBarFillRef.current.style.background = color;
-        tensionBarFillRef.current.style.boxShadow = `0 0 8px ${color}`;
+        tensionBarFillRef.current.style.boxShadow = `0 0 12px ${color}`;
       }
 
       if (tensionTextValRef.current) {
-        tensionTextValRef.current.textContent = `${displayPercent}%`;
+        tensionTextValRef.current.innerHTML = `<span style="font-size: 8px; font-weight: 900; letter-spacing: 0.1em; color: ${textColor}; margin-right: 8px;">${stageText}</span>${displayPercent}%`;
         tensionTextValRef.current.style.color = textColor;
       }
     };
@@ -736,57 +741,101 @@ export const HudOverlay: React.FC = () => {
           </div>
 
           <div className="cabinet-footer-panel">
-            <div className="flex flex-col items-center gap-2" style={{ width: "320px" }}>
-              <div
-                className="flex justify-between w-full font-bold"
-                style={{ padding: "0 4px", alignItems: "center" }}
-              >
-                <span
-                  style={{
-                    color: "var(--text-muted)",
-                    fontSize: "13px",
-                    fontWeight: "900",
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase"
-                  }}
-                >
-                  TENSION
+            <div className="flex items-center gap-2.5" style={{ width: "320px", height: "100%", justifyContent: "space-between" }}>
+              
+              {/* 1. Tension Label & Percent */}
+              <div className="flex items-baseline gap-1" style={{ flexShrink: 0 }}>
+                <span style={{ color: "var(--text-muted)", fontSize: "9px", fontWeight: "900", letterSpacing: "0.08em" }}>
+                  TEN:
                 </span>
-                <span
-                  ref={tensionTextValRef}
-                  style={{
-                    fontFamily: "monospace",
-                    fontSize: "14px",
-                    fontWeight: "900",
-                    letterSpacing: "0.05em"
-                  }}
-                >
+                <span ref={tensionTextValRef} style={{ fontFamily: "monospace", fontSize: "11px", fontWeight: "900", color: "rgb(161, 161, 170)" }}>
                   0%
                 </span>
               </div>
+
+              {/* 2. Segmented LED Bar with Integrated Demarcations */}
               <div
-                className="neo-pressed"
+                className="neo-pressed flex-1"
                 style={{
-                  width: "100%",
-                  height: "14px",
-                  borderRadius: "7px",
+                  height: "12px",
+                  borderRadius: "6px",
                   padding: "2px",
                   boxSizing: "border-box",
                   overflow: "hidden",
                   background: "#07080b",
-                  border: "1px solid rgba(0, 0, 0, 0.4)"
+                  border: "1px solid rgba(0, 0, 0, 0.45)",
+                  position: "relative"
                 }}
               >
+                {/* Segmented LED divider overlay */}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "repeating-linear-gradient(90deg, transparent, transparent 4px, #07080b 4px, #07080b 6px)",
+                    zIndex: 3,
+                    pointerEvents: "none"
+                  }}
+                />
+                
+                {/* Sweetspot background range marker */}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "55%",
+                    width: "30%",
+                    top: 0,
+                    bottom: 0,
+                    background: "rgba(234, 179, 8, 0.05)",
+                    borderLeft: "1px solid rgba(234, 179, 8, 0.25)",
+                    borderRight: "1px solid rgba(234, 179, 8, 0.25)",
+                    zIndex: 1,
+                    pointerEvents: "none"
+                  }}
+                />
+
+                {/* Integrated 0 / 1 / 2 / SKULL Demarcations overlay */}
+                <div style={{ position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none", display: "flex", alignItems: "center", fontSize: "6.5px", fontWeight: "900", color: "rgba(255,255,255,0.22)" }}>
+                  <span style={{ position: "absolute", left: "5%" }}>0</span>
+                  <span style={{ position: "absolute", left: "55%", color: "rgba(234,179,8,0.35)" }}>1</span>
+                  <span style={{ position: "absolute", left: "85%", color: "rgba(239,68,68,0.35)" }}>2</span>
+                  <span style={{ position: "absolute", right: "5%", color: "rgba(239,68,68,0.55)" }}>💀</span>
+                </div>
+
                 <div
                   ref={tensionBarFillRef}
                   style={{
                     height: "100%",
-                    borderRadius: "5px",
+                    borderRadius: "4px",
                     width: "0%",
+                    zIndex: 2,
                     transition: "width 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.2)"
                   }}
                 />
               </div>
+
+              {/* 3. Tether Integrity Life Indicators */}
+              <div className="flex items-center gap-1" style={{ flexShrink: 0 }}>
+                <span style={{ fontSize: "6.5px", fontWeight: "900", color: "var(--text-muted)", letterSpacing: "0.05em" }}>LIFE:</span>
+                <div className="flex gap-1">
+                  {[...Array(3)].map((_, idx) => {
+                    const isDamaged = idx < tetherDamage;
+                    return (
+                      <div
+                        key={idx}
+                        className={`led-dot ${isDamaged ? "led-red" : "led-green"}`}
+                        style={{
+                          width: "7.5px",
+                          height: "7.5px",
+                          border: "1px solid rgba(0,0,0,0.55)",
+                          transition: "all 0.15s ease"
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
             </div>
           </div>
         </div>

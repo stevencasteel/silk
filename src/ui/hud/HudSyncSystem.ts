@@ -4,7 +4,7 @@ import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
-import { TraversalStateComponent } from "../../core/ecs/Components";
+import { TraversalStateComponent, TetherStrainComponent } from "../../core/ecs/Components";
 import {
   usePlayerStore,
   useWeaverStore,
@@ -41,6 +41,12 @@ export class HudSyncSystem implements ISystem, IUpdateable {
         pTrav.escapeRequired || 5,
         pTrav.webMass || 1
       );
+    }
+
+    const strainStore = this.context.stores.get<TetherStrainComponent>("tetherStrain");
+    const pStrain = strainStore.get(this.context.refs.player);
+    if (pStrain) {
+      playerStore.setTetherDamage(pStrain.damageCount || 0);
     }
   }
 

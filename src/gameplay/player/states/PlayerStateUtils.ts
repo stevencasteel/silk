@@ -71,16 +71,19 @@ export class PlayerStateUtils {
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    const tensionPower = Math.min(1.0, storedTension);
-    const reelBonus =
-      tether.reelVelocity < 0 ? Math.min(0.25, Math.abs(tether.reelVelocity) / 20.0) : 0;
-    const isSweetSpot =
-      storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
-    const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
+    const isSweetSpot = storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
+    const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
-    const bonusMultiplier = trav.hasFlingBonus ? 1.1 : 1.0;
-    const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
-    const power = powerScale * tuning.FLING_IMPULSE * bonusMultiplier;
+    let speedMultiplier = 0.65;
+    if (isSweetSpot) {
+      speedMultiplier = 1.38;
+    } else if (isOverload) {
+      speedMultiplier = 1.78;
+    }
+
+    const bonusMultiplier = trav.hasFlingBonus ? 1.15 : 1.0;
+    const power = tuning.FLING_IMPULSE * speedMultiplier * bonusMultiplier;
+    const powerScale = storedTension;
 
     vel.x = (dx / dist) * power;
     vel.y = (dy / dist) * power;
@@ -98,16 +101,31 @@ export class PlayerStateUtils {
       pTrans.scaleVelZ = -powerScale * 7.5;
     }
 
-    // Console-Grade Climax timing: Trigger white capsule flash and active stretch during perfect releases
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
-    if (pCosmetic && isSweetSpot) {
-      pCosmetic.emissiveR = 2.8; // Peak power white core flash
-      pCosmetic.emissiveG = 2.8;
-      pCosmetic.emissiveB = 2.8;
-      pCosmetic.targetScaleX = 0.55;
-      pCosmetic.targetScaleY = 1.65;
-      pCosmetic.targetScaleZ = 0.55;
+    if (pCosmetic) {
+      if (isOverload) {
+        pCosmetic.emissiveR = 4.0;
+        pCosmetic.emissiveG = 0.1;
+        pCosmetic.emissiveB = 0.1;
+        pCosmetic.targetScaleX = 0.45;
+        pCosmetic.targetScaleY = 1.75;
+        pCosmetic.targetScaleZ = 0.45;
+      } else if (isSweetSpot) {
+        pCosmetic.emissiveR = 3.5;
+        pCosmetic.emissiveG = 3.5;
+        pCosmetic.emissiveB = 3.5;
+        pCosmetic.targetScaleX = 0.55;
+        pCosmetic.targetScaleY = 1.65;
+        pCosmetic.targetScaleZ = 0.55;
+      } else {
+        pCosmetic.emissiveR = 0.1;
+        pCosmetic.emissiveG = 0.4;
+        pCosmetic.emissiveB = 0.8;
+        pCosmetic.targetScaleX = 0.95;
+        pCosmetic.targetScaleY = 1.05;
+        pCosmetic.targetScaleZ = 0.95;
+      }
     }
 
     let shakeAmp = 0.25 + powerScale * 0.35;

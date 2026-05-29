@@ -79,6 +79,7 @@ export interface WeaverAIComponent {
   shakeRequested: boolean;
   shakeAmplitude?: number;
   shakeDuration?: number;
+  isThrusting?: boolean;
 }
 
 export interface PlayerTag {
@@ -179,6 +180,8 @@ export interface TetherStrainComponent {
   strain: number;
   strainTimer: number;
   isOverloaded: boolean;
+  damageCount?: number;
+  lastDamageTime?: number;
 }
 
 export interface ParticleEmitterComponent {

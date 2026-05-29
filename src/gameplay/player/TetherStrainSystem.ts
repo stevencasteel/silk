@@ -22,9 +22,11 @@ export class TetherStrainSystem implements ISystem {
 
     const pId = this.context.refs.player;
     if (!strainStore.has(pId)) {
-      strainStore.add(pId, { strain: 0, strainTimer: 0, isOverloaded: false });
+      strainStore.add(pId, { strain: 0, strainTimer: 0, isOverloaded: false, damageCount: 0, lastDamageTime: 0 });
     }
     const tStrain = strainStore.get(pId)!;
+    if (tStrain.damageCount === undefined) tStrain.damageCount = 0;
+    if (tStrain.lastDamageTime === undefined) tStrain.lastDamageTime = 0;
 
     this.updateStrainMeter(tether, health, tStrain);
   }
@@ -44,13 +46,29 @@ export class TetherStrainSystem implements ISystem {
 
       if (Math.random() < strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE) {
         this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.1 + strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE,
+          amplitude: 0.12 + strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE,
           duration: 0.08
         });
       }
 
       if (tether.tension >= this.SNAP_LIMIT) {
-        this.snapTether(tether, health);
+        const now = performance.now();
+        if (now - tStrain.lastDamageTime! > 800) {
+          tStrain.damageCount! += 1;
+          tStrain.lastDamageTime = now;
+
+          window.dispatchEvent(new CustomEvent("silk-tether-damaged", { detail: { count: tStrain.damageCount! } }));
+
+          if (tStrain.damageCount! >= 3) {
+            this.snapTether(tether, health);
+          } else {
+            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: 0.95,
+              duration: 0.45
+            });
+            tether.tension = 0.62;
+          }
+        }
       }
     }
   }

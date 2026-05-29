@@ -48,10 +48,10 @@ export class CombatSystem implements ISystem {
 
     if (pHb && pTrav) {
       pHb.isActive =
-        pTrav.state === "LAUNCHING" && pTrav.launchPower >= tuning.FLING_DAMAGE_THRESHOLD;
+        pTrav.state === "LAUNCHING" && pTrav.launchPower > 0.85;
     }
     if (wHb && wAI) {
-      wHb.isActive = wAI.state === "STRIKING";
+      wHb.isActive = wAI.state === "STRIKING" && wAI.isThrusting === true;
     }
 
     const dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);

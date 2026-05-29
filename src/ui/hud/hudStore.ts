@@ -8,6 +8,8 @@ export interface PlayerState {
   escapeProgress: number;
   escapeRequired: number;
   webMass: number;
+  tetherDamage: number;
+  setTetherDamage: (damage: number) => void;
   setPlayerHp: (hp: number, maxHp: number) => void;
   setCurrentState: (state: string) => void;
   setWebTrapped: (trapped: boolean, progress: number, required: number, webMass?: number) => void;
@@ -67,7 +69,8 @@ const PLAYER_RESET = {
   isWebTrapped: false,
   escapeProgress: 0,
   escapeRequired: 5,
-  webMass: 1
+  webMass: 1,
+  tetherDamage: 0
 };
 
 const WEAVER_RESET = {
@@ -94,6 +97,7 @@ const OVERLAY_RESET = {
 
 export const usePlayerStore = create<PlayerState>((set) => ({
   ...PLAYER_RESET,
+  setTetherDamage: (damage) => set({ tetherDamage: damage }),
   setPlayerHp: (hp, maxHp) => set({ playerHp: hp, playerMaxHp: maxHp }),
   setCurrentState: (state) => set({ currentState: state }),
   setWebTrapped: (trapped, progress, required, webMass = 1) =>
