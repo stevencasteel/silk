@@ -6,12 +6,17 @@ import {
   TraversalStateComponent,
   TransformComponent,
   ParticleRequestComponent,
-  PlayerCosmeticComponent
+  PlayerCosmeticComponent,
+  StickySurfaceComponent,
+  WallBugComponent,
+  CollisionStateComponent,
+  InputIntentComponent,
+  TraversalState
 } from "../../../core/ecs/Components";
-import { GAMEPLAY_TUNING, CANONICAL_UNITS } from "../../../core/engine/ArenaConfig";
+import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
+import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -149,7 +154,7 @@ export class PlayerStateUtils {
           });
         }
       }
-    } else if (storedTension >= CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+    } else if (storedTension >= GAMEPLAY_TUNING.REEL.SWEET_SPOT_MAX) {
       shakeAmp = 0.85;
       shakeDur = 0.45;
     } else if (isSweetSpot) {
@@ -176,6 +181,273 @@ export class PlayerStateUtils {
       pTrans.scaleVelX = 0;
       pTrans.scaleVelY = 0;
       pTrans.scaleVelZ = 0;
+    }
+  }
+
+  public static handleBugCollisions(
+    ctx: SystemContext,
+    target: KinematicTargetComponent,
+    vel: KinematicVelocityComponent,
+    trav: TraversalStateComponent,
+    input: InputIntentComponent,
+    nextX: number,
+    nextY: number,
+    isTrapped: boolean,
+    currentState: TraversalState
+  ): TraversalState | null {
+    const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
+    const bugTransStore = ctx.stores.get<TransformComponent>("transform");
+    const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
+
+    if (!stickyStore || !bugTransStore) return null;
+
+    for (const [bugId, sticky] of stickyStore.entries()) {
+      if (!sticky.isActive) continue;
+
+      const bugTrans = bugTransStore.get(bugId);
+      if (!bugTrans) continue;
+
+      if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
+        const halfW = sticky.width / 2;
+        const halfH = sticky.height / 2;
+        const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+        const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
+        const margin = 1.5;
+
+        const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
+        const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
+
+        if (outX || outY) {
+          trav.lastStickyEntityId = undefined;
+        } else {
+          continue;
+        }
+      }
+
+      const halfW = sticky.width / 2;
+      const halfH = sticky.height / 2;
+
+      const distToBugX = nextX - bugTrans.x;
+      const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
+
+      if (Math.abs(distToBugX) <= contactDist) {
+        if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
+          const bugWallDir = distToBugX > 0 ? -1 : 1;
+          const pressingIn = input.x === bugWallDir;
+
+          const bug = bugStore ? bugStore.get(bugId) : undefined;
+          const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
+
+          const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+          const spikesActive = bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+
+          if (spikesActive && !isTrapped && !inSafeWindow) {
+            const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
+            const pCol = colStore.get(ctx.refs.player);
+            if (pCol) {
+              pCol.lastHitType = "WALL";
+              pCol.hitPointX = target.x;
+              pCol.hitPointY = target.y;
+            }
+
+            ctx.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: ctx.refs.player,
+              amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
+              source: "BUG_SPIKES",
+              knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+              knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
+            });
+
+            ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: 0.65,
+              duration: 0.35,
+              dirX: -bugWallDir,
+              dirY: 1.0
+            });
+
+            const sparkReqId = ctx.world.create();
+            const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+            if (reqStore) {
+              reqStore.add(sparkReqId, {
+                strategy: new WallSparksStrategy(-bugWallDir),
+                x: target.x,
+                y: target.y,
+                z: 0
+              });
+            }
+
+            target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+            vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+            vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
+
+            return currentState === "LAUNCHING" ? "AIRBORNE" : null;
+          }
+
+          if (pressingIn || isTrapped) {
+            PlayerStateUtils.applyWallImpactSquash(ctx);
+
+            trav.state = "WALL_SLIDING";
+            trav.wallDir = bugWallDir;
+            trav.wallNormalX = -bugWallDir;
+            trav.wallNormalY = 0;
+            trav.stickyEntityId = bugId;
+            trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+
+            const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
+            trav.stickyWallYOffset = clampedOffsetY;
+
+            target.x = trav.stickyWallX;
+            target.y = bugTrans.y + clampedOffsetY;
+            vel.x = 0;
+            vel.y = -(9.0 + sticky.speed);
+
+            ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+              x: target.x,
+              y: target.y,
+              wallNormalX: -bugWallDir
+            });
+            return "WALL_SLIDING";
+          } else {
+            target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+            if (Math.sign(vel.x) === bugWallDir) {
+              vel.x *= -0.2;
+            }
+            return currentState === "LAUNCHING" ? "AIRBORNE" : null;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  public static handleActiveWallBugSpikeCheck(
+    ctx: SystemContext,
+    vel: KinematicVelocityComponent,
+    trav: TraversalStateComponent,
+    isTrapped: boolean
+  ): boolean {
+    if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+      const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
+      const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
+      const isSpikedOnClingSide =
+        bug &&
+        !bug.spikesDisarmed &&
+        ((trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
+          (trav.wallDir === 1 && bug.spikedSide === "LEFT"));
+
+      const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+      if (isSpikedOnClingSide && !isTrapped && !inSafeWindow) {
+        trav.state = "AIRBORNE";
+        trav.lastStickyEntityId = trav.stickyEntityId;
+        trav.stickyEntityId = -1;
+        trav.wallDir = 0;
+
+        ctx.commands.dispatch({
+          type: "DAMAGE_REQUEST",
+          targetId: ctx.refs.player,
+          amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
+          source: "BUG_SPIKES",
+          knockbackX: trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+          knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
+        });
+
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.65,
+          duration: 0.35,
+          dirX: trav.wallNormalX,
+          dirY: 1.0
+        });
+
+        vel.x = trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+        vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static updateWebStruggle(
+    ctx: SystemContext,
+    target: KinematicTargetComponent,
+    input: InputIntentComponent,
+    trav: TraversalStateComponent
+  ): void {
+    if (!trav.isWebTrapped || !input) return;
+
+    let currentDir: "UP" | "DOWN" | "LEFT" | "RIGHT" | "" = "";
+    if (input.x < -0.1) currentDir = "LEFT";
+    else if (input.x > 0.1) currentDir = "RIGHT";
+    else if (input.y > 0.1) currentDir = "UP";
+    else if (input.y < -0.1) currentDir = "DOWN";
+
+    if (currentDir !== "" && currentDir !== trav.lastEscapeDirection) {
+      trav.escapeProgress = (trav.escapeProgress || 0) + 1;
+      trav.lastEscapeDirection = currentDir;
+
+      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: 0.18,
+        duration: 0.12
+      });
+
+      const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+      if (reqStore) {
+        const reqId = ctx.world.create();
+        reqStore.add(reqId, {
+          strategy: new WebSplatStrategy(),
+          x: target.x,
+          y: target.y,
+          z: 0
+        });
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("silk-web-struggle", {
+          detail: {
+            progress: trav.escapeProgress,
+            required: trav.escapeRequired,
+            direction: currentDir
+          }
+        })
+      );
+
+      if (trav.escapeProgress >= (trav.escapeRequired || 5)) {
+        trav.isWebTrapped = false;
+        trav.escapeProgress = 0;
+        trav.lastEscapeDirection = "";
+        trav.safeLaunchTimer = 1.5;
+
+        if (trav.state === "WALL_SLIDING") {
+          trav.hasFlingBonus = true;
+        }
+
+        const pTrans = ctx.stores
+          .get<TransformComponent>("transform")
+          .get(ctx.refs.player);
+        if (pTrans) {
+          pTrans.scaleX = 1.4;
+          pTrans.scaleY = 1.4;
+          pTrans.scaleZ = 1.4;
+        }
+
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.8,
+          duration: 0.45
+        });
+        if (reqStore) {
+          for (let i = 0; i < 4; i++) {
+            const reqId = ctx.world.create();
+            reqStore.add(reqId, {
+              strategy: new WebSplatStrategy(),
+              x: target.x,
+              y: target.y,
+              z: 0
+            });
+          }
+        }
+
+        window.dispatchEvent(new CustomEvent("silk-web-break"));
+      }
     }
   }
 }

@@ -8,16 +8,6 @@ export function getDistance2D(x1: number, y1: number, x2: number, y2: number): n
   return Math.sqrt(dx * dx + dy * dy) || 1.0;
 }
 
-export function dispatchUIFeedback(
-  event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"
-): void {
-  try {
-    window.dispatchEvent(new CustomEvent(event));
-  } catch (err) {
-    void err;
-  }
-}
-
 export class SubscriptionTracker {
   private _unsubs: (() => void)[] = [];
 

@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
-import { dispatchUIFeedback, SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class TutorialSystem implements ISystem {
@@ -48,7 +48,7 @@ export class TutorialSystem implements ISystem {
           this.step0Completed = true;
           this.calibrationStep = 1;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 1 });
-          dispatchUIFeedback("silk-play-confirm");
+          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
         }
       })
     );
@@ -71,7 +71,7 @@ export class TutorialSystem implements ISystem {
           this.step1Completed = true;
           this.calibrationStep = 2;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-          dispatchUIFeedback("silk-play-confirm");
+          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
         }
       }
     }
@@ -84,7 +84,7 @@ export class TutorialSystem implements ISystem {
           this.step2Completed = true;
           this.calibrationStep = 3;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 3 });
-          dispatchUIFeedback("silk-play-confirm");
+          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
         }
       }
     }

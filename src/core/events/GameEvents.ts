@@ -24,7 +24,10 @@ export enum GameEvent {
   PROJECTILE_IMPACT = "PROJECTILE_IMPACT",
   PLAYER_INPUT_KEY_STATE_CHANGED = "PLAYER_INPUT_KEY_STATE_CHANGED",
   UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED",
-  WEAVER_BOUNCED = "WEAVER_BOUNCED"
+  WEAVER_BOUNCED = "WEAVER_BOUNCED",
+  UI_SFX_TICK = "UI_SFX_TICK",
+  UI_SFX_CONFIRM = "UI_SFX_CONFIRM",
+  UI_SFX_ALARM = "UI_SFX_ALARM"
 }
 
 export interface GameEventMap {
@@ -63,4 +66,7 @@ export interface GameEventMap {
   [GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED]: { key: string; code: string; pressed: boolean };
   [GameEvent.UI_CALIBRATION_STEP_CHANGED]: { step: number };
   [GameEvent.WEAVER_BOUNCED]: void;
+  [GameEvent.UI_SFX_TICK]: void;
+  [GameEvent.UI_SFX_CONFIRM]: void;
+  [GameEvent.UI_SFX_ALARM]: void;
 }

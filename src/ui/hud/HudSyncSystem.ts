@@ -1,7 +1,7 @@
 import { ISystem, IUpdateable } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
-import { GameEvent } from "../../core/events/GameEvents";
+import { GameEvent, GameEventMap } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
 import { TraversalStateComponent, TetherStrainComponent } from "../../core/ecs/Components";
@@ -55,6 +55,10 @@ export class HudSyncSystem implements ISystem, IUpdateable {
     const weaverStore = useWeaverStore.getState();
     const overlayStore = useOverlayStore.getState();
     const inputStore = useInputStore.getState();
+
+    overlayStore.setPublishEvent((event, payload) => {
+      this.broker.publish(event as GameEvent, payload as GameEventMap[GameEvent]);
+    });
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {

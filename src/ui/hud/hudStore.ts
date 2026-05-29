@@ -53,6 +53,10 @@ export interface OverlayState {
   hideOverlay: () => void;
   setPaused: (isPaused: boolean) => void;
   setAwaitingGesture: (awaiting: boolean) => void;
+
+  publishEvent: (event: string, payload?: unknown) => void;
+  setPublishEvent: (pub: (event: string, payload?: unknown) => void) => void;
+
   reset: () => void;
 }
 
@@ -92,7 +96,9 @@ const OVERLAY_RESET = {
   isPaused: false,
   awaitingGesture: false,
   menuIndex: 0,
-  calibrationStep: 0
+  calibrationStep: 0,
+  publishEvent: () => {},
+  setPublishEvent: () => {}
 };
 
 export const usePlayerStore = create<PlayerState>((set) => ({
@@ -134,6 +140,9 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   setStats: (wins, losses) => set({ wins, losses }),
 
   setCalibrationStep: (step) => set({ calibrationStep: step }),
+
+  publishEvent: () => {},
+  setPublishEvent: (pub) => set({ publishEvent: pub }),
 
   reset: () =>
     set((state) => ({

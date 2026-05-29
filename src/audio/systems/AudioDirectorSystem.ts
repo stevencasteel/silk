@@ -16,9 +16,6 @@ export class AudioDirectorSystem implements ISystem {
   private tensionSynth: ITensionDrone | null = null;
   private sfxRegistry: ISfxInstrument | null = null;
 
-  private windowTickListener: (() => void) | null = null;
-  private windowConfirmListener: (() => void) | null = null;
-  private windowTensionAlarmListener: (() => void) | null = null;
   private initialized: boolean = false;
   private isBooting: boolean = false;
 
@@ -45,42 +42,45 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("keydown", this.gestureTriggerRef);
     window.addEventListener("touchend", this.gestureTriggerRef);
     window.addEventListener("mousedown", this.gestureTriggerRef);
-
-    this.windowTickListener = () => {
-      if (this.initialized && this.sfxRegistry && this.toneModule) {
-        const nowMs = performance.now();
-        if (nowMs - this.lastTickTime > 30) {
-          this.lastTickTime = nowMs;
-          this.sfxRegistry.triggerTick("E6", "32n", this.toneModule.now());
-        }
-      }
-    };
-    window.addEventListener("silk-stats-tick", this.windowTickListener);
-
-    this.windowConfirmListener = () => {
-      if (this.initialized && this.sfxRegistry && this.toneModule) {
-        const nowMs = performance.now();
-        if (nowMs - this.lastConfirmTime > 50) {
-          this.lastConfirmTime = nowMs;
-          this.sfxRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
-        }
-      }
-    };
-    window.addEventListener("silk-play-confirm", this.windowConfirmListener);
-
-    this.windowTensionAlarmListener = () => {
-      if (this.initialized && this.sfxRegistry && this.toneModule && Math.random() < 0.1) {
-        const nowMs = performance.now();
-        if (nowMs - this.lastAlarmTime > 80) {
-          this.lastAlarmTime = nowMs;
-          this.sfxRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
-        }
-      }
-    };
-    window.addEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
   }
 
   public init(): void {
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.UI_SFX_TICK, () => {
+        if (this.initialized && this.sfxRegistry && this.toneModule) {
+          const nowMs = performance.now();
+          if (nowMs - this.lastTickTime > 30) {
+            this.lastTickTime = nowMs;
+            this.sfxRegistry.triggerTick("E6", "32n", this.toneModule.now());
+          }
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.UI_SFX_CONFIRM, () => {
+        if (this.initialized && this.sfxRegistry && this.toneModule) {
+          const nowMs = performance.now();
+          if (nowMs - this.lastConfirmTime > 50) {
+            this.lastConfirmTime = nowMs;
+            this.sfxRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
+          }
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.UI_SFX_ALARM, () => {
+        if (this.initialized && this.sfxRegistry && this.toneModule && Math.random() < 0.1) {
+          const nowMs = performance.now();
+          if (nowMs - this.lastAlarmTime > 80) {
+            this.lastAlarmTime = nowMs;
+            this.sfxRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
+          }
+        }
+      })
+    );
+
     this._tracker.add(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
@@ -311,14 +311,5 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.clear();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.sfxRegistry) this.sfxRegistry.dispose();
-    if (this.windowTickListener) {
-      window.removeEventListener("silk-stats-tick", this.windowTickListener);
-    }
-    if (this.windowConfirmListener) {
-      window.removeEventListener("silk-play-confirm", this.windowConfirmListener);
-    }
-    if (this.windowTensionAlarmListener) {
-      window.removeEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
-    }
   }
 }

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 3:47:49 PM
+ [SYSTEM] Generated: 5/29/2026, 3:56:50 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1451,9 +1451,6 @@ export class AudioDirectorSystem implements ISystem {
   private tensionSynth: ITensionDrone | null = null;
   private sfxRegistry: ISfxInstrument | null = null;
 
-  private windowTickListener: (() => void) | null = null;
-  private windowConfirmListener: (() => void) | null = null;
-  private windowTensionAlarmListener: (() => void) | null = null;
   private initialized: boolean = false;
   private isBooting: boolean = false;
 
@@ -1480,42 +1477,45 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("keydown", this.gestureTriggerRef);
     window.addEventListener("touchend", this.gestureTriggerRef);
     window.addEventListener("mousedown", this.gestureTriggerRef);
-
-    this.windowTickListener = () => {
-      if (this.initialized && this.sfxRegistry && this.toneModule) {
-        const nowMs = performance.now();
-        if (nowMs - this.lastTickTime > 30) {
-          this.lastTickTime = nowMs;
-          this.sfxRegistry.triggerTick("E6", "32n", this.toneModule.now());
-        }
-      }
-    };
-    window.addEventListener("silk-stats-tick", this.windowTickListener);
-
-    this.windowConfirmListener = () => {
-      if (this.initialized && this.sfxRegistry && this.toneModule) {
-        const nowMs = performance.now();
-        if (nowMs - this.lastConfirmTime > 50) {
-          this.lastConfirmTime = nowMs;
-          this.sfxRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
-        }
-      }
-    };
-    window.addEventListener("silk-play-confirm", this.windowConfirmListener);
-
-    this.windowTensionAlarmListener = () => {
-      if (this.initialized && this.sfxRegistry && this.toneModule && Math.random() < 0.1) {
-        const nowMs = performance.now();
-        if (nowMs - this.lastAlarmTime > 80) {
-          this.lastAlarmTime = nowMs;
-          this.sfxRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
-        }
-      }
-    };
-    window.addEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
   }
 
   public init(): void {
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.UI_SFX_TICK, () => {
+        if (this.initialized && this.sfxRegistry && this.toneModule) {
+          const nowMs = performance.now();
+          if (nowMs - this.lastTickTime > 30) {
+            this.lastTickTime = nowMs;
+            this.sfxRegistry.triggerTick("E6", "32n", this.toneModule.now());
+          }
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.UI_SFX_CONFIRM, () => {
+        if (this.initialized && this.sfxRegistry && this.toneModule) {
+          const nowMs = performance.now();
+          if (nowMs - this.lastConfirmTime > 50) {
+            this.lastConfirmTime = nowMs;
+            this.sfxRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
+          }
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.UI_SFX_ALARM, () => {
+        if (this.initialized && this.sfxRegistry && this.toneModule && Math.random() < 0.1) {
+          const nowMs = performance.now();
+          if (nowMs - this.lastAlarmTime > 80) {
+            this.lastAlarmTime = nowMs;
+            this.sfxRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
+          }
+        }
+      })
+    );
+
     this._tracker.add(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
         if (this.initialized && this.tensionSynth) {
@@ -1746,15 +1746,6 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.clear();
     if (this.tensionSynth) this.tensionSynth.dispose();
     if (this.sfxRegistry) this.sfxRegistry.dispose();
-    if (this.windowTickListener) {
-      window.removeEventListener("silk-stats-tick", this.windowTickListener);
-    }
-    if (this.windowConfirmListener) {
-      window.removeEventListener("silk-play-confirm", this.windowConfirmListener);
-    }
-    if (this.windowTensionAlarmListener) {
-      window.removeEventListener("silk-tension-alarm", this.windowTensionAlarmListener);
-    }
   }
 }
 
@@ -3895,7 +3886,10 @@ export enum GameEvent {
   PROJECTILE_IMPACT = "PROJECTILE_IMPACT",
   PLAYER_INPUT_KEY_STATE_CHANGED = "PLAYER_INPUT_KEY_STATE_CHANGED",
   UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED",
-  WEAVER_BOUNCED = "WEAVER_BOUNCED"
+  WEAVER_BOUNCED = "WEAVER_BOUNCED",
+  UI_SFX_TICK = "UI_SFX_TICK",
+  UI_SFX_CONFIRM = "UI_SFX_CONFIRM",
+  UI_SFX_ALARM = "UI_SFX_ALARM"
 }
 
 export interface GameEventMap {
@@ -3934,6 +3928,9 @@ export interface GameEventMap {
   [GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED]: { key: string; code: string; pressed: boolean };
   [GameEvent.UI_CALIBRATION_STEP_CHANGED]: { step: number };
   [GameEvent.WEAVER_BOUNCED]: void;
+  [GameEvent.UI_SFX_TICK]: void;
+  [GameEvent.UI_SFX_CONFIRM]: void;
+  [GameEvent.UI_SFX_ALARM]: void;
 }
 
 
@@ -4269,16 +4266,6 @@ export function getDistance2D(x1: number, y1: number, x2: number, y2: number): n
   const dx = x2 - x1;
   const dy = y2 - y1;
   return Math.sqrt(dx * dx + dy * dy) || 1.0;
-}
-
-export function dispatchUIFeedback(
-  event: "silk-stats-tick" | "silk-play-confirm" | "silk-tension-alarm"
-): void {
-  try {
-    window.dispatchEvent(new CustomEvent(event));
-  } catch (err) {
-    void err;
-  }
 }
 
 export class SubscriptionTracker {
@@ -7898,14 +7885,12 @@ import {
   HealthComponent,
   KinematicVelocityComponent,
   InputIntentComponent,
-  ParticleRequestComponent,
   StickySurfaceComponent
 } from "../../core/ecs/Components";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { IPlayerState } from "./IPlayerState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import { WebSplatStrategy } from "../juice/ParticleStrategies";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 
 export class PlayerKinematicsSystem implements ISystem {
@@ -7988,81 +7973,8 @@ export class PlayerKinematicsSystem implements ISystem {
     const input = this.context.stores
       .get<InputIntentComponent>("input")
       .get(this.context.refs.player);
-    if (trav.isWebTrapped && input) {
-      let currentDir: "UP" | "DOWN" | "LEFT" | "RIGHT" | "" = "";
-      if (input.x < -0.1) currentDir = "LEFT";
-      else if (input.x > 0.1) currentDir = "RIGHT";
-      else if (input.y > 0.1) currentDir = "UP";
-      else if (input.y < -0.1) currentDir = "DOWN";
-
-      if (currentDir !== "" && currentDir !== trav.lastEscapeDirection) {
-        trav.escapeProgress = (trav.escapeProgress || 0) + 1;
-        trav.lastEscapeDirection = currentDir;
-
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.18,
-          duration: 0.12
-        });
-
-        const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
-        if (reqStore) {
-          const reqId = this.context.world.create();
-          reqStore.add(reqId, {
-            strategy: new WebSplatStrategy(),
-            x: target.x,
-            y: target.y,
-            z: 0
-          });
-        }
-
-        window.dispatchEvent(
-          new CustomEvent("silk-web-struggle", {
-            detail: {
-              progress: trav.escapeProgress,
-              required: trav.escapeRequired,
-              direction: currentDir
-            }
-          })
-        );
-
-        if (trav.escapeProgress >= (trav.escapeRequired || 5)) {
-          trav.isWebTrapped = false;
-          trav.escapeProgress = 0;
-          trav.lastEscapeDirection = "";
-          trav.safeLaunchTimer = 1.5;
-
-          if (trav.state === "WALL_SLIDING") {
-            trav.hasFlingBonus = true;
-          }
-
-          const pTrans = this.context.stores
-            .get<TransformComponent>("transform")
-            .get(this.context.refs.player);
-          if (pTrans) {
-            pTrans.scaleX = 1.4;
-            pTrans.scaleY = 1.4;
-            pTrans.scaleZ = 1.4;
-          }
-
-          this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-            amplitude: 0.8,
-            duration: 0.45
-          });
-          if (reqStore) {
-            for (let i = 0; i < 4; i++) {
-              const reqId = this.context.world.create();
-              reqStore.add(reqId, {
-                strategy: new WebSplatStrategy(),
-                x: target.x,
-                y: target.y,
-                z: 0
-              });
-            }
-          }
-
-          window.dispatchEvent(new CustomEvent("silk-web-break"));
-        }
-      }
+    if (input) {
+      PlayerStateUtils.updateWebStruggle(this.context, target, input, trav);
     }
 
     if (trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0) {
@@ -8312,7 +8224,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
-import { dispatchUIFeedback, SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class TutorialSystem implements ISystem {
@@ -8358,7 +8270,7 @@ export class TutorialSystem implements ISystem {
           this.step0Completed = true;
           this.calibrationStep = 1;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 1 });
-          dispatchUIFeedback("silk-play-confirm");
+          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
         }
       })
     );
@@ -8381,7 +8293,7 @@ export class TutorialSystem implements ISystem {
           this.step1Completed = true;
           this.calibrationStep = 2;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-          dispatchUIFeedback("silk-play-confirm");
+          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
         }
       }
     }
@@ -8394,7 +8306,7 @@ export class TutorialSystem implements ISystem {
           this.step2Completed = true;
           this.calibrationStep = 3;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 3 });
-          dispatchUIFeedback("silk-play-confirm");
+          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
         }
       }
     }
@@ -8854,20 +8766,13 @@ import {
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
-  StickySurfaceComponent,
-  TransformComponent,
-  PlayerCosmeticComponent,
-  CollisionStateComponent,
-  WallBugComponent,
-  ParticleRequestComponent
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { GameEvent } from "../../../core/events/GameEvents";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
-import { WallSparksStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerAirborneState implements IPlayerState {
   public readonly type: TraversalState = "AIRBORNE";
@@ -8942,127 +8847,19 @@ export class PlayerAirborneState implements IPlayerState {
     const hitLeft = nextX < -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
 
-    const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
-    const bugTransStore = ctx.stores.get<TransformComponent>("transform");
-    const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
-
-    if (stickyStore && bugTransStore) {
-      for (const [bugId, sticky] of stickyStore.entries()) {
-        if (!sticky.isActive) continue;
-
-        const bugTrans = bugTransStore.get(bugId);
-        if (!bugTrans) continue;
-
-        if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
-          const halfW = sticky.width / 2;
-          const halfH = sticky.height / 2;
-          const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
-          const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
-          const margin = 1.5;
-
-          const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
-          const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
-
-          if (outX || outY) {
-            trav.lastStickyEntityId = undefined;
-          } else {
-            continue;
-          }
-        }
-
-        const halfW = sticky.width / 2;
-        const halfH = sticky.height / 2;
-
-        const distToBugX = nextX - bugTrans.x;
-        const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
-
-        if (Math.abs(distToBugX) <= contactDist) {
-          if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
-            const bugWallDir = distToBugX > 0 ? -1 : 1;
-            const pressingIn = input.x === bugWallDir;
-
-            const bug = bugStore ? bugStore.get(bugId) : undefined;
-            const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
-
-            const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-            const spikesActive = bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
-
-            if (spikesActive && !isTrapped && !inSafeWindow) {
-              const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
-              const pCol = colStore.get(ctx.refs.player);
-              if (pCol) {
-                pCol.lastHitType = "WALL";
-                pCol.hitPointX = target.x;
-                pCol.hitPointY = target.y;
-              }
-
-              ctx.commands.dispatch({
-                type: "DAMAGE_REQUEST",
-                targetId: ctx.refs.player,
-                amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
-                source: "BUG_SPIKES",
-                knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
-                knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
-              });
-
-              ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: 0.65,
-                duration: 0.35,
-                dirX: -bugWallDir,
-                dirY: 1.0
-              });
-
-              const sparkReqId = ctx.world.create();
-              const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
-              if (reqStore) {
-                reqStore.add(sparkReqId, {
-                  strategy: new WallSparksStrategy(-bugWallDir),
-                  x: target.x,
-                  y: target.y,
-                  z: 0
-                });
-              }
-
-              target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
-              vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
-              vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
-              return null;
-            }
-
-            if (pressingIn || isTrapped) {
-              PlayerStateUtils.applyWallImpactSquash(ctx);
-
-              trav.state = "WALL_SLIDING";
-              trav.wallDir = bugWallDir;
-              trav.wallNormalX = -bugWallDir;
-              trav.wallNormalY = 0;
-              trav.stickyEntityId = bugId;
-              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-
-              const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
-              trav.stickyWallYOffset = clampedOffsetY;
-
-              target.x = trav.stickyWallX;
-              target.y = bugTrans.y + clampedOffsetY;
-              vel.x = 0;
-              vel.y = -(9.0 + sticky.speed);
-
-              ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-                x: target.x,
-                y: target.y,
-                wallNormalX: -bugWallDir
-              });
-              return "WALL_SLIDING";
-            } else {
-              target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-              if (Math.sign(vel.x) === bugWallDir) {
-                vel.x *= -0.2;
-              }
-              return null;
-            }
-          }
-        }
-      }
+    const bugStateResult = PlayerStateUtils.handleBugCollisions(
+      ctx,
+      target,
+      vel,
+      trav,
+      input,
+      nextX,
+      nextY,
+      isTrapped,
+      this.type
+    );
+    if (bugStateResult !== null) {
+      return bugStateResult;
     }
 
     if (wallDir !== 0) {
@@ -9080,11 +8877,6 @@ export class PlayerAirborneState implements IPlayerState {
         vel.x = 0;
         vel.y = -9.0;
 
-        ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-          x: target.x,
-          y: target.y,
-          wallNormalX: -wallDir
-        });
         return "WALL_SLIDING";
       } else {
         target.x = wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
@@ -9114,19 +8906,14 @@ import {
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
-  StickySurfaceComponent,
-  TransformComponent,
   PlayerCosmeticComponent,
-  ParticleRequestComponent,
-  CollisionStateComponent,
-  WallBugComponent
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { GameEvent } from "../../../core/events/GameEvents";
-import { LaunchTrailStrategy, WallSparksStrategy } from "../../juice/ParticleStrategies";
+import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerLaunchingState implements IPlayerState {
   public readonly type: TraversalState = "LAUNCHING";
@@ -9157,8 +8944,8 @@ export class PlayerLaunchingState implements IPlayerState {
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (cosmetic) {
       const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
-      cosmetic.targetScaleY = 1.0 + stretchFactor;
       cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
+      cosmetic.targetScaleY = 1.0 + stretchFactor;
       cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
       cosmetic.springStiffness = 220;
       cosmetic.springDamping = 14;
@@ -9188,127 +8975,19 @@ export class PlayerLaunchingState implements IPlayerState {
     const hitLeft = nextX < -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
 
-    const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
-    const bugTransStore = ctx.stores.get<TransformComponent>("transform");
-    const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
-
-    if (stickyStore && bugTransStore) {
-      for (const [bugId, sticky] of stickyStore.entries()) {
-        if (!sticky.isActive) continue;
-
-        const bugTrans = bugTransStore.get(bugId);
-        if (!bugTrans) continue;
-
-        if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
-          const halfW = sticky.width / 2;
-          const halfH = sticky.height / 2;
-          const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
-          const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
-          const margin = 1.5;
-
-          const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
-          const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
-
-          if (outX || outY) {
-            trav.lastStickyEntityId = undefined;
-          } else {
-            continue;
-          }
-        }
-
-        const halfW = sticky.width / 2;
-        const halfH = sticky.height / 2;
-
-        const distToBugX = nextX - bugTrans.x;
-        const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
-
-        if (Math.abs(distToBugX) <= contactDist) {
-          if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
-            const bugWallDir = distToBugX > 0 ? -1 : 1;
-            const pressingIn = input.x === bugWallDir;
-
-            const bug = bugStore ? bugStore.get(bugId) : undefined;
-            const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
-
-            const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-            const spikesActive = bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
-
-            if (spikesActive && !isTrapped && !inSafeWindow) {
-              const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
-              const pCol = colStore.get(ctx.refs.player);
-              if (pCol) {
-                pCol.lastHitType = "WALL";
-                pCol.hitPointX = target.x;
-                pCol.hitPointY = target.y;
-              }
-
-              ctx.commands.dispatch({
-                type: "DAMAGE_REQUEST",
-                targetId: ctx.refs.player,
-                amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
-                source: "BUG_SPIKES",
-                knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
-                knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
-              });
-
-              ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: 0.65,
-                duration: 0.35,
-                dirX: -bugWallDir,
-                dirY: 1.0
-              });
-
-              const sparkReqId = ctx.world.create();
-              const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
-              if (reqStore) {
-                reqStore.add(sparkReqId, {
-                  strategy: new WallSparksStrategy(-bugWallDir),
-                  x: target.x,
-                  y: target.y,
-                  z: 0
-                });
-              }
-
-              target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
-              vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
-              vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
-              return "AIRBORNE";
-            }
-
-            if (pressingIn || isTrapped) {
-              PlayerStateUtils.applyWallImpactSquash(ctx);
-
-              trav.state = "WALL_SLIDING";
-              trav.wallDir = bugWallDir;
-              trav.wallNormalX = -bugWallDir;
-              trav.wallNormalY = 0;
-              trav.stickyEntityId = bugId;
-              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-
-              const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
-              trav.stickyWallYOffset = clampedOffsetY;
-
-              target.x = trav.stickyWallX;
-              target.y = bugTrans.y + clampedOffsetY;
-              vel.x = 0;
-              vel.y = -(9.0 + sticky.speed);
-
-              ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-                x: target.x,
-                y: target.y,
-                wallNormalX: -bugWallDir
-              });
-              return "WALL_SLIDING";
-            } else {
-              target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-              if (Math.sign(vel.x) === bugWallDir) {
-                vel.x *= -0.2;
-              }
-              return "AIRBORNE";
-            }
-          }
-        }
-      }
+    const bugStateResult = PlayerStateUtils.handleBugCollisions(
+      ctx,
+      target,
+      vel,
+      trav,
+      input,
+      nextX,
+      nextY,
+      isTrapped,
+      this.type
+    );
+    if (bugStateResult !== null) {
+      return bugStateResult;
     }
 
     if (wallDir !== 0) {
@@ -9326,11 +9005,6 @@ export class PlayerLaunchingState implements IPlayerState {
         vel.x = 0;
         vel.y = -9.0;
 
-        ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-          x: target.x,
-          y: target.y,
-          wallNormalX: -wallDir
-        });
         return "WALL_SLIDING";
       } else {
         target.x = wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
@@ -9338,7 +9012,7 @@ export class PlayerLaunchingState implements IPlayerState {
         if (Math.sign(vel.x) === wallDir) {
           vel.x *= -0.2;
         }
-        return null;
+        return "AIRBORNE";
       }
     }
 
@@ -9404,12 +9078,17 @@ import {
   TraversalStateComponent,
   TransformComponent,
   ParticleRequestComponent,
-  PlayerCosmeticComponent
+  PlayerCosmeticComponent,
+  StickySurfaceComponent,
+  WallBugComponent,
+  CollisionStateComponent,
+  InputIntentComponent,
+  TraversalState
 } from "../../../core/ecs/Components";
-import { GAMEPLAY_TUNING, CANONICAL_UNITS } from "../../../core/engine/ArenaConfig";
+import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
+import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -9547,7 +9226,7 @@ export class PlayerStateUtils {
           });
         }
       }
-    } else if (storedTension >= CANONICAL_UNITS.TETHER_STRAIN.OVERLOAD_LIMIT) {
+    } else if (storedTension >= GAMEPLAY_TUNING.REEL.SWEET_SPOT_MAX) {
       shakeAmp = 0.85;
       shakeDur = 0.45;
     } else if (isSweetSpot) {
@@ -9576,57 +9255,150 @@ export class PlayerStateUtils {
       pTrans.scaleVelZ = 0;
     }
   }
-}
 
+  public static handleBugCollisions(
+    ctx: SystemContext,
+    target: KinematicTargetComponent,
+    vel: KinematicVelocityComponent,
+    trav: TraversalStateComponent,
+    input: InputIntentComponent,
+    nextX: number,
+    nextY: number,
+    isTrapped: boolean,
+    currentState: TraversalState
+  ): TraversalState | null {
+    const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
+    const bugTransStore = ctx.stores.get<TransformComponent>("transform");
+    const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
 
+    if (!stickyStore || !bugTransStore) return null;
 
-● ./src/gameplay/player/states/PlayerWallSlidingState.ts
-────────────────────────────────────────────────────
-import { IPlayerState } from "../IPlayerState";
-import {
-  TraversalState,
-  KinematicTargetComponent,
-  KinematicVelocityComponent,
-  TetherComponent,
-  TraversalStateComponent,
-  InputIntentComponent,
-  StickySurfaceComponent,
-  TransformComponent,
-  PlayerCosmeticComponent,
-  ParticleRequestComponent,
-  WallBugComponent
-} from "../../../core/ecs/Components";
-import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
-import { SystemContext } from "../../../core/engine/SystemContext";
-import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
-import { PlayerStateUtils } from "./PlayerStateUtils";
-import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
-import { getDistance2D } from "../../../core/utils/EngineUtils";
-import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
-import { GameEvent } from "../../../core/events/GameEvents";
+    for (const [bugId, sticky] of stickyStore.entries()) {
+      if (!sticky.isActive) continue;
 
-export class PlayerWallSlidingState implements IPlayerState {
-  public readonly type: TraversalState = "WALL_SLIDING";
+      const bugTrans = bugTransStore.get(bugId);
+      if (!bugTrans) continue;
 
-  public enter(ctx: SystemContext): void {
-    void ctx;
+      if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
+        const halfW = sticky.width / 2;
+        const halfH = sticky.height / 2;
+        const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+        const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
+        const margin = 1.5;
+
+        const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
+        const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
+
+        if (outX || outY) {
+          trav.lastStickyEntityId = undefined;
+        } else {
+          continue;
+        }
+      }
+
+      const halfW = sticky.width / 2;
+      const halfH = sticky.height / 2;
+
+      const distToBugX = nextX - bugTrans.x;
+      const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
+
+      if (Math.abs(distToBugX) <= contactDist) {
+        if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
+          const bugWallDir = distToBugX > 0 ? -1 : 1;
+          const pressingIn = input.x === bugWallDir;
+
+          const bug = bugStore ? bugStore.get(bugId) : undefined;
+          const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
+
+          const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+          const spikesActive = bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+
+          if (spikesActive && !isTrapped && !inSafeWindow) {
+            const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
+            const pCol = colStore.get(ctx.refs.player);
+            if (pCol) {
+              pCol.lastHitType = "WALL";
+              pCol.hitPointX = target.x;
+              pCol.hitPointY = target.y;
+            }
+
+            ctx.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: ctx.refs.player,
+              amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
+              source: "BUG_SPIKES",
+              knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
+              knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
+            });
+
+            ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+              amplitude: 0.65,
+              duration: 0.35,
+              dirX: -bugWallDir,
+              dirY: 1.0
+            });
+
+            const sparkReqId = ctx.world.create();
+            const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+            if (reqStore) {
+              reqStore.add(sparkReqId, {
+                strategy: new WallSparksStrategy(-bugWallDir),
+                x: target.x,
+                y: target.y,
+                z: 0
+              });
+            }
+
+            target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+            vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
+            vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
+
+            return currentState === "LAUNCHING" ? "AIRBORNE" : null;
+          }
+
+          if (pressingIn || isTrapped) {
+            PlayerStateUtils.applyWallImpactSquash(ctx);
+
+            trav.state = "WALL_SLIDING";
+            trav.wallDir = bugWallDir;
+            trav.wallNormalX = -bugWallDir;
+            trav.wallNormalY = 0;
+            trav.stickyEntityId = bugId;
+            trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+
+            const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
+            trav.stickyWallYOffset = clampedOffsetY;
+
+            target.x = trav.stickyWallX;
+            target.y = bugTrans.y + clampedOffsetY;
+            vel.x = 0;
+            vel.y = -(9.0 + sticky.speed);
+
+            ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+              x: target.x,
+              y: target.y,
+              wallNormalX: -bugWallDir
+            });
+            return "WALL_SLIDING";
+          } else {
+            target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+            if (Math.sign(vel.x) === bugWallDir) {
+              vel.x *= -0.2;
+            }
+            return currentState === "LAUNCHING" ? "AIRBORNE" : null;
+          }
+        }
+      }
+    }
+    return null;
   }
 
-  public exit(ctx: SystemContext): void {
-    void ctx;
-  }
-
-  public update(ctx: SystemContext, dt: number): TraversalState | null {
-    const target = ctx.stores.get<KinematicTargetComponent>("target").get(ctx.refs.player);
-    const vel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.player);
-    const tether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
-    const input = ctx.stores.get<InputIntentComponent>("input").get(ctx.refs.player);
-    const trav = ctx.stores.get<TraversalStateComponent>("traversal").get(ctx.refs.player);
-
-    if (!target || !vel || !tether || !input || !trav) return null;
-
-    const isTrapped = !!trav.isWebTrapped;
-
+  public static handleActiveWallBugSpikeCheck(
+    ctx: SystemContext,
+    vel: KinematicVelocityComponent,
+    trav: TraversalStateComponent,
+    isTrapped: boolean
+  ): boolean {
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
@@ -9661,8 +9433,147 @@ export class PlayerWallSlidingState implements IPlayerState {
 
         vel.x = trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
         vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
-        return "AIRBORNE";
+        return true;
       }
+    }
+    return false;
+  }
+
+  public static updateWebStruggle(
+    ctx: SystemContext,
+    target: KinematicTargetComponent,
+    input: InputIntentComponent,
+    trav: TraversalStateComponent
+  ): void {
+    if (!trav.isWebTrapped || !input) return;
+
+    let currentDir: "UP" | "DOWN" | "LEFT" | "RIGHT" | "" = "";
+    if (input.x < -0.1) currentDir = "LEFT";
+    else if (input.x > 0.1) currentDir = "RIGHT";
+    else if (input.y > 0.1) currentDir = "UP";
+    else if (input.y < -0.1) currentDir = "DOWN";
+
+    if (currentDir !== "" && currentDir !== trav.lastEscapeDirection) {
+      trav.escapeProgress = (trav.escapeProgress || 0) + 1;
+      trav.lastEscapeDirection = currentDir;
+
+      ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: 0.18,
+        duration: 0.12
+      });
+
+      const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+      if (reqStore) {
+        const reqId = ctx.world.create();
+        reqStore.add(reqId, {
+          strategy: new WebSplatStrategy(),
+          x: target.x,
+          y: target.y,
+          z: 0
+        });
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("silk-web-struggle", {
+          detail: {
+            progress: trav.escapeProgress,
+            required: trav.escapeRequired,
+            direction: currentDir
+          }
+        })
+      );
+
+      if (trav.escapeProgress >= (trav.escapeRequired || 5)) {
+        trav.isWebTrapped = false;
+        trav.escapeProgress = 0;
+        trav.lastEscapeDirection = "";
+        trav.safeLaunchTimer = 1.5;
+
+        if (trav.state === "WALL_SLIDING") {
+          trav.hasFlingBonus = true;
+        }
+
+        const pTrans = ctx.stores
+          .get<TransformComponent>("transform")
+          .get(ctx.refs.player);
+        if (pTrans) {
+          pTrans.scaleX = 1.4;
+          pTrans.scaleY = 1.4;
+          pTrans.scaleZ = 1.4;
+        }
+
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.8,
+          duration: 0.45
+        });
+        if (reqStore) {
+          for (let i = 0; i < 4; i++) {
+            const reqId = ctx.world.create();
+            reqStore.add(reqId, {
+              strategy: new WebSplatStrategy(),
+              x: target.x,
+              y: target.y,
+              z: 0
+            });
+          }
+        }
+
+        window.dispatchEvent(new CustomEvent("silk-web-break"));
+      }
+    }
+  }
+}
+
+
+
+● ./src/gameplay/player/states/PlayerWallSlidingState.ts
+────────────────────────────────────────────────────
+import { IPlayerState } from "../IPlayerState";
+import {
+  TraversalState,
+  KinematicTargetComponent,
+  KinematicVelocityComponent,
+  TetherComponent,
+  TraversalStateComponent,
+  InputIntentComponent,
+  StickySurfaceComponent,
+  TransformComponent,
+  PlayerCosmeticComponent,
+  ParticleRequestComponent
+} from "../../../core/ecs/Components";
+import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
+import { PlayerStateUtils } from "./PlayerStateUtils";
+import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
+import { getDistance2D } from "../../../core/utils/EngineUtils";
+import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
+
+export class PlayerWallSlidingState implements IPlayerState {
+  public readonly type: TraversalState = "WALL_SLIDING";
+
+  public enter(ctx: SystemContext): void {
+    void ctx;
+  }
+
+  public exit(ctx: SystemContext): void {
+    void ctx;
+  }
+
+  public update(ctx: SystemContext, dt: number): TraversalState | null {
+    const target = ctx.stores.get<KinematicTargetComponent>("target").get(ctx.refs.player);
+    const vel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.player);
+    const tether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
+    const input = ctx.stores.get<InputIntentComponent>("input").get(ctx.refs.player);
+    const trav = ctx.stores.get<TraversalStateComponent>("traversal").get(ctx.refs.player);
+
+    if (!target || !vel || !tether || !input || !trav) return null;
+
+    const isTrapped = !!trav.isWebTrapped;
+
+    const hitSpike = PlayerStateUtils.handleActiveWallBugSpikeCheck(ctx, vel, trav, isTrapped);
+    if (hitSpike) {
+      return "AIRBORNE";
     }
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
@@ -12874,13 +12785,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
 ● ./src/ui/hud/HudOverlay.tsx
 ────────────────────────────────────────────────────
-import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
+import { GameEvent } from "../../core/events/GameEvents";
 
 interface CalibrationStepMeta {
   successTitle: string;
@@ -12989,7 +12900,8 @@ export const HudOverlay: React.FC = () => {
       bootStatus: s.bootStatus,
       menuIndex: s.menuIndex,
       setMenuIndex: s.setMenuIndex,
-      calibrationStep: s.calibrationStep
+      calibrationStep: s.calibrationStep,
+      publishEvent: s.publishEvent
     }))
   );
 
@@ -13007,7 +12919,8 @@ export const HudOverlay: React.FC = () => {
     bootStatus,
     menuIndex,
     setMenuIndex,
-    calibrationStep
+    calibrationStep,
+    publishEvent
   } = overlayState;
 
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
@@ -13024,7 +12937,6 @@ export const HudOverlay: React.FC = () => {
   const [displayedStep, setDisplayedStep] = useState<number>(calibrationStep);
   const stepSuccess = calibrationStep > displayedStep;
 
-  // Track active direction register animations for visual struggle feedback
   const [activeStruggleDir, setActiveStruggleDir] = useState<string>("");
 
   useEffect(() => {
@@ -13067,16 +12979,16 @@ export const HudOverlay: React.FC = () => {
   }, []);
 
   const playTickSynth = useCallback(() => {
-    dispatchUIFeedback("silk-stats-tick");
-  }, []);
+    publishEvent(GameEvent.UI_SFX_TICK, undefined);
+  }, [publishEvent]);
 
   const playConfirmSynth = useCallback(() => {
-    dispatchUIFeedback("silk-play-confirm");
-  }, []);
+    publishEvent(GameEvent.UI_SFX_CONFIRM, undefined);
+  }, [publishEvent]);
 
   const playTensionAlarm = useCallback(() => {
-    dispatchUIFeedback("silk-tension-alarm");
-  }, []);
+    publishEvent(GameEvent.UI_SFX_ALARM, undefined);
+  }, [publishEvent]);
 
   const handleClearStats = useCallback(() => {
     window.dispatchEvent(new CustomEvent("silk-clear-stats"));
@@ -13105,12 +13017,12 @@ export const HudOverlay: React.FC = () => {
       const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
       const scaleX = clamped / snapLimit;
 
-      let color = "rgb(34, 197, 94)"; // Stage 0: Green
+      let color = "rgb(34, 197, 94)";
 
       if (clamped >= 0.80) {
-        color = "rgb(239, 68, 68)"; // Stage 2: Red
+        color = "rgb(239, 68, 68)";
       } else if (clamped >= 0.375) {
-        color = "rgb(234, 179, 8)"; // Stage 1: Yellow
+        color = "rgb(234, 179, 8)";
       }
 
       if (tensionBarFillRef.current) {
@@ -13641,7 +13553,6 @@ export const HudOverlay: React.FC = () => {
                 justifyContent: "space-between"
               }}
             >
-              {/* 1. Segmented LED Bar with Integrated Demarcations */}
               <div
                 className="neo-pressed"
                 style={{
@@ -13656,7 +13567,6 @@ export const HudOverlay: React.FC = () => {
                   position: "relative"
                 }}
               >
-                {/* Segmented LED divider overlay */}
                 <div
                   style={{
                     position: "absolute",
@@ -13668,7 +13578,6 @@ export const HudOverlay: React.FC = () => {
                   }}
                 />
 
-                {/* Sweetspot background range marker */}
                 <div
                   style={{
                     position: "absolute",
@@ -13684,7 +13593,6 @@ export const HudOverlay: React.FC = () => {
                   }}
                 />
 
-                {/* Integrated 0 / 1 / 2 / SKULL Demarcations overlay */}
                 <div
                   style={{
                     position: "absolute",
@@ -13740,7 +13648,6 @@ export const HudOverlay: React.FC = () => {
                 />
               </div>
 
-              {/* 2. Tether Integrity Life Indicators */}
               <div
                 style={{
                   display: "flex",
@@ -13953,7 +13860,7 @@ export const HudOverlay: React.FC = () => {
 import { ISystem, IUpdateable } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
-import { GameEvent } from "../../core/events/GameEvents";
+import { GameEvent, GameEventMap } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
 import { TraversalStateComponent, TetherStrainComponent } from "../../core/ecs/Components";
@@ -14007,6 +13914,10 @@ export class HudSyncSystem implements ISystem, IUpdateable {
     const weaverStore = useWeaverStore.getState();
     const overlayStore = useOverlayStore.getState();
     const inputStore = useInputStore.getState();
+
+    overlayStore.setPublishEvent((event, payload) => {
+      this.broker.publish(event as GameEvent, payload as GameEventMap[GameEvent]);
+    });
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {
@@ -14163,6 +14074,10 @@ export interface OverlayState {
   hideOverlay: () => void;
   setPaused: (isPaused: boolean) => void;
   setAwaitingGesture: (awaiting: boolean) => void;
+
+  publishEvent: (event: string, payload?: unknown) => void;
+  setPublishEvent: (pub: (event: string, payload?: unknown) => void) => void;
+
   reset: () => void;
 }
 
@@ -14202,7 +14117,9 @@ const OVERLAY_RESET = {
   isPaused: false,
   awaitingGesture: false,
   menuIndex: 0,
-  calibrationStep: 0
+  calibrationStep: 0,
+  publishEvent: () => {},
+  setPublishEvent: () => {}
 };
 
 export const usePlayerStore = create<PlayerState>((set) => ({
@@ -14244,6 +14161,9 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   setStats: (wins, losses) => set({ wins, losses }),
 
   setCalibrationStep: (step) => set({ calibrationStep: step }),
+
+  publishEvent: () => {},
+  setPublishEvent: (pub) => set({ publishEvent: pub }),
 
   reset: () =>
     set((state) => ({

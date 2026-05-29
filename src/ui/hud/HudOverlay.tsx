@@ -1,10 +1,10 @@
-import { dispatchUIFeedback } from "../../core/utils/EngineUtils";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
 import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
+import { GameEvent } from "../../core/events/GameEvents";
 
 interface CalibrationStepMeta {
   successTitle: string;
@@ -113,7 +113,8 @@ export const HudOverlay: React.FC = () => {
       bootStatus: s.bootStatus,
       menuIndex: s.menuIndex,
       setMenuIndex: s.setMenuIndex,
-      calibrationStep: s.calibrationStep
+      calibrationStep: s.calibrationStep,
+      publishEvent: s.publishEvent
     }))
   );
 
@@ -131,7 +132,8 @@ export const HudOverlay: React.FC = () => {
     bootStatus,
     menuIndex,
     setMenuIndex,
-    calibrationStep
+    calibrationStep,
+    publishEvent
   } = overlayState;
 
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
@@ -148,7 +150,6 @@ export const HudOverlay: React.FC = () => {
   const [displayedStep, setDisplayedStep] = useState<number>(calibrationStep);
   const stepSuccess = calibrationStep > displayedStep;
 
-  // Track active direction register animations for visual struggle feedback
   const [activeStruggleDir, setActiveStruggleDir] = useState<string>("");
 
   useEffect(() => {
@@ -191,16 +192,16 @@ export const HudOverlay: React.FC = () => {
   }, []);
 
   const playTickSynth = useCallback(() => {
-    dispatchUIFeedback("silk-stats-tick");
-  }, []);
+    publishEvent(GameEvent.UI_SFX_TICK, undefined);
+  }, [publishEvent]);
 
   const playConfirmSynth = useCallback(() => {
-    dispatchUIFeedback("silk-play-confirm");
-  }, []);
+    publishEvent(GameEvent.UI_SFX_CONFIRM, undefined);
+  }, [publishEvent]);
 
   const playTensionAlarm = useCallback(() => {
-    dispatchUIFeedback("silk-tension-alarm");
-  }, []);
+    publishEvent(GameEvent.UI_SFX_ALARM, undefined);
+  }, [publishEvent]);
 
   const handleClearStats = useCallback(() => {
     window.dispatchEvent(new CustomEvent("silk-clear-stats"));
@@ -229,12 +230,12 @@ export const HudOverlay: React.FC = () => {
       const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
       const scaleX = clamped / snapLimit;
 
-      let color = "rgb(34, 197, 94)"; // Stage 0: Green
+      let color = "rgb(34, 197, 94)";
 
       if (clamped >= 0.80) {
-        color = "rgb(239, 68, 68)"; // Stage 2: Red
+        color = "rgb(239, 68, 68)";
       } else if (clamped >= 0.375) {
-        color = "rgb(234, 179, 8)"; // Stage 1: Yellow
+        color = "rgb(234, 179, 8)";
       }
 
       if (tensionBarFillRef.current) {
@@ -765,7 +766,6 @@ export const HudOverlay: React.FC = () => {
                 justifyContent: "space-between"
               }}
             >
-              {/* 1. Segmented LED Bar with Integrated Demarcations */}
               <div
                 className="neo-pressed"
                 style={{
@@ -780,7 +780,6 @@ export const HudOverlay: React.FC = () => {
                   position: "relative"
                 }}
               >
-                {/* Segmented LED divider overlay */}
                 <div
                   style={{
                     position: "absolute",
@@ -792,7 +791,6 @@ export const HudOverlay: React.FC = () => {
                   }}
                 />
 
-                {/* Sweetspot background range marker */}
                 <div
                   style={{
                     position: "absolute",
@@ -808,7 +806,6 @@ export const HudOverlay: React.FC = () => {
                   }}
                 />
 
-                {/* Integrated 0 / 1 / 2 / SKULL Demarcations overlay */}
                 <div
                   style={{
                     position: "absolute",
@@ -864,7 +861,6 @@ export const HudOverlay: React.FC = () => {
                 />
               </div>
 
-              {/* 2. Tether Integrity Life Indicators */}
               <div
                 style={{
                   display: "flex",

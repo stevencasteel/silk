@@ -9,8 +9,7 @@ import {
   StickySurfaceComponent,
   TransformComponent,
   PlayerCosmeticComponent,
-  ParticleRequestComponent,
-  WallBugComponent
+  ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
@@ -19,7 +18,6 @@ import { PlayerStateUtils } from "./PlayerStateUtils";
 import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
-import { GameEvent } from "../../../core/events/GameEvents";
 
 export class PlayerWallSlidingState implements IPlayerState {
   public readonly type: TraversalState = "WALL_SLIDING";
@@ -43,42 +41,9 @@ export class PlayerWallSlidingState implements IPlayerState {
 
     const isTrapped = !!trav.isWebTrapped;
 
-    if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
-      const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
-      const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
-      const isSpikedOnClingSide =
-        bug &&
-        !bug.spikesDisarmed &&
-        ((trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
-          (trav.wallDir === 1 && bug.spikedSide === "LEFT"));
-
-      const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-      if (isSpikedOnClingSide && !isTrapped && !inSafeWindow) {
-        trav.state = "AIRBORNE";
-        trav.lastStickyEntityId = trav.stickyEntityId;
-        trav.stickyEntityId = -1;
-        trav.wallDir = 0;
-
-        ctx.commands.dispatch({
-          type: "DAMAGE_REQUEST",
-          targetId: ctx.refs.player,
-          amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
-          source: "BUG_SPIKES",
-          knockbackX: trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
-          knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
-        });
-
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.65,
-          duration: 0.35,
-          dirX: trav.wallNormalX,
-          dirY: 1.0
-        });
-
-        vel.x = trav.wallNormalX * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
-        vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
-        return "AIRBORNE";
-      }
+    const hitSpike = PlayerStateUtils.handleActiveWallBugSpikeCheck(ctx, vel, trav, isTrapped);
+    if (hitSpike) {
+      return "AIRBORNE";
     }
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");

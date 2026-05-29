@@ -6,20 +6,13 @@ import {
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
-  StickySurfaceComponent,
-  TransformComponent,
-  PlayerCosmeticComponent,
-  CollisionStateComponent,
-  WallBugComponent,
-  ParticleRequestComponent
+  PlayerCosmeticComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { GameEvent } from "../../../core/events/GameEvents";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
-import { WallSparksStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerAirborneState implements IPlayerState {
   public readonly type: TraversalState = "AIRBORNE";
@@ -94,127 +87,19 @@ export class PlayerAirborneState implements IPlayerState {
     const hitLeft = nextX < -ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
     const wallDir = hitRight ? 1 : hitLeft ? -1 : 0;
 
-    const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
-    const bugTransStore = ctx.stores.get<TransformComponent>("transform");
-    const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
-
-    if (stickyStore && bugTransStore) {
-      for (const [bugId, sticky] of stickyStore.entries()) {
-        if (!sticky.isActive) continue;
-
-        const bugTrans = bugTransStore.get(bugId);
-        if (!bugTrans) continue;
-
-        if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
-          const halfW = sticky.width / 2;
-          const halfH = sticky.height / 2;
-          const playerRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
-          const playerHalfHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
-          const margin = 1.5;
-
-          const outX = Math.abs(target.x - bugTrans.x) > halfW + playerRadius + margin;
-          const outY = Math.abs(target.y - bugTrans.y) > halfH + playerHalfHeight + margin;
-
-          if (outX || outY) {
-            trav.lastStickyEntityId = undefined;
-          } else {
-            continue;
-          }
-        }
-
-        const halfW = sticky.width / 2;
-        const halfH = sticky.height / 2;
-
-        const distToBugX = nextX - bugTrans.x;
-        const contactDist = halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.15;
-
-        if (Math.abs(distToBugX) <= contactDist) {
-          if (nextY >= bugTrans.y - halfH && nextY <= bugTrans.y + halfH) {
-            const bugWallDir = distToBugX > 0 ? -1 : 1;
-            const pressingIn = input.x === bugWallDir;
-
-            const bug = bugStore ? bugStore.get(bugId) : undefined;
-            const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
-
-            const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-            const spikesActive = bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
-
-            if (spikesActive && !isTrapped && !inSafeWindow) {
-              const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
-              const pCol = colStore.get(ctx.refs.player);
-              if (pCol) {
-                pCol.lastHitType = "WALL";
-                pCol.hitPointX = target.x;
-                pCol.hitPointY = target.y;
-              }
-
-              ctx.commands.dispatch({
-                type: "DAMAGE_REQUEST",
-                targetId: ctx.refs.player,
-                amount: GAMEPLAY_TUNING.COMBAT.SPIKE_DAMAGE,
-                source: "BUG_SPIKES",
-                knockbackX: -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X,
-                knockbackY: GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y
-              });
-
-              ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: 0.65,
-                duration: 0.35,
-                dirX: -bugWallDir,
-                dirY: 1.0
-              });
-
-              const sparkReqId = ctx.world.create();
-              const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
-              if (reqStore) {
-                reqStore.add(sparkReqId, {
-                  strategy: new WallSparksStrategy(-bugWallDir),
-                  x: target.x,
-                  y: target.y,
-                  z: 0
-                });
-              }
-
-              target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
-              vel.x = -bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
-              vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
-              return null;
-            }
-
-            if (pressingIn || isTrapped) {
-              PlayerStateUtils.applyWallImpactSquash(ctx);
-
-              trav.state = "WALL_SLIDING";
-              trav.wallDir = bugWallDir;
-              trav.wallNormalX = -bugWallDir;
-              trav.wallNormalY = 0;
-              trav.stickyEntityId = bugId;
-              trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-
-              const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
-              trav.stickyWallYOffset = clampedOffsetY;
-
-              target.x = trav.stickyWallX;
-              target.y = bugTrans.y + clampedOffsetY;
-              vel.x = 0;
-              vel.y = -(9.0 + sticky.speed);
-
-              ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-                x: target.x,
-                y: target.y,
-                wallNormalX: -bugWallDir
-              });
-              return "WALL_SLIDING";
-            } else {
-              target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-              if (Math.sign(vel.x) === bugWallDir) {
-                vel.x *= -0.2;
-              }
-              return null;
-            }
-          }
-        }
-      }
+    const bugStateResult = PlayerStateUtils.handleBugCollisions(
+      ctx,
+      target,
+      vel,
+      trav,
+      input,
+      nextX,
+      nextY,
+      isTrapped,
+      this.type
+    );
+    if (bugStateResult !== null) {
+      return bugStateResult;
     }
 
     if (wallDir !== 0) {
@@ -232,11 +117,6 @@ export class PlayerAirborneState implements IPlayerState {
         vel.x = 0;
         vel.y = -9.0;
 
-        ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-          x: target.x,
-          y: target.y,
-          wallNormalX: -wallDir
-        });
         return "WALL_SLIDING";
       } else {
         target.x = wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
