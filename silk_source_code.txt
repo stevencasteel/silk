@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 12:11:01 AM
+ [SYSTEM] Generated: 5/29/2026, 12:32:29 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -37,6 +37,9 @@
 │   │       ├── SfxSynthesizerRegistry.ts
 │   │       └── TensionSynthesizer.ts
 │   ├── contracts/
+│   │   ├── IAudio.ts
+│   │   ├── ICore.ts
+│   │   ├── ISpatialQuery.ts
 │   │   ├── ISystem.ts
 │   │   ├── IVisualRegistry.ts
 │   │   └── SystemPhase.ts
@@ -125,7 +128,8 @@
 │   │   └── systems/
 │   │       ├── CollisionResolutionSystem.ts
 │   │       ├── EnvironmentClampingSystem.ts
-│   │       └── KinematicIntegrationSystem.ts
+│   │       ├── KinematicIntegrationSystem.ts
+│   │       └── SpatialQueryService.ts
 │   ├── ui/
 │   │   ├── cursor/
 │   │   │   ├── Cursor.tsx
@@ -1369,19 +1373,20 @@ export class CompositionRoot {
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TensionSynthesizer } from "../tone/TensionSynthesizer";
-import { SfxSynthesizerRegistry } from "../tone/SfxSynthesizerRegistry";
+import { ITensionDrone, ISfxInstrument } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { TensionSynthesizer } from "../tone/TensionSynthesizer";
+import { SfxSynthesizerRegistry } from "../tone/SfxSynthesizerRegistry";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-  private tensionSynth: TensionSynthesizer | null = null;
-  private sfxRegistry: SfxSynthesizerRegistry | null = null;
+  private tensionSynth: ITensionDrone | null = null;
+  private sfxRegistry: ISfxInstrument | null = null;
 
   private windowTickListener: (() => void) | null = null;
   private windowConfirmListener: (() => void) | null = null;
@@ -1389,7 +1394,7 @@ export class AudioDirectorSystem implements ISystem {
   private initialized: boolean = false;
   private isBooting: boolean = false;
 
-  private broker: EventBroker;
+  private broker: IEventBroker;
   private _tracker = new SubscriptionTracker();
   private gestureTriggerRef: (() => void) | null = null;
 
@@ -1414,22 +1419,22 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("mousedown", this.gestureTriggerRef);
 
     this.windowTickListener = () => {
-      if (this.initialized && this.sfxRegistry?.tickSynth && this.toneModule) {
+      if (this.initialized && this.sfxRegistry && this.toneModule) {
         const nowMs = performance.now();
         if (nowMs - this.lastTickTime > 30) {
           this.lastTickTime = nowMs;
-          this.sfxRegistry.tickSynth.triggerAttackRelease("E6", "32n", this.toneModule.now());
+          this.sfxRegistry.triggerTick("E6", "32n", this.toneModule.now());
         }
       }
     };
     window.addEventListener("silk-stats-tick", this.windowTickListener);
 
     this.windowConfirmListener = () => {
-      if (this.initialized && this.sfxRegistry?.confirmSynth && this.toneModule) {
+      if (this.initialized && this.sfxRegistry && this.toneModule) {
         const nowMs = performance.now();
         if (nowMs - this.lastConfirmTime > 50) {
           this.lastConfirmTime = nowMs;
-          this.sfxRegistry.confirmSynth.triggerAttackRelease("C6", "16n", this.toneModule.now());
+          this.sfxRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
         }
       }
     };
@@ -1438,14 +1443,14 @@ export class AudioDirectorSystem implements ISystem {
     this.windowTensionAlarmListener = () => {
       if (
         this.initialized &&
-        this.sfxRegistry?.tensionAlarmSynth &&
+        this.sfxRegistry &&
         this.toneModule &&
         Math.random() < 0.1
       ) {
         const nowMs = performance.now();
         if (nowMs - this.lastAlarmTime > 80) {
           this.lastAlarmTime = nowMs;
-          this.sfxRegistry.tensionAlarmSynth.triggerAttackRelease(
+          this.sfxRegistry.triggerAlarm(
             "F6",
             "32n",
             this.toneModule.now()
@@ -1475,13 +1480,13 @@ export class AudioDirectorSystem implements ISystem {
             const power = pTrav.launchPower;
 
             if (power >= 1.0) {
-              this.sfxRegistry.impactSynth?.triggerAttackRelease("A1", "4n");
-              this.sfxRegistry.noiseSynth?.triggerAttackRelease("4n");
+              this.sfxRegistry.triggerImpact("A1", "4n");
+              this.sfxRegistry.triggerNoise("4n");
             } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-              this.sfxRegistry.tickSynth?.triggerAttackRelease("G6", "16n");
-              this.sfxRegistry.impactSynth?.triggerAttackRelease("D4", "16n");
+              this.sfxRegistry.triggerTick("G6", "16n");
+              this.sfxRegistry.triggerImpact("D4", "16n");
             } else {
-              this.sfxRegistry.impactSynth?.triggerAttackRelease("C3", "16n");
+              this.sfxRegistry.triggerImpact("C3", "16n");
             }
           }
         }
@@ -1500,11 +1505,11 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.impactSynth?.triggerAttackRelease(
+          this.sfxRegistry.triggerImpact(
             presets.DAMAGED_NOTE,
             presets.DAMAGED_DURATION
           );
-          this.sfxRegistry.noiseSynth?.triggerAttackRelease(presets.DAMAGED_DURATION);
+          this.sfxRegistry.triggerNoise(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
       })
@@ -1518,7 +1523,7 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        if (this.initialized && this.sfxRegistry?.impactSynth) {
+        if (this.initialized && this.sfxRegistry) {
           const nowMs = performance.now();
           if (nowMs - this.lastHitTime < 1500) {
             this.hitComboCount++;
@@ -1533,7 +1538,7 @@ export class AudioDirectorSystem implements ISystem {
           const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
 
-          this.sfxRegistry.impactSynth.triggerAttackRelease(freq, "16n");
+          this.sfxRegistry.triggerImpact(freq, "16n");
         }
       })
     );
@@ -1618,26 +1623,23 @@ export class AudioDirectorSystem implements ISystem {
   ): void {
     if (!this.sfxRegistry) return;
 
-    if (this.sfxRegistry.impactSynth) {
-      this.sfxRegistry.impactSynth.triggerAttackRelease(
-        presets.DEATH_NOTE_1,
-        presets.DEATH_NOTE_1_DURATION
-      );
-      this.sfxRegistry.impactSynth.triggerAttackRelease(
-        presets.DEATH_NOTE_2,
-        presets.DEATH_NOTE_2_DURATION,
-        presets.DEATH_NOTE_2_DELAY
-      );
-    }
-    if (this.sfxRegistry.noiseSynth) {
-      this.sfxRegistry.noiseSynth.envelope.decay = presets.DEATH_NOISE_DECAY;
-      this.sfxRegistry.noiseSynth.triggerAttackRelease(presets.DEATH_NOTE_1_DURATION);
-      setTimeout(() => {
-        if (this.sfxRegistry?.noiseSynth) {
-          this.sfxRegistry.noiseSynth.envelope.decay = presets.NOISE_DECAY;
-        }
-      }, presets.DEATH_NOISE_RESTORE_DELAY);
-    }
+    this.sfxRegistry.triggerImpact(
+      presets.DEATH_NOTE_1,
+      presets.DEATH_NOTE_1_DURATION
+    );
+    this.sfxRegistry.triggerImpact(
+      presets.DEATH_NOTE_2,
+      presets.DEATH_NOTE_2_DURATION,
+      presets.DEATH_NOTE_2_DELAY
+    );
+    this.sfxRegistry.setNoiseDecay(presets.DEATH_NOISE_DECAY);
+    this.sfxRegistry.triggerNoise(presets.DEATH_NOTE_1_DURATION);
+
+    setTimeout(() => {
+      if (this.sfxRegistry) {
+        this.sfxRegistry.setNoiseDecay(presets.NOISE_DECAY);
+      }
+    }, presets.DEATH_NOISE_RESTORE_DELAY);
   }
 
   public update(): void {
@@ -1649,9 +1651,9 @@ export class AudioDirectorSystem implements ISystem {
         if (this.tensionSynth) {
           this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
         }
-        if (this.sfxRegistry?.sfxPanner && this.toneModule) {
+        if (this.sfxRegistry && this.toneModule) {
           const panVal = (Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0) * 0.45;
-          this.sfxRegistry.sfxPanner.pan.setTargetAtTime(panVal, this.toneModule.now(), 0.05);
+          this.sfxRegistry.setSfxPan(panVal, this.toneModule.now());
         }
       }
     }
@@ -1678,10 +1680,12 @@ export class AudioDirectorSystem implements ISystem {
 
         Tone.getDestination().mute = false;
 
-        this.sfxRegistry = new SfxSynthesizerRegistry();
-        this.sfxRegistry.initialize(Tone).then(() => {
-          this.tensionSynth = new TensionSynthesizer();
-          this.tensionSynth.initialize().then(() => {
+        const rawSfx = new SfxSynthesizerRegistry();
+        rawSfx.initialize(Tone).then(() => {
+          this.sfxRegistry = rawSfx;
+          const rawDrone = new TensionSynthesizer();
+          rawDrone.initialize().then(() => {
+            this.tensionSynth = rawDrone;
             this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
           });
         });
@@ -1765,9 +1769,10 @@ export const AUDIO_PRESETS = {
 
 ● ./src/audio/tone/SfxSynthesizerRegistry.ts
 ────────────────────────────────────────────────────
+import { ISfxInstrument } from "../../contracts/IAudio";
 import type { MembraneSynth, NoiseSynth, Synth, Panner } from "tone";
 
-export class SfxSynthesizerRegistry {
+export class SfxSynthesizerRegistry implements ISfxInstrument {
   public impactSynth: MembraneSynth | null = null;
   public noiseSynth: NoiseSynth | null = null;
   public tickSynth: Synth | null = null;
@@ -1775,7 +1780,8 @@ export class SfxSynthesizerRegistry {
   public tensionAlarmSynth: Synth | null = null;
   public sfxPanner: Panner | null = null;
 
-  public async initialize(Tone: typeof import("tone")): Promise<void> {
+  public async initialize(ToneRaw: unknown): Promise<void> {
+    const Tone = ToneRaw as typeof import("tone");
     this.sfxPanner = new Tone.Panner(0).toDestination();
 
     this.impactSynth = new Tone.MembraneSynth({
@@ -1836,6 +1842,48 @@ export class SfxSynthesizerRegistry {
     this.tensionAlarmSynth.volume.value = -18;
   }
 
+  public triggerImpact(pitch: string | number, duration: string, delay?: string | number): void {
+    if (this.impactSynth) {
+      this.impactSynth.triggerAttackRelease(pitch, duration, delay);
+    }
+  }
+
+  public triggerNoise(duration: string, delay?: string | number): void {
+    if (this.noiseSynth) {
+      this.noiseSynth.triggerAttackRelease(duration, delay);
+    }
+  }
+
+  public triggerTick(pitch: string, duration: string, time?: number): void {
+    if (this.tickSynth) {
+      this.tickSynth.triggerAttackRelease(pitch, duration, time);
+    }
+  }
+
+  public triggerConfirm(pitch: string, duration: string, time?: number): void {
+    if (this.confirmSynth) {
+      this.confirmSynth.triggerAttackRelease(pitch, duration, time);
+    }
+  }
+
+  public triggerAlarm(pitch: string, duration: string, time?: number): void {
+    if (this.tensionAlarmSynth) {
+      this.tensionAlarmSynth.triggerAttackRelease(pitch, duration, time);
+    }
+  }
+
+  public setSfxPan(pan: number, time: number): void {
+    if (this.sfxPanner) {
+      this.sfxPanner.pan.setTargetAtTime(pan, time, 0.05);
+    }
+  }
+
+  public setNoiseDecay(value: number): void {
+    if (this.noiseSynth) {
+      this.noiseSynth.envelope.decay = value;
+    }
+  }
+
   public dispose(): void {
     this.impactSynth?.dispose();
     this.noiseSynth?.dispose();
@@ -1850,10 +1898,11 @@ export class SfxSynthesizerRegistry {
 
 ● ./src/audio/tone/TensionSynthesizer.ts
 ────────────────────────────────────────────────────
+import { ITensionDrone } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "./AudioPresets";
 import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner } from "tone";
 
-export class TensionSynthesizer {
+export class TensionSynthesizer implements ITensionDrone {
   private fmOsc: FMOscillator | null = null;
   private lowpassFilter: Filter | null = null;
   private gainNode: Gain | null = null;
@@ -2109,6 +2158,134 @@ export class TensionSynthesizer {
 
 
 
+● ./src/contracts/IAudio.ts
+────────────────────────────────────────────────────
+export interface ITensionDrone {
+  initialize(): Promise<void>;
+  updatePositions(playerX: number, weaverX: number): void;
+  updateDronePitch(tensionVal: number): void;
+  setLowHPStatus(active: boolean): void;
+  resumeFromPause(): void;
+  handleStateChange(
+    state: string,
+    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }
+  ): void;
+  fadeOutAndMute(): void;
+  resetToBaseline(): void;
+  dispose(): void;
+}
+
+export interface ISfxInstrument {
+  initialize(Tone: unknown): Promise<void>;
+  triggerImpact(pitch: string | number, duration: string, delay?: string | number): void;
+  triggerNoise(duration: string, delay?: string | number): void;
+  triggerTick(pitch: string, duration: string, time?: number): void;
+  triggerConfirm(pitch: string, duration: string, time?: number): void;
+  triggerAlarm(pitch: string, duration: string, time?: number): void;
+  setSfxPan(pan: number, time: number): void;
+  setNoiseDecay(value: number): void;
+  dispose(): void;
+}
+
+
+
+● ./src/contracts/ICore.ts
+────────────────────────────────────────────────────
+import { EntityId } from "../core/ecs/Entity";
+import { GameEvent, GameEventMap } from "../core/events/GameEvents";
+
+export interface ICommand {
+  readonly type: string;
+}
+
+export type CommandHandler<T extends ICommand> = (cmd: T) => void;
+
+export interface ICommandBus {
+  register<T extends ICommand>(type: T["type"], handler: CommandHandler<T>): void;
+  dispatch<T extends ICommand>(cmd: T): void;
+  flush(): void;
+  clear(): void;
+}
+
+export type EventCallback<T> = (payload: T) => void;
+
+export interface IEventBroker {
+  subscribe<K extends GameEvent>(event: K, cb: EventCallback<GameEventMap[K]>): () => void;
+  publish<K extends GameEvent>(event: K, payload: GameEventMap[K]): void;
+  clear(): void;
+}
+
+export interface IComponentStoreBase {
+  remove(id: EntityId): void;
+  clear(): void;
+}
+
+export interface IComponentStore<T> extends IComponentStoreBase {
+  add(id: EntityId, component: T): void;
+  get(id: EntityId): T | undefined;
+  has(id: EntityId): boolean;
+  entries(): IterableIterator<[EntityId, T]>;
+}
+
+export interface IStoreContainer {
+  register<T>(key: string, store: IComponentStore<T>): void;
+  get<T>(key: string): IComponentStore<T>;
+}
+
+export interface IEcsWorld {
+  create(): EntityId;
+  destroy(id: EntityId): void;
+  clearEntityComponents(id: EntityId): void;
+  registerStore(store: IComponentStoreBase): void;
+  unregisterStore(store: IComponentStoreBase): void;
+  count(): number;
+  isAlive(id: EntityId): boolean;
+  clear(): void;
+}
+
+export interface IEntityRefs {
+  player: EntityId;
+  weaver: EntityId;
+  clear(): void;
+}
+
+
+
+● ./src/contracts/ISpatialQuery.ts
+────────────────────────────────────────────────────
+export interface IRaycastHitResult {
+  hasHit: boolean;
+  hitDistance: number;
+  hitPointX: number;
+  hitPointY: number;
+  hitNormalX: number;
+  hitNormalY: number;
+}
+
+export interface ISpatialQueryService {
+  castHorizontalRay(
+    startX: number,
+    startY: number,
+    directionX: number,
+    length: number
+  ): IRaycastHitResult;
+  
+  castVerticalRay(
+    startX: number,
+    startY: number,
+    directionY: number,
+    length: number
+  ): IRaycastHitResult;
+
+  checkAabbWallCling(
+    targetX: number,
+    targetY: number,
+    halfWidth: number
+  ): { isWallClinging: boolean; wallNormalX: number };
+}
+
+
+
 ● ./src/contracts/ISystem.ts
 ────────────────────────────────────────────────────
 import { SystemPhase, InitPhase } from "./SystemPhase";
@@ -2224,13 +2401,10 @@ export class PerformanceClock implements IClock {
 
 ● ./src/core/commands/CommandBus.ts
 ────────────────────────────────────────────────────
-export interface ICommand {
-  readonly type: string;
-}
+import { ICommandBus, ICommand, CommandHandler } from "../../contracts/ICore";
+export type { ICommand, CommandHandler };
 
-export type CommandHandler<T extends ICommand> = (cmd: T) => void;
-
-export class CommandBus {
+export class CommandBus implements ICommandBus {
   private handlers = new Map<string, CommandHandler<ICommand>[]>();
   private queueA: ICommand[] = [];
   private queueB: ICommand[] = [];
@@ -2452,13 +2626,9 @@ export class Profiler {
 ● ./src/core/ecs/ComponentStore.ts
 ────────────────────────────────────────────────────
 import { EntityId } from "./Entity";
+import { IComponentStore } from "../../contracts/ICore";
 
-export interface IComponentStore {
-  remove(id: EntityId): void;
-  clear(): void;
-}
-
-export class ComponentStore<T> implements IComponentStore {
+export class ComponentStore<T> implements IComponentStore<T> {
   private data: Map<EntityId, T> = new Map();
 
   public add(id: EntityId, component: T): void {
@@ -2741,11 +2911,11 @@ export interface BoundaryConstraintComponent {
 ● ./src/core/ecs/EcsWorld.ts
 ────────────────────────────────────────────────────
 import { EntityId, EntityRegistry } from "./Entity";
-import { IComponentStore } from "./ComponentStore";
+import { IEcsWorld, IComponentStoreBase } from "../../contracts/ICore";
 
-export class EcsWorld {
+export class EcsWorld implements IEcsWorld {
   private entities = new EntityRegistry();
-  private stores = new Set<IComponentStore>();
+  private stores = new Set<IComponentStoreBase>();
 
   public create(): EntityId {
     return this.entities.create();
@@ -2764,11 +2934,11 @@ export class EcsWorld {
     }
   }
 
-  public registerStore(store: IComponentStore): void {
+  public registerStore(store: IComponentStoreBase): void {
     this.stores.add(store);
   }
 
-  public unregisterStore(store: IComponentStore): void {
+  public unregisterStore(store: IComponentStoreBase): void {
     this.stores.delete(store);
   }
 
@@ -2826,16 +2996,16 @@ export class EntityRegistry {
 ● ./src/core/ecs/EntityRefs.ts
 ────────────────────────────────────────────────────
 import { EntityId } from "./Entity";
-import { ComponentStore } from "./ComponentStore";
+import { IComponentStore, IEntityRefs } from "../../contracts/ICore";
 import { PlayerTag, WeaverTag } from "./Components";
 
-export class EntityRefs {
+export class EntityRefs implements IEntityRefs {
   private _player: EntityId = -1;
   private _weaver: EntityId = -1;
 
   constructor(
-    private playerTags: ComponentStore<PlayerTag>,
-    private weaverTags: ComponentStore<WeaverTag>
+    private playerTags: IComponentStore<PlayerTag>,
+    private weaverTags: IComponentStore<WeaverTag>
   ) {}
 
   public get player(): EntityId {
@@ -2874,21 +3044,21 @@ export class EntityRefs {
 
 ● ./src/core/ecs/StoreContainer.ts
 ────────────────────────────────────────────────────
-import { ComponentStore } from "./ComponentStore";
+import { IStoreContainer, IComponentStore } from "../../contracts/ICore";
 
-export class StoreContainer {
+export class StoreContainer implements IStoreContainer {
   private stores = new Map<string, unknown>();
 
-  public register<T>(key: string, store: ComponentStore<T>): void {
+  public register<T>(key: string, store: IComponentStore<T>): void {
     this.stores.set(key, store);
   }
 
-  public get<T>(key: string): ComponentStore<T> {
+  public get<T>(key: string): IComponentStore<T> {
     const store = this.stores.get(key);
     if (!store) {
       throw new Error(`Store Container: ComponentStore for key "${key}" is not registered.`);
     }
-    return store as ComponentStore<T>;
+    return store as IComponentStore<T>;
   }
 }
 
@@ -3312,7 +3482,7 @@ export class ArenaProfileService {
 ● ./src/core/engine/Engine.ts
 ────────────────────────────────────────────────────
 import { GameLoop } from "../loop/GameLoop";
-import { EventBroker } from "../events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
@@ -3322,7 +3492,7 @@ import { EngineTime } from "./EngineTime";
 export class Engine {
   private loop: GameLoop;
   private systemManager: SystemManager;
-  private broker: EventBroker;
+  private broker: IEventBroker;
 
   public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
@@ -3330,7 +3500,7 @@ export class Engine {
 
   constructor(
     _canvas: HTMLCanvasElement,
-    broker: EventBroker,
+    broker: IEventBroker,
     systemManager: SystemManager,
     clock: IClock,
     scheduler: IScheduler
@@ -3478,24 +3648,20 @@ export class SpatialPartitionService {
 
 ● ./src/core/engine/SystemContext.ts
 ────────────────────────────────────────────────────
-import { EcsWorld } from "../ecs/EcsWorld";
-import { EventBroker } from "../events/EventBroker";
-import { CommandBus } from "../commands/CommandBus";
-import { EntityRefs } from "../ecs/EntityRefs";
+import { IEcsWorld, IEventBroker, ICommandBus, IStoreContainer, IEntityRefs } from "../../contracts/ICore";
 import { IVisualRegistry, IVisualQuery, IVisualRegistration } from "../../contracts/IVisualRegistry";
-import { StoreContainer } from "../ecs/StoreContainer";
 
 export class SystemContext {
   public readonly visualQuery: IVisualQuery;
   public readonly visualRegistration: IVisualRegistration;
 
   constructor(
-    public readonly world: EcsWorld,
-    public readonly broker: EventBroker,
-    public readonly commands: CommandBus,
-    public readonly refs: EntityRefs,
+    public readonly world: IEcsWorld,
+    public readonly broker: IEventBroker,
+    public readonly commands: ICommandBus,
+    public readonly refs: IEntityRefs,
     public readonly visualRegistry: IVisualRegistry,
-    public readonly stores: StoreContainer
+    public readonly stores: IStoreContainer
   ) {
     this.visualQuery = visualRegistry;
     this.visualRegistration = visualRegistry;
@@ -3507,10 +3673,9 @@ export class SystemContext {
 ● ./src/core/events/EventBroker.ts
 ────────────────────────────────────────────────────
 import { GameEvent, GameEventMap } from "./GameEvents";
+import { IEventBroker, EventCallback } from "../../contracts/ICore";
 
-export type EventCallback<T> = (payload: T) => void;
-
-export class EventBroker {
+export class EventBroker implements IEventBroker {
   private listeners: { [K in GameEvent]?: Set<EventCallback<unknown>> } = {};
   public traffic: Map<string, number> = new Map();
 
@@ -3571,7 +3736,9 @@ export enum GameEvent {
   PLAYER_LANDED = "PLAYER_LANDED",
   PLAYER_WALL_HIT = "PLAYER_WALL_HIT",
   WEAVER_WALL_HIT = "WEAVER_WALL_HIT",
-  PROJECTILE_IMPACT = "PROJECTILE_IMPACT"
+  PROJECTILE_IMPACT = "PROJECTILE_IMPACT",
+  PLAYER_INPUT_KEY_STATE_CHANGED = "PLAYER_INPUT_KEY_STATE_CHANGED",
+  UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED"
 }
 
 export interface GameEventMap {
@@ -3607,6 +3774,8 @@ export interface GameEventMap {
   [GameEvent.PLAYER_WALL_HIT]: { x: number; y: number; wallNormalX: number };
   [GameEvent.WEAVER_WALL_HIT]: { x: number; y: number; wallNormalX: number };
   [GameEvent.PROJECTILE_IMPACT]: { x: number; y: number; isWall: boolean };
+  [GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED]: { key: string; code: string; pressed: boolean };
+  [GameEvent.UI_CALIBRATION_STEP_CHANGED]: { step: number };
 }
 
 
@@ -3743,7 +3912,6 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../engine/SystemContext";
 import { GameEvent } from "../events/GameEvents";
 import { SubscriptionTracker } from "../utils/EngineUtils";
-import { useOverlayStore } from "../../ui/hud/hudStore";
 
 export class ProfilePersistenceSystem implements ISystem {
   readonly phase = SystemPhase.PostRender;
@@ -3784,7 +3952,7 @@ export class ProfilePersistenceSystem implements ISystem {
     } catch (e) {
       console.warn("ProfilePersistenceSystem: Failed to load local stats", e);
     }
-    useOverlayStore.getState().setStats(this.wins, this.losses);
+    this.publishStats();
   }
 
   private recordWin(): void {
@@ -3803,7 +3971,7 @@ export class ProfilePersistenceSystem implements ISystem {
     } catch (e) {
       console.warn("ProfilePersistenceSystem: Failed to save stats", e);
     }
-    useOverlayStore.getState().setStats(this.wins, this.losses);
+    this.publishStats();
   }
 
   private handleClearStats = () => {
@@ -3814,8 +3982,15 @@ export class ProfilePersistenceSystem implements ISystem {
     } catch (e) {
       console.warn("ProfilePersistenceSystem: Failed to clear stats", e);
     }
-    useOverlayStore.getState().setStats(0, 0);
+    this.publishStats();
   };
+
+  private publishStats(): void {
+    const evt = new CustomEvent("silk-stats-updated", {
+      detail: { wins: this.wins, losses: this.losses }
+    });
+    window.dispatchEvent(evt);
+  }
 
   public dispose(): void {
     this._tracker.clear();
@@ -6855,11 +7030,11 @@ export class PlayerAnimationSystem implements ISystem {
 
 ● ./src/gameplay/player/PlayerInputSystem.ts
 ────────────────────────────────────────────────────
-import { useInputStore } from "../../ui/hud/hudStore";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { InputIntentComponent } from "../../core/ecs/Components";
+import { GameEvent } from "../../core/events/GameEvents";
 
 export class PlayerInputSystem implements ISystem {
   readonly phase = SystemPhase.Input;
@@ -6898,15 +7073,21 @@ export class PlayerInputSystem implements ISystem {
   private handleKeyDown = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = true;
-    useInputStore.getState().setKeyPressed(key, true);
-    useInputStore.getState().setKeyPressed(e.code.toLowerCase(), true);
+    this.context.broker.publish(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, {
+      key,
+      code: e.code.toLowerCase(),
+      pressed: true
+    });
   };
 
   private handleKeyUp = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
     this.keysPressed[key] = false;
-    useInputStore.getState().setKeyPressed(key, false);
-    useInputStore.getState().setKeyPressed(e.code.toLowerCase(), false);
+    this.context.broker.publish(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, {
+      key,
+      code: e.code.toLowerCase(),
+      pressed: false
+    });
   };
 }
 
@@ -7225,13 +7406,13 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
-import { useOverlayStore } from "../../ui/hud/hudStore";
 import { dispatchUIFeedback, SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class TutorialSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
 
+  private calibrationStep = 0;
   private step0Completed = false;
   private step1Completed = false;
   private step2Completed = false;
@@ -7246,29 +7427,31 @@ export class TutorialSystem implements ISystem {
   public init(): void {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.calibrationStep = 0;
         this.step0Completed = false;
         this.step1Completed = false;
         this.step2Completed = false;
         this.reeledUp = false;
         this.reeledDown = false;
+        this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 0 });
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
-        const overlayStore = useOverlayStore.getState();
         const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
         const pTrav = travStore.get(this.context.refs.player);
         const currentState = pTrav ? pTrav.state : "AIRBORNE";
 
         if (
           !this.step0Completed &&
-          overlayStore.calibrationStep === 0 &&
+          this.calibrationStep === 0 &&
           currentState === "WALL_SLIDING" &&
           tension >= 0.5
         ) {
           this.step0Completed = true;
-          overlayStore.setCalibrationStep(1);
+          this.calibrationStep = 1;
+          this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 1 });
           dispatchUIFeedback("silk-play-confirm");
         }
       })
@@ -7277,9 +7460,8 @@ export class TutorialSystem implements ISystem {
 
   public update(dt: number): void {
     void dt;
-    const overlayStore = useOverlayStore.getState();
 
-    if (overlayStore.calibrationStep === 1) {
+    if (this.calibrationStep === 1) {
       const inputStore = this.context.stores.get<InputIntentComponent>("input");
       const input = inputStore.get(this.context.refs.player);
       if (input) {
@@ -7291,19 +7473,21 @@ export class TutorialSystem implements ISystem {
 
         if (!this.step1Completed && this.reeledUp && this.reeledDown) {
           this.step1Completed = true;
-          overlayStore.setCalibrationStep(2);
+          this.calibrationStep = 2;
+          this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
           dispatchUIFeedback("silk-play-confirm");
         }
       }
     }
 
-    if (overlayStore.calibrationStep === 2) {
+    if (this.calibrationStep === 2) {
       const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
       const pTrav = travStore.get(this.context.refs.player);
       if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.6) {
         if (!this.step2Completed) {
           this.step2Completed = true;
-          overlayStore.setCalibrationStep(3);
+          this.calibrationStep = 3;
+          this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 3 });
           dispatchUIFeedback("silk-play-confirm");
         }
       }
@@ -8649,16 +8833,17 @@ import {
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { WeaverSweepHelper } from "./WeaverSweepHelper";
+import { SpatialQueryService } from "../../physics/systems/SpatialQueryService";
+import { ISpatialQueryService } from "../../contracts/ISpatialQuery";
 import * as BABYLON from "@babylonjs/core";
 
 export class WeaverTraversalSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
+  private queryService: ISpatialQueryService;
 
-  private readonly _raycastResult = new BABYLON.PhysicsRaycastResult();
-  private readonly _rayStart = new BABYLON.Vector3();
-  private readonly _rayEnd = new BABYLON.Vector3();
-
-  constructor(private context: SystemContext) {}
+  constructor(private context: SystemContext) {
+    this.queryService = new SpatialQueryService(this.context);
+  }
 
   public update(dt: number): void {
     const vel = this.context.stores
@@ -8698,7 +8883,6 @@ export class WeaverTraversalSystem implements ISystem {
         sweepStore.add(this.context.refs.weaver, sState);
       }
 
-      // Delegate state transition rules to the helper
       WeaverSweepHelper.updateSweepPhase(dt, sState, health, vel, trans);
 
       if (sState.phase === "SWEEP" || sState.phase === "LAUNCH") {
@@ -8706,23 +8890,19 @@ export class WeaverTraversalSystem implements ISystem {
         let hitWallNormal = 0;
 
         if (concreteEngine && Math.abs(vel.x) > 0.001) {
-          this._rayStart.set(trans.x, trans.y, 0);
           const castLength =
             ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
-          this._rayEnd.set(trans.x + sState.direction * castLength, trans.y, 0);
+          
+          const hitResult = this.queryService.castHorizontalRay(trans.x, trans.y, sState.direction, castLength);
 
-          concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
-
-          if (this._raycastResult.hasHit && this._raycastResult.body) {
-            const hitDistance = this._raycastResult.hitDistance;
+          if (hitResult.hasHit) {
+            const hitDistance = hitResult.hitDistance;
             if (
               hitDistance <=
               ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
             ) {
-              hitWallNormal = Math.sign(this._raycastResult.hitNormalWorld.x);
-              nextX =
-                this._raycastResult.hitPointWorld.x -
-                sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+              hitWallNormal = Math.sign(hitResult.hitNormalX);
+              nextX = hitResult.hitPointX - sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             }
           }
         } else {
@@ -8744,7 +8924,6 @@ export class WeaverTraversalSystem implements ISystem {
             wallNormalX: hitWallNormal
           });
 
-          // Delegate wall impact scaling impulses and direction changes
           WeaverSweepHelper.handleWallImpact(sState, vel, trans, hitWallNormal);
         }
 
@@ -8768,62 +8947,43 @@ export class WeaverTraversalSystem implements ISystem {
 
     if (concreteEngine) {
       if (Math.abs(vel.x) > 0.01) {
-        this._rayStart.set(trans.x, target.y, 0);
         const dirX = Math.sign(vel.x);
         const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
-        this._rayEnd.set(trans.x + dirX * castLength, target.y, 0);
+        
+        const hitResult = this.queryService.castHorizontalRay(trans.x, target.y, dirX, castLength);
 
-        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
-
-        if (this._raycastResult.hasHit && this._raycastResult.body) {
-          const hitDistance = this._raycastResult.hitDistance;
+        if (hitResult.hasHit) {
+          const hitDistance = hitResult.hitDistance;
           if (
             hitDistance <=
             ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
           ) {
-            target.x =
-              this._raycastResult.hitPointWorld.x - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+            target.x = hitResult.hitPointX - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
             if (vel.x * dirX > 0) vel.x = 0;
           }
         }
       }
 
-      this._rayStart.set(target.x, trans.y, 0);
       const castLengthDown =
         ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
-      this._rayEnd.set(target.x, trans.y - castLengthDown, 0);
+      
+      const floorHitResult = this.queryService.castVerticalRay(target.x, trans.y, -1, castLengthDown);
 
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
-
-      if (this._raycastResult.hasHit && this._raycastResult.body && !isStriking) {
-        const hitDistance = this._raycastResult.hitDistance;
+      if (floorHitResult.hasHit && !isStriking) {
+        const hitDistance = floorHitResult.hitDistance;
         if (
           hitDistance <=
           ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)
         ) {
           isGrounded = true;
-          target.y = this._raycastResult.hitPointWorld.y + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          target.y = floorHitResult.hitPointY + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           if (vel.y < 0) vel.y = 0;
         }
       }
 
-      const wallCheckDist = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + 0.15;
-      this._rayStart.set(target.x, target.y, 0);
-
-      this._rayEnd.set(target.x - wallCheckDist, target.y, 0);
-      concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
-
-      if (this._raycastResult.hasHit && this._raycastResult.body) {
-        isWallClinging = true;
-        wallNormalX = 1;
-      } else {
-        this._rayEnd.set(target.x + wallCheckDist, target.y, 0);
-        concreteEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
-        if (this._raycastResult.hasHit && this._raycastResult.body) {
-          isWallClinging = true;
-          wallNormalX = -1;
-        }
-      }
+      const wallClingResult = this.queryService.checkAabbWallCling(target.x, target.y, ARENA_CONFIG.ENTITY.WEAVER_RADIUS);
+      isWallClinging = wallClingResult.isWallClinging;
+      wallNormalX = wallClingResult.wallNormalX;
     } else {
       const wallLimitFallback =
         ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
@@ -8842,22 +9002,15 @@ export class WeaverTraversalSystem implements ISystem {
       if (target.y > ceilingLimit) {
         target.y = ceilingLimit;
         if (vel.y > 0) vel.y = 0;
-        isGrounded = false;
-        isWallClinging = false;
       } else if (target.y < floorLimit) {
         target.y = floorLimit;
         if (vel.y < 0) vel.y = 0;
         isGrounded = !isStriking;
-        isWallClinging = false;
       } else {
-        isGrounded = false;
         const wallThreshold = wallLimitFallback - 0.2;
         if (Math.abs(target.x) >= wallThreshold) {
           isWallClinging = true;
           wallNormalX = target.x > 0 ? -1 : 1;
-        } else {
-          isWallClinging = false;
-          wallNormalX = 0;
         }
       }
     }
@@ -10696,6 +10849,111 @@ export class KinematicIntegrationSystem implements ISystem {
 
 
 
+● ./src/physics/systems/SpatialQueryService.ts
+────────────────────────────────────────────────────
+import { ISpatialQueryService, IRaycastHitResult } from "../../contracts/ISpatialQuery";
+import { SystemContext } from "../../core/engine/SystemContext";
+import * as BABYLON from "@babylonjs/core";
+
+export class SpatialQueryService implements ISpatialQueryService {
+  private _raycastResult = new BABYLON.PhysicsRaycastResult();
+  private _rayStart = new BABYLON.Vector3();
+  private _rayEnd = new BABYLON.Vector3();
+
+  constructor(private context: SystemContext) {}
+
+  public castHorizontalRay(
+    startX: number,
+    startY: number,
+    directionX: number,
+    length: number
+  ): IRaycastHitResult {
+    const scene = this.context.visualQuery.getScene();
+    const physicsEngine = scene?.getPhysicsEngine() as BABYLON.PhysicsEngine | null;
+
+    if (physicsEngine) {
+      this._rayStart.set(startX, startY, 0);
+      this._rayEnd.set(startX + Math.sign(directionX) * length, startY, 0);
+      physicsEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
+
+      if (this._raycastResult.hasHit && this._raycastResult.body) {
+        return {
+          hasHit: true,
+          hitDistance: this._raycastResult.hitDistance,
+          hitPointX: this._raycastResult.hitPointWorld.x,
+          hitPointY: this._raycastResult.hitPointWorld.y,
+          hitNormalX: this._raycastResult.hitNormalWorld.x,
+          hitNormalY: this._raycastResult.hitNormalWorld.y
+        };
+      }
+    }
+
+    return {
+      hasHit: false,
+      hitDistance: 0,
+      hitPointX: 0,
+      hitPointY: 0,
+      hitNormalX: 0,
+      hitNormalY: 0
+    };
+  }
+
+  public castVerticalRay(
+    startX: number,
+    startY: number,
+    directionY: number,
+    length: number
+  ): IRaycastHitResult {
+    const scene = this.context.visualQuery.getScene();
+    const physicsEngine = scene?.getPhysicsEngine() as BABYLON.PhysicsEngine | null;
+
+    if (physicsEngine) {
+      this._rayStart.set(startX, startY, 0);
+      this._rayEnd.set(startX, startY + Math.sign(directionY) * length, 0);
+      physicsEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
+
+      if (this._raycastResult.hasHit && this._raycastResult.body) {
+        return {
+          hasHit: true,
+          hitDistance: this._raycastResult.hitDistance,
+          hitPointX: this._raycastResult.hitPointWorld.x,
+          hitPointY: this._raycastResult.hitPointWorld.y,
+          hitNormalX: this._raycastResult.hitNormalWorld.x,
+          hitNormalY: this._raycastResult.hitNormalWorld.y
+        };
+      }
+    }
+
+    return {
+      hasHit: false,
+      hitDistance: 0,
+      hitPointX: 0,
+      hitPointY: 0,
+      hitNormalX: 0,
+      hitNormalY: 0
+    };
+  }
+
+  public checkAabbWallCling(
+    targetX: number,
+    targetY: number,
+    halfWidth: number
+  ): { isWallClinging: boolean; wallNormalX: number } {
+    const wallCheckDist = halfWidth + 0.15;
+    const lHit = this.castHorizontalRay(targetX, targetY, -1, wallCheckDist);
+    if (lHit.hasHit) {
+      return { isWallClinging: true, wallNormalX: 1 };
+    }
+    const rHit = this.castHorizontalRay(targetX, targetY, 1, wallCheckDist);
+    if (rHit.hasHit) {
+      return { isWallClinging: true, wallNormalX: -1 };
+    }
+    return { isWallClinging: false, wallNormalX: 0 };
+  }
+}
+
+
+
 ● ./src/ui/cursor/Cursor.tsx
 ────────────────────────────────────────────────────
 import { useEffect, useState } from "react";
@@ -11912,23 +12170,25 @@ export const HudOverlay: React.FC = () => {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { EventBroker } from "../../core/events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
-import { usePlayerStore, useWeaverStore, useOverlayStore, resetAllStores } from "./hudStore";
+import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore, resetAllStores } from "./hudStore";
 
 export class HudSyncSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   private subscriptions: (() => void)[] = [];
   private currentState: string = "AIRBORNE";
+  private broker: IEventBroker;
+
+  private statsUpdateListener: ((e: Event) => void) | null = null;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
     this.registerSubscriptions();
+    this.setupWindowListeners();
   }
-
-  private broker: EventBroker;
 
   public init(): void {}
 
@@ -11936,6 +12196,7 @@ export class HudSyncSystem implements ISystem {
     const playerStore = usePlayerStore.getState();
     const weaverStore = useWeaverStore.getState();
     const overlayStore = useOverlayStore.getState();
+    const inputStore = useInputStore.getState();
 
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {
@@ -12003,11 +12264,33 @@ export class HudSyncSystem implements ISystem {
         overlayStore.setBootStatus("READY");
       })
     );
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, ({ key, pressed }) => {
+        inputStore.setKeyPressed(key, pressed);
+      })
+    );
+    this.subscriptions.push(
+      this.broker.subscribe(GameEvent.UI_CALIBRATION_STEP_CHANGED, ({ step }) => {
+        overlayStore.setCalibrationStep(step);
+      })
+    );
+  }
+
+  private setupWindowListeners(): void {
+    const overlayStore = useOverlayStore.getState();
+    this.statsUpdateListener = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      overlayStore.setStats(customEvent.detail.wins, customEvent.detail.losses);
+    };
+    window.addEventListener("silk-stats-updated", this.statsUpdateListener);
   }
 
   public dispose(): void {
     this.subscriptions.forEach((u) => u());
     this.subscriptions = [];
+    if (this.statsUpdateListener) {
+      window.removeEventListener("silk-stats-updated", this.statsUpdateListener);
+    }
   }
 }
 
@@ -14038,7 +14321,7 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { ArenaGeometry } from "../mesh/ArenaGeometry";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { VisualRegistry } from "./VisualRegistry";
-import { EventBroker } from "../../core/events/EventBroker";
+import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
@@ -14055,7 +14338,7 @@ export class RenderSystem implements ISystem {
   constructor(
     canvas: HTMLCanvasElement,
     private visualRegistry: VisualRegistry,
-    private broker: EventBroker
+    private broker: IEventBroker
   ) {
     this.canvas = canvas;
   }
