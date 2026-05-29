@@ -67,7 +67,7 @@ export class ProjectileSystem implements ISystem {
       const projId = this.context.world.create();
       this.projectileEntities.push(projId);
 
-      // Create base sphere at original tight diameter
+      // Create base sphere at original tight diameter (0.65)
       const sphere = BABYLON.MeshBuilder.CreateSphere(
         `projectile_pooled_${i}`,
         { diameter: WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER },
@@ -158,13 +158,13 @@ export class ProjectileSystem implements ISystem {
               projTrans.prevQz = 0;
               projTrans.prevQw = 1;
 
-              // Revert missed wall splats to original compact sizes
-              projTrans.scaleX = 0.24;
-              projTrans.scaleY = 1.45;
-              projTrans.scaleZ = 1.45;
-              projTrans.prevScaleX = 0.24;
-              projTrans.prevScaleY = 1.45;
-              projTrans.prevScaleZ = 1.45;
+              // Correct wall-splat scaling to match flight/cocoon volume (3.0x multiplier)
+              projTrans.scaleX = 0.24 * 3.0;
+              projTrans.scaleY = 1.45 * 3.0;
+              projTrans.scaleZ = 1.45 * 3.0;
+              projTrans.prevScaleX = 0.24 * 3.0;
+              projTrans.prevScaleY = 1.45 * 3.0;
+              projTrans.prevScaleZ = 1.45 * 3.0;
 
               projCol.isWallClinging = true;
               projCol.wallNormalX = side === "RIGHT" ? -1 : 1;
@@ -174,7 +174,7 @@ export class ProjectileSystem implements ISystem {
 
               const mesh = this.context.visualQuery.getTransformNode(id);
               if (mesh instanceof BABYLON.AbstractMesh) {
-                mesh.scaling.set(0.24, 1.45, 1.45);
+                mesh.scaling.set(0.24 * 3.0, 1.45 * 3.0, 1.45 * 3.0);
                 mesh.position.x = projTrans.x;
                 mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
                 const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
@@ -358,7 +358,7 @@ export class ProjectileSystem implements ISystem {
     trans.prevY = y;
     trans.prevZ = 0;
 
-    // Apply 3x visual flying cocoon scale relative to 0.65 base diameter
+    // Flying cocoon scale (3.0x relative to 0.65 base)
     trans.scaleX = 0.7 * 3.0;
     trans.scaleY = 1.5 * 3.0;
     trans.scaleZ = 0.7 * 3.0;
@@ -455,7 +455,7 @@ export class ProjectileSystem implements ISystem {
         trans.prevY = pTrans.prevY;
         trans.prevZ = pTrans.prevZ;
 
-        // Apply 3x scale relative to compact 0.65 base.
+        // Apply 3x scale relative to compact 0.65 base
         if (pTrav.state === "WALL_SLIDING") {
           // Smooshed flat on wall
           trans.scaleX = 0.45 * 3.0;
