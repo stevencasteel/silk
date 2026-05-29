@@ -117,7 +117,7 @@ export class WallBugSystem implements ISystem {
 
       bug.timer += dt;
 
-      const extraCrawlSpeed = 3.8;
+      const extraCrawlSpeed = 3.42;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
       if (bug.y < cameraY - 24.0) {
@@ -233,7 +233,7 @@ export class WallBugSystem implements ISystem {
       y: startY,
       width: finalWidth,
       height: finalHeight,
-      speed: 3.8,
+      speed: 3.42,
       stayDuration: 0.0,
       gaitPhase: 0.0,
       spikedSide
@@ -243,7 +243,7 @@ export class WallBugSystem implements ISystem {
       isActive: true,
       width: finalWidth,
       height: finalHeight,
-      speed: 3.8
+      speed: 3.42
     });
 
     pBug.rootNode.getChildren().forEach((child) => {

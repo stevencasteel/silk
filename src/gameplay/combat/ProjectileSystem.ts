@@ -266,79 +266,60 @@ export class ProjectileSystem implements ISystem {
             }
           } else {
             const alreadyTrapped = pTrav && pTrav.isWebTrapped;
-            if (alreadyTrapped && pTrav) {
-              pTrav.webMass = (pTrav.webMass || 1) + 1;
-              pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
 
-              const reqId = sysCtx.world.create();
-              const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
-              if (reqStore) {
-                reqStore.add(reqId, {
-                  strategy: new WebSplatStrategy(),
-                  x: trans.x,
-                  y: trans.y,
-                  z: trans.z
-                });
-              }
-
-              sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-                x: trans.x,
-                y: trans.y,
-                isWall: false
-              });
-              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.8,
-                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-              });
-
-              if (!hasIframe) {
-                sysCtx.commands.dispatch({
-                  type: "DAMAGE_REQUEST",
-                  targetId: otherId,
-                  amount: 1,
-                  source: "PROJECTILE"
-                });
-              }
-
-              this.recycleProjectile(projId, pComp);
-              return;
-            }
-
-            // --- NEW REUSABLE HIT FORCE & UNREEL LOGIC ---
+            // --- DYNAMIC REUSABLE HIT FORCE & PROPORTIONAL UNREEL LOGIC ---
+            // Apply this first on all hits (initial or consecutive) as long as player is vulnerable
             if (!hasIframe) {
-              const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
-              const tether = tetherStore ? tetherStore.get(otherId) : undefined;
-              if (tether && tether.isAttached) {
-                const unreelAmount = 8.0;
-                const maxLengthLimit = 120.0;
-                tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + unreelAmount);
-                tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + unreelAmount);
-              }
-
               const dx = pTrans.x - trans.x;
               const dy = pTrans.y - trans.y;
               const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-              const kickbackSpeed = 18.0;
+              const pushX = dx / dist;
+              const pushY = dy / dist;
 
+              const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
+              const tether = tetherStore ? tetherStore.get(otherId) : undefined;
+              if (tether && tether.isAttached) {
+                // Vector from anchor to player
+                const anchorDx = pTrans.x - tether.anchorX;
+                const anchorDy = pTrans.y - tether.anchorY;
+                const anchorDist = Math.sqrt(anchorDx * anchorDx + anchorDy * anchorDy) || 1.0;
+                const anchorDirX = anchorDx / anchorDist;
+                const anchorDirY = anchorDy / anchorDist;
+
+                // Projection of push direction onto anchor-to-player vector
+                const projection = pushX * anchorDirX + pushY * anchorDirY;
+
+                const baseUnreel = 2.0; // Responsive baseline unreeling
+                const dynamicUnreel = projection > 0 ? projection * 8.0 : 0.0;
+                const totalUnreel = baseUnreel + dynamicUnreel;
+                const maxLengthLimit = 120.0;
+
+                tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + totalUnreel);
+                tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + totalUnreel);
+              }
+
+              const kickbackSpeed = 18.0; // Kinetic impact push
               const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
               if (pVel) {
-                pVel.x += (dx / dist) * kickbackSpeed;
-                pVel.y += (dy / dist) * kickbackSpeed;
+                pVel.x += pushX * kickbackSpeed;
+                pVel.y += pushY * kickbackSpeed;
               }
 
               if (pTrav && pTrav.state === "WALL_STICKING") {
-                const pushDownDistance = 3.0;
+                const pushDistance = 4.0; // Kinetic vertical wall sliding shift
+                const verticalShift = pushY * pushDistance;
+
                 const targetYStore = sysCtx.stores.get<KinematicTargetComponent>("target");
                 const pTarget = targetYStore ? targetYStore.get(otherId) : undefined;
                 if (pTarget) {
-                  pTarget.y -= pushDownDistance;
+                  pTarget.y += verticalShift;
                 }
                 if (pTrav.stickyWallYOffset !== undefined) {
-                  pTrav.stickyWallYOffset -= pushDownDistance;
+                  pTrav.stickyWallYOffset += verticalShift;
                 }
               }
             }
-            // ---------------------------------------------
+            // --------------------------------------------------------------
 
             if (alreadyTrapped && pTrav) {
               pTrav.webMass = (pTrav.webMass || 1) + 1;

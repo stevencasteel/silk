@@ -39,30 +39,34 @@ export class TetherReelingSystem implements ISystem {
     } else {
       tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
       const AUTO_SLACK_MARGIN = 0.5;
-      tether.desiredLength = Math.min(
-        tether.desiredLength,
-        tether.currentLength + AUTO_SLACK_MARGIN
-      );
+      if (!isWebTrapped) {
+        tether.desiredLength = Math.min(
+          tether.desiredLength,
+          tether.currentLength + AUTO_SLACK_MARGIN
+        );
+      }
     }
     tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
 
-    let easeSpeed = 0;
     if (tether.maxLength > tether.desiredLength) {
+      // Reeling IN (crisp linear steps for mechanical control)
       const resistance = Math.max(0.1, 1.0 - tether.tension);
-      easeSpeed = reelConfig.IN_SPEED * resistance * trappedMultiplier;
+      const easeSpeed = reelConfig.IN_SPEED * resistance * trappedMultiplier;
+      const maxDelta = easeSpeed * dt;
+      if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
+        tether.maxLength = tether.desiredLength;
+      } else {
+        tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
+      }
       tether.reelVelocity = -easeSpeed;
     } else if (tether.maxLength < tether.desiredLength) {
-      easeSpeed = reelConfig.OUT_SPEED * trappedMultiplier;
-      tether.reelVelocity = easeSpeed;
+      // Reeling OUT (smooth exponential ease-out to mimic high kinetic energy / spring release)
+      const rate = 16.0;
+      const lerpFactor = 1.0 - Math.exp(-dt * rate);
+      tether.maxLength += (tether.desiredLength - tether.maxLength) * lerpFactor;
+      tether.reelVelocity = (tether.desiredLength - tether.maxLength) * rate;
     } else {
       tether.reelVelocity = 0;
-    }
-
-    const maxDelta = easeSpeed * dt;
-    if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
-      tether.maxLength = tether.desiredLength;
-    } else {
-      tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
     }
   }
 }
