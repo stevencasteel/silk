@@ -1,4 +1,4 @@
-import { getWeaverStingerTip, HASH_PREFIX } from "../../../core/utils/EngineUtils";
+import { getWeaverAbdomenTip, HASH_PREFIX } from "../../../core/utils/EngineUtils";
 import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import {
   WEAVER_AI_TUNING,
@@ -86,6 +86,30 @@ export class WeaverPatrollingState implements IWeaverState {
       aiComp.shakeRequested = true;
       aiComp.shakeAmplitude = 0.12;
       aiComp.shakeDuration = 0.15;
+
+      const transforms = ctx.stores.get<TransformComponent>("transform");
+      const wTrans = transforms.get(ctx.refs.weaver);
+      if (wTrans) {
+        const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        const tipWorld = getWeaverAbdomenTip(
+          wTrans.x,
+          wTrans.y,
+          wTrans.z,
+          wTrans.qx,
+          wTrans.qy,
+          wTrans.qz,
+          wTrans.qw,
+          radius,
+          1.0
+        );
+
+        aiComp.shootRequested = true;
+        aiComp.shootOriginX = tipWorld.x;
+        aiComp.shootOriginY = tipWorld.y;
+        aiComp.shootTargetX = 0;
+        aiComp.shootTargetY = 0;
+        aiComp.shootIsRelease = false;
+      }
     }
 
     if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
@@ -94,12 +118,12 @@ export class WeaverPatrollingState implements IWeaverState {
       aiComp.hue = this.hue;
 
       const transforms = ctx.stores.get<TransformComponent>("transform");
-      const playerTrans = transforms.get(ctx.refs.player);
+      const playerTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.player);
       const wTrans = transforms.get(ctx.refs.weaver);
 
       if (playerTrans && wTrans) {
         const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-        const tipWorld = getWeaverStingerTip(
+        const tipWorld = getWeaverAbdomenTip(
           wTrans.x,
           wTrans.y,
           wTrans.z,
@@ -116,6 +140,7 @@ export class WeaverPatrollingState implements IWeaverState {
         aiComp.shootOriginY = tipWorld.y;
         aiComp.shootTargetX = playerTrans.x;
         aiComp.shootTargetY = playerTrans.y;
+        aiComp.shootIsRelease = true;
       }
     }
     return null;

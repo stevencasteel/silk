@@ -36,7 +36,8 @@ export class WeaverActionSystem implements ISystem {
         x: ai.shootOriginX,
         y: ai.shootOriginY,
         tx: ai.shootTargetX,
-        ty: ai.shootTargetY
+        ty: ai.shootTargetY,
+        isRelease: ai.shootIsRelease
       });
       ai.shootRequested = false;
     }

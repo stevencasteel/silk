@@ -54,7 +54,7 @@ export interface GameEventMap {
   [GameEvent.GAME_OVER]: void;
   [GameEvent.GAME_WIN]: void;
   [GameEvent.GAME_RESET]: void;
-  [GameEvent.WEAVER_SHOOT]: { x: number; y: number; tx: number; ty: number };
+  [GameEvent.WEAVER_SHOOT]: { x: number; y: number; tx: number; ty: number; isRelease?: boolean };
   [GameEvent.GAME_PAUSED]: { isPaused: boolean };
   [GameEvent.PLAYER_LANDED]: { x: number; y: number };
   [GameEvent.PLAYER_WALL_HIT]: { x: number; y: number; wallNormalX: number };

@@ -295,7 +295,7 @@ export class ProjectileSystem implements ISystem {
     }
 
     this.unsubShoot = this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
-      this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty);
+      this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty, !!payload.isRelease);
     });
 
     this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
@@ -314,10 +314,67 @@ export class ProjectileSystem implements ISystem {
     return mat;
   }
 
-  private spawnProjectile(x: number, y: number, tx: number, ty: number): void {
-    let projId = -1;
+  private spawnProjectile(x: number, y: number, tx: number, ty: number, isRelease: boolean = false): void {
     const projStore = this.context.stores.get<ProjectileComponent>("projectile");
 
+    if (isRelease) {
+      let chargingProjId = -1;
+      for (let i = 0; i < this.POOL_SIZE; i++) {
+        const pid = this.projectileEntities[i];
+        const p = projStore.get(pid);
+        if (p && p.isActive && p.isCharging) {
+          chargingProjId = pid;
+          break;
+        }
+      }
+
+      if (chargingProjId !== -1) {
+        const pComp = projStore.get(chargingProjId)!;
+        const trans = this.context.stores.get<TransformComponent>("transform").get(chargingProjId);
+        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(chargingProjId);
+        const mesh = this.context.visualQuery.getTransformNode(chargingProjId);
+
+        if (pComp && trans && vel && mesh instanceof BABYLON.AbstractMesh) {
+          pComp.isCharging = false;
+          pComp.lifeTime = 0.0;
+          
+          const dx = tx - trans.x;
+          const dy = ty - trans.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
+
+          vel.x = (dx / dist) * speed;
+          vel.y = (dy / dist) * speed;
+
+          pComp.fallbackX = vel.x;
+          pComp.fallbackY = vel.y;
+
+          const angle = Math.atan2(vel.y, vel.x) - Math.PI / 2;
+          if (!mesh.rotationQuaternion) {
+            mesh.rotationQuaternion = new BABYLON.Quaternion();
+          }
+          BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, mesh.rotationQuaternion);
+
+          trans.qx = mesh.rotationQuaternion.x;
+          trans.qy = mesh.rotationQuaternion.y;
+          trans.qz = mesh.rotationQuaternion.z;
+          trans.qw = mesh.rotationQuaternion.w;
+
+          trans.prevQx = trans.qx;
+          trans.prevQy = trans.qy;
+          trans.prevQz = trans.qz;
+          trans.prevQw = trans.qw;
+
+          const body = this.bodiesMap.get(chargingProjId);
+          if (body) {
+            body.setTargetTransform(mesh.position, mesh.rotationQuaternion);
+          }
+          return;
+        }
+      }
+    }
+
+    let projId = -1;
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const idx = (this.nextPoolIndex + i) % this.POOL_SIZE;
       const pid = this.projectileEntities[idx];
@@ -350,6 +407,7 @@ export class ProjectileSystem implements ISystem {
     pComp.isStuckOnWall = false;
     pComp.isTrappingPlayer = false;
     pComp.lifeTime = 0.0;
+    pComp.isCharging = true;
 
     trans.x = x;
     trans.y = y;
@@ -358,53 +416,37 @@ export class ProjectileSystem implements ISystem {
     trans.prevY = y;
     trans.prevZ = 0;
 
-    // Flight profiles inherit proportions naturally from new configured base
-    trans.scaleX = 0.7;
-    trans.scaleY = 1.5;
-    trans.scaleZ = 0.7;
-    trans.prevScaleX = 0.7;
-    trans.prevScaleY = 1.5;
-    trans.prevScaleZ = 0.7;
+    trans.scaleX = 0.001;
+    trans.scaleY = 0.001;
+    trans.scaleZ = 0.001;
+    trans.prevScaleX = 0.001;
+    trans.prevScaleY = 0.001;
+    trans.prevScaleZ = 0.001;
     trans.scaleVelX = 0;
     trans.scaleVelY = 0;
     trans.scaleVelZ = 0;
 
     mesh.position.set(x, y, 0);
-    mesh.scaling.set(0.7, 1.5, 0.7);
+    mesh.scaling.set(0.001, 0.001, 0.001);
     mesh.material = this.projMatActive;
     mesh.isVisible = true;
     mesh.setEnabled(true);
 
-    const dx = tx - x;
-    const dy = ty - y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
+    vel.x = 0;
+    vel.y = 0;
 
-    vel.x = (dx / dist) * speed;
-    vel.y = (dy / dist) * speed;
-
-    pComp.fallbackX = vel.x;
-    pComp.fallbackY = vel.y;
-
-    const angle = Math.atan2(vel.y, vel.x) - Math.PI / 2;
-    if (!mesh.rotationQuaternion) {
-      mesh.rotationQuaternion = new BABYLON.Quaternion();
-    }
-    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, mesh.rotationQuaternion);
-
-    trans.qx = mesh.rotationQuaternion.x;
-    trans.qy = mesh.rotationQuaternion.y;
-    trans.qz = mesh.rotationQuaternion.z;
-    trans.qw = mesh.rotationQuaternion.w;
-
-    trans.prevQx = trans.qx;
-    trans.prevQy = trans.qy;
-    trans.prevQz = trans.qz;
-    trans.prevQw = trans.qw;
+    trans.qx = 0;
+    trans.qy = 0;
+    trans.qz = 0;
+    trans.qw = 1;
+    trans.prevQx = 0;
+    trans.prevQy = 0;
+    trans.prevQz = 0;
+    trans.prevQw = 1;
 
     const body = this.bodiesMap.get(projId);
     if (body) {
-      body.setTargetTransform(mesh.position, mesh.rotationQuaternion);
+      body.setTargetTransform(mesh.position, BABYLON.Quaternion.Identity());
     }
   }
 
@@ -485,6 +527,23 @@ export class ProjectileSystem implements ISystem {
           );
         }
       } else {
+        const growthDuration = 0.50;
+        const progress = Math.min(1.0, p.lifeTime / growthDuration);
+        const growScale = progress;
+
+        const undulateSpeed = 24.0;
+        const undulateAmp = 0.14;
+        const undulatePhase = p.lifeTime * undulateSpeed;
+        const undulation = 1.0 + Math.sin(undulatePhase) * undulateAmp;
+
+        trans.prevScaleX = trans.scaleX;
+        trans.prevScaleY = trans.scaleY;
+        trans.prevScaleZ = trans.scaleZ;
+
+        trans.scaleX = 0.7 * growScale * undulation;
+        trans.scaleY = 1.5 * growScale * (1.0 / undulation);
+        trans.scaleZ = 0.7 * growScale * undulation;
+
         const body = this.bodiesMap.get(projId);
         if (body) {
           this._scratchPos.set(trans.x, trans.y, trans.z);

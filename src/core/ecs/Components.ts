@@ -75,6 +75,7 @@ export interface WeaverAIComponent {
   shootOriginY?: number;
   shootTargetX?: number;
   shootTargetY?: number;
+  shootIsRelease?: boolean;
   shakeRequested: boolean;
   shakeAmplitude?: number;
   shakeDuration?: number;
@@ -144,6 +145,7 @@ export interface ProjectileComponent {
   fallbackX: number;
   fallbackY: number;
   isTrappingPlayer?: boolean;
+  isCharging?: boolean;
 }
 
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";

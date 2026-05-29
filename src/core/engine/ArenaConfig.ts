@@ -140,7 +140,7 @@ export const WEAVER_AI_TUNING = {
   },
   SHOOT: {
     POOL_SIZE: 16,
-    TELEGRAPH_TIME: 1.8,
+    TELEGRAPH_TIME: 1.4,
     RELOAD_TIME: 2.4,
     OFFSET_Y: 1.8,
     SPEED: 15.0,

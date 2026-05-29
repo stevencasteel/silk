@@ -177,6 +177,33 @@ export function getWeaverStingerTip(
   return _stingerResult;
 }
 
+const _abdomenLocalTip = new BABYLON.Vector3();
+const _abdomenQ = new BABYLON.Quaternion();
+const _abdomenWorldOffset = new BABYLON.Vector3();
+const _abdomenResult = new BABYLON.Vector3();
+
+export function getWeaverAbdomenTip(
+  weaverX: number,
+  weaverY: number,
+  weaverZ: number,
+  qx: number,
+  qy: number,
+  qz: number,
+  qw: number,
+  radius: number,
+  scaleMultiplier: number = 1.0
+): BABYLON.Vector3 {
+  _abdomenLocalTip.set(0, -radius * 1.195 * scaleMultiplier, -radius * 0.035 * scaleMultiplier);
+  _abdomenQ.set(qx, qy, qz, qw);
+  _abdomenLocalTip.rotateByQuaternionToRef(_abdomenQ, _abdomenWorldOffset);
+  _abdomenResult.set(
+    weaverX + _abdomenWorldOffset.x,
+    weaverY + _abdomenWorldOffset.y,
+    weaverZ + _abdomenWorldOffset.z
+  );
+  return _abdomenResult;
+}
+
 export function configurePBRTextures(
   material: BABYLON.PBRMaterial,
   textures: {
