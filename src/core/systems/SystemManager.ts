@@ -1,4 +1,4 @@
-import { ISystem } from "../../contracts/ISystem";
+import { ISystem, isInitializable, isUpdateable, isRenderable, isDisposable } from "../../contracts/ISystem";
 import { Profiler } from "../diagnostics/Profiler";
 import { InitPhase, SystemPhase } from "../../contracts/SystemPhase";
 
@@ -22,7 +22,7 @@ export class SystemManager {
     });
 
     for (const system of sortedForInit) {
-      if (system.init) {
+      if (isInitializable(system)) {
         await system.init();
       }
     }
@@ -42,7 +42,7 @@ export class SystemManager {
         continue;
       }
 
-      if (system.update) {
+      if (isUpdateable(system)) {
         const start = isProfiling ? performance.now() : 0;
         try {
           system.update(dt);
@@ -60,7 +60,7 @@ export class SystemManager {
     const isProfiling = this.profiler.isEnabled;
     for (let i = 0; i < this.systems.length; i++) {
       const system = this.systems[i];
-      if (system.render) {
+      if (isRenderable(system)) {
         const start = isProfiling ? performance.now() : 0;
         try {
           system.render(alpha);
@@ -82,7 +82,7 @@ export class SystemManager {
 
   public disposeAll(): void {
     for (const system of this.systems) {
-      if (system.dispose) {
+      if (isDisposable(system)) {
         system.dispose();
       }
     }

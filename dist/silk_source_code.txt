@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 7:07:23 PM
+ [SYSTEM] Generated: 5/28/2026, 7:08:33 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2117,10 +2117,46 @@ import { SystemPhase, InitPhase } from "./SystemPhase";
 export interface ISystem {
   readonly phase: SystemPhase;
   readonly initPhase?: InitPhase;
-  init?(): Promise<void> | void;
-  update?(dt: number): void;
-  render?(alpha: number): void;
-  dispose?(): void;
+}
+
+export interface IInitializable {
+  init(): Promise<void> | void;
+}
+
+export interface IUpdateable {
+  update(dt: number): void;
+}
+
+export interface IRenderable {
+  render(alpha: number): void;
+}
+
+export interface IDisposable {
+  dispose(): void;
+}
+
+export function isInitializable(system: unknown): system is IInitializable {
+  if (system === null || typeof system !== "object") return false;
+  const candidate = system as Record<string, unknown>;
+  return typeof candidate.init === "function";
+}
+
+export function isUpdateable(system: unknown): system is IUpdateable {
+  if (system === null || typeof system !== "object") return false;
+  const candidate = system as Record<string, unknown>;
+  return typeof candidate.update === "function";
+}
+
+export function isRenderable(system: unknown): system is IRenderable {
+  if (system === null || typeof system !== "object") return false;
+  const candidate = system as Record<string, unknown>;
+  return typeof candidate.render === "function";
+}
+
+export function isDisposable(system: unknown): system is IDisposable {
+  if (system === null || typeof system !== "object") return false;
+  const candidate = system as Record<string, unknown>;
+  return typeof candidate.dispose === "function";
 }
 
 
@@ -3792,7 +3828,7 @@ export class ProfilePersistenceSystem implements ISystem {
 
 ● ./src/core/systems/SystemManager.ts
 ────────────────────────────────────────────────────
-import { ISystem } from "../../contracts/ISystem";
+import { ISystem, isInitializable, isUpdateable, isRenderable, isDisposable } from "../../contracts/ISystem";
 import { Profiler } from "../diagnostics/Profiler";
 import { InitPhase, SystemPhase } from "../../contracts/SystemPhase";
 
@@ -3816,7 +3852,7 @@ export class SystemManager {
     });
 
     for (const system of sortedForInit) {
-      if (system.init) {
+      if (isInitializable(system)) {
         await system.init();
       }
     }
@@ -3836,7 +3872,7 @@ export class SystemManager {
         continue;
       }
 
-      if (system.update) {
+      if (isUpdateable(system)) {
         const start = isProfiling ? performance.now() : 0;
         try {
           system.update(dt);
@@ -3854,7 +3890,7 @@ export class SystemManager {
     const isProfiling = this.profiler.isEnabled;
     for (let i = 0; i < this.systems.length; i++) {
       const system = this.systems[i];
-      if (system.render) {
+      if (isRenderable(system)) {
         const start = isProfiling ? performance.now() : 0;
         try {
           system.render(alpha);
@@ -3876,7 +3912,7 @@ export class SystemManager {
 
   public disposeAll(): void {
     for (const system of this.systems) {
-      if (system.dispose) {
+      if (isDisposable(system)) {
         system.dispose();
       }
     }
