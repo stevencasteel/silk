@@ -27,7 +27,7 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.parentNode = new BABYLON.TransformNode("juiceParticleRoot", scene);

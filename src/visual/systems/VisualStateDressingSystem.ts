@@ -119,7 +119,7 @@ export class VisualStateDressingSystem implements ISystem {
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     for (const [id, pCosmetic] of pCosmetics.entries()) {
-      const pNode = this.context.visualRegistry.getTransformNode(id);
+      const pNode = this.context.visualQuery.getTransformNode(id);
       if (!(pNode instanceof BABYLON.AbstractMesh)) continue;
 
       const mesh = pNode;
@@ -158,7 +158,7 @@ export class VisualStateDressingSystem implements ISystem {
     }
 
     for (const [id, wCosmetic] of wCosmetics.entries()) {
-      const wNode = this.context.visualRegistry.getTransformNode(id);
+      const wNode = this.context.visualQuery.getTransformNode(id);
       if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
 
       const mesh = wNode;

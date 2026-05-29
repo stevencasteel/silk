@@ -30,7 +30,7 @@ export class CameraSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
 
@@ -165,7 +165,7 @@ export class CameraSystem implements ISystem {
     if (!this.cameraNode) return;
 
     const preset = POST_PROCESSING_PRESETS.CAMERA;
-    const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+    const pNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
 
     let targetScrollY = this.cameraScrollY;
     if (pNode) {

@@ -59,8 +59,8 @@ export class CollisionResolutionSystem implements ISystem {
 
       const response = responses.get(projId);
       if (response && response.layer === "PROJECTILE" && response.onOverlap) {
-        const mesh = this.context.visualRegistry.getTransformNode(projId);
-        const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+        const mesh = this.context.visualQuery.getTransformNode(projId);
+        const pMesh = this.context.visualQuery.getTransformNode(this.context.refs.player);
 
         if (
           mesh instanceof BABYLON.AbstractMesh &&

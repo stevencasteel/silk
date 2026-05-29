@@ -85,7 +85,7 @@ export class LegJointAnimationSystem implements ISystem {
   private dressWallBugLegs(): void {
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
     for (const [id, bug] of bugStore.entries()) {
-      const node = this.context.visualRegistry.getTransformNode(id);
+      const node = this.context.visualQuery.getTransformNode(id);
       if (!node) continue;
 
       const bugPhase = bug.gaitPhase;
@@ -121,7 +121,7 @@ export class LegJointAnimationSystem implements ISystem {
     const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
 
     for (const [id] of weaverCosmetics.entries()) {
-      const wNode = this.context.visualRegistry.getTransformNode(id);
+      const wNode = this.context.visualQuery.getTransformNode(id);
       if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
 
       const mesh = wNode;

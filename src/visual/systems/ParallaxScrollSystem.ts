@@ -124,7 +124,7 @@ export class ParallaxScrollSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     const mapping = CANONICAL_UNITS.SCROLL_MAPPING;

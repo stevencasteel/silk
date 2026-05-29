@@ -48,7 +48,7 @@ export class WeaverTraversalSystem implements ISystem {
     const isPatrolling = ai && ai.state === "PATROLLING";
     let sState = sweepStore.get(this.context.refs.weaver);
 
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     const physicsEngine = scene?.getPhysicsEngine();
     const concreteEngine = physicsEngine ? (physicsEngine as BABYLON.PhysicsEngine) : null;
 

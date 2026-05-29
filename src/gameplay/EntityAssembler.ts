@@ -162,7 +162,7 @@ export class EntityAssembler {
       targetLayer: "PLAYER"
     });
 
-    const existingNode = context.visualRegistry.getTransformNode(weaverId);
+    const existingNode = context.visualQuery.getTransformNode(weaverId);
     if (existingNode) {
       existingNode.position.set(0, ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, 0);
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
@@ -172,7 +172,7 @@ export class EntityAssembler {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const regCaster = (m: BABYLON.AbstractMesh) => context.visualRegistry.registerShadowCaster(m);
+    const regCaster = (m: BABYLON.AbstractMesh) => context.visualRegistration.registerShadowCaster(m);
 
     const wMesh = createWeaverVisualMesh(
       scene,
@@ -181,7 +181,7 @@ export class EntityAssembler {
       regCaster
     );
 
-    context.visualRegistry.registerTransformNode(weaverId, wMesh);
+    context.visualRegistration.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled()) {
       const wBody = new BABYLON.PhysicsBody(
@@ -344,7 +344,7 @@ export class EntityAssembler {
       targetLayer: "WEAVER"
     });
 
-    const existingNode = context.visualRegistry.getTransformNode(playerId);
+    const existingNode = context.visualQuery.getTransformNode(playerId);
     if (existingNode) {
       existingNode.position.set(0, ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, 0);
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
@@ -360,7 +360,7 @@ export class EntityAssembler {
       ARENA_CONFIG.ENTITY.PLAYER_CAPSULE_SUBDIVISIONS
     );
 
-    context.visualRegistry.registerTransformNode(playerId, pMesh);
+    context.visualRegistration.registerTransformNode(playerId, pMesh);
 
     if (scene.isPhysicsEnabled() && sharedPlayerShape) {
       const pBody = new BABYLON.PhysicsBody(

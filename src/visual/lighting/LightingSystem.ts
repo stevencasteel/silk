@@ -22,7 +22,7 @@ export class LightingSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.weaverLight = new BABYLON.PointLight(
@@ -73,7 +73,7 @@ export class LightingSystem implements ISystem {
   public update(dt: number): void {
     if (!this.weaverLight) return;
 
-    const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+    const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
     if (weaverNode) {
       this.weaverLight.position.copyFrom(weaverNode.position);
       this.weaverLight.position.y = weaverNode.position.y + 1.4;

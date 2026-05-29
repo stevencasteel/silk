@@ -31,7 +31,7 @@ export class HavokPhysicsSystem implements ISystem {
 
   public async init(): Promise<void> {
     this.registerCommands();
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (scene) {
       this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
         status: "LOADING PHYSICS ENGINE..."
@@ -194,7 +194,7 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.z = wTarget.z;
     }
 
-    const pMesh = this.context.visualRegistry.getTransformNode(
+    const pMesh = this.context.visualQuery.getTransformNode(
       this.context.refs.player
     ) as BABYLON.AbstractMesh | null;
     if (pMesh && pMesh.physicsBody && pTrans) {
@@ -203,7 +203,7 @@ export class HavokPhysicsSystem implements ISystem {
       pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
 
-    const wMesh = this.context.visualRegistry.getTransformNode(
+    const wMesh = this.context.visualQuery.getTransformNode(
       this.context.refs.weaver
     ) as BABYLON.AbstractMesh | null;
     if (wMesh && wMesh.physicsBody && wTrans) {

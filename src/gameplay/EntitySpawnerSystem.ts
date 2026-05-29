@@ -14,7 +14,7 @@ export class EntitySpawnerSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (scene && scene.isPhysicsEnabled()) {
       const cylHalfHeight =
         (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
@@ -30,7 +30,7 @@ export class EntitySpawnerSystem implements ISystem {
   }
 
   public spawnWeaver(existingId?: EntityId): EntityId {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return -1;
 
     const weaverId = existingId ?? this.context.world.create();
@@ -43,7 +43,7 @@ export class EntitySpawnerSystem implements ISystem {
   }
 
   public spawnPlayer(existingId?: EntityId): EntityId {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return -1;
 
     const playerId = existingId ?? this.context.world.create();

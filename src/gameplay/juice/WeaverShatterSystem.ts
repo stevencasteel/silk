@@ -28,7 +28,7 @@ export class WeaverShatterSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.debrisMat = new BABYLON.PBRMaterial("debrisMat", scene);
@@ -40,9 +40,9 @@ export class WeaverShatterSystem implements ISystem {
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+        const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const sceneObj = this.context.visualRegistry.getScene();
+          const sceneObj = this.context.visualQuery.getScene();
           if (sceneObj) {
             this.spawnDeathDebris(weaverNode.position, sceneObj);
           }
@@ -54,7 +54,7 @@ export class WeaverShatterSystem implements ISystem {
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearDebris();
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+        const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
           weaverNode.setEnabled(true);
         }
@@ -83,7 +83,7 @@ export class WeaverShatterSystem implements ISystem {
     mesh.position = pos.add(centroid).add(outward.scale(0.35));
     mesh.material = activeMat;
 
-    this.context.visualRegistry.registerShadowCaster(mesh);
+    this.context.visualRegistration.registerShadowCaster(mesh);
 
     const speed =
       config.VELOCITY_Y_MIN +
@@ -106,7 +106,7 @@ export class WeaverShatterSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+    const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
     const weaverMesh = weaverNode instanceof BABYLON.Mesh ? weaverNode : null;
     const activeMat = (weaverMesh?.material || this.debrisMat!) as BABYLON.Material;
 
@@ -314,9 +314,9 @@ export class WeaverShatterSystem implements ISystem {
   public update(dt: number): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+    const playerNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
 
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const cameraYOffset =
       scene && scene.activeCamera ? scene.activeCamera.position.y - defaultCameraY : 0.0;

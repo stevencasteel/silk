@@ -35,7 +35,7 @@ export class WallBugSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.bugMaterial = new BABYLON.PBRMaterial("wallBugCarapace", scene);
@@ -77,7 +77,7 @@ export class WallBugSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.spawnTimer += dt;
@@ -126,7 +126,7 @@ export class WallBugSystem implements ISystem {
   }
 
   private spawnBugFromPool(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     const pBug = this.bugPool.find((p) => !p.active);
@@ -179,7 +179,7 @@ export class WallBugSystem implements ISystem {
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
 
-    this.context.visualRegistry.registerTransformNode(pBug.entityId, pBug.rootNode);
+    this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
   }
 
   private recycleBug(pBug: PooledBug): void {
@@ -196,7 +196,7 @@ export class WallBugSystem implements ISystem {
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     transformStore.remove(pBug.entityId);
 
-    this.context.visualRegistry.unregisterTransformNode(pBug.entityId);
+    this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
   }
 
   private clearAllBugs(): void {

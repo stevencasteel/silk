@@ -42,7 +42,7 @@ export class TetherVisualizerSystem implements ISystem {
   }
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
@@ -135,7 +135,7 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      const wNode = this.context.visualRegistry.getTransformNode(
+      const wNode = this.context.visualQuery.getTransformNode(
         this.context.refs.weaver
       ) as BABYLON.Mesh | null;
       if (wNode) {
@@ -302,7 +302,7 @@ export class TetherVisualizerSystem implements ISystem {
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      const wNode = this.context.visualRegistry.getTransformNode(
+      const wNode = this.context.visualQuery.getTransformNode(
         this.context.refs.weaver
       ) as BABYLON.Mesh | null;
       if (wNode) {

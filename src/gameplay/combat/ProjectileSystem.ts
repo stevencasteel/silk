@@ -39,7 +39,7 @@ export class ProjectileSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive", scene);
@@ -135,7 +135,7 @@ export class ProjectileSystem implements ISystem {
               projCol.hitPointX = projTrans.x;
               projCol.hitPointY = projTrans.y;
 
-              const mesh = this.context.visualRegistry.getTransformNode(id);
+              const mesh = this.context.visualQuery.getTransformNode(id);
               if (mesh instanceof BABYLON.AbstractMesh) {
                 mesh.scaling.set(0.24, 1.45, 1.45);
                 mesh.position.x = projTrans.x;
@@ -234,7 +234,7 @@ export class ProjectileSystem implements ISystem {
         }
       });
 
-      this.context.visualRegistry.registerTransformNode(projId, sphere);
+      this.context.visualRegistration.registerTransformNode(projId, sphere);
       this.bodiesMap.set(projId, body);
     }
 
@@ -285,7 +285,7 @@ export class ProjectileSystem implements ISystem {
     const pComp = projStore.get(projId);
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
-    const mesh = this.context.visualRegistry.getTransformNode(projId);
+    const mesh = this.context.visualQuery.getTransformNode(projId);
 
     if (!pComp || !trans || !vel || !(mesh instanceof BABYLON.AbstractMesh)) return;
 
@@ -367,7 +367,7 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       const trans = transformStore.get(projId);
-      const mesh = this.context.visualRegistry.getTransformNode(projId);
+      const mesh = this.context.visualQuery.getTransformNode(projId);
       if (!trans || !(mesh instanceof BABYLON.AbstractMesh)) continue;
 
       if (p.isStuckOnWall) {
@@ -403,7 +403,7 @@ export class ProjectileSystem implements ISystem {
 
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
-    const mesh = this.context.visualRegistry.getTransformNode(projId);
+    const mesh = this.context.visualQuery.getTransformNode(projId);
 
     if (trans) {
       trans.x = 0;

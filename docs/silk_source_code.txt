@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/28/2026, 7:04:43 PM
+ [SYSTEM] Generated: 5/28/2026, 7:07:23 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -4282,7 +4282,7 @@ export class EntityAssembler {
       targetLayer: "PLAYER"
     });
 
-    const existingNode = context.visualRegistry.getTransformNode(weaverId);
+    const existingNode = context.visualQuery.getTransformNode(weaverId);
     if (existingNode) {
       existingNode.position.set(0, ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y, 0);
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
@@ -4292,7 +4292,7 @@ export class EntityAssembler {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const regCaster = (m: BABYLON.AbstractMesh) => context.visualRegistry.registerShadowCaster(m);
+    const regCaster = (m: BABYLON.AbstractMesh) => context.visualRegistration.registerShadowCaster(m);
 
     const wMesh = createWeaverVisualMesh(
       scene,
@@ -4301,7 +4301,7 @@ export class EntityAssembler {
       regCaster
     );
 
-    context.visualRegistry.registerTransformNode(weaverId, wMesh);
+    context.visualRegistration.registerTransformNode(weaverId, wMesh);
 
     if (scene.isPhysicsEnabled()) {
       const wBody = new BABYLON.PhysicsBody(
@@ -4464,7 +4464,7 @@ export class EntityAssembler {
       targetLayer: "WEAVER"
     });
 
-    const existingNode = context.visualRegistry.getTransformNode(playerId);
+    const existingNode = context.visualQuery.getTransformNode(playerId);
     if (existingNode) {
       existingNode.position.set(0, ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, 0);
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
@@ -4480,7 +4480,7 @@ export class EntityAssembler {
       ARENA_CONFIG.ENTITY.PLAYER_CAPSULE_SUBDIVISIONS
     );
 
-    context.visualRegistry.registerTransformNode(playerId, pMesh);
+    context.visualRegistration.registerTransformNode(playerId, pMesh);
 
     if (scene.isPhysicsEnabled() && sharedPlayerShape) {
       const pBody = new BABYLON.PhysicsBody(
@@ -4516,7 +4516,7 @@ export class EntitySpawnerSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (scene && scene.isPhysicsEnabled()) {
       const cylHalfHeight =
         (ARENA_CONFIG.ENTITY.PLAYER_HEIGHT - 2 * ARENA_CONFIG.ENTITY.PLAYER_RADIUS) / 2;
@@ -4532,7 +4532,7 @@ export class EntitySpawnerSystem implements ISystem {
   }
 
   public spawnWeaver(existingId?: EntityId): EntityId {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return -1;
 
     const weaverId = existingId ?? this.context.world.create();
@@ -4545,7 +4545,7 @@ export class EntitySpawnerSystem implements ISystem {
   }
 
   public spawnPlayer(existingId?: EntityId): EntityId {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return -1;
 
     const playerId = existingId ?? this.context.world.create();
@@ -5071,7 +5071,7 @@ export class ProjectileSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive", scene);
@@ -5167,7 +5167,7 @@ export class ProjectileSystem implements ISystem {
               projCol.hitPointX = projTrans.x;
               projCol.hitPointY = projTrans.y;
 
-              const mesh = this.context.visualRegistry.getTransformNode(id);
+              const mesh = this.context.visualQuery.getTransformNode(id);
               if (mesh instanceof BABYLON.AbstractMesh) {
                 mesh.scaling.set(0.24, 1.45, 1.45);
                 mesh.position.x = projTrans.x;
@@ -5266,7 +5266,7 @@ export class ProjectileSystem implements ISystem {
         }
       });
 
-      this.context.visualRegistry.registerTransformNode(projId, sphere);
+      this.context.visualRegistration.registerTransformNode(projId, sphere);
       this.bodiesMap.set(projId, body);
     }
 
@@ -5317,7 +5317,7 @@ export class ProjectileSystem implements ISystem {
     const pComp = projStore.get(projId);
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
-    const mesh = this.context.visualRegistry.getTransformNode(projId);
+    const mesh = this.context.visualQuery.getTransformNode(projId);
 
     if (!pComp || !trans || !vel || !(mesh instanceof BABYLON.AbstractMesh)) return;
 
@@ -5399,7 +5399,7 @@ export class ProjectileSystem implements ISystem {
       p.lifeTime += dt;
 
       const trans = transformStore.get(projId);
-      const mesh = this.context.visualRegistry.getTransformNode(projId);
+      const mesh = this.context.visualQuery.getTransformNode(projId);
       if (!trans || !(mesh instanceof BABYLON.AbstractMesh)) continue;
 
       if (p.isStuckOnWall) {
@@ -5435,7 +5435,7 @@ export class ProjectileSystem implements ISystem {
 
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
-    const mesh = this.context.visualRegistry.getTransformNode(projId);
+    const mesh = this.context.visualQuery.getTransformNode(projId);
 
     if (trans) {
       trans.x = 0;
@@ -5534,7 +5534,7 @@ export class JuiceSystem implements ISystem, IParticleEmitContext {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.parentNode = new BABYLON.TransformNode("juiceParticleRoot", scene);
@@ -5912,7 +5912,7 @@ export class TetherVisualizerSystem implements ISystem {
   }
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
@@ -6005,7 +6005,7 @@ export class TetherVisualizerSystem implements ISystem {
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
 
-      const wNode = this.context.visualRegistry.getTransformNode(
+      const wNode = this.context.visualQuery.getTransformNode(
         this.context.refs.weaver
       ) as BABYLON.Mesh | null;
       if (wNode) {
@@ -6172,7 +6172,7 @@ export class TetherVisualizerSystem implements ISystem {
       const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
       const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
       this.scratchPlayer.set(px, py, 0);
-      const wNode = this.context.visualRegistry.getTransformNode(
+      const wNode = this.context.visualQuery.getTransformNode(
         this.context.refs.weaver
       ) as BABYLON.Mesh | null;
       if (wNode) {
@@ -6315,7 +6315,7 @@ export class WeaverShatterSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.debrisMat = new BABYLON.PBRMaterial("debrisMat", scene);
@@ -6327,9 +6327,9 @@ export class WeaverShatterSystem implements ISystem {
 
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+        const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const sceneObj = this.context.visualRegistry.getScene();
+          const sceneObj = this.context.visualQuery.getScene();
           if (sceneObj) {
             this.spawnDeathDebris(weaverNode.position, sceneObj);
           }
@@ -6341,7 +6341,7 @@ export class WeaverShatterSystem implements ISystem {
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearDebris();
-        const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+        const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
           weaverNode.setEnabled(true);
         }
@@ -6370,7 +6370,7 @@ export class WeaverShatterSystem implements ISystem {
     mesh.position = pos.add(centroid).add(outward.scale(0.35));
     mesh.material = activeMat;
 
-    this.context.visualRegistry.registerShadowCaster(mesh);
+    this.context.visualRegistration.registerShadowCaster(mesh);
 
     const speed =
       config.VELOCITY_Y_MIN +
@@ -6393,7 +6393,7 @@ export class WeaverShatterSystem implements ISystem {
   }
 
   private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+    const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
     const weaverMesh = weaverNode instanceof BABYLON.Mesh ? weaverNode : null;
     const activeMat = (weaverMesh?.material || this.debrisMat!) as BABYLON.Material;
 
@@ -6601,9 +6601,9 @@ export class WeaverShatterSystem implements ISystem {
   public update(dt: number): void {
     const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
     const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
-    const playerNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+    const playerNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
 
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     const defaultCameraY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     const cameraYOffset =
       scene && scene.activeCamera ? scene.activeCamera.position.y - defaultCameraY : 0.0;
@@ -7419,7 +7419,7 @@ export class WallBugSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.bugMaterial = new BABYLON.PBRMaterial("wallBugCarapace", scene);
@@ -7461,7 +7461,7 @@ export class WallBugSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.spawnTimer += dt;
@@ -7510,7 +7510,7 @@ export class WallBugSystem implements ISystem {
   }
 
   private spawnBugFromPool(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     const pBug = this.bugPool.find((p) => !p.active);
@@ -7563,7 +7563,7 @@ export class WallBugSystem implements ISystem {
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
 
-    this.context.visualRegistry.registerTransformNode(pBug.entityId, pBug.rootNode);
+    this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
   }
 
   private recycleBug(pBug: PooledBug): void {
@@ -7580,7 +7580,7 @@ export class WallBugSystem implements ISystem {
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     transformStore.remove(pBug.entityId);
 
-    this.context.visualRegistry.unregisterTransformNode(pBug.entityId);
+    this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
   }
 
   private clearAllBugs(): void {
@@ -8648,7 +8648,7 @@ export class WeaverTraversalSystem implements ISystem {
     const isPatrolling = ai && ai.state === "PATROLLING";
     let sState = sweepStore.get(this.context.refs.weaver);
 
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     const physicsEngine = scene?.getPhysicsEngine();
     const concreteEngine = physicsEngine ? (physicsEngine as BABYLON.PhysicsEngine) : null;
 
@@ -10298,7 +10298,7 @@ export class HavokPhysicsSystem implements ISystem {
 
   public async init(): Promise<void> {
     this.registerCommands();
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (scene) {
       this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
         status: "LOADING PHYSICS ENGINE..."
@@ -10461,7 +10461,7 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.z = wTarget.z;
     }
 
-    const pMesh = this.context.visualRegistry.getTransformNode(
+    const pMesh = this.context.visualQuery.getTransformNode(
       this.context.refs.player
     ) as BABYLON.AbstractMesh | null;
     if (pMesh && pMesh.physicsBody && pTrans) {
@@ -10470,7 +10470,7 @@ export class HavokPhysicsSystem implements ISystem {
       pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
 
-    const wMesh = this.context.visualRegistry.getTransformNode(
+    const wMesh = this.context.visualQuery.getTransformNode(
       this.context.refs.weaver
     ) as BABYLON.AbstractMesh | null;
     if (wMesh && wMesh.physicsBody && wTrans) {
@@ -10546,8 +10546,8 @@ export class CollisionResolutionSystem implements ISystem {
 
       const response = responses.get(projId);
       if (response && response.layer === "PROJECTILE" && response.onOverlap) {
-        const mesh = this.context.visualRegistry.getTransformNode(projId);
-        const pMesh = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+        const mesh = this.context.visualQuery.getTransformNode(projId);
+        const pMesh = this.context.visualQuery.getTransformNode(this.context.refs.player);
 
         if (
           mesh instanceof BABYLON.AbstractMesh &&
@@ -12156,7 +12156,7 @@ export class CameraSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
 
@@ -12291,7 +12291,7 @@ export class CameraSystem implements ISystem {
     if (!this.cameraNode) return;
 
     const preset = POST_PROCESSING_PRESETS.CAMERA;
-    const pNode = this.context.visualRegistry.getTransformNode(this.context.refs.player);
+    const pNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
 
     let targetScrollY = this.cameraScrollY;
     if (pNode) {
@@ -12352,7 +12352,7 @@ export class LightingSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public init(): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     this.weaverLight = new BABYLON.PointLight(
@@ -12403,7 +12403,7 @@ export class LightingSystem implements ISystem {
   public update(dt: number): void {
     if (!this.weaverLight) return;
 
-    const weaverNode = this.context.visualRegistry.getTransformNode(this.context.refs.weaver);
+    const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
     if (weaverNode) {
       this.weaverLight.position.copyFrom(weaverNode.position);
       this.weaverLight.position.y = weaverNode.position.y + 1.4;
@@ -14445,7 +14445,7 @@ export class LegJointAnimationSystem implements ISystem {
   private dressWallBugLegs(): void {
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
     for (const [id, bug] of bugStore.entries()) {
-      const node = this.context.visualRegistry.getTransformNode(id);
+      const node = this.context.visualQuery.getTransformNode(id);
       if (!node) continue;
 
       const bugPhase = bug.gaitPhase;
@@ -14481,7 +14481,7 @@ export class LegJointAnimationSystem implements ISystem {
     const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
 
     for (const [id] of weaverCosmetics.entries()) {
-      const wNode = this.context.visualRegistry.getTransformNode(id);
+      const wNode = this.context.visualQuery.getTransformNode(id);
       if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
 
       const mesh = wNode;
@@ -14801,7 +14801,7 @@ export class ParallaxScrollSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    const scene = this.context.visualRegistry.getScene();
+    const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
     const mapping = CANONICAL_UNITS.SCROLL_MAPPING;
@@ -14975,7 +14975,7 @@ export class VisualStateDressingSystem implements ISystem {
     const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
 
     for (const [id, pCosmetic] of pCosmetics.entries()) {
-      const pNode = this.context.visualRegistry.getTransformNode(id);
+      const pNode = this.context.visualQuery.getTransformNode(id);
       if (!(pNode instanceof BABYLON.AbstractMesh)) continue;
 
       const mesh = pNode;
@@ -15014,7 +15014,7 @@ export class VisualStateDressingSystem implements ISystem {
     }
 
     for (const [id, wCosmetic] of wCosmetics.entries()) {
-      const wNode = this.context.visualRegistry.getTransformNode(id);
+      const wNode = this.context.visualQuery.getTransformNode(id);
       if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
 
       const mesh = wNode;
