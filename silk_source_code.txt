@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 5:21:51 PM
+ [SYSTEM] Generated: 5/29/2026, 5:51:31 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -8230,13 +8230,19 @@ export class WallBugSystem implements ISystem {
   readonly initPhase = InitPhase.Gameplay;
 
   private spawnTimer = 0.0;
-  private readonly spawnInterval = 5.0;
+  private readonly spawnInterval = 3.2; // Frequent spawns every 3.2 seconds
   private bugMaterial: BABYLON.PBRMaterial | null = null;
   private eyeMaterial: BABYLON.StandardMaterial | null = null;
   private _tracker = new SubscriptionTracker();
 
   private bugPool: PooledBug[] = [];
-  private readonly POOL_SIZE = 4;
+  private readonly POOL_SIZE = 2; // Up to two on screen at once
+
+  // Semi-random Grab Bag containing 7 unique balanced vertical lanes.
+  // Constrained to the central 40% corridor [-5.0, 5.0] to satisfy the 30% wall-exclusion rule.
+  private laneBag: number[] = [];
+  private readonly LANES = [-5.0, -3.0, -1.0, 0.0, 1.0, 3.0, 5.0];
+  private lastSelectedLaneIndex = -1;
 
   constructor(private context: SystemContext) {}
 
@@ -8255,6 +8261,7 @@ export class WallBugSystem implements ISystem {
     this.eyeMaterial.emissiveColor = new BABYLON.Color3(1.0, 0.55, 0.0);
     this.eyeMaterial.disableLighting = true;
 
+    // Pre-initialize and pre-register pool meshes to visual registry EXACTLY once
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const bugId = this.context.world.create();
       const bugRoot = WallBugVisualFactory.buildBugMeshHierarchy(
@@ -8264,6 +8271,10 @@ export class WallBugSystem implements ISystem {
         this.eyeMaterial
       );
       bugRoot.setEnabled(false);
+      bugRoot.position.set(0, -999, 0);
+
+      // Register with the visual registry so they are managed during active loops
+      this.context.visualRegistration.registerTransformNode(bugId, bugRoot);
 
       this.bugPool.push({
         entityId: bugId,
@@ -8278,6 +8289,8 @@ export class WallBugSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.clearAllBugs();
         this.spawnTimer = 0.0;
+        this.laneBag = [];
+        this.lastSelectedLaneIndex = -1;
       })
     );
   }
@@ -8289,7 +8302,8 @@ export class WallBugSystem implements ISystem {
     this.spawnTimer += dt;
     const activeCount = this.bugPool.filter((p) => p.active).length;
 
-    if (this.spawnTimer >= this.spawnInterval && activeCount < 3) {
+    // Spawns up to a maximum of 2 on screen at once
+    if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
       this.spawnTimer = 0.0;
       this.spawnBugFromPool();
     }
@@ -8314,6 +8328,7 @@ export class WallBugSystem implements ISystem {
       const extraCrawlSpeed = 3.8;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
+      // Dispose trigger: Recycle bug once it falls past the bottom viewport threshold
       if (bug.y < cameraY - 24.0) {
         this.recycleBug(pBug);
         continue;
@@ -8331,6 +8346,37 @@ export class WallBugSystem implements ISystem {
     }
   }
 
+  // Draw non-consecutively repeating lanes using Tetris-style bag-shuffling
+  private getNextLane(): number {
+    if (this.laneBag.length === 0) {
+      this.refillLaneBag();
+    }
+    const laneIndex = this.laneBag.pop()!;
+    this.lastSelectedLaneIndex = laneIndex;
+    return this.LANES[laneIndex];
+  }
+
+  private refillLaneBag(): void {
+    const indices = [0, 1, 2, 3, 4, 5, 6];
+
+    // Fisher-Yates Shuffle
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = indices[i];
+      indices[i] = indices[j];
+      indices[j] = temp;
+    }
+
+    // Boundary Protection: If first index of new bag matches last indices of old bag, swap it
+    if (indices[indices.length - 1] === this.lastSelectedLaneIndex && indices.length > 1) {
+      const temp = indices[indices.length - 1];
+      indices[indices.length - 1] = indices[0];
+      indices[0] = temp;
+    }
+
+    this.laneBag = indices;
+  }
+
   private spawnBugFromPool(): void {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return;
@@ -8341,10 +8387,20 @@ export class WallBugSystem implements ISystem {
     const cameraY = scene.activeCamera
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
-    const side = Math.random() < 0.5 ? -1 : 1;
-    const startX = side * 6.2;
-    const startY = cameraY + 22.0;
 
+    // Elevate starting coordinate so bugs spawn completely above the viewport and crawl down naturally into view
+    const startY = cameraY + 28.0;
+
+    // Retrieve lane through shuffle bag to block repeat consecutive spawns
+    const startX = this.getNextLane();
+
+    // Dynamic height scaling: stretches Y scale dynamically from 1.0x (7.2 short) up to 1.6x (11.52 tall)
+    const heightScale = 1.0 + Math.random() * 0.6;
+    const finalHeight = 7.2 * heightScale;
+    const finalWidth = 1.15;
+
+    // Reset both current and previous coordinates to the spawn position.
+    // This blocks interpolation rendering glitches when a cached mesh is repurposed.
     this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,
       y: startY,
@@ -8359,7 +8415,13 @@ export class WallBugSystem implements ISystem {
       prevQx: 0,
       prevQy: 0,
       prevQz: 0,
-      prevQw: 1
+      prevQw: 1,
+      scaleX: 1.0,
+      scaleY: heightScale,
+      scaleZ: 1.0,
+      prevScaleX: 1.0,
+      prevScaleY: heightScale,
+      prevScaleZ: 1.0
     });
 
     this.context.stores.get<WallBugComponent>("wallBug").add(pBug.entityId, {
@@ -8367,8 +8429,8 @@ export class WallBugSystem implements ISystem {
       timer: 0.0,
       x: startX,
       y: startY,
-      width: 1.15,
-      height: 7.2,
+      width: finalWidth,
+      height: finalHeight,
       speed: 3.8,
       stayDuration: 0.0,
       gaitPhase: 0.0
@@ -8376,16 +8438,14 @@ export class WallBugSystem implements ISystem {
 
     this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
       isActive: true,
-      width: 1.15,
-      height: 7.2,
+      width: finalWidth,
+      height: finalHeight,
       speed: 3.8
     });
 
     pBug.active = true;
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
-
-    this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
   }
 
   private recycleBug(pBug: PooledBug): void {
@@ -8399,10 +8459,21 @@ export class WallBugSystem implements ISystem {
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     stickyStore.remove(pBug.entityId);
 
+    // Reposition coordinates out of sight so interpolation scripts ignore them
     const transformStore = this.context.stores.get<TransformComponent>("transform");
-    transformStore.remove(pBug.entityId);
-
-    this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
+    const trans = transformStore.get(pBug.entityId);
+    if (trans) {
+      trans.x = 0;
+      trans.y = -999;
+      trans.prevX = 0;
+      trans.prevY = -999;
+      trans.scaleX = 1.0;
+      trans.scaleY = 1.0;
+      trans.scaleZ = 1.0;
+      trans.prevScaleX = 1.0;
+      trans.prevScaleY = 1.0;
+      trans.prevScaleZ = 1.0;
+    }
   }
 
   private clearAllBugs(): void {
@@ -8415,9 +8486,10 @@ export class WallBugSystem implements ISystem {
   public dispose(): void {
     this._tracker.clear();
 
+    // Cleanly unregister and dispose of pool meshes ONLY during total system teardown
     for (let i = 0; i < this.bugPool.length; i++) {
       const pBug = this.bugPool[i];
-      pBug.rootNode.dispose();
+      this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
     }
     this.bugPool = [];
 
