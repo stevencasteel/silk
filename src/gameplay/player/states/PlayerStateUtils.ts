@@ -287,7 +287,7 @@ export class PlayerStateUtils {
           if (pressingIn || isTrapped) {
             PlayerStateUtils.applyWallImpactSquash(ctx);
 
-            trav.state = "WALL_SLIDING";
+            trav.state = "WALL_STICKING";
             trav.wallDir = bugWallDir;
             trav.wallNormalX = -bugWallDir;
             trav.wallNormalY = 0;
@@ -307,7 +307,7 @@ export class PlayerStateUtils {
               y: target.y,
               wallNormalX: -bugWallDir
             });
-            return "WALL_SLIDING";
+            return "WALL_STICKING";
           } else {
             target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
             if (Math.sign(vel.x) === bugWallDir) {
@@ -417,7 +417,7 @@ export class PlayerStateUtils {
         trav.lastEscapeDirection = "";
         trav.safeLaunchTimer = 1.5;
 
-        if (trav.state === "WALL_SLIDING") {
+        if (trav.state === "WALL_STICKING") {
           trav.hasFlingBonus = true;
         }
 

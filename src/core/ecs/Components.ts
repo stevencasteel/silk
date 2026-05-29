@@ -94,7 +94,7 @@ export interface InvulnerabilityComponent {
   timeRemaining: number;
 }
 
-export type TraversalState = "AIRBORNE" | "WALL_SLIDING" | "LAUNCHING" | "GROUNDED";
+export type TraversalState = "AIRBORNE" | "WALL_STICKING" | "LAUNCHING" | "GROUNDED";
 
 export interface TraversalStateComponent {
   state: TraversalState;

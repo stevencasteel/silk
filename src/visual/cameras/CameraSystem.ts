@@ -127,7 +127,7 @@ export class CameraSystem implements ISystem {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
       const playerLocalY = playerTrans.y - (baseY + this.cameraScrollY);
 
-      if (trav.state === "WALL_SLIDING") {
+      if (trav.state === "WALL_STICKING") {
         if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
           const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
 
@@ -175,7 +175,7 @@ export class CameraSystem implements ISystem {
         .get<TraversalStateComponent>("traversal")
         .get(this.context.refs.player);
 
-      if (trav && trav.state === "WALL_SLIDING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
+      if (trav && trav.state === "WALL_STICKING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
         targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;
       }
     }

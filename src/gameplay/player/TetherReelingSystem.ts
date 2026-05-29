@@ -25,15 +25,15 @@ export class TetherReelingSystem implements ISystem {
     if (!tether || !input || !trav) return;
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
-    const isWallSliding = trav.state === "WALL_SLIDING";
+    const isWallSticking = trav.state === "WALL_STICKING";
     const isWebTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedMultiplier = isWebTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
-    if (input.y > 0 && !isWallSliding) {
+    if (input.y > 0 && !isWallSticking) {
       tether.desiredLength -= reelConfig.IN_SPEED * trappedMultiplier * dt;
       tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2 * trappedMultiplier);
-    } else if (input.y < 0 && !isWallSliding) {
+    } else if (input.y < 0 && !isWallSticking) {
       tether.desiredLength += reelConfig.OUT_SPEED * trappedMultiplier * dt;
       tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5 * trappedMultiplier);
     } else {

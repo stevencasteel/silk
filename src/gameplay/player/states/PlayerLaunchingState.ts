@@ -94,7 +94,7 @@ export class PlayerLaunchingState implements IPlayerState {
       const pressingIn = input.x === wallDir;
       if (pressingIn || isTrapped) {
         PlayerStateUtils.applyWallImpactSquash(ctx);
-        trav.state = "WALL_SLIDING";
+        trav.state = "WALL_STICKING";
         trav.wallDir = wallDir;
         trav.wallNormalX = -wallDir;
         trav.wallNormalY = 0;
@@ -105,7 +105,7 @@ export class PlayerLaunchingState implements IPlayerState {
         vel.x = 0;
         vel.y = -9.0;
 
-        return "WALL_SLIDING";
+        return "WALL_STICKING";
       } else {
         target.x = wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
         target.y = nextY;

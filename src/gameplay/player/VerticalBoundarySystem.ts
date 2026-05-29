@@ -44,10 +44,10 @@ export class VerticalBoundarySystem implements ISystem {
     const maxY = SpatialPartitionService.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
-    const isWallSliding = trav.state === "WALL_SLIDING";
+    const isWallSticking = trav.state === "WALL_STICKING";
 
     if (target.y < minY) {
-      if (isWallSliding) {
+      if (isWallSticking) {
         const absoluteFloor = SpatialPartitionService.FLOOR_Y - 70.0;
         if (target.y < absoluteFloor) {
           target.y = absoluteFloor;

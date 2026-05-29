@@ -17,10 +17,10 @@ import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig"
 import { PlayerStateUtils } from "./PlayerStateUtils";
 import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
-import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
+import { WallStickSparksStrategy } from "../../juice/ParticleStrategies";
 
-export class PlayerWallSlidingState implements IPlayerState {
-  public readonly type: TraversalState = "WALL_SLIDING";
+export class PlayerWallStickingState implements IPlayerState {
+  public readonly type: TraversalState = "WALL_STICKING";
 
   public enter(ctx: SystemContext): void {
     void ctx;
@@ -77,7 +77,7 @@ export class PlayerWallSlidingState implements IPlayerState {
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
     if (reqStore) {
       reqStore.add(sparkReqId, {
-        strategy: new WallSlideSparksStrategy(trav.wallNormalX, tether.tension, dt),
+        strategy: new WallStickSparksStrategy(trav.wallNormalX, tether.tension, dt),
         x: trav.wallDir * target.x,
         y: target.y,
         z: 0

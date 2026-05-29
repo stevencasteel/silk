@@ -175,7 +175,7 @@ export class LaunchTrailStrategy implements IParticleEmitterStrategy {
   }
 }
 
-export class WallSlideSparksStrategy implements IParticleEmitterStrategy {
+export class WallStickSparksStrategy implements IParticleEmitterStrategy {
   constructor(
     private wallNormalX: number,
     private tension: number,

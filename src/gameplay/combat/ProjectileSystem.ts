@@ -16,7 +16,9 @@ import {
   CollisionStateComponent,
   InvulnerabilityComponent,
   ParticleRequestComponent,
-  WallBugComponent
+  WallBugComponent,
+  TetherComponent,
+  KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { getWeaverAbdomenTip } from "../../core/utils/EngineUtils";
@@ -302,12 +304,81 @@ export class ProjectileSystem implements ISystem {
               return;
             }
 
+            // --- NEW REUSABLE HIT FORCE & UNREEL LOGIC ---
             if (!hasIframe) {
+              const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
+              const tether = tetherStore ? tetherStore.get(otherId) : undefined;
+              if (tether && tether.isAttached) {
+                const unreelAmount = 8.0;
+                const maxLengthLimit = 120.0;
+                tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + unreelAmount);
+                tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + unreelAmount);
+              }
+
               const dx = pTrans.x - trans.x;
               const dy = pTrans.y - trans.y;
               const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-              const kickbackSpeed = 16.0;
+              const kickbackSpeed = 18.0;
 
+              const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
+              if (pVel) {
+                pVel.x += (dx / dist) * kickbackSpeed;
+                pVel.y += (dy / dist) * kickbackSpeed;
+              }
+
+              if (pTrav && pTrav.state === "WALL_STICKING") {
+                const pushDownDistance = 3.0;
+                const targetYStore = sysCtx.stores.get<KinematicTargetComponent>("target");
+                const pTarget = targetYStore ? targetYStore.get(otherId) : undefined;
+                if (pTarget) {
+                  pTarget.y -= pushDownDistance;
+                }
+                if (pTrav.stickyWallYOffset !== undefined) {
+                  pTrav.stickyWallYOffset -= pushDownDistance;
+                }
+              }
+            }
+            // ---------------------------------------------
+
+            if (alreadyTrapped && pTrav) {
+              pTrav.webMass = (pTrav.webMass || 1) + 1;
+              pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
+
+              const reqId = sysCtx.world.create();
+              const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+              if (reqStore) {
+                reqStore.add(reqId, {
+                  strategy: new WebSplatStrategy(),
+                  x: trans.x,
+                  y: trans.y,
+                  z: trans.z
+                });
+              }
+
+              sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.8,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+
+              if (!hasIframe) {
+                sysCtx.commands.dispatch({
+                  type: "DAMAGE_REQUEST",
+                  targetId: otherId,
+                  amount: 1,
+                  source: "PROJECTILE"
+                });
+              }
+
+              this.recycleProjectile(projId, pComp);
+              return;
+            }
+
+            if (!hasIframe) {
               if (pTrav) {
                 pTrav.isWebTrapped = true;
                 pTrav.webMass = 1;
@@ -318,12 +389,6 @@ export class ProjectileSystem implements ISystem {
               }
 
               pComp.isTrappingPlayer = true;
-
-              const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
-              if (pVel) {
-                pVel.x = (dx / dist) * kickbackSpeed;
-                pVel.y = (dy / dist) * kickbackSpeed;
-              }
 
               sysCtx.commands.dispatch({
                 type: "DAMAGE_REQUEST",
@@ -759,7 +824,7 @@ export class ProjectileSystem implements ISystem {
 
         const massScale = 1.0 + ((pTrav.webMass || 1) - 1) * 0.18;
 
-        if (pTrav.state === "WALL_SLIDING") {
+        if (pTrav.state === "WALL_STICKING") {
           trans.qx = 0;
           trans.qy = 0;
           trans.qz = 0;

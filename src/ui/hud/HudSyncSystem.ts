@@ -69,7 +69,7 @@ export class HudSyncSystem implements ISystem, IUpdateable {
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         const stateHints = PlayerStateHints.getHintForState(
-          this.currentState as "AIRBORNE" | "WALL_SLIDING" | "LAUNCHING" | "GROUNDED",
+          this.currentState as "AIRBORNE" | "WALL_STICKING" | "LAUNCHING" | "GROUNDED",
           tension
         );
         overlayStore.setTraversalHint(stateHints.text, stateHints.color, stateHints.opacity);

@@ -144,7 +144,7 @@ export class PlayerKinematicsSystem implements ISystem {
     tether: TetherComponent,
     trav: TraversalStateComponent
   ): void {
-    if (trav.state === "WALL_SLIDING") {
+    if (trav.state === "WALL_STICKING") {
       const reelConfig = GAMEPLAY_TUNING.REEL;
       let chargeRate = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
 

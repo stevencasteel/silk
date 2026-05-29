@@ -5,7 +5,7 @@ export class PlayerStateHints {
     state: TraversalState,
     tension: number
   ): { text: string; color: string; opacity: number } {
-    if (state !== "WALL_SLIDING") {
+    if (state !== "WALL_STICKING") {
       return { text: "", color: "rgb(161, 161, 170)", opacity: 0 };
     }
     if (tension >= 1.0) {

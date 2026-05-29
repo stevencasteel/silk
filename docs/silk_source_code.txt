@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 3:56:50 PM
+ [SYSTEM] Generated: 5/29/2026, 4:09:52 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -97,7 +97,7 @@
 │   │   │   │   ├── PlayerLaunchingState.ts
 │   │   │   │   ├── PlayerStateHints.ts
 │   │   │   │   ├── PlayerStateUtils.ts
-│   │   │   │   └── PlayerWallSlidingState.ts
+│   │   │   │   └── PlayerWallStickingState.ts
 │   │   │   ├── IPlayerState.ts
 │   │   │   ├── PlayerAnimationSystem.ts
 │   │   │   ├── PlayerInputSystem.ts
@@ -1229,7 +1229,7 @@ import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
 import { PlayerAirborneState } from "../gameplay/player/states/PlayerAirborneState";
-import { PlayerWallSlidingState } from "../gameplay/player/states/PlayerWallSlidingState";
+import { PlayerWallStickingState } from "../gameplay/player/states/PlayerWallStickingState";
 import { PlayerLaunchingState } from "../gameplay/player/states/PlayerLaunchingState";
 import { TetherReelingSystem } from "../gameplay/player/TetherReelingSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
@@ -1351,7 +1351,7 @@ export class CompositionRoot {
 
     const playerKinematics = new PlayerKinematicsSystem(context);
     playerKinematics.registerState(new PlayerAirborneState());
-    playerKinematics.registerState(new PlayerWallSlidingState());
+    playerKinematics.registerState(new PlayerWallStickingState());
     playerKinematics.registerState(new PlayerLaunchingState());
     const tetherReeling = new TetherReelingSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
@@ -2857,7 +2857,7 @@ export interface InvulnerabilityComponent {
   timeRemaining: number;
 }
 
-export type TraversalState = "AIRBORNE" | "WALL_SLIDING" | "LAUNCHING" | "GROUNDED";
+export type TraversalState = "AIRBORNE" | "WALL_STICKING" | "LAUNCHING" | "GROUNDED";
 
 export interface TraversalStateComponent {
   state: TraversalState;
@@ -5439,7 +5439,9 @@ import {
   CollisionStateComponent,
   InvulnerabilityComponent,
   ParticleRequestComponent,
-  WallBugComponent
+  WallBugComponent,
+  TetherComponent,
+  KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { getWeaverAbdomenTip } from "../../core/utils/EngineUtils";
@@ -5725,12 +5727,81 @@ export class ProjectileSystem implements ISystem {
               return;
             }
 
+            // --- NEW REUSABLE HIT FORCE & UNREEL LOGIC ---
             if (!hasIframe) {
+              const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
+              const tether = tetherStore ? tetherStore.get(otherId) : undefined;
+              if (tether && tether.isAttached) {
+                const unreelAmount = 8.0;
+                const maxLengthLimit = 120.0;
+                tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + unreelAmount);
+                tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + unreelAmount);
+              }
+
               const dx = pTrans.x - trans.x;
               const dy = pTrans.y - trans.y;
               const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-              const kickbackSpeed = 16.0;
+              const kickbackSpeed = 18.0;
 
+              const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
+              if (pVel) {
+                pVel.x += (dx / dist) * kickbackSpeed;
+                pVel.y += (dy / dist) * kickbackSpeed;
+              }
+
+              if (pTrav && pTrav.state === "WALL_STICKING") {
+                const pushDownDistance = 3.0;
+                const targetYStore = sysCtx.stores.get<KinematicTargetComponent>("target");
+                const pTarget = targetYStore ? targetYStore.get(otherId) : undefined;
+                if (pTarget) {
+                  pTarget.y -= pushDownDistance;
+                }
+                if (pTrav.stickyWallYOffset !== undefined) {
+                  pTrav.stickyWallYOffset -= pushDownDistance;
+                }
+              }
+            }
+            // ---------------------------------------------
+
+            if (alreadyTrapped && pTrav) {
+              pTrav.webMass = (pTrav.webMass || 1) + 1;
+              pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
+
+              const reqId = sysCtx.world.create();
+              const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+              if (reqStore) {
+                reqStore.add(reqId, {
+                  strategy: new WebSplatStrategy(),
+                  x: trans.x,
+                  y: trans.y,
+                  z: trans.z
+                });
+              }
+
+              sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.8,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+
+              if (!hasIframe) {
+                sysCtx.commands.dispatch({
+                  type: "DAMAGE_REQUEST",
+                  targetId: otherId,
+                  amount: 1,
+                  source: "PROJECTILE"
+                });
+              }
+
+              this.recycleProjectile(projId, pComp);
+              return;
+            }
+
+            if (!hasIframe) {
               if (pTrav) {
                 pTrav.isWebTrapped = true;
                 pTrav.webMass = 1;
@@ -5741,12 +5812,6 @@ export class ProjectileSystem implements ISystem {
               }
 
               pComp.isTrappingPlayer = true;
-
-              const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
-              if (pVel) {
-                pVel.x = (dx / dist) * kickbackSpeed;
-                pVel.y = (dy / dist) * kickbackSpeed;
-              }
 
               sysCtx.commands.dispatch({
                 type: "DAMAGE_REQUEST",
@@ -6182,7 +6247,7 @@ export class ProjectileSystem implements ISystem {
 
         const massScale = 1.0 + ((pTrav.webMass || 1) - 1) * 0.18;
 
-        if (pTrav.state === "WALL_SLIDING") {
+        if (pTrav.state === "WALL_STICKING") {
           trans.qx = 0;
           trans.qy = 0;
           trans.qz = 0;
@@ -6781,7 +6846,7 @@ export class LaunchTrailStrategy implements IParticleEmitterStrategy {
   }
 }
 
-export class WallSlideSparksStrategy implements IParticleEmitterStrategy {
+export class WallStickSparksStrategy implements IParticleEmitterStrategy {
   constructor(
     private wallNormalX: number,
     private tension: number,
@@ -8018,7 +8083,7 @@ export class PlayerKinematicsSystem implements ISystem {
     tether: TetherComponent,
     trav: TraversalStateComponent
   ): void {
-    if (trav.state === "WALL_SLIDING") {
+    if (trav.state === "WALL_STICKING") {
       const reelConfig = GAMEPLAY_TUNING.REEL;
       let chargeRate = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
 
@@ -8073,15 +8138,15 @@ export class TetherReelingSystem implements ISystem {
     if (!tether || !input || !trav) return;
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
-    const isWallSliding = trav.state === "WALL_SLIDING";
+    const isWallSticking = trav.state === "WALL_STICKING";
     const isWebTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedMultiplier = isWebTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
-    if (input.y > 0 && !isWallSliding) {
+    if (input.y > 0 && !isWallSticking) {
       tether.desiredLength -= reelConfig.IN_SPEED * trappedMultiplier * dt;
       tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2 * trappedMultiplier);
-    } else if (input.y < 0 && !isWallSliding) {
+    } else if (input.y < 0 && !isWallSticking) {
       tether.desiredLength += reelConfig.OUT_SPEED * trappedMultiplier * dt;
       tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5 * trappedMultiplier);
     } else {
@@ -8264,7 +8329,7 @@ export class TutorialSystem implements ISystem {
         if (
           !this.step0Completed &&
           this.calibrationStep === 0 &&
-          currentState === "WALL_SLIDING" &&
+          currentState === "WALL_STICKING" &&
           tension >= 0.375
         ) {
           this.step0Completed = true;
@@ -8367,10 +8432,10 @@ export class VerticalBoundarySystem implements ISystem {
     const maxY = SpatialPartitionService.CEILING_Y - this.PLAYER_HALF_HEIGHT;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
-    const isWallSliding = trav.state === "WALL_SLIDING";
+    const isWallSticking = trav.state === "WALL_STICKING";
 
     if (target.y < minY) {
-      if (isWallSliding) {
+      if (isWallSticking) {
         const absoluteFloor = SpatialPartitionService.FLOOR_Y - 70.0;
         if (target.y < absoluteFloor) {
           target.y = absoluteFloor;
@@ -8866,7 +8931,7 @@ export class PlayerAirborneState implements IPlayerState {
       const pressingIn = input.x === wallDir;
       if (pressingIn || isTrapped) {
         PlayerStateUtils.applyWallImpactSquash(ctx);
-        trav.state = "WALL_SLIDING";
+        trav.state = "WALL_STICKING";
         trav.wallDir = wallDir;
         trav.wallNormalX = -wallDir;
         trav.wallNormalY = 0;
@@ -8877,7 +8942,7 @@ export class PlayerAirborneState implements IPlayerState {
         vel.x = 0;
         vel.y = -9.0;
 
-        return "WALL_SLIDING";
+        return "WALL_STICKING";
       } else {
         target.x = wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
         target.y = nextY;
@@ -8994,7 +9059,7 @@ export class PlayerLaunchingState implements IPlayerState {
       const pressingIn = input.x === wallDir;
       if (pressingIn || isTrapped) {
         PlayerStateUtils.applyWallImpactSquash(ctx);
-        trav.state = "WALL_SLIDING";
+        trav.state = "WALL_STICKING";
         trav.wallDir = wallDir;
         trav.wallNormalX = -wallDir;
         trav.wallNormalY = 0;
@@ -9005,7 +9070,7 @@ export class PlayerLaunchingState implements IPlayerState {
         vel.x = 0;
         vel.y = -9.0;
 
-        return "WALL_SLIDING";
+        return "WALL_STICKING";
       } else {
         target.x = wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
         target.y = nextY;
@@ -9050,7 +9115,7 @@ export class PlayerStateHints {
     state: TraversalState,
     tension: number
   ): { text: string; color: string; opacity: number } {
-    if (state !== "WALL_SLIDING") {
+    if (state !== "WALL_STICKING") {
       return { text: "", color: "rgb(161, 161, 170)", opacity: 0 };
     }
     if (tension >= 1.0) {
@@ -9359,7 +9424,7 @@ export class PlayerStateUtils {
           if (pressingIn || isTrapped) {
             PlayerStateUtils.applyWallImpactSquash(ctx);
 
-            trav.state = "WALL_SLIDING";
+            trav.state = "WALL_STICKING";
             trav.wallDir = bugWallDir;
             trav.wallNormalX = -bugWallDir;
             trav.wallNormalY = 0;
@@ -9379,7 +9444,7 @@ export class PlayerStateUtils {
               y: target.y,
               wallNormalX: -bugWallDir
             });
-            return "WALL_SLIDING";
+            return "WALL_STICKING";
           } else {
             target.x = bugTrans.x - bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
             if (Math.sign(vel.x) === bugWallDir) {
@@ -9489,7 +9554,7 @@ export class PlayerStateUtils {
         trav.lastEscapeDirection = "";
         trav.safeLaunchTimer = 1.5;
 
-        if (trav.state === "WALL_SLIDING") {
+        if (trav.state === "WALL_STICKING") {
           trav.hasFlingBonus = true;
         }
 
@@ -9526,7 +9591,7 @@ export class PlayerStateUtils {
 
 
 
-● ./src/gameplay/player/states/PlayerWallSlidingState.ts
+● ./src/gameplay/player/states/PlayerWallStickingState.ts
 ────────────────────────────────────────────────────
 import { IPlayerState } from "../IPlayerState";
 import {
@@ -9547,10 +9612,10 @@ import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig"
 import { PlayerStateUtils } from "./PlayerStateUtils";
 import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
-import { WallSlideSparksStrategy } from "../../juice/ParticleStrategies";
+import { WallStickSparksStrategy } from "../../juice/ParticleStrategies";
 
-export class PlayerWallSlidingState implements IPlayerState {
-  public readonly type: TraversalState = "WALL_SLIDING";
+export class PlayerWallStickingState implements IPlayerState {
+  public readonly type: TraversalState = "WALL_STICKING";
 
   public enter(ctx: SystemContext): void {
     void ctx;
@@ -9607,7 +9672,7 @@ export class PlayerWallSlidingState implements IPlayerState {
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
     if (reqStore) {
       reqStore.add(sparkReqId, {
-        strategy: new WallSlideSparksStrategy(trav.wallNormalX, tether.tension, dt),
+        strategy: new WallStickSparksStrategy(trav.wallNormalX, tether.tension, dt),
         x: trav.wallDir * target.x,
         y: target.y,
         z: 0
@@ -13928,7 +13993,7 @@ export class HudSyncSystem implements ISystem, IUpdateable {
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         const stateHints = PlayerStateHints.getHintForState(
-          this.currentState as "AIRBORNE" | "WALL_SLIDING" | "LAUNCHING" | "GROUNDED",
+          this.currentState as "AIRBORNE" | "WALL_STICKING" | "LAUNCHING" | "GROUNDED",
           tension
         );
         overlayStore.setTraversalHint(stateHints.text, stateHints.color, stateHints.opacity);
@@ -14322,7 +14387,7 @@ export class CameraSystem implements ISystem {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
       const playerLocalY = playerTrans.y - (baseY + this.cameraScrollY);
 
-      if (trav.state === "WALL_SLIDING") {
+      if (trav.state === "WALL_STICKING") {
         if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
           const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
 
@@ -14370,7 +14435,7 @@ export class CameraSystem implements ISystem {
         .get<TraversalStateComponent>("traversal")
         .get(this.context.refs.player);
 
-      if (trav && trav.state === "WALL_SLIDING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
+      if (trav && trav.state === "WALL_STICKING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
         targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;
       }
     }

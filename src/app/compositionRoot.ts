@@ -58,7 +58,7 @@ import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
 import { PlayerKinematicsSystem } from "../gameplay/player/PlayerKinematicsSystem";
 import { PlayerAirborneState } from "../gameplay/player/states/PlayerAirborneState";
-import { PlayerWallSlidingState } from "../gameplay/player/states/PlayerWallSlidingState";
+import { PlayerWallStickingState } from "../gameplay/player/states/PlayerWallStickingState";
 import { PlayerLaunchingState } from "../gameplay/player/states/PlayerLaunchingState";
 import { TetherReelingSystem } from "../gameplay/player/TetherReelingSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
@@ -180,7 +180,7 @@ export class CompositionRoot {
 
     const playerKinematics = new PlayerKinematicsSystem(context);
     playerKinematics.registerState(new PlayerAirborneState());
-    playerKinematics.registerState(new PlayerWallSlidingState());
+    playerKinematics.registerState(new PlayerWallStickingState());
     playerKinematics.registerState(new PlayerLaunchingState());
     const tetherReeling = new TetherReelingSystem(context);
     const playerAnimation = new PlayerAnimationSystem(context);
