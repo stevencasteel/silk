@@ -642,13 +642,13 @@ export class ProjectileSystem implements ISystem {
                 (bug.spikedSide === "LEFT" && hitLeft) ||
                 (bug.spikedSide === "RIGHT" && hitRight)
               ) {
-                bug.spikedSide = "NONE";
+                bug.spikesDisarmed = true;
               }
 
               p.isStuck = true;
               p.isStuckToBug = true;
               p.stickyEntityId = bugId;
-              p.stickyOffsetX = trans.x - bugTrans.x;
+              p.stickyOffsetX = hitLeft ? -halfW : halfW;
               p.stickyOffsetY = trans.y - bugTrans.y;
 
               const vel = this.context.stores
@@ -659,10 +659,23 @@ export class ProjectileSystem implements ISystem {
                 vel.y = 0;
               }
 
-              trans.scaleX = 0.28;
-              trans.scaleY = 1.35;
-              trans.scaleZ = 1.35;
-              mesh.scaling.set(0.28, 1.35, 1.35);
+              trans.qx = 0;
+              trans.qy = 0;
+              trans.qz = 0;
+              trans.qw = 1;
+              trans.prevQx = 0;
+              trans.prevQy = 0;
+              trans.prevQz = 0;
+              trans.prevQw = 1;
+
+              if (mesh.rotationQuaternion) {
+                mesh.rotationQuaternion.set(0, 0, 0, 1);
+              }
+
+              trans.scaleX = 0.24;
+              trans.scaleY = 1.45;
+              trans.scaleZ = 1.45;
+              mesh.scaling.set(0.24, 1.45, 1.45);
 
               const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
               if (stuckMat) {

@@ -49,6 +49,7 @@ export class PlayerWallSlidingState implements IPlayerState {
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
       const isSpikedOnClingSide =
         bug &&
+        !bug.spikesDisarmed &&
         ((trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
           (trav.wallDir === 1 && bug.spikedSide === "LEFT"));
 
