@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 12:00:58 PM
+ [SYSTEM] Generated: 5/29/2026, 12:13:04 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -5596,55 +5596,97 @@ export class ProjectileSystem implements ISystem {
             });
 
             this.recycleProjectile(projId, pComp);
-          } else if (!hasIframe) {
-            const dx = pTrans.x - trans.x;
-            const dy = pTrans.y - trans.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-            const kickbackSpeed = 16.0;
+          } else {
+            const alreadyTrapped = pTrav && pTrav.isWebTrapped;
+            if (alreadyTrapped && pTrav) {
+              pTrav.webMass = (pTrav.webMass || 1) + 1;
+              pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
 
-            if (pTrav) {
-              pTrav.isWebTrapped = true;
-              pTrav.escapeProgress = 0;
-              pTrav.escapeRequired = 5;
-              pTrav.lastEscapeDirection = "";
-              pTrav.hasFlingBonus = false;
-            }
+              const reqId = sysCtx.world.create();
+              const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+              if (reqStore) {
+                reqStore.add(reqId, {
+                  strategy: new WebSplatStrategy(),
+                  x: trans.x,
+                  y: trans.y,
+                  z: trans.z
+                });
+              }
 
-            pComp.isTrappingPlayer = true;
-
-            const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
-            if (pVel) {
-              pVel.x = (dx / dist) * kickbackSpeed;
-              pVel.y = (dy / dist) * kickbackSpeed;
-            }
-
-            sysCtx.commands.dispatch({
-              type: "DAMAGE_REQUEST",
-              targetId: otherId,
-              amount: 1,
-              source: "PROJECTILE"
-            });
-
-            const reqId = sysCtx.world.create();
-            const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
-            if (reqStore) {
-              reqStore.add(reqId, {
-                strategy: new WebSplatStrategy(),
+              sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
                 x: trans.x,
                 y: trans.y,
-                z: trans.z
+                isWall: false
               });
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.8,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+
+              if (!hasIframe) {
+                sysCtx.commands.dispatch({
+                  type: "DAMAGE_REQUEST",
+                  targetId: otherId,
+                  amount: 1,
+                  source: "PROJECTILE"
+                });
+              }
+
+              this.recycleProjectile(projId, pComp);
+              return;
             }
 
-            sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-              x: trans.x,
-              y: trans.y,
-              isWall: false
-            });
-            sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-            });
+            if (!hasIframe) {
+              const dx = pTrans.x - trans.x;
+              const dy = pTrans.y - trans.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+              const kickbackSpeed = 16.0;
+
+              if (pTrav) {
+                pTrav.isWebTrapped = true;
+                pTrav.webMass = 1;
+                pTrav.escapeProgress = 0;
+                pTrav.escapeRequired = 5;
+                pTrav.lastEscapeDirection = "";
+                pTrav.hasFlingBonus = false;
+              }
+
+              pComp.isTrappingPlayer = true;
+
+              const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
+              if (pVel) {
+                pVel.x = (dx / dist) * kickbackSpeed;
+                pVel.y = (dy / dist) * kickbackSpeed;
+              }
+
+              sysCtx.commands.dispatch({
+                type: "DAMAGE_REQUEST",
+                targetId: otherId,
+                amount: 1,
+                source: "PROJECTILE"
+              });
+
+              const reqId = sysCtx.world.create();
+              const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+              if (reqStore) {
+                reqStore.add(reqId, {
+                  strategy: new WebSplatStrategy(),
+                  x: trans.x,
+                  y: trans.y,
+                  z: trans.z
+                });
+              }
+
+              sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+            }
           }
         }
       });
@@ -5893,22 +5935,60 @@ export class ProjectileSystem implements ISystem {
           continue;
         }
 
-        trans.x = pTrans.x;
-        trans.y = pTrans.y;
-        trans.z = pTrans.z;
-
-        trans.prevX = pTrans.prevX;
-        trans.prevY = pTrans.prevY;
-        trans.prevZ = pTrans.prevZ;
+        const massScale = 1.0 + ((pTrav.webMass || 1) - 1) * 0.18;
 
         if (pTrav.state === "WALL_SLIDING") {
-          trans.scaleX = 0.45;
-          trans.scaleY = 1.8;
-          trans.scaleZ = 1.8;
+          // Flatten rotation entirely so it runs aligned and flush to the flat vertical wall
+          trans.qx = 0;
+          trans.qy = 0;
+          trans.qz = 0;
+          trans.qw = 1;
+          trans.prevQx = 0;
+          trans.prevQy = 0;
+          trans.prevQz = 0;
+          trans.prevQw = 1;
+
+          if (!mesh.rotationQuaternion) {
+            mesh.rotationQuaternion = new BABYLON.Quaternion();
+          }
+          mesh.rotationQuaternion.set(0, 0, 0, 1);
+
+          // Squashed flat scale mimicking wall stuck shot geometry
+          trans.scaleX = 0.28 * massScale;
+          trans.scaleY = 2.0 * massScale;
+          trans.scaleZ = 2.0 * massScale;
+
+          // Push the splatted web slightly closer into/towards the wall so the player capsule pokes out
+          const wallOffset = pTrav.wallDir * 0.25;
+          trans.x = pTrans.x + wallOffset;
+          trans.y = pTrans.y;
+          trans.z = pTrans.z;
+
+          trans.prevX = pTrans.prevX + wallOffset;
+          trans.prevY = pTrans.prevY;
+          trans.prevZ = pTrans.prevZ;
+
+          // Stop undulations by swapping to the solid static material
+          if (mesh.material !== this.projMatStuck) {
+            mesh.material = this.projMatStuck;
+          }
         } else {
-          trans.scaleX = 1.0;
-          trans.scaleY = 1.15;
-          trans.scaleZ = 1.0;
+          // If airborne or launching, use standard spherical, undulating web scaling and active material
+          trans.scaleX = 1.0 * massScale;
+          trans.scaleY = 1.15 * massScale;
+          trans.scaleZ = 1.0 * massScale;
+
+          trans.x = pTrans.x;
+          trans.y = pTrans.y;
+          trans.z = pTrans.z;
+
+          trans.prevX = pTrans.prevX;
+          trans.prevY = pTrans.prevY;
+          trans.prevZ = pTrans.prevZ;
+
+          if (mesh.material !== this.projMatActive) {
+            mesh.material = this.projMatActive;
+          }
         }
 
         mesh.position.set(trans.x, trans.y, trans.z);
@@ -5917,7 +5997,8 @@ export class ProjectileSystem implements ISystem {
         const body = this.bodiesMap.get(projId);
         if (body) {
           this._scratchPos.set(trans.x, trans.y, trans.z);
-          body.setTargetTransform(this._scratchPos, BABYLON.Quaternion.Identity());
+          this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
+          body.setTargetTransform(this._scratchPos, this._scratchRot);
         }
       } else if (p.isStuckOnWall) {
         trans.y -= currentScrollSpeed * dt;
@@ -7775,7 +7856,8 @@ export class TetherReelingSystem implements ISystem {
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWallSliding = trav.state === "WALL_SLIDING";
     const isTrapped = !!trav.isWebTrapped;
-    const trappedMultiplier = isTrapped ? 0.5 : 1.0;
+    const webMass = trav.webMass || 1;
+    const trappedMultiplier = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
     if (input.y > 0 && !isWallSliding) {
       tether.desiredLength -= reelConfig.IN_SPEED * trappedMultiplier * dt;
@@ -8362,7 +8444,8 @@ export class PlayerAirborneState implements IPlayerState {
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
     const isTrapped = !!trav.isWebTrapped;
-    const trappedDamping = isTrapped ? 0.5 : 1.0;
+    const webMass = trav.webMass || 1;
+    const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -8543,7 +8626,8 @@ export class PlayerLaunchingState implements IPlayerState {
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
     const isTrapped = !!trav.isWebTrapped;
-    const trappedDamping = isTrapped ? 0.5 : 1.0;
+    const webMass = trav.webMass || 1;
+    const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -8945,8 +9029,9 @@ export class PlayerWallSlidingState implements IPlayerState {
 
     const stillPressingIn = input.x === trav.wallDir;
     const isTrapped = !!trav.isWebTrapped;
+    const webMass = trav.webMass || 1;
+    const controlFactor = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
-    // Release/Flinging conditions blocked completely when trapped in cocoon
     if (!stillPressingIn && !isTrapped) {
       PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
       return trav.state;
@@ -8972,9 +9057,9 @@ export class PlayerWallSlidingState implements IPlayerState {
 
       let slideSpeed = 0.0;
       if (input.y > 0) {
-        slideSpeed = 5.0;
+        slideSpeed = 5.0 * controlFactor;
       } else if (input.y < 0) {
-        slideSpeed = -5.0;
+        slideSpeed = -5.0 * controlFactor;
       }
       trav.stickyWallYOffset += slideSpeed * dt;
       trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
@@ -12173,9 +12258,10 @@ export const HudOverlay: React.FC = () => {
     playerHp: s.playerHp,
     isWebTrapped: s.isWebTrapped,
     escapeProgress: s.escapeProgress,
-    escapeRequired: s.escapeRequired
+    escapeRequired: s.escapeRequired,
+    webMass: s.webMass
   })));
-  const { playerHp, isWebTrapped, escapeProgress, escapeRequired } = playerState;
+  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass } = playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -12773,7 +12859,9 @@ export const HudOverlay: React.FC = () => {
               <div className="hud-struggle-panel">
                 <div className="flex items-center gap-1.5">
                   <ShieldAlert size={14} className="text-red-500 animate-pulse" />
-                  <span className="hud-struggle-title">WEB SNAGGED</span>
+                  <span className="hud-struggle-title">
+                    {webMass > 1 ? `WEB MASS x${webMass}` : "WEB SNAGGED"}
+                  </span>
                 </div>
                 <span className="hud-struggle-subtitle">Alternate direction keys to struggle out!</span>
                 <div className="hud-struggle-keys">
