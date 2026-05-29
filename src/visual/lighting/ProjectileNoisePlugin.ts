@@ -38,11 +38,12 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
             uniform float u_noiseTime;
 
             float getNoiseVal(vec3 pos, float time) {
-                float n = sin(pos.x * 6.0 + time * 5.0) * 
-                          cos(pos.y * 7.0 + time * 6.3) * 
-                          sin(pos.z * 8.0 + time * 4.1);
-                n += sin(pos.y * 15.0 - time * 11.0) * 0.35;
-                return n * 0.08;
+                // Calibrated frequencies and 3.0x amplitude for 1.8 diameter bounds
+                float n = sin(pos.x * 2.0 + time * 5.0) * 
+                          cos(pos.y * 2.3 + time * 6.3) * 
+                          sin(pos.z * 2.6 + time * 4.1);
+                n += sin(pos.y * 5.0 - time * 11.0) * 0.35;
+                return n * 0.24;
             }
             #endif
           `,
@@ -84,10 +85,10 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
             #ifdef NORMAL
             vec3 pos = vPositionW;
             float epsF = 0.005;
-            float hLF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
-            float hR_xF = sin((pos.x + epsF) * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
-            float hR_yF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin((pos.y + epsF) * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
-            float hR_zF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin((pos.z + epsF) * 35.0 + u_noiseTime * 18.0) * 0.03;
+            float hLF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_xF = sin((pos.x + epsF) * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_yF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin((pos.y + epsF) * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_zF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin((pos.z + epsF) * 12.0 + u_noiseTime * 18.0) * 0.09;
 
             vec3 gradF = vec3(hR_xF - hLF, hR_yF - hLF, hR_zF - hLF) / epsF;
 

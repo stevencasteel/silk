@@ -54,10 +54,10 @@ export class ProjectileSystem implements ISystem {
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
 
     if (scene.isPhysicsEnabled()) {
-      // Keep collision bounds 3x larger (radius = 0.65 * 3.0 / 2)
+      // Inherit the clean configured diameter for physics shape
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
         BABYLON.Vector3.Zero(),
-        (WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER * 3.0) / 2,
+        WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2,
         scene
       );
       this.sharedShape.material = { friction: 0.1, restitution: 0.6 };
@@ -67,7 +67,7 @@ export class ProjectileSystem implements ISystem {
       const projId = this.context.world.create();
       this.projectileEntities.push(projId);
 
-      // Create base sphere at original tight diameter (0.65)
+      // Sphere inherits clean configured diameter
       const sphere = BABYLON.MeshBuilder.CreateSphere(
         `projectile_pooled_${i}`,
         { diameter: WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER },
@@ -158,13 +158,13 @@ export class ProjectileSystem implements ISystem {
               projTrans.prevQz = 0;
               projTrans.prevQw = 1;
 
-              // Correct wall-splat scaling to match flight/cocoon volume (3.0x multiplier)
-              projTrans.scaleX = 0.24 * 3.0;
-              projTrans.scaleY = 1.45 * 3.0;
-              projTrans.scaleZ = 1.45 * 3.0;
-              projTrans.prevScaleX = 0.24 * 3.0;
-              projTrans.prevScaleY = 1.45 * 3.0;
-              projTrans.prevScaleZ = 1.45 * 3.0;
+              // Proportional flat wall squashes relative to base configured diameter
+              projTrans.scaleX = 0.24;
+              projTrans.scaleY = 1.45;
+              projTrans.scaleZ = 1.45;
+              projTrans.prevScaleX = 0.24;
+              projTrans.prevScaleY = 1.45;
+              projTrans.prevScaleZ = 1.45;
 
               projCol.isWallClinging = true;
               projCol.wallNormalX = side === "RIGHT" ? -1 : 1;
@@ -174,7 +174,7 @@ export class ProjectileSystem implements ISystem {
 
               const mesh = this.context.visualQuery.getTransformNode(id);
               if (mesh instanceof BABYLON.AbstractMesh) {
-                mesh.scaling.set(0.24 * 3.0, 1.45 * 3.0, 1.45 * 3.0);
+                mesh.scaling.set(0.24, 1.45, 1.45);
                 mesh.position.x = projTrans.x;
                 mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
                 const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
@@ -358,19 +358,19 @@ export class ProjectileSystem implements ISystem {
     trans.prevY = y;
     trans.prevZ = 0;
 
-    // Flying cocoon scale (3.0x relative to 0.65 base)
-    trans.scaleX = 0.7 * 3.0;
-    trans.scaleY = 1.5 * 3.0;
-    trans.scaleZ = 0.7 * 3.0;
-    trans.prevScaleX = 0.7 * 3.0;
-    trans.prevScaleY = 1.5 * 3.0;
-    trans.prevScaleZ = 0.7 * 3.0;
+    // Flight profiles inherit proportions naturally from new configured base
+    trans.scaleX = 0.7;
+    trans.scaleY = 1.5;
+    trans.scaleZ = 0.7;
+    trans.prevScaleX = 0.7;
+    trans.prevScaleY = 1.5;
+    trans.prevScaleZ = 0.7;
     trans.scaleVelX = 0;
     trans.scaleVelY = 0;
     trans.scaleVelZ = 0;
 
     mesh.position.set(x, y, 0);
-    mesh.scaling.set(0.7 * 3.0, 1.5 * 3.0, 0.7 * 3.0);
+    mesh.scaling.set(0.7, 1.5, 0.7);
     mesh.material = this.projMatActive;
     mesh.isVisible = true;
     mesh.setEnabled(true);
@@ -455,17 +455,15 @@ export class ProjectileSystem implements ISystem {
         trans.prevY = pTrans.prevY;
         trans.prevZ = pTrans.prevZ;
 
-        // Apply 3x scale relative to compact 0.65 base
+        // Visual proportions cleanly scale based on cocoon properties (without hardcoded factors)
         if (pTrav.state === "WALL_SLIDING") {
-          // Smooshed flat on wall
-          trans.scaleX = 0.45 * 3.0;
-          trans.scaleY = 1.8 * 3.0;
-          trans.scaleZ = 1.8 * 3.0;
+          trans.scaleX = 0.45;
+          trans.scaleY = 1.8;
+          trans.scaleZ = 1.8;
         } else {
-          // Cocoon enclosing in flight/dangling
-          trans.scaleX = 1.0 * 3.0;
-          trans.scaleY = 1.15 * 3.0;
-          trans.scaleZ = 1.0 * 3.0;
+          trans.scaleX = 1.0;
+          trans.scaleY = 1.15;
+          trans.scaleZ = 1.0;
         }
 
         mesh.position.set(trans.x, trans.y, trans.z);
