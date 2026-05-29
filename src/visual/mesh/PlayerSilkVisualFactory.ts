@@ -106,7 +106,6 @@ export function decoratePlayerSilkVisual(
   cocoonShell.material = silkMat;
   cocoonShell.parent = pMesh;
 
-  const bandCount = 7;
   const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
   bandMat.metallic = 0.95;
   bandMat.roughness = 0.06;
@@ -127,47 +126,74 @@ export function decoratePlayerSilkVisual(
   bandMat.enableSpecularAntiAliasing = true;
   bandMat.forceIrradianceInFragment = true;
 
-  for (let i = 0; i < bandCount; i++) {
-    const t = i / (bandCount - 1);
-    const bandY = (t - 0.5) * height * 0.75;
-    const bandRadius = radius * (1.02 + Math.sin(t * Math.PI) * 0.06);
+  const spiralCount = 14;
+  for (let i = 0; i < spiralCount; i++) {
+    const t = i / (spiralCount - 1);
+    const bandY = (t - 0.5) * height * 0.8;
+    const bandRadius = radius * (0.95 + Math.sin(t * Math.PI) * 0.12);
 
     const band = BABYLON.MeshBuilder.CreateTorus(
-      `player_band_${i}`,
+      `player_spiral_band_${i}`,
       {
         diameter: bandRadius * 2.0,
-        thickness: radius * 0.16,
-        tessellation: 10
+        thickness: radius * (0.08 + Math.random() * 0.12),
+        tessellation: 12
       },
       scene
     );
-
     band.position.set(0, bandY, 0);
-    band.rotation.x = 0.15 + Math.sin(i * 1.7) * 0.15;
-    band.rotation.y = Math.cos(i * 2.3) * 0.25;
-    band.rotation.z = Math.sin(i * 3.1) * 0.15;
+    band.rotation.x = 0.4 + Math.sin(i * 1.9) * 0.35;
+    band.rotation.y = i * (Math.PI / 4) + Math.cos(i * 1.1) * 0.2;
+    band.rotation.z = 0.2 + Math.sin(i * 2.7) * 0.25;
     band.material = bandMat;
     band.parent = pMesh;
   }
 
-  const tailPoints = [
-    new BABYLON.Vector3(0, height * 0.45, 0),
-    new BABYLON.Vector3(0.05, height * 0.55, -radius * 0.2),
-    new BABYLON.Vector3(-0.08, height * 0.7, -radius * 0.5)
-  ];
-  const tail = BABYLON.MeshBuilder.CreateTube(
-    "player_thread_tail",
-    {
-      path: tailPoints,
-      radius: 0.035,
-      tessellation: 6,
-      cap: BABYLON.Mesh.CAP_ALL,
-      updatable: false
-    },
-    scene
-  );
-  tail.material = silkMat;
-  tail.parent = pMesh;
+  const crossCount = 10;
+  for (let i = 0; i < crossCount; i++) {
+    const t = i / (crossCount - 1);
+    const bandY = (t - 0.5) * height * 0.75;
+    const bandRadius = radius * (1.0 + Math.sin(t * Math.PI) * 0.08);
+
+    const band = BABYLON.MeshBuilder.CreateTorus(
+      `player_cross_band_${i}`,
+      {
+        diameter: bandRadius * 1.95,
+        thickness: radius * (0.06 + Math.random() * 0.08),
+        tessellation: 12
+      },
+      scene
+    );
+    band.position.set(0, bandY, 0);
+    band.rotation.x = -0.4 - Math.cos(i * 2.1) * 0.35;
+    band.rotation.y = -i * (Math.PI / 3) + Math.sin(i * 1.4) * 0.2;
+    band.rotation.z = -0.2 - Math.cos(i * 1.8) * 0.25;
+    band.material = bandMat;
+    band.parent = pMesh;
+  }
+
+  const knotCount = 6;
+  for (let i = 0; i < knotCount; i++) {
+    const t = i / (knotCount - 1);
+    const bandY = (t - 0.5) * height * 0.65;
+    const bandRadius = radius * (1.02 + Math.sin(t * Math.PI) * 0.05);
+
+    const band = BABYLON.MeshBuilder.CreateTorus(
+      `player_knot_band_${i}`,
+      {
+        diameter: bandRadius * 2.05,
+        thickness: radius * (0.14 + Math.random() * 0.06),
+        tessellation: 10
+      },
+      scene
+    );
+    band.position.set(0, bandY, 0);
+    band.rotation.x = 0.05 + Math.sin(i * 3.7) * 0.05;
+    band.rotation.y = Math.cos(i * 2.8) * 0.15;
+    band.rotation.z = Math.sin(i * 1.5) * 0.05;
+    band.material = bandMat;
+    band.parent = pMesh;
+  }
 
   pMesh.getChildMeshes().forEach((mesh) => {
     mesh.receiveShadows = true;

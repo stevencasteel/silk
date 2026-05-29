@@ -126,14 +126,22 @@ export class TetherVisualizerSystem implements ISystem {
     const tether = tethers.get(this.context.refs.player);
     if (!pTrans || !tether) return;
 
+    const pNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
+
     if (tether.isAttached) {
       this.tetherMesh.setEnabled(true);
       this.tetherMeshAnchor.setEnabled(false);
       this.tetherMeshPlayer.setEnabled(false);
 
-      const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
-      const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
-      this.scratchPlayer.set(px, py, 0);
+      if (pNode) {
+        const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
+        const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
+        BABYLON.Vector3.TransformCoordinatesToRef(localHeadTop, pNode.getWorldMatrix(), this.scratchPlayer);
+      } else {
+        const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
+        const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
+        this.scratchPlayer.set(px, py, 0);
+      }
 
       const wNode = this.context.visualQuery.getTransformNode(
         this.context.refs.weaver
@@ -157,7 +165,6 @@ export class TetherVisualizerSystem implements ISystem {
         this.scratchAnchor.set(tether.anchorX, tether.anchorY, tether.anchorZ);
       }
 
-      // Cap at exactly 1.0 (100% tension limit)
       const tension = Math.max(0, Math.min(1.0, tether.tension));
       const reelConfig = GAMEPLAY_TUNING.REEL;
       const isSweetSpot =
@@ -299,9 +306,16 @@ export class TetherVisualizerSystem implements ISystem {
 
       const T = this.snapTimer / this.maxSnapDuration;
 
-      const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
-      const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
-      this.scratchPlayer.set(px, py, 0);
+      if (pNode) {
+        const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
+        const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
+        BABYLON.Vector3.TransformCoordinatesToRef(localHeadTop, pNode.getWorldMatrix(), this.scratchPlayer);
+      } else {
+        const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
+        const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
+        this.scratchPlayer.set(px, py, 0);
+      }
+
       const wNode = this.context.visualQuery.getTransformNode(
         this.context.refs.weaver
       ) as BABYLON.Mesh | null;
@@ -326,8 +340,8 @@ export class TetherVisualizerSystem implements ISystem {
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
-      const sag = this.MAX_SAG * (1.0 - tether.tension);
-      this.scratchCtrl.set(midX, midY - sag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
+      const MathSag = this.MAX_SAG * (1.0 - tether.tension);
+      this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
 
       const maxAnchorT = (1 - T) * 0.5;
       const whipOffset = Math.sin(T * Math.PI * 5) * (1 - T) * 1.8;
