@@ -1,6 +1,6 @@
 import { SystemContext } from "../../core/engine/SystemContext";
 
-export type WeaverStateType = "PATROLLING" | "STRIKING" | "ASCENDING" | "DEFEATED";
+export type WeaverStateType = "PATROLLING" | "STRIKING" | "ASCENDING" | "DEFEATED" | "SHOCKWAVE";
 
 export interface IWeaverState {
   readonly type: WeaverStateType;

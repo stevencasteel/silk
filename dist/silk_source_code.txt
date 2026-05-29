@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 10:57:01 AM
+ [SYSTEM] Generated: 5/29/2026, 11:23:13 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -112,6 +112,7 @@
 │   │   │   │   ├── WeaverAscendingState.ts
 │   │   │   │   ├── WeaverDefeatedState.ts
 │   │   │   │   ├── WeaverPatrollingState.ts
+│   │   │   │   ├── WeaverShockwaveState.ts
 │   │   │   │   └── WeaverStrikingState.ts
 │   │   │   ├── IWeaverState.ts
 │   │   │   ├── WeaverActionSystem.ts
@@ -390,7 +391,7 @@ protocol based on scope:
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.5 (Single-Responsibility Decoupling & Player State Update)
+Version: 1.6 (Trapping, Struggle & Squashed Wall-Lock Updates)
 Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
 Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
 Architecture: Strict Custom ECS (Entity Component System)
@@ -472,6 +473,21 @@ SILK starts in the vertical portrait arena immediately without title screens.
     triggering satisfying impact particle splats and a minor camera shake without 
     inflicting any damage. Standard post-damage iframes allow projectiles to pass 
     through safely.
+
+- COCOON TRAPPING, STRUGGLE & SQUASHED WALL-LOCK MECHANICS:
+  * Cocoon Encasement: Projectiles have a default diameter of 1.8 units (twice the 
+    player's width). If the player is struck in a vulnerable state, they are encased 
+    in the web cocoon mesh.
+  * Steering and Reeling Dampening: While trapped, lateral steering force and tether 
+    reeling speeds are dampened by 50%.
+  * Trapped Wall-Lock: If the trapped player contacts a wall, they automatically 
+    stick to it. Voluntary release inputs are ignored; the player remains glued 
+    until the web is broken or the line snaps from overloaded tension.
+  * Alternate Key Struggles: Escaping requires 5 alternating directional inputs. 
+    Repeating the same direction consecutively is ignored. On struggle registration, 
+    micro-shiver rumbles and web-splat particles trigger.
+  * Break-Free Super Fling: Escaping the web while holding a wall-lock rewards the 
+    player with a 1.1x fling impulse multiplier and an extra exhaust trail of sparks.
 
 - DECOUPLED COMBAT RESOLUTION:
   CollisionResolutionSystem is the centralized hub for all physical overlapping. 
@@ -1222,6 +1238,7 @@ import { WeaverPatrollingState } from "../gameplay/weaver/states/WeaverPatrollin
 import { WeaverStrikingState } from "../gameplay/weaver/states/WeaverStrikingState";
 import { WeaverAscendingState } from "../gameplay/weaver/states/WeaverAscendingState";
 import { WeaverDefeatedState } from "../gameplay/weaver/states/WeaverDefeatedState";
+import { WeaverShockwaveState } from "../gameplay/weaver/states/WeaverShockwaveState";
 import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem";
 import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
@@ -1371,6 +1388,7 @@ export class CompositionRoot {
     weaverBrain.registerState(new WeaverStrikingState());
     weaverBrain.registerState(new WeaverAscendingState());
     weaverBrain.registerState(new WeaverDefeatedState());
+    weaverBrain.registerState(new WeaverShockwaveState());
     const weaverActionSystem = new WeaverActionSystem(context);
     const weaverTraversalSystem = new WeaverTraversalSystem(context);
 
@@ -3279,7 +3297,7 @@ export const WEAVER_AI_TUNING = {
     OFFSET_Y: 1.8,
     SPEED: 15.0,
     MAX_LIFE: 8.0,
-    PROJECTILE_DIAMETER: 0.65,
+    PROJECTILE_DIAMETER: 1.8,
     CAMERA_SHAKE_AMP: 0.6,
     CAMERA_SHAKE_DUR: 0.35
   },
@@ -3804,7 +3822,8 @@ export enum GameEvent {
   WEAVER_WALL_HIT = "WEAVER_WALL_HIT",
   PROJECTILE_IMPACT = "PROJECTILE_IMPACT",
   PLAYER_INPUT_KEY_STATE_CHANGED = "PLAYER_INPUT_KEY_STATE_CHANGED",
-  UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED"
+  UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED",
+  WEAVER_BOUNCED = "WEAVER_BOUNCED"
 }
 
 export interface GameEventMap {
@@ -3842,6 +3861,7 @@ export interface GameEventMap {
   [GameEvent.PROJECTILE_IMPACT]: { x: number; y: number; isWall: boolean };
   [GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED]: { key: string; code: string; pressed: boolean };
   [GameEvent.UI_CALIBRATION_STEP_CHANGED]: { step: number };
+  [GameEvent.WEAVER_BOUNCED]: void;
 }
 
 
@@ -4862,6 +4882,7 @@ import { getDistance2D } from "../../core/utils/EngineUtils";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
+import { GameEvent } from "../../core/events/GameEvents";
 import {
   TransformComponent,
   WeaverAIComponent,
@@ -4892,7 +4913,6 @@ export class CombatSystem implements ISystem {
     const wTrans = transforms.get(this.context.refs.weaver);
     if (!pTrans || !wTrans) return;
 
-    // Toggle active state of hitboxes based on gameplay context
     const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
     const pHb = hitboxes.get(this.context.refs.player);
     const wHb = hitboxes.get(this.context.refs.weaver);
@@ -4931,7 +4951,6 @@ export class CombatSystem implements ISystem {
 
     if (!pVel) return;
 
-    // If neither entity is in an active damage state, resolve passive physical overlapping pushback
     const pActiveDamage = pHb ? pHb.isActive : false;
     const wActiveDamage = wHb ? wHb.isActive : false;
 
@@ -4959,6 +4978,10 @@ export class CombatSystem implements ISystem {
       if (dot < 0) {
         pVel.x -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
         pVel.y -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
+      }
+
+      if (wAI && wAI.state === "PATROLLING") {
+        this.context.broker.publish(GameEvent.WEAVER_BOUNCED, undefined);
       }
     }
   }
@@ -5362,10 +5385,10 @@ export class ProjectileSystem implements ISystem {
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
 
     if (scene.isPhysicsEnabled()) {
-      // 3.6x Base physical collision shape diameter (twice the player height of 1.8)
+      // Inherit the clean configured diameter for physics shape
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
         BABYLON.Vector3.Zero(),
-        1.8,
+        WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER / 2,
         scene
       );
       this.sharedShape.material = { friction: 0.1, restitution: 0.6 };
@@ -5375,10 +5398,10 @@ export class ProjectileSystem implements ISystem {
       const projId = this.context.world.create();
       this.projectileEntities.push(projId);
 
-      // 3.6x Base visual mesh diameter
+      // Sphere inherits clean configured diameter
       const sphere = BABYLON.MeshBuilder.CreateSphere(
         `projectile_pooled_${i}`,
-        { diameter: 3.6 },
+        { diameter: WEAVER_AI_TUNING.SHOOT.PROJECTILE_DIAMETER },
         scene
       );
       sphere.position.set(0, -999, 0);
@@ -5466,12 +5489,13 @@ export class ProjectileSystem implements ISystem {
               projTrans.prevQz = 0;
               projTrans.prevQw = 1;
 
-              projTrans.scaleX = 0.24 * 3.0;
-              projTrans.scaleY = 1.45 * 3.0;
-              projTrans.scaleZ = 1.45 * 3.0;
-              projTrans.prevScaleX = 0.24 * 3.0;
-              projTrans.prevScaleY = 1.45 * 3.0;
-              projTrans.prevScaleZ = 1.45 * 3.0;
+              // Proportional flat wall squashes relative to base configured diameter
+              projTrans.scaleX = 0.24;
+              projTrans.scaleY = 1.45;
+              projTrans.scaleZ = 1.45;
+              projTrans.prevScaleX = 0.24;
+              projTrans.prevScaleY = 1.45;
+              projTrans.prevScaleZ = 1.45;
 
               projCol.isWallClinging = true;
               projCol.wallNormalX = side === "RIGHT" ? -1 : 1;
@@ -5481,7 +5505,7 @@ export class ProjectileSystem implements ISystem {
 
               const mesh = this.context.visualQuery.getTransformNode(id);
               if (mesh instanceof BABYLON.AbstractMesh) {
-                mesh.scaling.set(0.24 * 3.0, 1.45 * 3.0, 1.45 * 3.0);
+                mesh.scaling.set(0.24, 1.45, 1.45);
                 mesh.position.x = projTrans.x;
                 mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
                 const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
@@ -5665,18 +5689,19 @@ export class ProjectileSystem implements ISystem {
     trans.prevY = y;
     trans.prevZ = 0;
 
-    trans.scaleX = 1.0;
-    trans.scaleY = 1.35;
-    trans.scaleZ = 1.0;
-    trans.prevScaleX = 1.0;
-    trans.prevScaleY = 1.35;
-    trans.prevScaleZ = 1.0;
+    // Flight profiles inherit proportions naturally from new configured base
+    trans.scaleX = 0.7;
+    trans.scaleY = 1.5;
+    trans.scaleZ = 0.7;
+    trans.prevScaleX = 0.7;
+    trans.prevScaleY = 1.5;
+    trans.prevScaleZ = 0.7;
     trans.scaleVelX = 0;
     trans.scaleVelY = 0;
     trans.scaleVelZ = 0;
 
     mesh.position.set(x, y, 0);
-    mesh.scaling.set(1.0, 1.35, 1.0);
+    mesh.scaling.set(0.7, 1.5, 0.7);
     mesh.material = this.projMatActive;
     mesh.isVisible = true;
     mesh.setEnabled(true);
@@ -5748,13 +5773,11 @@ export class ProjectileSystem implements ISystem {
         const pTrans = transformStore.get(this.context.refs.player);
         const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
 
-        // Recycle the trapping cocoon cocoon instantly when the player breaks free
         if (!pTrav || !pTrav.isWebTrapped || !pTrans) {
           this.recycleProjectile(projId, p);
           continue;
         }
 
-        // Lock cocoon location directly onto the player
         trans.x = pTrans.x;
         trans.y = pTrans.y;
         trans.z = pTrans.z;
@@ -5763,7 +5786,7 @@ export class ProjectileSystem implements ISystem {
         trans.prevY = pTrans.prevY;
         trans.prevZ = pTrans.prevZ;
 
-        // Visual "smooshing" logic based on wall slides
+        // Visual proportions cleanly scale based on cocoon properties (without hardcoded factors)
         if (pTrav.state === "WALL_SLIDING") {
           trans.scaleX = 0.45;
           trans.scaleY = 1.8;
@@ -8812,7 +8835,7 @@ export class PlayerWallSlidingState implements IPlayerState {
 ────────────────────────────────────────────────────
 import { SystemContext } from "../../core/engine/SystemContext";
 
-export type WeaverStateType = "PATROLLING" | "STRIKING" | "ASCENDING" | "DEFEATED";
+export type WeaverStateType = "PATROLLING" | "STRIKING" | "ASCENDING" | "DEFEATED" | "SHOCKWAVE";
 
 export interface IWeaverState {
   readonly type: WeaverStateType;
@@ -8900,6 +8923,7 @@ export class WeaverBrainSystem implements ISystem {
   private activeState: IWeaverState | null = null;
   private unsubDamage: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
+  private unsubBounce: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
   constructor(private context: SystemContext) {}
@@ -8928,9 +8952,18 @@ export class WeaverBrainSystem implements ISystem {
         aiComp.damageShearTime = 0.0;
         if (health.current <= 0) {
           this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "PATROLLING") {
+        } else if (aiComp.state === "PATROLLING" || aiComp.state === "SHOCKWAVE") {
           this.pendingTransition = "STRIKING";
         }
+      }
+    });
+
+    this.unsubBounce = this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
+      const aiComp = this.context.stores
+        .get<WeaverAIComponent>("weaverAI")
+        .get(this.context.refs.weaver);
+      if (aiComp && aiComp.state === "PATROLLING") {
+        this.pendingTransition = "SHOCKWAVE";
       }
     });
   }
@@ -9039,6 +9072,7 @@ export class WeaverBrainSystem implements ISystem {
   public dispose(): void {
     if (this.unsubDamage) this.unsubDamage();
     if (this.unsubReset) this.unsubReset();
+    if (this.unsubBounce) this.unsubBounce();
   }
 }
 
@@ -9595,6 +9629,267 @@ export class WeaverPatrollingState implements IWeaverState {
         aiComp.shootTargetY = playerTrans.y;
       }
     }
+    return null;
+  }
+}
+
+
+
+● ./src/gameplay/weaver/states/WeaverShockwaveState.ts
+────────────────────────────────────────────────────
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
+import { GameEvent } from "../../../core/events/GameEvents";
+import { SystemContext } from "../../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  WeaverAIComponent,
+  WeaverCosmeticComponent,
+  InvulnerabilityComponent,
+  ParticleRequestComponent
+} from "../../../core/ecs/Components";
+import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
+import { WebSplatStrategy } from "../../juice/ParticleStrategies";
+import * as BABYLON from "@babylonjs/core";
+
+interface ShockwaveRing {
+  mesh: BABYLON.Mesh;
+  material: BABYLON.StandardMaterial;
+  currentScale: number;
+  targetScale: number;
+  speed: number;
+  alpha: number;
+}
+
+export class WeaverShockwaveState implements IWeaverState {
+  public readonly type: WeaverStateType = "SHOCKWAVE";
+  public readonly name = "SHOCKWAVE COUNTER";
+  public readonly hue = HASH_PREFIX + "eab308";
+  public readonly audioParams = { baseFreq: 75, lfoHz: 8.0, harmonicity: 2.0 };
+
+  private phase: "DELAY" | "TELEGRAPH" | "BLAST" | "RECOVER" = "DELAY";
+  private timer = 0.0;
+  private hasBlastTriggered = false;
+
+  private readonly DELAY_DURATION = 0.42;
+  private readonly TELEGRAPH_DURATION = 0.85;
+  private readonly BLAST_DURATION = 0.15;
+  private readonly RECOVER_DURATION = 0.55;
+  private readonly SHOCKWAVE_RADIUS = 6.8;
+
+  private activeRings: ShockwaveRing[] = [];
+  private ringSpawnTimers: number[] = [];
+
+  public enter(ctx: SystemContext): void {
+    this.phase = "DELAY";
+    this.timer = this.DELAY_DURATION;
+    this.hasBlastTriggered = false;
+    this.ringSpawnTimers = [];
+
+    const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    if (ai) {
+      ai.desiredVelocityX = 0;
+      ai.desiredVelocityY = 0;
+      ai.hue = HASH_PREFIX + "121212"; 
+    }
+  }
+
+  public exit(): void {
+    this.clearRings();
+  }
+
+  private clearRings(): void {
+    for (let i = 0; i < this.activeRings.length; i++) {
+      this.activeRings[i].mesh.dispose();
+      this.activeRings[i].material.dispose();
+    }
+    this.activeRings = [];
+    this.ringSpawnTimers = [];
+  }
+
+  private spawnShockwaveRing(ctx: SystemContext): void {
+    const scene = ctx.visualQuery.getScene();
+    if (!scene) return;
+
+    const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
+    if (!wTrans) return;
+
+    const ring = BABYLON.MeshBuilder.CreateTorus(`shockwave_ring_${performance.now()}`, {
+      diameter: 1.0,
+      thickness: 0.08,
+      tessellation: 32
+    }, scene);
+
+    ring.position.set(wTrans.x, wTrans.y, 0);
+    ring.rotation.x = Math.PI / 2;
+
+    const mat = new BABYLON.StandardMaterial(`shockwave_ring_mat_${performance.now()}`, scene);
+    mat.diffuseColor = new BABYLON.Color3(1.0, 0.0, 0.1);
+    mat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.1);
+    mat.alpha = 0.95;
+    mat.disableLighting = true;
+    ring.material = mat;
+
+    this.activeRings.push({
+      mesh: ring,
+      material: mat,
+      currentScale: 0.1,
+      targetScale: this.SHOCKWAVE_RADIUS * 2.0,
+      speed: 22.0,
+      alpha: 0.95
+    });
+  }
+
+  public update(ctx: SystemContext, dt: number): WeaverStateType | null {
+    this.timer -= dt;
+
+    const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
+    const cosmetic = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic").get(ctx.refs.weaver);
+
+    if (!ai || !cosmetic) return null;
+
+    for (let i = 0; i < this.ringSpawnTimers.length; i++) {
+      if (this.ringSpawnTimers[i] >= 0) {
+        this.ringSpawnTimers[i] -= dt;
+        if (this.ringSpawnTimers[i] < 0) {
+          this.spawnShockwaveRing(ctx);
+        }
+      }
+    }
+
+    for (let i = this.activeRings.length - 1; i >= 0; i--) {
+      const ring = this.activeRings[i];
+      ring.currentScale += ring.speed * dt;
+      ring.alpha = Math.max(0, ring.alpha - dt * 2.0);
+
+      ring.mesh.scaling.set(ring.currentScale, 1.0, ring.currentScale);
+      ring.material.alpha = ring.alpha;
+
+      if (ring.alpha <= 0.01 || ring.currentScale >= ring.targetScale) {
+        ring.mesh.dispose();
+        ring.material.dispose();
+        this.activeRings.splice(i, 1);
+      }
+    }
+
+    if (this.phase === "DELAY") {
+      cosmetic.targetScaleX = 1.08;
+      cosmetic.targetScaleY = 1.08;
+      cosmetic.targetScaleZ = 1.08;
+      cosmetic.wobbleAngle = Math.sin(this.timer * 15.0) * 0.06;
+      cosmetic.rotationAngle = 0.0;
+      cosmetic.gaitAmplitude = 0.05;
+
+      if (this.timer <= 0) {
+        this.phase = "TELEGRAPH";
+        this.timer = this.TELEGRAPH_DURATION;
+        ai.hue = HASH_PREFIX + "eab308"; 
+      }
+    } else if (this.phase === "TELEGRAPH") {
+      const pulse = Math.sin(this.timer * 45.0) * 0.15;
+      cosmetic.targetScaleX = 1.25 + pulse;
+      cosmetic.targetScaleY = 0.75 - pulse;
+      cosmetic.targetScaleZ = 1.25;
+      cosmetic.emissiveHue = HASH_PREFIX + "eab308";
+      cosmetic.wobbleAngle = Math.sin(this.timer * 40.0) * 0.14;
+      cosmetic.rotationAngle = 0.0;
+      cosmetic.gaitAmplitude = 0.25;
+      cosmetic.gaitFrequency = 20.0;
+      cosmetic.gaitTuck = 0.8;
+
+      if (Math.random() < 0.5) {
+        ai.shakeRequested = true;
+        ai.shakeAmplitude = 0.12;
+        ai.shakeDuration = 0.05;
+      }
+
+      if (this.timer <= 0) {
+        this.phase = "BLAST";
+        this.timer = this.BLAST_DURATION;
+      }
+    } else if (this.phase === "BLAST") {
+      if (!this.hasBlastTriggered) {
+        this.hasBlastTriggered = true;
+
+        this.ringSpawnTimers = [0.0, 0.08, 0.16];
+
+        const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
+        if (wTrans) {
+          const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            for (let i = 0; i < 2; i++) {
+              const reqId = ctx.world.create();
+              reqStore.add(reqId, {
+                strategy: new WebSplatStrategy(),
+                x: wTrans.x,
+                y: wTrans.y,
+                z: 0
+              });
+            }
+          }
+
+          const pTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.player);
+          if (pTrans) {
+            const dist = getDistance2D(wTrans.x, wTrans.y, pTrans.x, pTrans.y);
+            if (dist <= this.SHOCKWAVE_RADIUS) {
+              const pIframe = ctx.stores.get<InvulnerabilityComponent>("iframe").get(ctx.refs.player);
+              const hasIframe = pIframe && pIframe.timeRemaining > 0;
+
+              if (!hasIframe) {
+                const dx = pTrans.x - wTrans.x;
+                const dy = pTrans.y - wTrans.y;
+                const len = Math.sqrt(dx * dx + dy * dy) || 1.0;
+
+                const kbForceX = (dx / len) * 24.0;
+                const kbForceY = (dy / len) * 24.0 + 10.0;
+
+                ctx.commands.dispatch({
+                  type: "DAMAGE_REQUEST",
+                  targetId: ctx.refs.player,
+                  amount: 1,
+                  source: "SHOCKWAVE",
+                  knockbackX: kbForceX,
+                  knockbackY: kbForceY
+                });
+              }
+            }
+          }
+
+          ctx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+            x: wTrans.x,
+            y: wTrans.y,
+            isWall: false
+          });
+        }
+
+        ai.shakeRequested = true;
+        ai.shakeAmplitude = 1.35;
+        ai.shakeDuration = 0.45;
+        ai.hue = HASH_PREFIX + "ff0022"; 
+      }
+
+      cosmetic.targetScaleX = 1.45;
+      cosmetic.targetScaleY = 0.55;
+      cosmetic.targetScaleZ = 1.45;
+      cosmetic.emissiveHue = HASH_PREFIX + "ff0022";
+
+      if (this.timer <= 0) {
+        this.phase = "RECOVER";
+        this.timer = this.RECOVER_DURATION;
+      }
+    } else if (this.phase === "RECOVER") {
+      cosmetic.targetScaleX = 0.94;
+      cosmetic.targetScaleY = 0.94;
+      cosmetic.targetScaleZ = 0.94;
+      cosmetic.emissiveHue = HASH_PREFIX + "440011";
+      cosmetic.gaitAmplitude = 0.04;
+      cosmetic.gaitFrequency = 2.0;
+      cosmetic.gaitTuck = 0.75;
+
+      if (this.timer <= 0 && this.activeRings.length === 0) {
+        return "ASCENDING";
+      }
+    }
+
     return null;
   }
 }
@@ -13231,11 +13526,12 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
             uniform float u_noiseTime;
 
             float getNoiseVal(vec3 pos, float time) {
-                float n = sin(pos.x * 6.0 + time * 5.0) * 
-                          cos(pos.y * 7.0 + time * 6.3) * 
-                          sin(pos.z * 8.0 + time * 4.1);
-                n += sin(pos.y * 15.0 - time * 11.0) * 0.35;
-                return n * 0.08;
+                // Calibrated frequencies and 3.0x amplitude for 1.8 diameter bounds
+                float n = sin(pos.x * 2.0 + time * 5.0) * 
+                          cos(pos.y * 2.3 + time * 6.3) * 
+                          sin(pos.z * 2.6 + time * 4.1);
+                n += sin(pos.y * 5.0 - time * 11.0) * 0.35;
+                return n * 0.24;
             }
             #endif
           `,
@@ -13277,10 +13573,10 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
             #ifdef NORMAL
             vec3 pos = vPositionW;
             float epsF = 0.005;
-            float hLF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
-            float hR_xF = sin((pos.x + epsF) * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
-            float hR_yF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin((pos.y + epsF) * 35.0 - u_noiseTime * 12.0) * sin(pos.z * 35.0 + u_noiseTime * 18.0) * 0.03;
-            float hR_zF = sin(pos.x * 35.0 + u_noiseTime * 15.0) * sin(pos.y * 35.0 - u_noiseTime * 12.0) * sin((pos.z + epsF) * 35.0 + u_noiseTime * 18.0) * 0.03;
+            float hLF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_xF = sin((pos.x + epsF) * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_yF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin((pos.y + epsF) * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_zF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin((pos.z + epsF) * 12.0 + u_noiseTime * 18.0) * 0.09;
 
             vec3 gradF = vec3(hR_xF - hLF, hR_yF - hLF, hR_zF - hLF) / epsF;
 

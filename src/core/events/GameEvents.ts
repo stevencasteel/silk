@@ -23,7 +23,8 @@ export enum GameEvent {
   WEAVER_WALL_HIT = "WEAVER_WALL_HIT",
   PROJECTILE_IMPACT = "PROJECTILE_IMPACT",
   PLAYER_INPUT_KEY_STATE_CHANGED = "PLAYER_INPUT_KEY_STATE_CHANGED",
-  UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED"
+  UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED",
+  WEAVER_BOUNCED = "WEAVER_BOUNCED"
 }
 
 export interface GameEventMap {
@@ -61,4 +62,5 @@ export interface GameEventMap {
   [GameEvent.PROJECTILE_IMPACT]: { x: number; y: number; isWall: boolean };
   [GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED]: { key: string; code: string; pressed: boolean };
   [GameEvent.UI_CALIBRATION_STEP_CHANGED]: { step: number };
+  [GameEvent.WEAVER_BOUNCED]: void;
 }

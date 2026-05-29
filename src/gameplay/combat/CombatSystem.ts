@@ -2,6 +2,7 @@ import { getDistance2D } from "../../core/utils/EngineUtils";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
+import { GameEvent } from "../../core/events/GameEvents";
 import {
   TransformComponent,
   WeaverAIComponent,
@@ -32,7 +33,6 @@ export class CombatSystem implements ISystem {
     const wTrans = transforms.get(this.context.refs.weaver);
     if (!pTrans || !wTrans) return;
 
-    // Toggle active state of hitboxes based on gameplay context
     const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
     const pHb = hitboxes.get(this.context.refs.player);
     const wHb = hitboxes.get(this.context.refs.weaver);
@@ -71,7 +71,6 @@ export class CombatSystem implements ISystem {
 
     if (!pVel) return;
 
-    // If neither entity is in an active damage state, resolve passive physical overlapping pushback
     const pActiveDamage = pHb ? pHb.isActive : false;
     const wActiveDamage = wHb ? wHb.isActive : false;
 
@@ -99,6 +98,10 @@ export class CombatSystem implements ISystem {
       if (dot < 0) {
         pVel.x -= dot * nx * tuning.BOUNCE_ELASTICITY_MULT;
         pVel.y -= dot * ny * tuning.BOUNCE_ELASTICITY_MULT;
+      }
+
+      if (wAI && wAI.state === "PATROLLING") {
+        this.context.broker.publish(GameEvent.WEAVER_BOUNCED, undefined);
       }
     }
   }

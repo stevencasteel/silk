@@ -12,6 +12,7 @@ export class WeaverBrainSystem implements ISystem {
   private activeState: IWeaverState | null = null;
   private unsubDamage: (() => void) | null = null;
   private unsubReset: (() => void) | null = null;
+  private unsubBounce: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
 
   constructor(private context: SystemContext) {}
@@ -40,9 +41,18 @@ export class WeaverBrainSystem implements ISystem {
         aiComp.damageShearTime = 0.0;
         if (health.current <= 0) {
           this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "PATROLLING") {
+        } else if (aiComp.state === "PATROLLING" || aiComp.state === "SHOCKWAVE") {
           this.pendingTransition = "STRIKING";
         }
+      }
+    });
+
+    this.unsubBounce = this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
+      const aiComp = this.context.stores
+        .get<WeaverAIComponent>("weaverAI")
+        .get(this.context.refs.weaver);
+      if (aiComp && aiComp.state === "PATROLLING") {
+        this.pendingTransition = "SHOCKWAVE";
       }
     });
   }
@@ -151,5 +161,6 @@ export class WeaverBrainSystem implements ISystem {
   public dispose(): void {
     if (this.unsubDamage) this.unsubDamage();
     if (this.unsubReset) this.unsubReset();
+    if (this.unsubBounce) this.unsubBounce();
   }
 }

@@ -52,6 +52,7 @@ import { WeaverPatrollingState } from "../gameplay/weaver/states/WeaverPatrollin
 import { WeaverStrikingState } from "../gameplay/weaver/states/WeaverStrikingState";
 import { WeaverAscendingState } from "../gameplay/weaver/states/WeaverAscendingState";
 import { WeaverDefeatedState } from "../gameplay/weaver/states/WeaverDefeatedState";
+import { WeaverShockwaveState } from "../gameplay/weaver/states/WeaverShockwaveState";
 import { WeaverTraversalSystem } from "../gameplay/weaver/WeaverTraversalSystem";
 import { WeaverActionSystem } from "../gameplay/weaver/WeaverActionSystem";
 import { TetherVisualizerSystem } from "../gameplay/juice/TetherVisualizerSystem";
@@ -201,6 +202,7 @@ export class CompositionRoot {
     weaverBrain.registerState(new WeaverStrikingState());
     weaverBrain.registerState(new WeaverAscendingState());
     weaverBrain.registerState(new WeaverDefeatedState());
+    weaverBrain.registerState(new WeaverShockwaveState());
     const weaverActionSystem = new WeaverActionSystem(context);
     const weaverTraversalSystem = new WeaverTraversalSystem(context);
 
