@@ -7,9 +7,10 @@ export interface PlayerState {
   isWebTrapped: boolean;
   escapeProgress: number;
   escapeRequired: number;
+  webMass: number;
   setPlayerHp: (hp: number, maxHp: number) => void;
   setCurrentState: (state: string) => void;
-  setWebTrapped: (trapped: boolean, progress: number, required: number) => void;
+  setWebTrapped: (trapped: boolean, progress: number, required: number, webMass?: number) => void;
   reset: () => void;
 }
 
@@ -65,7 +66,8 @@ const PLAYER_RESET = {
   currentState: "AIRBORNE",
   isWebTrapped: false,
   escapeProgress: 0,
-  escapeRequired: 5
+  escapeRequired: 5,
+  webMass: 1
 };
 
 const WEAVER_RESET = {
@@ -94,8 +96,8 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   ...PLAYER_RESET,
   setPlayerHp: (hp, maxHp) => set({ playerHp: hp, playerMaxHp: maxHp }),
   setCurrentState: (state) => set({ currentState: state }),
-  setWebTrapped: (trapped, progress, required) =>
-    set({ isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required }),
+  setWebTrapped: (trapped, progress, required, webMass = 1) =>
+    set({ isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required, webMass }),
   reset: () => set(PLAYER_RESET)
 }));
 

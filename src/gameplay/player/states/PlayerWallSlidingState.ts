@@ -80,8 +80,9 @@ export class PlayerWallSlidingState implements IPlayerState {
 
     const stillPressingIn = input.x === trav.wallDir;
     const isTrapped = !!trav.isWebTrapped;
+    const webMass = trav.webMass || 1;
+    const controlFactor = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
-    // Release/Flinging conditions blocked completely when trapped in cocoon
     if (!stillPressingIn && !isTrapped) {
       PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
       return trav.state;
@@ -107,9 +108,9 @@ export class PlayerWallSlidingState implements IPlayerState {
 
       let slideSpeed = 0.0;
       if (input.y > 0) {
-        slideSpeed = 5.0;
+        slideSpeed = 5.0 * controlFactor;
       } else if (input.y < 0) {
-        slideSpeed = -5.0;
+        slideSpeed = -5.0 * controlFactor;
       }
       trav.stickyWallYOffset += slideSpeed * dt;
       trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));

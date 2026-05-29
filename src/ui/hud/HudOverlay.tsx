@@ -79,9 +79,10 @@ export const HudOverlay: React.FC = () => {
     playerHp: s.playerHp,
     isWebTrapped: s.isWebTrapped,
     escapeProgress: s.escapeProgress,
-    escapeRequired: s.escapeRequired
+    escapeRequired: s.escapeRequired,
+    webMass: s.webMass
   })));
-  const { playerHp, isWebTrapped, escapeProgress, escapeRequired } = playerState;
+  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass } = playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -679,7 +680,9 @@ export const HudOverlay: React.FC = () => {
               <div className="hud-struggle-panel">
                 <div className="flex items-center gap-1.5">
                   <ShieldAlert size={14} className="text-red-500 animate-pulse" />
-                  <span className="hud-struggle-title">WEB SNAGGED</span>
+                  <span className="hud-struggle-title">
+                    {webMass > 1 ? `WEB MASS x${webMass}` : "WEB SNAGGED"}
+                  </span>
                 </div>
                 <span className="hud-struggle-subtitle">Alternate direction keys to struggle out!</span>
                 <div className="hud-struggle-keys">

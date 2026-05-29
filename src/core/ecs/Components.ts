@@ -110,6 +110,7 @@ export interface TraversalStateComponent {
   escapeRequired?: number;
   lastEscapeDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | "";
   hasFlingBonus?: boolean;
+  webMass?: number;
 }
 
 export interface WeaverTraversalComponent {

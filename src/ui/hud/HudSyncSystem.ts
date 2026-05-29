@@ -32,7 +32,8 @@ export class HudSyncSystem implements ISystem, IUpdateable {
       playerStore.setWebTrapped(
         !!pTrav.isWebTrapped,
         pTrav.escapeProgress || 0,
-        pTrav.escapeRequired || 5
+        pTrav.escapeRequired || 5,
+        pTrav.webMass || 1
       );
     }
   }

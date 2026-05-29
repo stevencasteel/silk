@@ -40,7 +40,8 @@ export class PlayerLaunchingState implements IPlayerState {
 
     const tuning = GAMEPLAY_TUNING.PLAYER;
     const isTrapped = !!trav.isWebTrapped;
-    const trappedDamping = isTrapped ? 0.5 : 1.0;
+    const webMass = trav.webMass || 1;
+    const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;

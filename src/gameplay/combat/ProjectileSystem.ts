@@ -235,55 +235,97 @@ export class ProjectileSystem implements ISystem {
             });
 
             this.recycleProjectile(projId, pComp);
-          } else if (!hasIframe) {
-            const dx = pTrans.x - trans.x;
-            const dy = pTrans.y - trans.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-            const kickbackSpeed = 16.0;
+          } else {
+            const alreadyTrapped = pTrav && pTrav.isWebTrapped;
+            if (alreadyTrapped && pTrav) {
+              pTrav.webMass = (pTrav.webMass || 1) + 1;
+              pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
 
-            if (pTrav) {
-              pTrav.isWebTrapped = true;
-              pTrav.escapeProgress = 0;
-              pTrav.escapeRequired = 5;
-              pTrav.lastEscapeDirection = "";
-              pTrav.hasFlingBonus = false;
-            }
+              const reqId = sysCtx.world.create();
+              const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+              if (reqStore) {
+                reqStore.add(reqId, {
+                  strategy: new WebSplatStrategy(),
+                  x: trans.x,
+                  y: trans.y,
+                  z: trans.z
+                });
+              }
 
-            pComp.isTrappingPlayer = true;
-
-            const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
-            if (pVel) {
-              pVel.x = (dx / dist) * kickbackSpeed;
-              pVel.y = (dy / dist) * kickbackSpeed;
-            }
-
-            sysCtx.commands.dispatch({
-              type: "DAMAGE_REQUEST",
-              targetId: otherId,
-              amount: 1,
-              source: "PROJECTILE"
-            });
-
-            const reqId = sysCtx.world.create();
-            const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
-            if (reqStore) {
-              reqStore.add(reqId, {
-                strategy: new WebSplatStrategy(),
+              sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
                 x: trans.x,
                 y: trans.y,
-                z: trans.z
+                isWall: false
               });
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.8,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+
+              if (!hasIframe) {
+                sysCtx.commands.dispatch({
+                  type: "DAMAGE_REQUEST",
+                  targetId: otherId,
+                  amount: 1,
+                  source: "PROJECTILE"
+                });
+              }
+
+              this.recycleProjectile(projId, pComp);
+              return;
             }
 
-            sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-              x: trans.x,
-              y: trans.y,
-              isWall: false
-            });
-            sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-              duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-            });
+            if (!hasIframe) {
+              const dx = pTrans.x - trans.x;
+              const dy = pTrans.y - trans.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+              const kickbackSpeed = 16.0;
+
+              if (pTrav) {
+                pTrav.isWebTrapped = true;
+                pTrav.webMass = 1;
+                pTrav.escapeProgress = 0;
+                pTrav.escapeRequired = 5;
+                pTrav.lastEscapeDirection = "";
+                pTrav.hasFlingBonus = false;
+              }
+
+              pComp.isTrappingPlayer = true;
+
+              const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
+              if (pVel) {
+                pVel.x = (dx / dist) * kickbackSpeed;
+                pVel.y = (dy / dist) * kickbackSpeed;
+              }
+
+              sysCtx.commands.dispatch({
+                type: "DAMAGE_REQUEST",
+                targetId: otherId,
+                amount: 1,
+                source: "PROJECTILE"
+              });
+
+              const reqId = sysCtx.world.create();
+              const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+              if (reqStore) {
+                reqStore.add(reqId, {
+                  strategy: new WebSplatStrategy(),
+                  x: trans.x,
+                  y: trans.y,
+                  z: trans.z
+                });
+              }
+
+              sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+              sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
+                duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
+              });
+            }
           }
         }
       });
@@ -540,14 +582,16 @@ export class ProjectileSystem implements ISystem {
         trans.prevY = pTrans.prevY;
         trans.prevZ = pTrans.prevZ;
 
+        const massScale = 1.0 + ((pTrav.webMass || 1) - 1) * 0.18;
+
         if (pTrav.state === "WALL_SLIDING") {
-          trans.scaleX = 0.45;
-          trans.scaleY = 1.8;
-          trans.scaleZ = 1.8;
+          trans.scaleX = 0.45 * massScale;
+          trans.scaleY = 1.8 * massScale;
+          trans.scaleZ = 1.8 * massScale;
         } else {
-          trans.scaleX = 1.0;
-          trans.scaleY = 1.15;
-          trans.scaleZ = 1.0;
+          trans.scaleX = 1.0 * massScale;
+          trans.scaleY = 1.15 * massScale;
+          trans.scaleZ = 1.0 * massScale;
         }
 
         mesh.position.set(trans.x, trans.y, trans.z);
