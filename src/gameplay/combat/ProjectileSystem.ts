@@ -36,6 +36,9 @@ export class ProjectileSystem implements ISystem {
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
 
+  private _scratchPos = new BABYLON.Vector3();
+  private _scratchRot = new BABYLON.Quaternion();
+
   constructor(private context: SystemContext) {}
 
   public init(): void {
@@ -95,7 +98,13 @@ export class ProjectileSystem implements ISystem {
         prevQx: 0,
         prevQy: 0,
         prevQz: 0,
-        prevQw: 1
+        prevQw: 1,
+        scaleX: 1.0,
+        scaleY: 1.0,
+        scaleZ: 1.0,
+        prevScaleX: 1.0,
+        prevScaleY: 1.0,
+        prevScaleZ: 1.0
       });
 
       this.context.stores.get<KinematicVelocityComponent>("velocity").add(projId, {
@@ -115,7 +124,7 @@ export class ProjectileSystem implements ISystem {
 
       this.context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(projId, {
         isActive: true,
-        limitX: ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X,
+        limitX: ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH,
         layer: "PROJECTILE",
         onBoundaryHit: (id: number, side: "LEFT" | "RIGHT", currentX: number) => {
           const pComp = this.context.stores.get<ProjectileComponent>("projectile").get(id);
@@ -124,10 +133,34 @@ export class ProjectileSystem implements ISystem {
             const projCol = this.context.stores
               .get<CollisionStateComponent>("collisionState")
               .get(id);
+            const projVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(id);
             if (projTrans && projCol) {
               pComp.isStuck = true;
               pComp.isStuckOnWall = true;
-              projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X - 0.05);
+
+              projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
+              projTrans.prevX = projTrans.x;
+
+              if (projVel) {
+                projVel.x = 0;
+                projVel.y = 0;
+              }
+
+              projTrans.qx = 0;
+              projTrans.qy = 0;
+              projTrans.qz = 0;
+              projTrans.qw = 1;
+              projTrans.prevQx = 0;
+              projTrans.prevQy = 0;
+              projTrans.prevQz = 0;
+              projTrans.prevQw = 1;
+
+              projTrans.scaleX = 0.24;
+              projTrans.scaleY = 1.45;
+              projTrans.scaleZ = 1.45;
+              projTrans.prevScaleX = 0.24;
+              projTrans.prevScaleY = 1.45;
+              projTrans.prevScaleZ = 1.45;
 
               projCol.isWallClinging = true;
               projCol.wallNormalX = side === "RIGHT" ? -1 : 1;
@@ -301,6 +334,16 @@ export class ProjectileSystem implements ISystem {
     trans.prevY = y;
     trans.prevZ = 0;
 
+    trans.scaleX = 0.7;
+    trans.scaleY = 1.5;
+    trans.scaleZ = 0.7;
+    trans.prevScaleX = 0.7;
+    trans.prevScaleY = 1.5;
+    trans.prevScaleZ = 0.7;
+    trans.scaleVelX = 0;
+    trans.scaleVelY = 0;
+    trans.scaleVelZ = 0;
+
     mesh.position.set(x, y, 0);
     mesh.scaling.set(0.7, 1.5, 0.7);
     mesh.material = this.projMatActive;
@@ -380,6 +423,13 @@ export class ProjectileSystem implements ISystem {
             mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
           );
         }
+      } else {
+        const body = this.bodiesMap.get(projId);
+        if (body) {
+          this._scratchPos.set(trans.x, trans.y, trans.z);
+          this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
+          body.setTargetTransform(this._scratchPos, this._scratchRot);
+        }
       }
 
       if (
@@ -412,6 +462,12 @@ export class ProjectileSystem implements ISystem {
       trans.prevX = 0;
       trans.prevY = -999;
       trans.prevZ = 0;
+      trans.scaleX = 1.0;
+      trans.scaleY = 1.0;
+      trans.scaleZ = 1.0;
+      trans.prevScaleX = 1.0;
+      trans.prevScaleY = 1.0;
+      trans.prevScaleZ = 1.0;
     }
 
     if (vel) {
