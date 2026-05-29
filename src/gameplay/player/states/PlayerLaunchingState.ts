@@ -107,7 +107,9 @@ export class PlayerLaunchingState implements IPlayerState {
               const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
               const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-              if (bug && bug.spikedSide === contactedSpikedSide && !isTrapped && !inSafeWindow) {
+              const spikesActive =
+                bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+              if (spikesActive && !isTrapped && !inSafeWindow) {
                 const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
                 const pCol = colStore.get(ctx.refs.player);
                 if (pCol) {
@@ -143,7 +145,8 @@ export class PlayerLaunchingState implements IPlayerState {
                   });
                 }
 
-                target.x = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
+                target.x =
+                  bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.3);
                 vel.x = bugWallDir * GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_X;
                 vel.y = GAMEPLAY_TUNING.COMBAT.SPIKE_KNOCKBACK_Y;
                 return "AIRBORNE"; // Instantly kill high-speed launch, return to AIRBORNE trajectory

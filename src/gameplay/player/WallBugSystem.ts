@@ -5,7 +5,8 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TransformComponent,
   WallBugComponent,
-  StickySurfaceComponent
+  StickySurfaceComponent,
+  ProjectileComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
@@ -133,6 +134,22 @@ export class WallBugSystem implements ISystem {
       const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
       bugPhase += legFrequency * dt;
       bug.gaitPhase = bugPhase;
+
+      // Sync spikes/safety visibility to the live spikedSide state:
+      pBug.rootNode.getChildren().forEach((child) => {
+        if (child.name === "left_spikes") {
+          child.setEnabled(bug.spikedSide === "LEFT");
+        }
+        if (child.name === "right_spikes") {
+          child.setEnabled(bug.spikedSide === "RIGHT");
+        }
+        if (child.name === "left_safety") {
+          child.setEnabled(bug.spikedSide === "RIGHT" || bug.spikedSide === "NONE");
+        }
+        if (child.name === "right_safety") {
+          child.setEnabled(bug.spikedSide === "LEFT" || bug.spikedSide === "NONE");
+        }
+      });
     }
   }
 
@@ -183,7 +200,8 @@ export class WallBugSystem implements ISystem {
     const finalWidth = 1.15;
 
     const rand = Math.random();
-    const spikedSide: "LEFT" | "RIGHT" | "NONE" = rand < 0.45 ? "LEFT" : (rand < 0.9 ? "RIGHT" : "NONE");
+    const spikedSide: "LEFT" | "RIGHT" | "NONE" =
+      rand < 0.45 ? "LEFT" : rand < 0.9 ? "RIGHT" : "NONE";
 
     this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,
@@ -258,6 +276,25 @@ export class WallBugSystem implements ISystem {
 
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     stickyStore.remove(pBug.entityId);
+
+    const projStore = this.context.stores.get<ProjectileComponent>("projectile");
+    if (projStore) {
+      for (const [projId, proj] of projStore.entries()) {
+        if (proj.isStuckToBug && proj.stickyEntityId === pBug.entityId) {
+          proj.isActive = false;
+          proj.isStuck = false;
+          proj.isStuckToBug = false;
+          proj.stickyEntityId = undefined;
+          const mesh = this.context.visualQuery.getTransformNode(projId);
+          if (mesh instanceof BABYLON.AbstractMesh) {
+            mesh.isVisible = false;
+            mesh.setEnabled(false);
+            mesh.position.set(0, -999, 0);
+            mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+          }
+        }
+      }
+    }
 
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const trans = transformStore.get(pBug.entityId);

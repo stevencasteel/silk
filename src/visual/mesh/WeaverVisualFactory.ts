@@ -176,14 +176,7 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b
   );
 
-  const carapaceMat = createWeaverMaterial(
-    "carapaceMat",
-    scene,
-    imperialPurple,
-    0.98,
-    0.06,
-    true
-  );
+  const carapaceMat = createWeaverMaterial("carapaceMat", scene, imperialPurple, 0.98, 0.06, true);
 
   applyProceduralTextures(textureGen, "carapaceShell", scene, carapaceMat, {
     resolution: 512,
@@ -206,14 +199,7 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
   );
 
-  const shellMat = createWeaverMaterial(
-    "carapaceUpperMat",
-    scene,
-    upperPurple,
-    0.95,
-    0.08,
-    true
-  );
+  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true);
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,

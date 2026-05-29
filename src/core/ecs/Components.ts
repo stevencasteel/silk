@@ -131,6 +131,7 @@ export interface WallBugComponent {
   stayDuration: number;
   gaitPhase: number;
   spikedSide?: "LEFT" | "RIGHT" | "NONE";
+  spikesDisarmed?: boolean;
 }
 
 export interface StickySurfaceComponent {
@@ -149,6 +150,10 @@ export interface ProjectileComponent {
   fallbackY: number;
   isTrappingPlayer?: boolean;
   isCharging?: boolean;
+  stickyEntityId?: number;
+  stickyOffsetX?: number;
+  stickyOffsetY?: number;
+  isStuckToBug?: boolean;
 }
 
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";

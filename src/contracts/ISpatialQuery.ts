@@ -14,7 +14,7 @@ export interface ISpatialQueryService {
     directionX: number,
     length: number
   ): IRaycastHitResult;
-  
+
   castVerticalRay(
     startX: number,
     startY: number,

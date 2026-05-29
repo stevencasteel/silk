@@ -172,7 +172,8 @@ export class EntityAssembler {
     }
 
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-    const regCaster = (m: BABYLON.AbstractMesh) => context.visualRegistration.registerShadowCaster(m);
+    const regCaster = (m: BABYLON.AbstractMesh) =>
+      context.visualRegistration.registerShadowCaster(m);
 
     const wMesh = createWeaverVisualMesh(
       scene,

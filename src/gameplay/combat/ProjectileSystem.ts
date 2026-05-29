@@ -15,7 +15,8 @@ import {
   BoundaryConstraintComponent,
   CollisionStateComponent,
   InvulnerabilityComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { getWeaverAbdomenTip } from "../../core/utils/EngineUtils";
@@ -54,7 +55,7 @@ export class ProjectileSystem implements ISystem {
     )._noisePlugin = noisePlugin;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
-    
+
     // Trapped material initialization with active vertex displacement shaders
     this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped", scene);
     const trappedNoise = new ProjectileNoisePlugin(this.projMatTrapped);
@@ -148,7 +149,8 @@ export class ProjectileSystem implements ISystem {
               pComp.isStuck = true;
               pComp.isStuckOnWall = true;
 
-              projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
+              projTrans.x =
+                Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
               projTrans.prevX = projTrans.x;
 
               if (projVel) {
@@ -362,7 +364,13 @@ export class ProjectileSystem implements ISystem {
     return mat;
   }
 
-  private spawnProjectile(x: number, y: number, tx: number, ty: number, isRelease: boolean = false): void {
+  private spawnProjectile(
+    x: number,
+    y: number,
+    tx: number,
+    ty: number,
+    isRelease: boolean = false
+  ): void {
     const projStore = this.context.stores.get<ProjectileComponent>("projectile");
 
     if (isRelease) {
@@ -379,13 +387,15 @@ export class ProjectileSystem implements ISystem {
       if (chargingProjId !== -1) {
         const pComp = projStore.get(chargingProjId)!;
         const trans = this.context.stores.get<TransformComponent>("transform").get(chargingProjId);
-        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(chargingProjId);
+        const vel = this.context.stores
+          .get<KinematicVelocityComponent>("velocity")
+          .get(chargingProjId);
         const mesh = this.context.visualQuery.getTransformNode(chargingProjId);
 
         if (pComp && trans && vel && mesh instanceof BABYLON.AbstractMesh) {
           pComp.isCharging = false;
           pComp.lifeTime = 0.0;
-          
+
           const dx = tx - trans.x;
           const dy = ty - trans.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -539,7 +549,10 @@ export class ProjectileSystem implements ISystem {
 
     const body = this.bodiesMap.get(projId);
     if (body) {
-      body.setTargetTransform(mesh.position, mesh.rotationQuaternion || BABYLON.Quaternion.Identity());
+      body.setTargetTransform(
+        mesh.position,
+        mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+      );
     }
   }
 
@@ -585,9 +598,96 @@ export class ProjectileSystem implements ISystem {
       const mesh = this.context.visualQuery.getTransformNode(projId);
       if (!trans || !(mesh instanceof BABYLON.AbstractMesh)) continue;
 
+      if (p.isStuckToBug && p.stickyEntityId !== undefined) {
+        const bugTrans = transformStore.get(p.stickyEntityId);
+        if (bugTrans) {
+          trans.x = bugTrans.x + (p.stickyOffsetX || 0);
+          trans.y = bugTrans.y + (p.stickyOffsetY || 0);
+          trans.prevX = trans.x;
+          trans.prevY = trans.y;
+          mesh.position.set(trans.x, trans.y, trans.z);
+          const body = this.bodiesMap.get(projId);
+          if (body) {
+            this._scratchPos.set(trans.x, trans.y, trans.z);
+            this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
+            body.setTargetTransform(this._scratchPos, this._scratchRot);
+          }
+        } else {
+          this.recycleProjectile(projId, p);
+        }
+        continue;
+      }
+
+      if (!p.isStuck && !p.isTrappingPlayer && !p.isCharging) {
+        const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+        if (bugStore) {
+          let hitRegistered = false;
+          for (const [bugId, bug] of bugStore.entries()) {
+            const bugTrans = transformStore.get(bugId);
+            if (!bugTrans) continue;
+
+            const halfW = bug.width / 2;
+            const halfH = bug.height / 2;
+            const projRadius = 0.9;
+
+            const overlapX = Math.abs(trans.x - bugTrans.x) <= halfW + projRadius;
+            const overlapY = Math.abs(trans.y - bugTrans.y) <= halfH + projRadius;
+
+            if (overlapX && overlapY) {
+              const hitLeft = trans.x < bugTrans.x;
+              const hitRight = trans.x > bugTrans.x;
+
+              // Cover and disarm spikes if hit directly on the hazard side
+              if (
+                (bug.spikedSide === "LEFT" && hitLeft) ||
+                (bug.spikedSide === "RIGHT" && hitRight)
+              ) {
+                bug.spikedSide = "NONE";
+              }
+
+              p.isStuck = true;
+              p.isStuckToBug = true;
+              p.stickyEntityId = bugId;
+              p.stickyOffsetX = trans.x - bugTrans.x;
+              p.stickyOffsetY = trans.y - bugTrans.y;
+
+              const vel = this.context.stores
+                .get<KinematicVelocityComponent>("velocity")
+                .get(projId);
+              if (vel) {
+                vel.x = 0;
+                vel.y = 0;
+              }
+
+              trans.scaleX = 0.28;
+              trans.scaleY = 1.35;
+              trans.scaleZ = 1.35;
+              mesh.scaling.set(0.28, 1.35, 1.35);
+
+              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              if (stuckMat) {
+                mesh.material = stuckMat;
+              }
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+
+              hitRegistered = true;
+              break;
+            }
+          }
+          if (hitRegistered) continue;
+        }
+      }
+
       if (p.isTrappingPlayer) {
         const pTrans = transformStore.get(this.context.refs.player);
-        const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+        const pTrav = this.context.stores
+          .get<TraversalStateComponent>("traversal")
+          .get(this.context.refs.player);
 
         if (!pTrav || !pTrav.isWebTrapped || !pTrans) {
           this.recycleProjectile(projId, p);
@@ -824,6 +924,10 @@ export class ProjectileSystem implements ISystem {
     p.lifeTime = 0.0;
     p.fallbackX = 0.0;
     p.fallbackY = 0.0;
+    p.isStuckToBug = false;
+    p.stickyEntityId = undefined;
+    p.stickyOffsetX = 0;
+    p.stickyOffsetY = 0;
 
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);

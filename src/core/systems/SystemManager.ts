@@ -1,4 +1,10 @@
-import { ISystem, isInitializable, isUpdateable, isRenderable, isDisposable } from "../../contracts/ISystem";
+import {
+  ISystem,
+  isInitializable,
+  isUpdateable,
+  isRenderable,
+  isDisposable
+} from "../../contracts/ISystem";
 import { Profiler } from "../diagnostics/Profiler";
 import { InitPhase, SystemPhase } from "../../contracts/SystemPhase";
 

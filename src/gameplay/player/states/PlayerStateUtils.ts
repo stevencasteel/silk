@@ -57,7 +57,7 @@ export class PlayerStateUtils {
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
       trav.wallDir = 0;
-    trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
+      trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
       trav.launchPower = 0;
       return;
     }
@@ -73,7 +73,7 @@ export class PlayerStateUtils {
       storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const sweetSpotBonus = isSweetSpot ? 0.15 : 0.0;
 
-    const bonusMultiplier = trav.hasFlingBonus ? 1.10 : 1.0;
+    const bonusMultiplier = trav.hasFlingBonus ? 1.1 : 1.0;
     const powerScale = Math.min(1.0, tensionPower + reelBonus + sweetSpotBonus);
     const power = powerScale * tuning.FLING_IMPULSE * bonusMultiplier;
 
@@ -109,8 +109,8 @@ export class PlayerStateUtils {
     let shakeDur = 0.2;
 
     if (trav.hasFlingBonus) {
-      trav.hasFlingBonus = false; 
-      shakeAmp += 0.50;
+      trav.hasFlingBonus = false;
+      shakeAmp += 0.5;
       shakeDur += 0.25;
 
       const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");

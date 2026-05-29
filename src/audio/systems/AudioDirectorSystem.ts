@@ -69,20 +69,11 @@ export class AudioDirectorSystem implements ISystem {
     window.addEventListener("silk-play-confirm", this.windowConfirmListener);
 
     this.windowTensionAlarmListener = () => {
-      if (
-        this.initialized &&
-        this.sfxRegistry &&
-        this.toneModule &&
-        Math.random() < 0.1
-      ) {
+      if (this.initialized && this.sfxRegistry && this.toneModule && Math.random() < 0.1) {
         const nowMs = performance.now();
         if (nowMs - this.lastAlarmTime > 80) {
           this.lastAlarmTime = nowMs;
-          this.sfxRegistry.triggerAlarm(
-            "F6",
-            "32n",
-            this.toneModule.now()
-          );
+          this.sfxRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
         }
       }
     };
@@ -133,10 +124,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
         if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.triggerImpact(
-            presets.DAMAGED_NOTE,
-            presets.DAMAGED_DURATION
-          );
+          this.sfxRegistry.triggerImpact(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
           this.sfxRegistry.triggerNoise(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
@@ -251,10 +239,7 @@ export class AudioDirectorSystem implements ISystem {
   ): void {
     if (!this.sfxRegistry) return;
 
-    this.sfxRegistry.triggerImpact(
-      presets.DEATH_NOTE_1,
-      presets.DEATH_NOTE_1_DURATION
-    );
+    this.sfxRegistry.triggerImpact(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
     this.sfxRegistry.triggerImpact(
       presets.DEATH_NOTE_2,
       presets.DEATH_NOTE_2_DURATION,

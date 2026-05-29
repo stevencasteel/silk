@@ -46,7 +46,7 @@ export class WeaverAscendingState implements IWeaverState {
         cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
         cosmetic.gaitAmplitude = 0.18; // Identical wide scramble steps as dash lunge
         cosmetic.gaitFrequency = 14.0; // Identical fast scrambling frequency as dash lunge
-        cosmetic.gaitTuck = -0.5;      // Identical outward reaching legs as dash lunge
+        cosmetic.gaitTuck = -0.5; // Identical outward reaching legs as dash lunge
       }
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;

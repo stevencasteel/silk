@@ -97,7 +97,9 @@ export class PlayerKinematicsSystem implements ISystem {
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
     // Trap & Struggle Detection
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
     if (trav.isWebTrapped && input) {
       let currentDir: "UP" | "DOWN" | "LEFT" | "RIGHT" | "" = "";
       if (input.x < -0.1) currentDir = "LEFT";
@@ -129,7 +131,11 @@ export class PlayerKinematicsSystem implements ISystem {
         // Custom window struggle dispatch
         window.dispatchEvent(
           new CustomEvent("silk-web-struggle", {
-            detail: { progress: trav.escapeProgress, required: trav.escapeRequired, direction: currentDir }
+            detail: {
+              progress: trav.escapeProgress,
+              required: trav.escapeRequired,
+              direction: currentDir
+            }
           })
         );
 
@@ -145,7 +151,9 @@ export class PlayerKinematicsSystem implements ISystem {
           }
 
           // Visual pop scale burst via spring-damper values
-          const pTrans = this.context.stores.get<TransformComponent>("transform").get(this.context.refs.player);
+          const pTrans = this.context.stores
+            .get<TransformComponent>("transform")
+            .get(this.context.refs.player);
           if (pTrans) {
             pTrans.scaleX = 1.4;
             pTrans.scaleY = 1.4;

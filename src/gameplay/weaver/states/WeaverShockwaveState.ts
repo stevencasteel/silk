@@ -50,7 +50,7 @@ export class WeaverShockwaveState implements IWeaverState {
     if (ai) {
       ai.desiredVelocityX = 0;
       ai.desiredVelocityY = 0;
-      ai.hue = HASH_PREFIX + "121212"; 
+      ai.hue = HASH_PREFIX + "121212";
     }
   }
 
@@ -74,11 +74,15 @@ export class WeaverShockwaveState implements IWeaverState {
     const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
     if (!wTrans) return;
 
-    const ring = BABYLON.MeshBuilder.CreateTorus(`shockwave_ring_${performance.now()}`, {
-      diameter: 1.0,
-      thickness: 0.08,
-      tessellation: 32
-    }, scene);
+    const ring = BABYLON.MeshBuilder.CreateTorus(
+      `shockwave_ring_${performance.now()}`,
+      {
+        diameter: 1.0,
+        thickness: 0.08,
+        tessellation: 32
+      },
+      scene
+    );
 
     ring.position.set(wTrans.x, wTrans.y, 0);
     ring.rotation.x = Math.PI / 2;
@@ -143,7 +147,7 @@ export class WeaverShockwaveState implements IWeaverState {
       if (this.timer <= 0) {
         this.phase = "TELEGRAPH";
         this.timer = this.TELEGRAPH_DURATION;
-        ai.hue = HASH_PREFIX + "eab308"; 
+        ai.hue = HASH_PREFIX + "eab308";
       }
     } else if (this.phase === "TELEGRAPH") {
       const pulse = Math.sin(this.timer * 45.0) * 0.15;
@@ -192,7 +196,9 @@ export class WeaverShockwaveState implements IWeaverState {
           if (pTrans) {
             const dist = getDistance2D(wTrans.x, wTrans.y, pTrans.x, pTrans.y);
             if (dist <= this.SHOCKWAVE_RADIUS) {
-              const pIframe = ctx.stores.get<InvulnerabilityComponent>("iframe").get(ctx.refs.player);
+              const pIframe = ctx.stores
+                .get<InvulnerabilityComponent>("iframe")
+                .get(ctx.refs.player);
               const hasIframe = pIframe && pIframe.timeRemaining > 0;
 
               if (!hasIframe) {
@@ -225,7 +231,7 @@ export class WeaverShockwaveState implements IWeaverState {
         ai.shakeRequested = true;
         ai.shakeAmplitude = 1.35;
         ai.shakeDuration = 0.45;
-        ai.hue = HASH_PREFIX + "ff0022"; 
+        ai.hue = HASH_PREFIX + "ff0022";
       }
 
       cosmetic.targetScaleX = 1.45;

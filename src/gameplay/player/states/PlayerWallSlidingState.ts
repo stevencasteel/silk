@@ -47,10 +47,10 @@ export class PlayerWallSlidingState implements IPlayerState {
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
-      const isSpikedOnClingSide = bug && (
-        (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
-        (trav.wallDir === 1 && bug.spikedSide === "LEFT")
-      );
+      const isSpikedOnClingSide =
+        bug &&
+        ((trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
+          (trav.wallDir === 1 && bug.spikedSide === "LEFT"));
 
       const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
       if (isSpikedOnClingSide && !isTrapped && !inSafeWindow) {

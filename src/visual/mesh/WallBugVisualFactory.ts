@@ -60,23 +60,31 @@ export class WallBugVisualFactory {
     for (let s = 0; s < 11; s++) {
       const spikeY = -3.0 + s * 0.6;
 
-      const spikeL = BABYLON.MeshBuilder.CreateCylinder(`spikeL_${id}_${s}`, {
-        height: 1.1,
-        diameterTop: 0.0,
-        diameterBottom: 0.38,
-        tessellation: 6
-      }, scene);
+      const spikeL = BABYLON.MeshBuilder.CreateCylinder(
+        `spikeL_${id}_${s}`,
+        {
+          height: 1.1,
+          diameterTop: 0.0,
+          diameterBottom: 0.38,
+          tessellation: 6
+        },
+        scene
+      );
       spikeL.position.set(-0.95, spikeY, 0);
       spikeL.rotation.z = Math.PI / 2;
       spikeL.material = spikeMat;
       spikeL.parent = leftSpikes;
 
-      const spikeR = BABYLON.MeshBuilder.CreateCylinder(`spikeR_${id}_${s}`, {
-        height: 1.1,
-        diameterTop: 0.0,
-        diameterBottom: 0.38,
-        tessellation: 6
-      }, scene);
+      const spikeR = BABYLON.MeshBuilder.CreateCylinder(
+        `spikeR_${id}_${s}`,
+        {
+          height: 1.1,
+          diameterTop: 0.0,
+          diameterBottom: 0.38,
+          tessellation: 6
+        },
+        scene
+      );
       spikeR.position.set(0.95, spikeY, 0);
       spikeR.rotation.z = -Math.PI / 2;
       spikeR.material = spikeMat;
@@ -90,20 +98,28 @@ export class WallBugVisualFactory {
     const rightSafety = new BABYLON.TransformNode("right_safety", scene);
     rightSafety.parent = bugRoot;
 
-    const stripL = BABYLON.MeshBuilder.CreateBox(`stripL_${id}`, {
-      width: 0.12,
-      height: 6.2,
-      depth: 0.3
-    }, scene);
+    const stripL = BABYLON.MeshBuilder.CreateBox(
+      `stripL_${id}`,
+      {
+        width: 0.12,
+        height: 6.2,
+        depth: 0.3
+      },
+      scene
+    );
     stripL.position.set(-0.59, 0, 0);
     stripL.material = stripeMat;
     stripL.parent = leftSafety;
 
-    const stripR = BABYLON.MeshBuilder.CreateBox(`stripR_${id}`, {
-      width: 0.12,
-      height: 6.2,
-      depth: 0.3
-    }, scene);
+    const stripR = BABYLON.MeshBuilder.CreateBox(
+      `stripR_${id}`,
+      {
+        width: 0.12,
+        height: 6.2,
+        depth: 0.3
+      },
+      scene
+    );
     stripR.position.set(0.59, 0, 0);
     stripR.material = stripeMat;
     stripR.parent = rightSafety;

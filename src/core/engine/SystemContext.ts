@@ -1,5 +1,15 @@
-import { IEcsWorld, IEventBroker, ICommandBus, IStoreContainer, IEntityRefs } from "../../contracts/ICore";
-import { IVisualRegistry, IVisualQuery, IVisualRegistration } from "../../contracts/IVisualRegistry";
+import {
+  IEcsWorld,
+  IEventBroker,
+  ICommandBus,
+  IStoreContainer,
+  IEntityRefs
+} from "../../contracts/ICore";
+import {
+  IVisualRegistry,
+  IVisualQuery,
+  IVisualRegistration
+} from "../../contracts/IVisualRegistry";
 
 export class SystemContext {
   public readonly visualQuery: IVisualQuery;

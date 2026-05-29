@@ -136,7 +136,11 @@ export class TetherVisualizerSystem implements ISystem {
       if (pNode) {
         const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
         const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localHeadTop, pNode.getWorldMatrix(), this.scratchPlayer);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          localHeadTop,
+          pNode.getWorldMatrix(),
+          this.scratchPlayer
+        );
       } else {
         const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
         const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;
@@ -275,7 +279,7 @@ export class TetherVisualizerSystem implements ISystem {
         r = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.r;
         g = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.g;
         b = VISUAL_JUICE_CONFIG.TETHER_ROPE.SWEET_SPOT_CORE_COLOR.b;
-        eBrightness = 5.5; 
+        eBrightness = 5.5;
       } else if (tension >= 0.4) {
         const ratio = (tension - 0.4) / 0.15;
         r = 1.0;
@@ -296,7 +300,11 @@ export class TetherVisualizerSystem implements ISystem {
         finalBrightness *= 2.5;
       }
 
-      this.tetherMat.emissiveColor.set(finalBrightness * r, finalBrightness * g, finalBrightness * b);
+      this.tetherMat.emissiveColor.set(
+        finalBrightness * r,
+        finalBrightness * g,
+        finalBrightness * b
+      );
     } else {
       this.tetherMesh.setEnabled(false);
 
@@ -314,7 +322,11 @@ export class TetherVisualizerSystem implements ISystem {
       if (pNode) {
         const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
         const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
-        BABYLON.Vector3.TransformCoordinatesToRef(localHeadTop, pNode.getWorldMatrix(), this.scratchPlayer);
+        BABYLON.Vector3.TransformCoordinatesToRef(
+          localHeadTop,
+          pNode.getWorldMatrix(),
+          this.scratchPlayer
+        );
       } else {
         const px = pTrans.prevX + (pTrans.x - pTrans.prevX) * alpha;
         const py = pTrans.prevY + (pTrans.y - pTrans.prevY) * alpha;

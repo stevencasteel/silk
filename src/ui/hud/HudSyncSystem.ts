@@ -5,7 +5,13 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { PlayerStateHints } from "../../gameplay/player/states/PlayerStateHints";
 import { TraversalStateComponent } from "../../core/ecs/Components";
-import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore, resetAllStores } from "./hudStore";
+import {
+  usePlayerStore,
+  useWeaverStore,
+  useOverlayStore,
+  useInputStore,
+  resetAllStores
+} from "./hudStore";
 
 export class HudSyncSystem implements ISystem, IUpdateable {
   readonly phase = SystemPhase.RenderSync;

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 1:31:46 PM
+ [SYSTEM] Generated: 5/29/2026, 1:52:40 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2958,6 +2958,7 @@ export interface WallBugComponent {
   stayDuration: number;
   gaitPhase: number;
   spikedSide?: "LEFT" | "RIGHT" | "NONE";
+  spikesDisarmed?: boolean;
 }
 
 export interface StickySurfaceComponent {
@@ -2976,6 +2977,10 @@ export interface ProjectileComponent {
   fallbackY: number;
   isTrappingPlayer?: boolean;
   isCharging?: boolean;
+  stickyEntityId?: number;
+  stickyOffsetX?: number;
+  stickyOffsetY?: number;
+  isStuckToBug?: boolean;
 }
 
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";
@@ -5481,7 +5486,8 @@ import {
   BoundaryConstraintComponent,
   CollisionStateComponent,
   InvulnerabilityComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { getWeaverAbdomenTip } from "../../core/utils/EngineUtils";
@@ -6051,6 +6057,89 @@ export class ProjectileSystem implements ISystem {
       const mesh = this.context.visualQuery.getTransformNode(projId);
       if (!trans || !(mesh instanceof BABYLON.AbstractMesh)) continue;
 
+      if (p.isStuckToBug && p.stickyEntityId !== undefined) {
+        const bugTrans = transformStore.get(p.stickyEntityId);
+        if (bugTrans) {
+          trans.x = bugTrans.x + (p.stickyOffsetX || 0);
+          trans.y = bugTrans.y + (p.stickyOffsetY || 0);
+          trans.prevX = trans.x;
+          trans.prevY = trans.y;
+          mesh.position.set(trans.x, trans.y, trans.z);
+          const body = this.bodiesMap.get(projId);
+          if (body) {
+            this._scratchPos.set(trans.x, trans.y, trans.z);
+            this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
+            body.setTargetTransform(this._scratchPos, this._scratchRot);
+          }
+        } else {
+          this.recycleProjectile(projId, p);
+        }
+        continue;
+      }
+
+      if (!p.isStuck && !p.isTrappingPlayer && !p.isCharging) {
+        const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
+        if (bugStore) {
+          let hitRegistered = false;
+          for (const [bugId, bug] of bugStore.entries()) {
+            const bugTrans = transformStore.get(bugId);
+            if (!bugTrans) continue;
+
+            const halfW = bug.width / 2;
+            const halfH = bug.height / 2;
+            const projRadius = 0.9;
+
+            const overlapX = Math.abs(trans.x - bugTrans.x) <= (halfW + projRadius);
+            const overlapY = Math.abs(trans.y - bugTrans.y) <= (halfH + projRadius);
+
+            if (overlapX && overlapY) {
+              const hitLeft = trans.x < bugTrans.x;
+              const hitRight = trans.x > bugTrans.x;
+
+              // Cover and disarm spikes if hit directly on the hazard side
+              if (
+                (bug.spikedSide === "LEFT" && hitLeft) ||
+                (bug.spikedSide === "RIGHT" && hitRight)
+              ) {
+                bug.spikedSide = "NONE";
+              }
+
+              p.isStuck = true;
+              p.isStuckToBug = true;
+              p.stickyEntityId = bugId;
+              p.stickyOffsetX = trans.x - bugTrans.x;
+              p.stickyOffsetY = trans.y - bugTrans.y;
+
+              const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+              if (vel) {
+                vel.x = 0;
+                vel.y = 0;
+              }
+
+              trans.scaleX = 0.28;
+              trans.scaleY = 1.35;
+              trans.scaleZ = 1.35;
+              mesh.scaling.set(0.28, 1.35, 1.35);
+
+              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              if (stuckMat) {
+                mesh.material = stuckMat;
+              }
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+
+              hitRegistered = true;
+              break;
+            }
+          }
+          if (hitRegistered) continue;
+        }
+      }
+
       if (p.isTrappingPlayer) {
         const pTrans = transformStore.get(this.context.refs.player);
         const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
@@ -6290,6 +6379,10 @@ export class ProjectileSystem implements ISystem {
     p.lifeTime = 0.0;
     p.fallbackX = 0.0;
     p.fallbackY = 0.0;
+    p.isStuckToBug = false;
+    p.stickyEntityId = undefined;
+    p.stickyOffsetX = 0;
+    p.stickyOffsetY = 0;
 
     const trans = this.context.stores.get<TransformComponent>("transform").get(projId);
     const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
@@ -8370,7 +8463,8 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TransformComponent,
   WallBugComponent,
-  StickySurfaceComponent
+  StickySurfaceComponent,
+  ProjectileComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
@@ -8498,6 +8592,22 @@ export class WallBugSystem implements ISystem {
       const legFrequency = (currentScrollSpeed + bug.speed) * 0.85;
       bugPhase += legFrequency * dt;
       bug.gaitPhase = bugPhase;
+
+      // Sync spikes/safety visibility to the live spikedSide state:
+      pBug.rootNode.getChildren().forEach((child) => {
+        if (child.name === "left_spikes") {
+          child.setEnabled(bug.spikedSide === "LEFT");
+        }
+        if (child.name === "right_spikes") {
+          child.setEnabled(bug.spikedSide === "RIGHT");
+        }
+        if (child.name === "left_safety") {
+          child.setEnabled(bug.spikedSide === "RIGHT" || bug.spikedSide === "NONE");
+        }
+        if (child.name === "right_safety") {
+          child.setEnabled(bug.spikedSide === "LEFT" || bug.spikedSide === "NONE");
+        }
+      });
     }
   }
 
@@ -8623,6 +8733,25 @@ export class WallBugSystem implements ISystem {
 
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     stickyStore.remove(pBug.entityId);
+
+    const projStore = this.context.stores.get<ProjectileComponent>("projectile");
+    if (projStore) {
+      for (const [projId, proj] of projStore.entries()) {
+        if (proj.isStuckToBug && proj.stickyEntityId === pBug.entityId) {
+          proj.isActive = false;
+          proj.isStuck = false;
+          proj.isStuckToBug = false;
+          proj.stickyEntityId = undefined;
+          const mesh = this.context.visualQuery.getTransformNode(projId);
+          if (mesh instanceof BABYLON.AbstractMesh) {
+            mesh.isVisible = false;
+            mesh.setEnabled(false);
+            mesh.position.set(0, -999, 0);
+            mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+          }
+        }
+      }
+    }
 
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const trans = transformStore.get(pBug.entityId);
@@ -8765,7 +8894,8 @@ export class PlayerAirborneState implements IPlayerState {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
 
-    if (stickyStore && bugTransStore) {
+    const bypassCollisions = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+    if (stickyStore && bugTransStore && !bypassCollisions) {
       for (const [bugId, sticky] of stickyStore.entries()) {
         if (!sticky.isActive) continue;
         const bugTrans = bugTransStore.get(bugId);
@@ -8986,7 +9116,8 @@ export class PlayerLaunchingState implements IPlayerState {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
 
-    if (stickyStore && bugTransStore) {
+    const bypassCollisions = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
+    if (stickyStore && bugTransStore && !bypassCollisions) {
       for (const [bugId, sticky] of stickyStore.entries()) {
         if (!sticky.isActive) continue;
         const bugTrans = bugTransStore.get(bugId);
@@ -9008,7 +9139,8 @@ export class PlayerLaunchingState implements IPlayerState {
               const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
               const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-              if (bug && bug.spikedSide === contactedSpikedSide && !isTrapped && !inSafeWindow) {
+              const spikesActive = bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+              if (spikesActive && !isTrapped && !inSafeWindow) {
                 const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
                 const pCol = colStore.get(ctx.refs.player);
                 if (pCol) {
@@ -9222,6 +9354,7 @@ export class PlayerStateUtils {
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
       trav.wallDir = 0;
+    trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
       trav.launchPower = 0;
       return;
     }

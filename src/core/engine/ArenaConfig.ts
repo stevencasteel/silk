@@ -350,12 +350,12 @@ export const VISUAL_JUICE_CONFIG = {
   // Spiked Wall Bug visual markers & Web struggle color decay steps
   WALL_BUG_COLORS: {
     BLUE_STRIPE: { r: 0.05, g: 0.45, b: 0.85 }, // Matching elevator wall ticks
-    SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 }    // Danger hazard warning
+    SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 } // Danger hazard warning
   },
   COCOON_COLORS: {
-    DECAY_START: { r: 1.0, g: 1.0, b: 1.0 },   // Clean, opaque white (tightly bound)
-    DECAY_MID: { r: 0.88, g: 0.75, b: 0.35 },  // Fibrous decaying yellow/amber
-    DECAY_END: { r: 0.15, g: 0.15, b: 0.15 }   // Frayed, decaying dark-grey/black
+    DECAY_START: { r: 1.0, g: 1.0, b: 1.0 }, // Clean, opaque white (tightly bound)
+    DECAY_MID: { r: 0.88, g: 0.75, b: 0.35 }, // Fibrous decaying yellow/amber
+    DECAY_END: { r: 0.15, g: 0.15, b: 0.15 } // Frayed, decaying dark-grey/black
   }
 } as const;
 

@@ -75,13 +75,15 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
 };
 
 export const HudOverlay: React.FC = () => {
-  const playerState = usePlayerStore(useShallow((s) => ({
-    playerHp: s.playerHp,
-    isWebTrapped: s.isWebTrapped,
-    escapeProgress: s.escapeProgress,
-    escapeRequired: s.escapeRequired,
-    webMass: s.webMass
-  })));
+  const playerState = usePlayerStore(
+    useShallow((s) => ({
+      playerHp: s.playerHp,
+      isWebTrapped: s.isWebTrapped,
+      escapeProgress: s.escapeProgress,
+      escapeRequired: s.escapeRequired,
+      webMass: s.webMass
+    }))
+  );
   const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass } = playerState;
 
   const weaverState = useWeaverStore(
@@ -684,7 +686,9 @@ export const HudOverlay: React.FC = () => {
                     {webMass > 1 ? `WEB MASS x${webMass}` : "WEB SNAGGED"}
                   </span>
                 </div>
-                <span className="hud-struggle-subtitle">Alternate direction keys to struggle out!</span>
+                <span className="hud-struggle-subtitle">
+                  Alternate direction keys to struggle out!
+                </span>
                 <div className="hud-struggle-keys">
                   <motion.span
                     animate={activeStruggleDir === "LEFT" ? { scale: 0.82 } : { scale: 1 }}

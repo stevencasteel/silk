@@ -73,8 +73,13 @@ export class WeaverTraversalSystem implements ISystem {
         if (concreteEngine && Math.abs(vel.x) > 0.001) {
           const castLength =
             ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
-          
-          const hitResult = this.queryService.castHorizontalRay(trans.x, trans.y, sState.direction, castLength);
+
+          const hitResult = this.queryService.castHorizontalRay(
+            trans.x,
+            trans.y,
+            sState.direction,
+            castLength
+          );
 
           if (hitResult.hasHit) {
             const hitDistance = hitResult.hitDistance;
@@ -130,7 +135,7 @@ export class WeaverTraversalSystem implements ISystem {
       if (Math.abs(vel.x) > 0.01) {
         const dirX = Math.sign(vel.x);
         const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
-        
+
         const hitResult = this.queryService.castHorizontalRay(trans.x, target.y, dirX, castLength);
 
         if (hitResult.hasHit) {
@@ -147,8 +152,13 @@ export class WeaverTraversalSystem implements ISystem {
 
       const castLengthDown =
         ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
-      
-      const floorHitResult = this.queryService.castVerticalRay(target.x, trans.y, -1, castLengthDown);
+
+      const floorHitResult = this.queryService.castVerticalRay(
+        target.x,
+        trans.y,
+        -1,
+        castLengthDown
+      );
 
       if (floorHitResult.hasHit && !isStriking) {
         const hitDistance = floorHitResult.hitDistance;
@@ -162,7 +172,11 @@ export class WeaverTraversalSystem implements ISystem {
         }
       }
 
-      const wallClingResult = this.queryService.checkAabbWallCling(target.x, target.y, ARENA_CONFIG.ENTITY.WEAVER_RADIUS);
+      const wallClingResult = this.queryService.checkAabbWallCling(
+        target.x,
+        target.y,
+        ARENA_CONFIG.ENTITY.WEAVER_RADIUS
+      );
       isWallClinging = wallClingResult.isWallClinging;
       wallNormalX = wallClingResult.wallNormalX;
     } else {
