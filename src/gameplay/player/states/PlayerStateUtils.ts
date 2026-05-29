@@ -52,7 +52,12 @@ export class PlayerStateUtils {
     const tuning = GAMEPLAY_TUNING.PLAYER;
     const reelConfig = GAMEPLAY_TUNING.REEL;
 
+    const launchedFromBug = trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1;
     trav.stickyEntityId = -1;
+
+    if (launchedFromBug) {
+      trav.safeLaunchTimer = 0.4;
+    }
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
