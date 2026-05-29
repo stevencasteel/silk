@@ -554,6 +554,10 @@ export class ProjectileSystem implements ISystem {
       .get(this.context.refs.weaver);
     const currentScrollSpeed = wAI ? wAI.scrollSpeed : 12.0;
 
+    // Safety fallback check to see if the Weaver is actively in PATROLLING state.
+    // If wAI component is temporarily missing or unset during a system loop transition, we default to true.
+    const isPatrolling = wAI ? wAI.state === "PATROLLING" : true;
+
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const projId = this.projectileEntities[i];
       const p = projStore.get(projId);
@@ -650,6 +654,30 @@ export class ProjectileSystem implements ISystem {
           );
         }
       } else if (p.isCharging) {
+        // Interruption guard: If the boss state shifts away from PATROLLING (takes damage, enters striking/shockwave),
+        // cleanly shatter the actively growing ball to prevent orphaned web nodes.
+        if (!isPatrolling) {
+          const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+          if (reqStore) {
+            const reqId = this.context.world.create();
+            reqStore.add(reqId, {
+              strategy: new WebSplatStrategy(),
+              x: trans.x,
+              y: trans.y,
+              z: trans.z
+            });
+          }
+
+          this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+            x: trans.x,
+            y: trans.y,
+            isWall: false
+          });
+
+          this.recycleProjectile(projId, p);
+          continue;
+        }
+
         const wTrans = transformStore.get(this.context.refs.weaver);
         if (wTrans) {
           const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
