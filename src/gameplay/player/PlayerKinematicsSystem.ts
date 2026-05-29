@@ -11,13 +11,15 @@ import {
   HealthComponent,
   KinematicVelocityComponent,
   InputIntentComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  StickySurfaceComponent
 } from "../../core/ecs/Components";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { IPlayerState } from "./IPlayerState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
 import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { WebSplatStrategy } from "../juice/ParticleStrategies";
+import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -96,7 +98,6 @@ export class PlayerKinematicsSystem implements ISystem {
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    // Trap & Struggle Detection
     const input = this.context.stores
       .get<InputIntentComponent>("input")
       .get(this.context.refs.player);
@@ -111,7 +112,6 @@ export class PlayerKinematicsSystem implements ISystem {
         trav.escapeProgress = (trav.escapeProgress || 0) + 1;
         trav.lastEscapeDirection = currentDir;
 
-        // Visual / Audio shake on registration
         this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: 0.18,
           duration: 0.12
@@ -128,7 +128,6 @@ export class PlayerKinematicsSystem implements ISystem {
           });
         }
 
-        // Custom window struggle dispatch
         window.dispatchEvent(
           new CustomEvent("silk-web-struggle", {
             detail: {
@@ -145,12 +144,10 @@ export class PlayerKinematicsSystem implements ISystem {
           trav.lastEscapeDirection = "";
           trav.safeLaunchTimer = 1.5;
 
-          // Apply Fling Bonus if escaping directly while attached to wall
           if (trav.state === "WALL_SLIDING") {
             trav.hasFlingBonus = true;
           }
 
-          // Visual pop scale burst via spring-damper values
           const pTrans = this.context.stores
             .get<TransformComponent>("transform")
             .get(this.context.refs.player);
@@ -160,7 +157,6 @@ export class PlayerKinematicsSystem implements ISystem {
             pTrans.scaleZ = 1.4;
           }
 
-          // Escape blast particles
           this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.8,
             duration: 0.45
@@ -224,7 +220,19 @@ export class PlayerKinematicsSystem implements ISystem {
     trav: TraversalStateComponent
   ): void {
     if (trav.state === "WALL_SLIDING") {
-      const chargeRate = 0.40;
+      const reelConfig = GAMEPLAY_TUNING.REEL;
+      let chargeRate = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+
+      if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+        const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
+        const sticky = stickyStore ? stickyStore.get(trav.stickyEntityId) : undefined;
+        if (sticky && sticky.isActive) {
+          const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+          const speedScale = 1.0 + (sticky.speed / Math.max(1.0, currentScrollSpeed)) * 0.5;
+          chargeRate *= speedScale;
+        }
+      }
+
       tether.tension = Math.min(1.0, tether.tension + chargeRate * dt);
     } else {
       tether.tension = Math.max(

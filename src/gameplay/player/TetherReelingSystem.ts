@@ -26,9 +26,9 @@ export class TetherReelingSystem implements ISystem {
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWallSliding = trav.state === "WALL_SLIDING";
-    const isTrapped = !!trav.isWebTrapped;
+    const isWebTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
-    const trappedMultiplier = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
+    const trappedMultiplier = isWebTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
     if (input.y > 0 && !isWallSliding) {
       tether.desiredLength -= reelConfig.IN_SPEED * trappedMultiplier * dt;
@@ -44,7 +44,7 @@ export class TetherReelingSystem implements ISystem {
         tether.currentLength + AUTO_SLACK_MARGIN
       );
     }
-    tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(24.0, tether.desiredLength));
+    tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
 
     let easeSpeed = 0;
     if (tether.maxLength > tether.desiredLength) {

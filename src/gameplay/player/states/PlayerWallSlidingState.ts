@@ -43,7 +43,6 @@ export class PlayerWallSlidingState implements IPlayerState {
 
     const isTrapped = !!trav.isWebTrapped;
 
-    // Critical Penalty Exception: If player is attached to spiked side and breaks free, fling them off!
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
@@ -108,7 +107,6 @@ export class PlayerWallSlidingState implements IPlayerState {
     }
 
     const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
-    const reelConfig = GAMEPLAY_TUNING.REEL;
 
     const sparkReqId = ctx.world.create();
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
@@ -171,10 +169,6 @@ export class PlayerWallSlidingState implements IPlayerState {
 
       vel.x = 0;
       vel.y = -(currentScrollSpeed + sticky.speed - slideSpeed);
-
-      const speedScale = 1.0 + sticky.speed / Math.max(1.0, currentScrollSpeed);
-      const tensionDelta = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE * speedScale;
-      tether.tension += tensionDelta * dt;
 
       return null;
     }
