@@ -47,6 +47,10 @@ export class Engine {
     this.loop.cleanup();
     this.removePauseHandlers();
     this.systemManager.disposeAll();
+    for (let i = 0; i < this.unsubscribes.length; i++) {
+      this.unsubscribes[i]();
+    }
+    this.unsubscribes.length = 0;
   }
 
   public setPaused(paused: boolean): void {

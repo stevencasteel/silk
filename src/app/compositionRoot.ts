@@ -29,7 +29,6 @@ import {
   WeaverSweepComponent,
   CollisionStateComponent,
   TetherStrainComponent,
-  ParticleEmitterComponent,
   HitboxComponent,
   HurtboxComponent,
   ParticleRequestComponent,
@@ -109,7 +108,6 @@ export class CompositionRoot {
     const weaverSweep = new ComponentStore<WeaverSweepComponent>();
     const collisionStates = new ComponentStore<CollisionStateComponent>();
     const tetherStrains = new ComponentStore<TetherStrainComponent>();
-    const particleEmitters = new ComponentStore<ParticleEmitterComponent>();
     const hitboxes = new ComponentStore<HitboxComponent>();
     const hurtboxes = new ComponentStore<HurtboxComponent>();
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
@@ -151,7 +149,6 @@ export class CompositionRoot {
     registerStore("weaverSweep", weaverSweep);
     registerStore("collisionState", collisionStates);
     registerStore("tetherStrain", tetherStrains);
-    registerStore("particleEmitter", particleEmitters);
     registerStore("hitbox", hitboxes);
     registerStore("hurtbox", hurtboxes);
     registerStore("playerTag", playerTags);

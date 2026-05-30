@@ -181,14 +181,7 @@ export interface TetherStrainComponent {
   lastDamageTime?: number;
 }
 
-export interface ParticleEmitterComponent {
-  emitterType: "SLIDING_SPARKS" | "TRAIL" | "NONE";
-  isActive: boolean;
-  rate: number;
-  colorR: number;
-  colorG: number;
-  colorB: number;
-}
+
 
 export interface HitboxComponent {
   ownerId: number;
