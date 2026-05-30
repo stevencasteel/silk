@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 5:44:01 PM
+ [SYSTEM] Generated: 5/30/2026, 6:15:30 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -390,7 +390,7 @@ protocol based on scope:
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.7 (Spiked Wall-Bugs & Console-Grade Color Grammar)
+Version: 1.8 (Flying Health Bugs & Multi-Stage Web Interactions)
 Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
 Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
 Architecture: Strict Custom ECS (Entity Component System)
@@ -530,6 +530,7 @@ To deliver consistent visual hierarchy, color acts as a direct indicator:
   high-intensity white core, and perfect releases trigger brief white flashes.
 - Deep Imperial Purple: The resting carapace of the Weaver.
 - Saturated Black: Defeated or inert matter.
+- Healing Green: Positive restoration elements, active recovery state, and seeking health particles.
 
 ===============================================================================
 5. AUDIO-VISUAL JUICE & SPECTACLE
@@ -560,6 +561,69 @@ To deliver consistent visual hierarchy, color acts as a direct indicator:
     interpolated smoothly by EntityInterpolationSystem.
   * Materials: PBR materials with screen-space Bloom mapping and customized 
     displacement/warp shader plugins (WarpMaterialPlugin, ProjectileNoisePlugin).
+
+===============================================================================
+6. THE FLYING HEALTH BUG SYSTEM & COCOON INTERACTIONS
+===============================================================================
+- DYNAMIC SPATIAL LIFECYCLE:
+  * Flying minions (Health Bugs) spawn from the bottom of the corridor with a 
+    high frequency (testing interval: 1.5s) and fly vertically upwards.
+  * Upon reaching the middle of the playable viewport, they pause for 3 to 6 
+    seconds, then continue their ascent out of bounds.
+  * If the Health Bug is displaced by player interactions but survives, it enters 
+    a RECOVERING state, dampening its velocity and interpolating back to its 
+    baseline trajectory coordinates to complete its path and despawn.
+
+- PROCEDURAL SPHERICAL CHARACTER DESIGN:
+  * Glass Body: Built around a transparent, bulbous 3D glass sphere.
+  * Rotating Accents: Two procedural rotor fins oscillate continuously above 
+    the shell, spinning in direct proportion to current velocity.
+  * Color Gradient Cores: 
+    * Normal variant: Vibrant solid green core inside the glass.
+    * Spiked variants (TOP, RIGHT, BOTTOM, LEFT): Sharp conical spikes point in 
+      the designated direction. The inner core renders a linear gradient on a 
+      DynamicTexture, shifting from green on the safe side to red on the 
+      spiked side.
+
+- PROJECTILE OVERLAPS & THE CARRIED STATE:
+  * If a Weaver web projectile hits a Health Bug, it carries the bug along its 
+    flight vector (assigning its velocity and offset positions).
+  * While being carried, if either entity collides with an elevator wall or an 
+    active Wall Bug, they stick instantly, transforming the Health Bug into a 
+    static platform.
+  * If the carried Health Bug does not collide with a side surface, it continues 
+    safely down the center of the shaft, eventually despawning off-screen.
+
+- WEB-INSULATION & SAFE CLINGING:
+  * If the player is cocooned (isWebTrapped === true) OR if the Health Bug is 
+    coated in web-shot, the spiked hazard collision is neutralized. All spike 
+    damage is bypassed, allowing safe physical contact.
+  * Web-coated bugs or web-trapped players activate a StickySurfaceComponent 
+    on the Health Bug. The player can voluntarily cling to the Health Bug's 
+    sides as if it were a sticky wall, sliding or charging tension on it.
+
+- MULTI-STAGE INERTIAL FORCE IMPACTS:
+  * Stage 0 (Airborne/Dangling, launchPower < 0.375): Standard elastic overlap. 
+    Pressing lateral inputs into the bug gently shoves/steers its coordinates.
+  * Stage 1 (Medium Force, 0.375 <= launchPower < 0.80): High-momentum shove. 
+    Bounces harmlessly off the Weaver unless it is a spiked variant, which pops 
+    the bug and damages the Weaver. Pops immediately if shoved into Wall Bug spikes.
+  * Stage 2 (High Force/Fling, launchPower >= 0.80): Activates pinball mode. 
+    The bug bounces erratically off walls with micro-hitstops and heavy screen 
+    shaking. Pops on contact with the Weaver (doing standard damage; extra 
+    damage if spiked) or if it hits Wall Bug spikes. Can also pop stuck web-covered 
+    bugs with Stage 2+ force.
+  * Stage 3 (Overloaded Tension, tension >= 0.95): Instant popping on impact 
+    due to extreme kinetic energy, unless the player impacts the spiked side 
+    directly. Direct spike impact triggers normal player knockback, while the 
+    Health Bug stays alive and spins rapidly in place.
+
+- PROCEDURAL HEALING RESOLUTION:
+  * Popping a Health Bug triggers visual game juice: a burst of green particles 
+    is generated in world space.
+  * These particles seek the precise world coordinate corresponding to the HUD 
+    bezel's HP LED display at (-12.5, 25.5, 0).
+  * On arrival, they heal 1 HP slot (only if player is at < max integrity).
 
 ===============================================================================
 END OF DOCUMENT
