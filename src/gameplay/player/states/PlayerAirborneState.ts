@@ -51,8 +51,8 @@ export class PlayerAirborneState implements IPlayerState {
       cosmetic.targetScaleY = 1.0 + stretchFactor;
       cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
       cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
-      cosmetic.springStiffness = 240;
-      cosmetic.springDamping = 10;
+      cosmetic.springStiffness = 160;
+      cosmetic.springDamping = 8;
 
       const rotDx = tether.anchorX - target.x;
       const rotDy = tether.anchorY - target.y;

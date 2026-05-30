@@ -3,7 +3,8 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent, TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
+  HitStopComponent, TransformComponent, PlayerCosmeticComponent,
+  KinematicVelocityComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
@@ -44,16 +45,24 @@ export class PlayerAnimationSystem implements ISystem {
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
 
+    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    const vel = velStore.get(this.context.refs.player);
+    const speedX = vel ? vel.x : 0.0;
+
     const currentRot = cosmetic.currentRotation ?? 0;
     const rotVel = cosmetic.rotationVel ?? 0;
-    const targetRot = cosmetic.rotationAngle;
+    
+    // Dynamic aerodynamic lean based on horizontal velocity (Damped Harmonic Oscillator target offset)
+    const velocityLean = speedX * -0.022; 
+    const targetRot = cosmetic.rotationAngle + velocityLean;
 
     let diff = targetRot - currentRot;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     const adjustedTarget = currentRot + diff;
 
-    const rotStiffness = 140;
-    const rotDamping = 10;
+    // Utilize dynamic state-driven spring parameters rather than hardcoded ones
+    const rotStiffness = cosmetic.springStiffness;
+    const rotDamping = cosmetic.springDamping;
 
     const result = solveSpringDamper(
       currentRot,
