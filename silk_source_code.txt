@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 4:29:46 PM
+ [SYSTEM] Generated: 5/30/2026, 4:48:58 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -8181,7 +8181,6 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TetherComponent,
-  InputIntentComponent,
   TraversalStateComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
@@ -8193,43 +8192,30 @@ export class TetherReelingSystem implements ISystem {
 
   public update(dt: number): void {
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
-    const input = this.context.stores
-      .get<InputIntentComponent>("input")
-      .get(this.context.refs.player);
     const trav = this.context.stores
       .get<TraversalStateComponent>("traversal")
       .get(this.context.refs.player);
 
-    if (!tether || !input || !trav) return;
+    if (!tether || !trav) return;
 
     const reelConfig = GAMEPLAY_TUNING.REEL;
-    const isWallSticking = trav.state === "WALL_STICKING";
     const isWebTrapped = !!trav.isWebTrapped;
-    const webMass = trav.webMass || 1;
-    const trappedMultiplier = isWebTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
 
-    if (input.y > 0 && !isWallSticking) {
-      tether.desiredLength -= reelConfig.IN_SPEED * trappedMultiplier * dt;
-      tether.reelHeat = Math.min(1.0, tether.reelHeat + dt * 1.2 * trappedMultiplier);
-    } else if (input.y < 0 && !isWallSticking) {
-      tether.desiredLength += reelConfig.OUT_SPEED * trappedMultiplier * dt;
-      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 1.5 * trappedMultiplier);
-    } else {
-      tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
-      const AUTO_SLACK_MARGIN = 0.5;
-      if (!isWebTrapped) {
-        tether.desiredLength = Math.min(
-          tether.desiredLength,
-          tether.currentLength + AUTO_SLACK_MARGIN
-        );
-      }
+    tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
+
+    const AUTO_SLACK_MARGIN = 0.5;
+    if (!isWebTrapped) {
+      tether.desiredLength = Math.min(
+        tether.desiredLength,
+        tether.currentLength + AUTO_SLACK_MARGIN
+      );
     }
     tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
 
     if (tether.maxLength > tether.desiredLength) {
-      // Reeling IN (crisp linear steps for mechanical control)
+      // Reeling IN (Slack takeup)
       const resistance = Math.max(0.1, 1.0 - tether.tension);
-      const easeSpeed = reelConfig.IN_SPEED * resistance * trappedMultiplier;
+      const easeSpeed = reelConfig.IN_SPEED * resistance;
       const maxDelta = easeSpeed * dt;
       if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
         tether.maxLength = tether.desiredLength;
@@ -8238,7 +8224,7 @@ export class TetherReelingSystem implements ISystem {
       }
       tether.reelVelocity = -easeSpeed;
     } else if (tether.maxLength < tether.desiredLength) {
-      // Reeling OUT (smooth exponential ease-out to mimic high kinetic energy / spring release)
+      // Reeling OUT
       const rate = 16.0;
       const lerpFactor = 1.0 - Math.exp(-dt * rate);
       tether.maxLength += (tether.desiredLength - tether.maxLength) * lerpFactor;
@@ -8357,7 +8343,7 @@ export class TetherStrainSystem implements ISystem {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TraversalStateComponent, InputIntentComponent } from "../../core/ecs/Components";
+import { TraversalStateComponent } from "../../core/ecs/Components";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { GameEvent } from "../../core/events/GameEvents";
 
@@ -8367,10 +8353,6 @@ export class TutorialSystem implements ISystem {
   private calibrationStep = 0;
   private step0Completed = false;
   private step1Completed = false;
-  private step2Completed = false;
-
-  private reeledUp = false;
-  private reeledDown = false;
 
   private _tracker = new SubscriptionTracker();
 
@@ -8382,9 +8364,6 @@ export class TutorialSystem implements ISystem {
         this.calibrationStep = 0;
         this.step0Completed = false;
         this.step1Completed = false;
-        this.step2Completed = false;
-        this.reeledUp = false;
-        this.reeledDown = false;
         this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 0 });
       })
     );
@@ -8414,32 +8393,13 @@ export class TutorialSystem implements ISystem {
     void dt;
 
     if (this.calibrationStep === 1) {
-      const inputStore = this.context.stores.get<InputIntentComponent>("input");
-      const input = inputStore.get(this.context.refs.player);
-      if (input) {
-        if (input.y > 0) {
-          this.reeledUp = true;
-        } else if (input.y < 0) {
-          this.reeledDown = true;
-        }
-
-        if (!this.step1Completed && this.reeledUp && this.reeledDown) {
-          this.step1Completed = true;
-          this.calibrationStep = 2;
-          this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
-        }
-      }
-    }
-
-    if (this.calibrationStep === 2) {
       const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
       const pTrav = travStore.get(this.context.refs.player);
       if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.45) {
-        if (!this.step2Completed) {
-          this.step2Completed = true;
-          this.calibrationStep = 3;
-          this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 3 });
+        if (!this.step1Completed) {
+          this.step1Completed = true;
+          this.calibrationStep = 2;
+          this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
           this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
         }
       }
@@ -8906,7 +8866,6 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { getDistance2D } from "../../../core/utils/EngineUtils";
 
 export class PlayerAirborneState implements IPlayerState {
   public readonly type: TraversalState = "AIRBORNE";
@@ -8961,15 +8920,6 @@ export class PlayerAirborneState implements IPlayerState {
 
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
     vel.x += input.x * tuning.SWING_STEER_FORCE * trappedDamping * recoilFactor * dt;
-
-    if (input.y > 0 && tether.isAttached) {
-      const dxVal = tether.anchorX - target.x;
-      const dyVal = tether.anchorY - target.y;
-      const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
-      const pullForce = 15.0;
-      vel.x += (dxVal / dist) * pullForce * dt;
-      vel.y += (dyVal / dist) * pullForce * dt;
-    }
 
     const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
     vel.x *= damp;
@@ -9274,6 +9224,13 @@ export class PlayerStateUtils {
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
+      
+      // Apply clean outward nudge to break contact and prevent sticky re-clinging loops
+      const nudgeDistance = 0.22;
+      target.x += trav.wallNormalX * nudgeDistance;
+      vel.x = trav.wallNormalX * 4.5;
+      vel.y = Math.max(vel.y, -2.0); // Smooth out the gravity transition
+      
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
       trav.launchPower = 0;
@@ -12972,29 +12929,8 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
     )
   },
   1: {
-    successTitle: "2. Tether Adjusted!",
-    activeTitle: "2. Adjust Silk Tether",
-    subtitle: "Press up/down to change length",
-    renderKeys: (useWasd, _, __, isUp, isDown) => (
-      <>
-        <motion.span
-          animate={isUp ? { scale: 0.85 } : { scale: 1 }}
-          className={`keycap-box ${isUp ? "keycap-used" : ""}`}
-        >
-          {useWasd ? "W" : "▲"}
-        </motion.span>
-        <motion.span
-          animate={isDown ? { scale: 0.85 } : { scale: 1 }}
-          className={`keycap-box ${isDown ? "keycap-used" : ""}`}
-        >
-          {useWasd ? "S" : "▼"}
-        </motion.span>
-      </>
-    )
-  },
-  2: {
-    successTitle: "3. Fling Successful!",
-    activeTitle: "3. Let Go to Fling",
+    successTitle: "2. Fling Successful!",
+    activeTitle: "2. Let Go to Fling",
     subtitle: "Release key under tension to launch",
     renderKeys: () => (
       <span className="keycap-box" style={{ padding: "3px 8px" }}>
