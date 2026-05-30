@@ -80,7 +80,7 @@ const PLAYER_RESET = {
 const WEAVER_RESET = {
   weaverHp: 100,
   weaverMaxHp: 100,
-  weaverState: "SWEEPING",
+  weaverState: "PATROLLING",
   weaverHue: "rgb(239, 68, 68)"
 };
 
