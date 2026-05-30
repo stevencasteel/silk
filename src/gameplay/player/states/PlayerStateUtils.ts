@@ -64,7 +64,7 @@ export class PlayerStateUtils {
     }
     trav.stickyEntityId = -1;
 
-    // STAGE 1 (GREEN ZONE, Slack Release): Tension < Sweet Spot Minimum (0.375)
+    // STAGE 1 (GREEN ZONE, Slack Release): Tension < Sweet Spot Minimum (0.555)
     // Simply detach into standard Airborne falling trajectory without a speed fling launch.
     if (storedTension < reelConfig.SWEET_SPOT_MIN) {
       tether.tension = 0.0;
@@ -94,7 +94,7 @@ export class PlayerStateUtils {
       return;
     }
 
-    // ACTIVE FLINGS (Stage 2 & 3): Tension >= 0.375
+    // ACTIVE FLINGS (Stage 2 & 3): Tension >= 0.555
     const dx = tether.anchorX - target.x;
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);

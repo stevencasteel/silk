@@ -606,7 +606,7 @@ export class HealthBugSystem implements ISystem {
       return;
     }
 
-    // STAGE 2 (Active Fling): 0.375 <= Tension / launchPower < 0.80
+    // STAGE 2 (Active Fling): 0.555 <= Tension / launchPower < 0.80
     if (isLaunching && launchPower >= 0.555) {
       if (hitSpikes) {
         this.popBug(bugId);
@@ -626,7 +626,7 @@ export class HealthBugSystem implements ISystem {
       return;
     }
 
-    // STAGE 0 & 1 (Safe slide, slack release, or non-flinging overlaps): launchPower < 0.375
+    // STAGE 0 & 1 (Safe slide, slack release, or non-flinging overlaps): launchPower < 0.555
     if (hitSpikes) {
       ctx.commands.dispatch({
         type: "DAMAGE_REQUEST",

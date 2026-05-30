@@ -224,7 +224,7 @@ export class WeaverShockwaveState implements IWeaverState {
                 // BUMP REEL-IN: Force player back to starting thread limits
                 const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
                 if (pTether) {
-                  const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
+                  const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 5.4
                   pTether.maxLength = initialLength;
                   pTether.desiredLength = initialLength;
                 }

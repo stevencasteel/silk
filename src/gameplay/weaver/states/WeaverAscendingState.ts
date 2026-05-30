@@ -51,7 +51,7 @@ export class WeaverAscendingState implements IWeaverState {
       // ASCENSION REEL-IN: Wind player tether back to starting defaults simultaneously during climb
       const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
       if (pTether) {
-        const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
+        const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 5.4
         if (pTether.maxLength > initialLength) {
           const reelRate = 22.0; // Fast reel-in during ascent
           pTether.maxLength = Math.max(initialLength, pTether.maxLength - reelRate * dt);
