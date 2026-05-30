@@ -10,7 +10,9 @@ import {
   TraversalStateComponent,
   HealthComponent,
   CollisionResponseComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  InputIntentComponent,
+  WallBugComponent
 } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
 import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
@@ -31,7 +33,7 @@ export class HealthBugSystem implements ISystem {
   readonly initPhase = InitPhase.Gameplay;
 
   private spawnTimer = 0.0;
-  private readonly spawnInterval = 1.5; // Testing interval
+  private readonly spawnInterval = 1.5;
   private bugPool: PooledBug[] = [];
   private readonly POOL_SIZE = 2;
 
@@ -169,10 +171,24 @@ export class HealthBugSystem implements ISystem {
       }
 
       const playerTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+      const playerInput = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
       const isPlayerTrapped = !!(playerTrav && playerTrav.isWebTrapped);
       const isWebShieldActive = bug.isWebTrapped || isPlayerTrapped;
 
       sticky.isActive = isWebShieldActive;
+
+      if (
+        playerTrav &&
+        isPlayerTrapped &&
+        playerTrav.state === "WALL_STICKING" &&
+        playerTrav.stickyEntityId === pBug.entityId &&
+        playerInput
+      ) {
+        const steerSpeed = 6.0;
+        const steerAmt = playerInput.x * steerSpeed * dt;
+        bug.x = Math.max(-12.0, Math.min(12.0, bug.x + steerAmt));
+        bug.preInfluenceX = bug.x;
+      }
 
       if (!bug.isWebTrapped && !bug.isStuckOnWall && !bug.isStuckToBug) {
         switch (bug.state) {
@@ -190,7 +206,7 @@ export class HealthBugSystem implements ISystem {
 
           case "PAUSED": {
             vel.x = 0;
-            vel.y = 0; // Holds absolute world position completely static relative to fixed camera view
+            vel.y = 0;
             bug.timer += dt;
 
             if (bug.timer >= bug.pauseDuration) {
@@ -245,7 +261,6 @@ export class HealthBugSystem implements ISystem {
             bug.timer += dt;
             const currentAngle = (bug.timer * 25.0) % (Math.PI * 2.0);
             
-            // Render spin correctly by writing the quaternion directly into the Transform Component
             const spinQuat = BABYLON.Quaternion.RotationYawPitchRoll(currentAngle, 0, 0);
             trans.qx = spinQuat.x;
             trans.qy = spinQuat.y;
@@ -284,6 +299,80 @@ export class HealthBugSystem implements ISystem {
             }
             break;
           }
+        }
+      }
+
+      const weaverTrans = transforms.get(this.context.refs.weaver);
+      if (weaverTrans && (bug.state === "SHOVED" || bug.state === "PINBALL")) {
+        const dx = bug.x - weaverTrans.x;
+        const dy = bug.y - weaverTrans.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const combinedRadius = 2.0 + 4.4;
+
+        if (dist < combinedRadius) {
+          if (bug.state === "SHOVED") {
+            if (bug.variant !== "NORMAL") {
+              this.context.commands.dispatch({
+                type: "DAMAGE_REQUEST",
+                targetId: this.context.refs.weaver,
+                amount: 15,
+                source: "HEALTH_BUG_SPIKES"
+              });
+              this.popBug(pBug.entityId);
+              continue;
+            } else {
+              const nx = dx / (dist || 1.0);
+              const ny = dy / (dist || 1.0);
+              vel.x = nx * 10.0;
+              vel.y = ny * 10.0;
+              bug.state = "RECOVERING";
+            }
+          } else if (bug.state === "PINBALL") {
+            const isSpiked = bug.variant !== "NORMAL";
+            const damage = isSpiked ? 35 : 20;
+            this.context.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: this.context.refs.weaver,
+              amount: damage,
+              source: isSpiked ? "HEALTH_BUG_PINBALL_SPIKES" : "HEALTH_BUG_PINBALL"
+            });
+            this.popBug(pBug.entityId);
+            continue;
+          }
+        }
+      }
+
+      const wallBugStore = this.context.stores.get<WallBugComponent>("wallBug");
+      if (wallBugStore && (bug.state === "SHOVED" || bug.state === "PINBALL")) {
+        let hitWallBugSpikes = false;
+        for (const [wBugId, wBug] of wallBugStore.entries()) {
+          const wBugTrans = transforms.get(wBugId);
+          if (!wBugTrans) continue;
+
+          const halfW = wBug.width / 2;
+          const halfH = wBug.height / 2;
+          const bugRadius = 2.0;
+
+          const overlapX = Math.abs(bug.x - wBugTrans.x) <= halfW + bugRadius;
+          const overlapY = Math.abs(bug.y - wBugTrans.y) <= halfH + bugRadius;
+
+          if (overlapX && overlapY) {
+            const isLeft = bug.x < wBugTrans.x;
+            const isRight = bug.x > wBugTrans.x;
+
+            const hitSpikedLeft = wBug.spikedSide === "LEFT" && isLeft && !wBug.spikesDisarmed;
+            const hitSpikedRight = wBug.spikedSide === "RIGHT" && isRight && !wBug.spikesDisarmed;
+
+            if (hitSpikedLeft || hitSpikedRight) {
+              hitWallBugSpikes = true;
+              break;
+            }
+          }
+        }
+
+        if (hitWallBugSpikes) {
+          this.popBug(pBug.entityId);
+          continue;
         }
       }
 
@@ -577,7 +666,6 @@ export class HealthBugSystem implements ISystem {
       this.refillLaneBag();
     }
     
-    // Ensure the new lane X coordinate is at least 4.0 units away from the last spawned X coordinate
     let attemptIndex = -1;
     for (let i = this.laneBag.length - 1; i >= 0; i--) {
       const tempX = this.LANES[this.laneBag[i]];

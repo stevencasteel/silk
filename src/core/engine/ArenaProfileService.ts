@@ -22,7 +22,7 @@ export class ArenaProfileService {
     const factor = Math.min(1.0, this.currentAltitude / 1000.0);
 
     return {
-      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE + factor * 6.0,
+      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE + factor * 4.5,
       projectileSpeed: 15.0 + factor * 8.0,
       reloadTime: Math.max(1.2, 2.4 - factor * 0.8),
       weaverSpeed: 4.5 + factor * 3.5
