@@ -8,7 +8,7 @@ export class PlayerStateHints {
     if (state !== "WALL_STICKING") {
       return { text: "", color: "rgb(161, 161, 170)", opacity: 0 };
     }
-    if (tension >= 1.0) {
+    if (tension >= 0.95) {
       return { text: "MAX TENSION — LET GO NOW", color: "rgb(239, 68, 68)", opacity: 1 };
     }
     if (tension >= 0.80) {

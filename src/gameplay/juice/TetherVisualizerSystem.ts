@@ -180,7 +180,7 @@ export class TetherVisualizerSystem implements ISystem {
       const vibPhase = timeMs * frequency;
 
       let vibAmp = 0;
-      if (tension >= 1.0) {
+      if (tension >= 0.95) {
         vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.5;
       } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
         vibAmp =
@@ -188,7 +188,7 @@ export class TetherVisualizerSystem implements ISystem {
           VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       }
 
-      const vibOffset = Math.sin(vibPhase * (tension >= 1.0 ? 3.5 : 1.0)) * vibAmp;
+      const vibOffset = Math.sin(vibPhase * (tension >= 0.95 ? 3.5 : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
@@ -241,7 +241,7 @@ export class TetherVisualizerSystem implements ISystem {
           waveAmp *= 1.8;
         } else if (isSweetSpot) {
           waveAmp *= 0.35;
-        } else if (tension >= 1.0) {
+        } else if (tension >= 0.95) {
           waveAmp *= 0.1;
           pt.x += (Math.random() - 0.5) * 0.08;
           pt.y += (Math.random() - 0.5) * 0.08;

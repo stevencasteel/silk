@@ -12,7 +12,7 @@ export const CANONICAL_UNITS = {
   },
   TETHER_STRAIN: {
     OVERLOAD_LIMIT: 0.80,
-    SNAP_LIMIT: 1.0,
+    SNAP_LIMIT: 0.95,
     SNAP_DELAY_SECONDS: 2.6
   },
   SCROLL_MAPPING: {

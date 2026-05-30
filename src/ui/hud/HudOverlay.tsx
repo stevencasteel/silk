@@ -798,12 +798,11 @@ export const HudOverlay: React.FC = () => {
                     color: "rgba(255,255,255,0.22)"
                   }}
                 >
-                  <span style={{ position: "absolute", left: "5%" }}>0</span>
                   <span
                     style={{
                       position: "absolute",
-                      left: "37.5%",
-                      color: "rgba(234,179,8,0.35)"
+                      left: "5%",
+                      color: "rgba(34,197,94,0.45)"
                     }}
                   >
                     1
@@ -811,8 +810,8 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "80%",
-                      color: "rgba(239,68,68,0.35)"
+                      left: "37.5%",
+                      color: "rgba(234,179,8,0.45)"
                     }}
                   >
                     2
@@ -820,8 +819,17 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
+                      left: "80%",
+                      color: "rgba(239,68,68,0.45)"
+                    }}
+                  >
+                    3
+                  </span>
+                  <span
+                    style={{
+                      position: "absolute",
                       right: "5%",
-                      color: "rgba(239,68,68,0.55)"
+                      color: "rgba(239,68,68,0.75)"
                     }}
                   >
                     💀

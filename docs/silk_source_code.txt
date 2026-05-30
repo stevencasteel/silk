@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 11:38:39 AM
+ [SYSTEM] Generated: 5/30/2026, 12:39:25 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3202,7 +3202,7 @@ export const CANONICAL_UNITS = {
   },
   TETHER_STRAIN: {
     OVERLOAD_LIMIT: 0.80,
-    SNAP_LIMIT: 1.0,
+    SNAP_LIMIT: 0.95,
     SNAP_DELAY_SECONDS: 2.6
   },
   SCROLL_MAPPING: {
@@ -7122,7 +7122,7 @@ export class TetherVisualizerSystem implements ISystem {
       const vibPhase = timeMs * frequency;
 
       let vibAmp = 0;
-      if (tension >= 1.0) {
+      if (tension >= 0.95) {
         vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.5;
       } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
         vibAmp =
@@ -7130,7 +7130,7 @@ export class TetherVisualizerSystem implements ISystem {
           VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       }
 
-      const vibOffset = Math.sin(vibPhase * (tension >= 1.0 ? 3.5 : 1.0)) * vibAmp;
+      const vibOffset = Math.sin(vibPhase * (tension >= 0.95 ? 3.5 : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
@@ -7183,7 +7183,7 @@ export class TetherVisualizerSystem implements ISystem {
           waveAmp *= 1.8;
         } else if (isSweetSpot) {
           waveAmp *= 0.35;
-        } else if (tension >= 1.0) {
+        } else if (tension >= 0.95) {
           waveAmp *= 0.1;
           pt.x += (Math.random() - 0.5) * 0.08;
           pt.y += (Math.random() - 0.5) * 0.08;
@@ -9140,7 +9140,7 @@ export class PlayerStateHints {
     if (state !== "WALL_STICKING") {
       return { text: "", color: "rgb(161, 161, 170)", opacity: 0 };
     }
-    if (tension >= 1.0) {
+    if (tension >= 0.95) {
       return { text: "MAX TENSION — LET GO NOW", color: "rgb(239, 68, 68)", opacity: 1 };
     }
     if (tension >= 0.80) {
@@ -9225,6 +9225,13 @@ export class PlayerStateUtils {
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
+      
+      // Apply clean outward nudge to break contact and prevent sticky re-clinging loops
+      const nudgeDistance = 0.22;
+      target.x += trav.wallNormalX * nudgeDistance;
+      vel.x = trav.wallNormalX * 4.5;
+      vel.y = Math.max(vel.y, -2.0); // Smooth out the gravity transition
+      
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
       trav.launchPower = 0;
@@ -13679,12 +13686,11 @@ export const HudOverlay: React.FC = () => {
                     color: "rgba(255,255,255,0.22)"
                   }}
                 >
-                  <span style={{ position: "absolute", left: "5%" }}>0</span>
                   <span
                     style={{
                       position: "absolute",
-                      left: "37.5%",
-                      color: "rgba(234,179,8,0.35)"
+                      left: "5%",
+                      color: "rgba(34,197,94,0.45)"
                     }}
                   >
                     1
@@ -13692,8 +13698,8 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "80%",
-                      color: "rgba(239,68,68,0.35)"
+                      left: "37.5%",
+                      color: "rgba(234,179,8,0.45)"
                     }}
                   >
                     2
@@ -13701,8 +13707,17 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
+                      left: "80%",
+                      color: "rgba(239,68,68,0.45)"
+                    }}
+                  >
+                    3
+                  </span>
+                  <span
+                    style={{
+                      position: "absolute",
                       right: "5%",
-                      color: "rgba(239,68,68,0.55)"
+                      color: "rgba(239,68,68,0.75)"
                     }}
                   >
                     💀
