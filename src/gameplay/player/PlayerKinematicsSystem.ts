@@ -107,6 +107,20 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.safeLaunchTimer = Math.max(0, trav.safeLaunchTimer - dt);
     }
 
+    if (trav.recoilTimer !== undefined && trav.recoilTimer > 0) {
+      trav.recoilTimer = Math.max(0, trav.recoilTimer - dt);
+
+      const knockbackFriction = 35.0;
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      if (speed > 0.01) {
+        const decel = knockbackFriction * dt;
+        const newSpeed = Math.max(0, speed - decel);
+        const scale = newSpeed / speed;
+        vel.x *= scale;
+        vel.y *= scale;
+      }
+    }
+
     const stateObj = this.states.get(trav.state);
     if (stateObj) {
       const nextState = stateObj.update(this.context, dt);

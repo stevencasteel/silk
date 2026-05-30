@@ -305,6 +305,14 @@ export class ProjectileSystem implements ISystem {
                 pVel.y += pushY * kickbackSpeed;
               }
 
+              if (pTrav) {
+                pTrav.recoilTimer = 0.25;
+              }
+
+              pTrans.scaleVelX = -8.0;
+              pTrans.scaleVelY = 16.0;
+              pTrans.scaleVelZ = -8.0;
+
               if (pTrav && pTrav.state === "WALL_STICKING") {
                 const pushDistance = 4.0; // Kinetic vertical wall sliding shift
                 const verticalShift = pushY * pushDistance;

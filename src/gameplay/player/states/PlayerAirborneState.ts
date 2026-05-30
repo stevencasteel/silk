@@ -38,6 +38,7 @@ export class PlayerAirborneState implements IPlayerState {
     const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
+    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -65,7 +66,7 @@ export class PlayerAirborneState implements IPlayerState {
     }
 
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
-    vel.x += input.x * tuning.SWING_STEER_FORCE * trappedDamping * dt;
+    vel.x += input.x * tuning.SWING_STEER_FORCE * trappedDamping * recoilFactor * dt;
 
     if (input.y > 0 && tether.isAttached) {
       const dxVal = tether.anchorX - target.x;

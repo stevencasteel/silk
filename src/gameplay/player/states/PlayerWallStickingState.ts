@@ -86,7 +86,8 @@ export class PlayerWallStickingState implements IPlayerState {
 
     const stillPressingIn = input.x === trav.wallDir;
     const webMass = trav.webMass || 1;
-    const controlFactor = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
+    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
+    const controlFactor = (isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0) * recoilFactor;
 
     if (!stillPressingIn && !isTrapped) {
       PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);

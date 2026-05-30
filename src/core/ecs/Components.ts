@@ -109,6 +109,7 @@ export interface TraversalStateComponent {
   isWebTrapped?: boolean;
   escapeProgress?: number;
   escapeRequired?: number;
+  recoilTimer?: number;
   lastEscapeDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | "";
   hasFlingBonus?: boolean;
   safeLaunchTimer?: number;
