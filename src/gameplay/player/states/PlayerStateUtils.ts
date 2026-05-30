@@ -66,6 +66,13 @@ export class PlayerStateUtils {
 
     if (storedTension < tuning.MIN_FLING_TENSION) {
       trav.state = "AIRBORNE";
+      
+      // Apply clean outward nudge to break contact and prevent sticky re-clinging loops
+      const nudgeDistance = 0.22;
+      target.x += trav.wallNormalX * nudgeDistance;
+      vel.x = trav.wallNormalX * 4.5;
+      vel.y = Math.max(vel.y, -2.0); // Smooth out the gravity transition
+      
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
       trav.launchPower = 0;

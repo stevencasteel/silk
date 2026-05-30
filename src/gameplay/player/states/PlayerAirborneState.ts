@@ -12,7 +12,6 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { getDistance2D } from "../../../core/utils/EngineUtils";
 
 export class PlayerAirborneState implements IPlayerState {
   public readonly type: TraversalState = "AIRBORNE";
@@ -67,15 +66,6 @@ export class PlayerAirborneState implements IPlayerState {
 
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
     vel.x += input.x * tuning.SWING_STEER_FORCE * trappedDamping * recoilFactor * dt;
-
-    if (input.y > 0 && tether.isAttached) {
-      const dxVal = tether.anchorX - target.x;
-      const dyVal = tether.anchorY - target.y;
-      const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
-      const pullForce = 15.0;
-      vel.x += (dxVal / dist) * pullForce * dt;
-      vel.y += (dyVal / dist) * pullForce * dt;
-    }
 
     const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
     vel.x *= damp;

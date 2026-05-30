@@ -42,29 +42,8 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
     )
   },
   1: {
-    successTitle: "2. Tether Adjusted!",
-    activeTitle: "2. Adjust Silk Tether",
-    subtitle: "Press up/down to change length",
-    renderKeys: (useWasd, _, __, isUp, isDown) => (
-      <>
-        <motion.span
-          animate={isUp ? { scale: 0.85 } : { scale: 1 }}
-          className={`keycap-box ${isUp ? "keycap-used" : ""}`}
-        >
-          {useWasd ? "W" : "▲"}
-        </motion.span>
-        <motion.span
-          animate={isDown ? { scale: 0.85 } : { scale: 1 }}
-          className={`keycap-box ${isDown ? "keycap-used" : ""}`}
-        >
-          {useWasd ? "S" : "▼"}
-        </motion.span>
-      </>
-    )
-  },
-  2: {
-    successTitle: "3. Fling Successful!",
-    activeTitle: "3. Let Go to Fling",
+    successTitle: "2. Fling Successful!",
+    activeTitle: "2. Let Go to Fling",
     subtitle: "Release key under tension to launch",
     renderKeys: () => (
       <span className="keycap-box" style={{ padding: "3px 8px" }}>
