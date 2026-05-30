@@ -179,18 +179,27 @@ export class VisualStateDressingSystem implements ISystem {
         emissive.WEAVER_EMISSIVE_PULSE_BASE +
         Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
+      const isYellowTelegraph = wCosmetic.emissiveHue === "#dffe00";
       const cachedColor = ColorCache.getColor(wCosmetic.emissiveHue);
 
       pbrMaterials.forEach((pbrMat) => {
+        let matColor = cachedColor;
+
+        if (isYellowTelegraph) {
+          if (pbrMat.name === "carapaceMat" || pbrMat.name === "legMat") {
+            matColor = ColorCache.getColor("#121212");
+          }
+        }
+
         let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
         if (pbrMat.name === "legMat") {
           scale *= 0.24;
         }
 
         pbrMat.emissiveColor.set(
-          cachedColor.r * scale + pulse * 0.12,
-          cachedColor.g * scale,
-          cachedColor.b * scale
+          matColor.r * scale + pulse * 0.12,
+          matColor.g * scale,
+          matColor.b * scale
         );
 
         if (wAI) {

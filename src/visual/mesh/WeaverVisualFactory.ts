@@ -2,6 +2,7 @@ import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils
 import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
+import { AbdomenGradientPlugin } from "../lighting/AbdomenGradientPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
 interface CustomPBRMaterial extends BABYLON.PBRMaterial {
@@ -169,7 +170,6 @@ export function decorateWeaverVisual(
 
   const textureGen = new ProceduralTextureGenerator();
 
-  // Console-Grade Color Overhaul: Link Weaver base carapace to imperial purple configuration token
   const imperialPurple = new BABYLON.Color3(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.r,
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.g,
@@ -200,6 +200,8 @@ export function decorateWeaverVisual(
   );
 
   const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true);
+  const abdomenPlugin = new AbdomenGradientPlugin(shellMat);
+  (shellMat as BABYLON.PBRMaterial & { _abdomenPlugin?: AbdomenGradientPlugin })._abdomenPlugin = abdomenPlugin;
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
@@ -239,6 +241,15 @@ export function decorateWeaverVisual(
     ridgeDirectionY: 1.0,
     colorVariation: 0.12
   });
+
+  const footMat = createWeaverMaterial(
+    "footMat",
+    scene,
+    new BABYLON.Color3(0.12, 0.0, 0.22),
+    0.95,
+    0.08,
+    false
+  );
 
   const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);
   eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5);
@@ -443,7 +454,7 @@ export function decorateWeaverVisual(
       tibia.rotation.x = 1.1;
       tibia.parent = coxa;
 
-      const foot = createFoot(scene, `foot_${sideSign}_${l}`, radius, carapaceMat);
+      const foot = createFoot(scene, `foot_${sideSign}_${l}`, radius, footMat);
       foot.position.set(0, tibiaLength, 0);
       foot.rotation.set(0, 0, sideSign * 0.22);
       foot.parent = tibia;
