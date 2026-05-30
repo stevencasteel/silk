@@ -811,7 +811,7 @@ export class ProjectileSystem implements ISystem {
           this.projMatTrapped.emissiveColor.set(rVal * 0.18, gVal * 0.18, bVal * 0.18);
         }
 
-        const massScale = 1.0 + ((pTrav.webMass || 1) - 1) * 0.18;
+        const massScale = Math.pow(1.15, (pTrav.webMass || 1) - 1);
 
         if (pTrav.state === "WALL_STICKING") {
           trans.qx = 0;
