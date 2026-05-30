@@ -25,8 +25,6 @@ export class TetherReelingSystem implements ISystem {
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWebTrapped = !!trav.isWebTrapped;
 
-    tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
-
     const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
     const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
 
@@ -43,7 +41,6 @@ export class TetherReelingSystem implements ISystem {
       tether.desiredLength = Math.max(minPossibleLength, tether.desiredLength - manualInSpeed * dt);
       tether.maxLength = Math.max(minPossibleLength, tether.maxLength - manualInSpeed * dt);
       tether.reelVelocity = -manualInSpeed;
-      tether.reelHeat = Math.min(5.0, tether.reelHeat + dt * 3.5); // Increase wire glow on manual reel
     } else {
       // Standard auto-slack takeup and reeling logic
       const AUTO_SLACK_MARGIN = 0.5;

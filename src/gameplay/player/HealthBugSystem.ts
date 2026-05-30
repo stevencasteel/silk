@@ -445,8 +445,6 @@ export class HealthBugSystem implements ISystem {
       preInfluenceX: startX,
       preInfluenceY: calculatedPauseY + 14.0,
       preInfluenceState: "CONTINUING",
-      isPlayerAttached: false,
-      spinTimer: 0.0,
       isWebTrapped: false,
       isStuckOnWall: false,
       isStuckToBug: false,

@@ -75,10 +75,6 @@ export class ParallaxScrollSystem implements ISystem {
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
     ParallaxScrollSystem.currentScrollSpeed = this.scrollSpeed;
 
-    if (wAI) {
-      wAI.scrollSpeed = this.scrollSpeed;
-    }
-
     this.prevScrollOffset = this.currentScrollOffset;
     this.currentScrollOffset += this.scrollSpeed * dt;
 

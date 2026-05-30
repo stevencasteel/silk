@@ -48,7 +48,6 @@ export interface TetherComponent {
   tension: number;
   desiredLength: number;
   reelVelocity: number;
-  reelHeat: number;
 }
 
 export interface HealthComponent {
@@ -65,7 +64,6 @@ export interface WeaverAIComponent {
   state: string;
   timeInState: number;
   hue: string;
-  scrollSpeed: number;
   damageShearIntensity: number;
   damageShearTime: number;
   desiredVelocityX: number;
@@ -125,13 +123,11 @@ export interface WeaverTraversalComponent {
 
 export interface WallBugComponent {
   state: "CRAWLING_DOWN" | "INACTIVE";
-  timer: number;
   x: number;
   y: number;
   width: number;
   height: number;
   speed: number;
-  stayDuration: number;
   gaitPhase: number;
   spikedSide?: "LEFT" | "RIGHT" | "NONE";
   spikesDisarmed?: boolean;
@@ -279,8 +275,6 @@ export interface HealthBugComponent {
   preInfluenceX: number;
   preInfluenceY: number;
   preInfluenceState: HealthBugState;
-  isPlayerAttached: boolean;
-  spinTimer: number;
   isWebTrapped: boolean;          // Covered in web-shot
   stuckToProjectileId?: number;   // ID of carrying web-shot
   isStuckOnWall: boolean;

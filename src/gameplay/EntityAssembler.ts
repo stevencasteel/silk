@@ -71,7 +71,6 @@ export class EntityAssembler {
       state: "PATROLLING",
       timeInState: 0,
       hue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
-      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE,
       damageShearIntensity: 0.0,
       damageShearTime: 0.0,
       desiredVelocityX: ARENA_CONFIG.ENTITY_SPAWNER.WEAVER_INITIAL_VELOCITY_X,
@@ -247,8 +246,7 @@ export class EntityAssembler {
       isAttached: true,
       tension: 0.0,
       desiredLength: ARENA_CONFIG.TETHER.INITIAL_LENGTH,
-      reelVelocity: 0.0,
-      reelHeat: 0.0
+      reelVelocity: 0.0
     });
 
     context.stores.get<HealthComponent>("health").add(playerId, {

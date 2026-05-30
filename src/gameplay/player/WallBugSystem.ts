@@ -115,8 +115,6 @@ export class WallBugSystem implements ISystem {
       const trans = transformStore.get(pBug.entityId);
       if (!bug || !trans) continue;
 
-      bug.timer += dt;
-
       const extraCrawlSpeed = 3.42;
       bug.y -= (currentScrollSpeed + extraCrawlSpeed) * dt;
 
@@ -228,13 +226,11 @@ export class WallBugSystem implements ISystem {
 
     this.context.stores.get<WallBugComponent>("wallBug").add(pBug.entityId, {
       state: "CRAWLING_DOWN",
-      timer: 0.0,
       x: startX,
       y: startY,
       width: finalWidth,
       height: finalHeight,
       speed: 3.42,
-      stayDuration: 0.0,
       gaitPhase: 0.0,
       spikedSide
     });
