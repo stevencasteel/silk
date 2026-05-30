@@ -3,7 +3,8 @@ import { GameEvent } from "../../../core/events/GameEvents";
 import {
   WEAVER_AI_TUNING,
   VISUAL_JUICE_CONFIG,
-  POST_PROCESSING_PRESETS
+  POST_PROCESSING_PRESETS,
+  ARENA_CONFIG
 } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import {
@@ -11,9 +12,10 @@ import {
   WeaverTraversalComponent,
   WeaverAIComponent,
   WeaverCosmeticComponent,
-  KinematicVelocityComponent
+  KinematicVelocityComponent,
+  TetherComponent
 } from "../../../core/ecs/Components";
-import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
+import { HASH_PREFIX, getDistance2D, getWeaverAbdomenTip } from "../../../core/utils/EngineUtils";
 
 export class WeaverStrikingState implements IWeaverState {
   public readonly type: WeaverStateType = "STRIKING";
@@ -101,6 +103,39 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.shakeRequested = true;
       aiComp.shakeAmplitude = 0.8;
       aiComp.shakeDuration = 0.4;
+    }
+
+    // STRIKE REEL-IN: Contract player thread by 25% after strike
+    const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
+    if (pTether) {
+      const minLimit = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
+      pTether.maxLength = Math.max(minLimit, pTether.maxLength * 0.75);
+      pTether.desiredLength = Math.max(minLimit, pTether.desiredLength * 0.75);
+    }
+
+    // COMBAT WEB-SHOT: Immediately fire web projectile targeting the player
+    const playerTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.player);
+    const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
+    if (playerTrans && wTrans && aiComp) {
+      const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+      const tipWorld = getWeaverAbdomenTip(
+        wTrans.x,
+        wTrans.y,
+        wTrans.z,
+        wTrans.qx,
+        wTrans.qy,
+        wTrans.qz,
+        wTrans.qw,
+        radius,
+        1.0
+      );
+
+      aiComp.shootRequested = true;
+      aiComp.shootOriginX = tipWorld.x;
+      aiComp.shootOriginY = tipWorld.y;
+      aiComp.shootTargetX = playerTrans.x;
+      aiComp.shootTargetY = playerTrans.y;
+      aiComp.shootIsRelease = true;
     }
   }
 

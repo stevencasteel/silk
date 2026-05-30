@@ -6,10 +6,12 @@ import {
   WeaverAIComponent,
   WeaverCosmeticComponent,
   InvulnerabilityComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  TetherComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
 import { WEB_SPLAT_STRATEGY } from "../../juice/ParticleStrategies";
+import { ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 interface ShockwaveRing {
@@ -218,6 +220,14 @@ export class WeaverShockwaveState implements IWeaverState {
                   knockbackX: kbForceX,
                   knockbackY: kbForceY
                 });
+
+                // BUMP REEL-IN: Force player back to starting thread limits
+                const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
+                if (pTether) {
+                  const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
+                  pTether.maxLength = initialLength;
+                  pTether.desiredLength = initialLength;
+                }
               }
             }
           }

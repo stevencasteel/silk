@@ -488,7 +488,7 @@ export class HealthBugSystem implements ISystem {
 
     if (!bug || !pTrans || !pTrav || !pVel) return;
 
-    const isFlinging = pTrav.state === "LAUNCHING";
+    const isLaunching = pTrav.state === "LAUNCHING";
     const launchPower = pTrav.launchPower || 0;
 
     const isPlayerTrapped = pTrav.isWebTrapped;
@@ -496,7 +496,8 @@ export class HealthBugSystem implements ISystem {
 
     const hitSpikes = bug.variant !== "NORMAL" && !bug.spikesDisarmed && !isWebShieldActive;
 
-    if (isFlinging && launchPower >= 0.95) {
+    // STAGE 3 (Extreme / Overloaded): Tension / launchPower >= 0.80
+    if (isLaunching && launchPower >= 0.80) {
       if (hitSpikes) {
         bug.state = "SPINNING";
         bug.timer = 0.0;
@@ -514,7 +515,8 @@ export class HealthBugSystem implements ISystem {
       return;
     }
 
-    if (isFlinging && launchPower >= 0.80) {
+    // STAGE 2 (Active Fling): 0.375 <= Tension / launchPower < 0.80
+    if (isLaunching && launchPower >= 0.375) {
       if (hitSpikes) {
         this.popBug(bugId);
       } else {
@@ -533,24 +535,8 @@ export class HealthBugSystem implements ISystem {
       return;
     }
 
-    if (isFlinging && launchPower >= 0.375) {
-      if (hitSpikes) {
-        this.popBug(bugId);
-      } else {
-        bug.state = "SHOVED";
-        const shoveX = (bug.x > pTrans.x ? 1 : -1) * 15.0;
-        const shoveY = 8.0;
-
-        const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
-        if (bugVel) {
-          bugVel.x = shoveX;
-          bugVel.y = shoveY;
-        }
-        ctx.broker.publish(GameEvent.UI_SFX_TICK, undefined);
-      }
-      return;
-    }
-
+    // STAGE 0 & 1 (Safe slide, slack release, or non-flinging overlaps): launchPower < 0.375
+    // Purely elastic overlap. No popping triggers. Safe physics shoves only.
     if (hitSpikes) {
       ctx.commands.dispatch({
         type: "DAMAGE_REQUEST",

@@ -10,14 +10,12 @@ import {
   TransformComponent,
   HealthComponent,
   KinematicVelocityComponent,
-  InputIntentComponent,
-  StickySurfaceComponent
+  InputIntentComponent
 } from "../../core/ecs/Components";
 import { ApplyImpulseCommand } from "../../physics/commands/PhysicsCommands";
 import { IPlayerState } from "./IPlayerState";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
-import { ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class PlayerKinematicsSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -78,7 +76,7 @@ export class PlayerKinematicsSystem implements ISystem {
       return;
     }
 
-    const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+    const radius = wTrans.scaleX ? wTrans.scaleX * 4.4 : 4.4;
     const tipWorld = getWeaverStingerTip(
       wTrans.x,
       wTrans.y,
@@ -135,7 +133,7 @@ export class PlayerKinematicsSystem implements ISystem {
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    this.updateTensionMeter(dt, tether, trav);
+    this.updateTensionMeter(dt, tether);
 
     this.tensionPayload.tension = tether.tension;
     this.context.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
@@ -143,6 +141,16 @@ export class PlayerKinematicsSystem implements ISystem {
     this.lengthPayload.length = tether.currentLength;
     this.lengthPayload.maxLength = tether.maxLength;
     this.context.broker.publish(GameEvent.TETHER_LENGTH_CHANGE, this.lengthPayload);
+
+    // Dispatch unified, highly granular telemetry payload directly to window renders
+    const renderEvt = new CustomEvent("silk-tension-render-tick", {
+      detail: {
+        tension: tether.tension,
+        length: tether.currentLength,
+        maxLength: tether.maxLength
+      }
+    });
+    window.dispatchEvent(renderEvt);
 
     if (trav.state !== this.lastTraversalState) {
       this.lastTraversalState = trav.state;
@@ -155,29 +163,22 @@ export class PlayerKinematicsSystem implements ISystem {
 
   private updateTensionMeter(
     dt: number,
-    tether: TetherComponent,
-    trav: TraversalStateComponent
+    tether: TetherComponent
   ): void {
-    if (trav.state === "WALL_STICKING") {
-      const reelConfig = GAMEPLAY_TUNING.REEL;
-      let chargeRate = reelConfig.WALL_SLIDE_PASSIVE_TENSION_RATE;
+    const tautnessThreshold = 0.85;
+    const currentTautness = tether.currentLength / Math.max(1.0, tether.maxLength);
 
-      if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
-        const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
-        const sticky = stickyStore ? stickyStore.get(trav.stickyEntityId) : undefined;
-        if (sticky && sticky.isActive) {
-          const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
-          const speedScale = 1.0 + (sticky.speed / Math.max(1.0, currentScrollSpeed)) * 0.5;
-          chargeRate *= speedScale;
-        }
-      }
+    if (currentTautness >= tautnessThreshold) {
+      const stretchAmount = (currentTautness - tautnessThreshold) / (1.0 - tautnessThreshold);
+      const absoluteMin = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
+      const absoluteMax = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
 
-      tether.tension = Math.min(1.0, tether.tension + chargeRate * dt);
+      const reelProgress = (tether.maxLength - absoluteMin) / (absoluteMax - absoluteMin);
+      const maxAchievableTension = Math.max(0.15, Math.min(1.3, reelProgress * 1.3));
+
+      tether.tension = Math.max(0.0, Math.min(maxAchievableTension, stretchAmount * maxAchievableTension));
     } else {
-      tether.tension = Math.max(
-        0.0,
-        tether.tension - GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * dt
-      );
+      tether.tension = Math.max(0.0, tether.tension - 8.0 * dt);
     }
   }
 }

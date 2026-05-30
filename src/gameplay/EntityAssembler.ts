@@ -204,16 +204,19 @@ export class EntityAssembler {
     scene: BABYLON.Scene,
     sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null
   ): void {
+    // Start player closely below Weaver body
+    const initialY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - ARENA_CONFIG.TETHER.INITIAL_LENGTH;
+
     context.stores.get<TransformComponent>("transform").add(playerId, {
       x: 0,
-      y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
+      y: initialY,
       z: 0,
       qx: 0,
       qy: 0,
       qz: 0,
       qw: 1,
       prevX: 0,
-      prevY: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y,
+      prevY: initialY,
       prevZ: 0,
       prevQx: 0,
       prevQy: 0,
@@ -233,7 +236,7 @@ export class EntityAssembler {
     context.stores.get<KinematicVelocityComponent>("velocity").add(playerId, { x: 0, y: 0, z: 0 });
     context.stores
       .get<KinematicTargetComponent>("target")
-      .add(playerId, { x: 0, y: ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, z: 0, active: true });
+      .add(playerId, { x: 0, y: initialY, z: 0, active: true });
 
     context.stores.get<TetherComponent>("tether").add(playerId, {
       anchorX: 0,
@@ -347,7 +350,7 @@ export class EntityAssembler {
 
     const existingNode = context.visualQuery.getTransformNode(playerId);
     if (existingNode) {
-      existingNode.position.set(0, ARENA_CONFIG.VERTICAL.PLAYER_SPAWN_Y, 0);
+      existingNode.position.set(0, initialY, 0);
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
       existingNode.scaling.set(1.0, 1.0, 1.0);
       existingNode.setEnabled(true);

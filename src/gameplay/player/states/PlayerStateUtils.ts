@@ -13,7 +13,7 @@ import {
   InputIntentComponent,
   TraversalState
 } from "../../../core/ecs/Components";
-import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
+import { GAMEPLAY_TUNING, ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
@@ -53,9 +53,8 @@ export class PlayerStateUtils {
     trav: TraversalStateComponent
   ): void {
     const storedTension = tether.tension;
-    tether.tension = 0.0;
-    const tuning = GAMEPLAY_TUNING.PLAYER;
     const reelConfig = GAMEPLAY_TUNING.REEL;
+    const tuning = GAMEPLAY_TUNING.PLAYER;
 
     const launchedFromBug = trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1;
     if (launchedFromBug) {
@@ -64,21 +63,37 @@ export class PlayerStateUtils {
     }
     trav.stickyEntityId = -1;
 
-    if (storedTension < tuning.MIN_FLING_TENSION) {
+    // STAGE 1 (GREEN ZONE, Slack Release): Tension < Sweet Spot Minimum (0.375)
+    // Simply detach into standard Airborne falling trajectory without a speed fling launch.
+    if (storedTension < reelConfig.SWEET_SPOT_MIN) {
+      tether.tension = 0.0;
       trav.state = "AIRBORNE";
+      trav.launchPower = 0.05; // Base tiny impulse indicator
+      trav.launchTimer = 0;
       
-      // Apply clean outward nudge to break contact and prevent sticky re-clinging loops
-      const nudgeDistance = 0.22;
+      // Clean outward physical nudge to break static cling loops
+      const nudgeDistance = 0.35;
       target.x += trav.wallNormalX * nudgeDistance;
-      vel.x = trav.wallNormalX * 4.5;
-      vel.y = Math.max(vel.y, -2.0); // Smooth out the gravity transition
+      vel.x = trav.wallNormalX * 5.5;
+      vel.y = Math.max(vel.y, -3.0); // Retain smooth falling trajectory
       
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
-      trav.launchPower = 0;
+
+      const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+      const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
+      if (pCosmetic) {
+        pCosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;
+        pCosmetic.emissiveG = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.G;
+        pCosmetic.emissiveB = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.B;
+        pCosmetic.targetScaleX = 1.0;
+        pCosmetic.targetScaleY = 1.0;
+        pCosmetic.targetScaleZ = 1.0;
+      }
       return;
     }
 
+    // ACTIVE FLINGS (Stage 2 & 3): Tension >= 0.375
     const dx = tether.anchorX - target.x;
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
@@ -105,6 +120,8 @@ export class PlayerStateUtils {
     trav.launchTimer = tuning.LAUNCH_DURATION;
     trav.launchPower = powerScale;
     trav.wallDir = 0;
+
+    tether.tension = 0.0;
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(ctx.refs.player);

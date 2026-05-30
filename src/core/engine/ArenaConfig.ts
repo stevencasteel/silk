@@ -122,7 +122,7 @@ export const GAMEPLAY_TUNING = {
   },
   REEL: {
     MIN_LENGTH: 7.0,
-    MAX_LENGTH: 120.0,
+    MAX_LENGTH: 38.0,
     IN_SPEED: 10.0,
     OUT_SPEED: 14.0,
     AUTO_SLACK_TAKEUP_SPEED: 3.0,

@@ -204,23 +204,42 @@ export const HudOverlay: React.FC = () => {
 
   useEffect(() => {
     const handleTensionTick = (e: Event) => {
-      const tensionVal = (e as CustomEvent).detail.tension;
-      const snapLimit = 1.0;
-      const clamped = Math.max(0, Math.min(snapLimit, tensionVal));
-      const scaleX = clamped / snapLimit;
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      const tension = detail.tension ?? 0;
+      const maxLength = detail.maxLength ?? 12.0;
 
+      const maxReelLimit = 38.0;
+      const minReelLimit = 7.0;
+
+      // Filled width represents reeled-out tether progress (0% to 100%)
+      const reelProgress = (maxLength - minReelLimit) / (maxReelLimit - minReelLimit);
+      const barWidthPercent = Math.max(5.0, Math.min(100.0, reelProgress * 100.0));
+
+      // Color/Glow represents dynamic elastic tautness
       let color = "rgb(34, 197, 94)";
+      let glow = "rgba(34, 197, 94, 0.45)";
 
-      if (clamped >= 0.80) {
+      if (tension >= 0.80) {
         color = "rgb(239, 68, 68)";
-      } else if (clamped >= 0.375) {
+        glow = "rgba(239, 68, 68, 0.95)";
+      } else if (tension >= 0.375) {
         color = "rgb(234, 179, 8)";
+        glow = "rgba(234, 179, 8, 0.75)";
       }
 
       if (tensionBarFillRef.current) {
-        tensionBarFillRef.current.style.width = `${(scaleX * 100).toFixed(1)}%`;
+        tensionBarFillRef.current.style.width = `${barWidthPercent.toFixed(1)}%`;
         tensionBarFillRef.current.style.background = color;
-        tensionBarFillRef.current.style.boxShadow = `0 0 12px ${color}`;
+        
+        if (tension > 0.05) {
+          const pulse = 1.0 + Math.sin(performance.now() * 0.05 * tension) * 0.1;
+          tensionBarFillRef.current.style.boxShadow = `0 0 ${Math.floor(12 * tension * pulse)}px ${glow}`;
+          tensionBarFillRef.current.style.transform = `scaleY(${pulse.toFixed(2)})`;
+        } else {
+          tensionBarFillRef.current.style.boxShadow = "none";
+          tensionBarFillRef.current.style.transform = "scaleY(1.0)";
+        }
       }
     };
 

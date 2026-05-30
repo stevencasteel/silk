@@ -8,7 +8,8 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent
+  WeaverCosmeticComponent,
+  TetherComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
@@ -25,8 +26,6 @@ export class WeaverAscendingState implements IWeaverState {
   public exit(): void {}
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
-    void dt;
-
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const wTrans = transforms.get(ctx.refs.weaver);
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
@@ -48,6 +47,18 @@ export class WeaverAscendingState implements IWeaverState {
         cosmetic.gaitFrequency = 14.0; // Identical fast scrambling frequency as dash lunge
         cosmetic.gaitTuck = -0.5; // Identical outward reaching legs as dash lunge
       }
+
+      // ASCENSION REEL-IN: Wind player tether back to starting defaults simultaneously during climb
+      const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
+      if (pTether) {
+        const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
+        if (pTether.maxLength > initialLength) {
+          const reelRate = 22.0; // Fast reel-in during ascent
+          pTether.maxLength = Math.max(initialLength, pTether.maxLength - reelRate * dt);
+          pTether.desiredLength = Math.max(initialLength, pTether.desiredLength - reelRate * dt);
+        }
+      }
+
       const targetY = ARENA_CONFIG.VERTICAL.WEAVER_CEILING_RETURN_Y;
       const dy = targetY - wTrans.y;
       if (Math.abs(dy) < WEAVER_AI_TUNING.RETURN.THRESHOLD) {

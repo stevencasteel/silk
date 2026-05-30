@@ -4,7 +4,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, TraversalStateComponent, WeaverAIComponent } from "../../core/ecs/Components";
 import { ParallaxScrollSystem } from "../systems/ParallaxScrollSystem";
 import * as BABYLON from "@babylonjs/core";
 
@@ -70,14 +70,12 @@ export class CameraSystem implements ISystem {
     return Math.sin(t * 17.1) * 0.43 + Math.sin(t * 31.7) * 0.27 + Math.sin(t * 7.3) * 0.3;
   }
 
-  // Update handles timeline offsets and tracking state progression safely
   public update(dt: number): void {
     this.noiseTime += dt * 45.0;
 
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
 
-      // Update linear decay to quadratic exponential decay
       const decay = this.shakeDuration > 0 ? Math.pow(this.shakeTimer / this.shakeDuration, 2) : 0;
       const currentIntensity = this.shakeIntensity * decay;
 
@@ -119,48 +117,50 @@ export class CameraSystem implements ISystem {
 
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const playerTrans = transforms.get(this.context.refs.player);
+    const weaverTrans = transforms.get(this.context.refs.weaver);
     const trav = this.context.stores
       .get<TraversalStateComponent>("traversal")
       .get(this.context.refs.player);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
 
     if (playerTrans && trav) {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
-      const playerLocalY = playerTrans.y - (baseY + this.cameraScrollY);
+      const playerLocalY = playerTrans.y - baseY;
 
-      if (trav.state === "WALL_STICKING") {
-        if (playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
-          const targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y);
-
-          const maxCameraSpeed = ParallaxScrollSystem.currentScrollSpeed;
-          const maxDelta = -maxCameraSpeed * dt;
-          let desiredScrollY = targetScrollY;
-          if (desiredScrollY < this.cameraScrollY) {
-            desiredScrollY = Math.max(this.cameraScrollY + maxDelta, desiredScrollY);
-          }
-
-          const clampedScrollY = Math.max(
-            CAMERA_TUNING.MIN_SCROLL_Y,
-            Math.min(CAMERA_TUNING.MAX_SCROLL_Y, desiredScrollY)
-          );
-          this.cameraScrollY = clampedScrollY;
-        } else if (playerLocalY > -4.0 && this.cameraScrollY < 0.0) {
-          this.cameraScrollY = BABYLON.Scalar.Lerp(
-            this.cameraScrollY,
-            0.0,
-            CAMERA_TUNING.NORMAL_LERP
-          );
-        }
+      // Lock tracking when Weaver is safely patrolling
+      const isBossEngaging = wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
+      const lowerLimit = CAMERA_TUNING.LOWER_COMFORT_Y;
+      
+      if (isBossEngaging && playerLocalY < lowerLimit) {
+        const desiredScrollY = playerLocalY - lowerLimit;
+        const maxScrollDelta = -Math.max(12.0, ParallaxScrollSystem.currentScrollSpeed) * dt;
+        
+        this.cameraScrollY = Math.max(
+          CAMERA_TUNING.MIN_SCROLL_Y,
+          Math.max(this.cameraScrollY + maxScrollDelta, desiredScrollY)
+        );
       } else {
+        // Smoothly return Y back to static baseline coordinates
+        let targetY = 0.0;
+        if (weaverTrans) {
+          const weaverLocalY = weaverTrans.y - baseY;
+          if (weaverLocalY > 10.0) {
+            targetY = Math.min(6.0, (weaverLocalY - 10.0) * 0.3);
+          }
+        }
+        
+        const panRecoverySpeed = 0.08;
         this.cameraScrollY = BABYLON.Scalar.Lerp(
           this.cameraScrollY,
-          0.0,
-          CAMERA_TUNING.NORMAL_LERP
+          targetY,
+          panRecoverySpeed
         );
       }
     }
   }
 
-  // Tracking alignment: Sets matrix values in sync with visual render updates (144Hz+) to prevent mesh tracking jitter
   public render(alpha: number): void {
     if (!this.cameraNode) return;
 
@@ -170,12 +170,17 @@ export class CameraSystem implements ISystem {
     let targetScrollY = this.cameraScrollY;
     if (pNode) {
       const baseY = preset.DEFAULT_TARGET.y;
-      const playerLocalY = pNode.position.y - (baseY + this.cameraScrollY);
+      const playerLocalY = pNode.position.y - baseY;
       const trav = this.context.stores
         .get<TraversalStateComponent>("traversal")
         .get(this.context.refs.player);
+      const wAI = this.context.stores
+        .get<WeaverAIComponent>("weaverAI")
+        .get(this.context.refs.weaver);
 
-      if (trav && trav.state === "WALL_STICKING" && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
+      const isBossEngaging = wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
+
+      if (isBossEngaging && trav && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
         targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;
       }
     }

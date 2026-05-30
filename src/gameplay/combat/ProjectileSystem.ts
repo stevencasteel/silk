@@ -294,7 +294,7 @@ export class ProjectileSystem implements ISystem {
                 const baseUnreel = 2.0; // Responsive baseline unreeling
                 const dynamicUnreel = projection > 0 ? projection * 8.0 : 0.0;
                 const totalUnreel = baseUnreel + dynamicUnreel;
-                const maxLengthLimit = 120.0;
+                const maxLengthLimit = 38.0;
 
                 tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + totalUnreel);
                 tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + totalUnreel);
