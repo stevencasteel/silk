@@ -18,6 +18,7 @@ import { GAMEPLAY_TUNING, ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../../cor
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
+import { EngineTime } from "../../../core/engine/EngineTime";
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -130,10 +131,23 @@ export class PlayerStateUtils {
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(ctx.refs.player);
     if (pTrans) {
-      pTrans.scaleVelY = powerScale * 15.0;
-      pTrans.scaleVelX = -powerScale * 7.5;
-      pTrans.scaleVelZ = -powerScale * 7.5;
-    }
+          if (isOverload) {
+            pTrans.scaleVelY = 36.0;
+            pTrans.scaleVelX = -18.0;
+            pTrans.scaleVelZ = -18.0;
+            EngineTime.hitStopTimer = 0.10;
+          } else if (isSweetSpot) {
+            pTrans.scaleVelY = 22.0;
+            pTrans.scaleVelX = -11.0;
+            pTrans.scaleVelZ = -11.0;
+            EngineTime.hitLagTimer = 0.08;
+            EngineTime.hitLagScale = 0.15;
+          } else {
+            pTrans.scaleVelY = powerScale * 15.0;
+            pTrans.scaleVelX = -powerScale * 7.5;
+            pTrans.scaleVelZ = -powerScale * 7.5;
+          }
+        }
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
