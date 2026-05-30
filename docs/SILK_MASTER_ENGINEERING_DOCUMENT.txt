@@ -1,9 +1,9 @@
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 2.0 (Calibrated Elastic Tension, Interactive Boss Reeling, & Dual-Purpose UI)
+Version: 3.0 (Parameter-Driven Elastic Tension, Interactive Boss Reeling, & Dual-Purpose UI)
 Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
-Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
+Engine: Babylon.js + Havok Physics V2
 Architecture: Strict Custom ECS (Entity Component System)
 ===============================================================================
 
@@ -19,132 +19,125 @@ When expanding or optimizing physics-driven mechanics, adhere to the Babylon.js 
 
 PURPOSE
 -------------------------------------------------------------------------------
-This document is the authoritative engineering and architectural blueprint for
-SILK. It reflects the current implementation state of the project, documenting 
-the physics systems, artificial intelligence routines, and audio-visual juice.
-
-SILK starts in the vertical portrait arena immediately without title screens.
+This document serves as the authoritative architectural blueprint for SILK. It 
+details the underlying logic, structural loops, and systemic relationships 
+governing player movement, boss behaviors, and the game loop. SILK bypasses 
+introductory screens and immediately initializes within the gameplay loop.
 
 ===============================================================================
 1. PLAY AREA, ALIGNMENT & STATIC CAMERA SPECIFICATIONS
 ===============================================================================
-- Playable Area limits: Left/Right X: [-15.0, 15.0], Floor/Ceiling Y: [-8.0, 38.0]
-- Vertical Boundaries: Flat solid PBR walls at X = -15.0 and X = 15.0. Measurement 
-  unit ticks scroll downwards continuously, managed by ParallaxScrollSystem, 
-  creating the endless vertical ascension illusion.
-- 2D Physics Plane: The Z-axis is constrained natively via invisible front and 
-  back static Havok collision walls at Z = 3.5 and Z = -3.5.
+- Playable Area limits: Governed by dynamic bounds configured in the spatial 
+  parameters. A continuous vertical scrolling illusion is produced by the 
+  ParallaxScrollSystem, moving environmental details downward relative to active velocity.
+- 2D Physics Plane: Natively constrained along the Z-axis using static front and 
+  back invisible collision bounds. This prevents depth displacement and ensures 
+  the physics engine and custom kinematics remain strictly coplanar.
 - Camera Position Tracking:
-  * Default Locked Camera: Fixed perspective looking at (0, 14, 0).
-  * Patrol State Behavior: When the Weaver is in the PATROLLING state, camera 
-    vertical panning is completely locked. Because the player's maximum thread 
-    length is calibrated to 38.0 units, the player naturally dangles above the 
-    tension UI and cannot slip out of the viewport.
-  * Engaging/Strike State Behavior: Panning lock automatically releases only 
-    when the Weaver descends to attack (STRIKING, SHOCKWAVE, or ASCENDING). If 
-    the player is forced past the bottom comfort limit (Y < -11.5) because the 
-    Weaver dashed down, the camera dynamically pans down to track them.
-  * Panning Recovery: Returns smoothly back to static baseline coordinates 
-    (Y = 14.0) once combat actions are completed.
+  * Locked State: Camera vertical panning is fully locked while the Weaver resides 
+    in its normal patrolling state. Because the player's maximum thread capacity 
+    is tethered to the boss, the player naturally suspends within the screen 
+    boundaries.
+  * Active Tracking State: Panning lock automatically releases once the Weaver 
+    initiates an attack or enters a descending state. If the player is forced 
+    below a dynamic comfort boundary due to boss movement, the camera pans 
+    smoothly to keep both actors in viewport focus.
+  * Recovery State: Camera tracks back to static baseline coordinates smoothly 
+    once the boss completes its action and returns to patrol altitude.
 
 ===============================================================================
 2. REALIZED CORE TRAVERSAL & PHYSICS SKELETON
 ===============================================================================
 - GHOST ENTITIES (KINEMATICS):
-  The Player and Weaver move via strict custom trigonometric ECS logic (processed 
-  by PlayerKinematicsSystem and WeaverTraversalSystem), but exist in the Havok 
-  simulation as ANIMATED (Kinematic) PhysicsBodies. This allows Havok to track 
-  their exact hitboxes natively without gravity interfering.
+  The Player and Weaver move via trigonometric ECS logic processed by player and 
+  weaver kinematic systems, but exist in the physics engine as Animated (Kinematic) 
+  bodies. This design permits exact spatial and collision state tracking while 
+  releasing the system from passive physics force integration.
 
 - DECOUPLED PLAYER LOCOMOTION STATE MACHINE:
-  Player movement kinematics are modeled using a strict state machine pattern. 
-  PlayerKinematicsSystem delegates coordinate updates and velocity checks to 
-  isolated classes implementing the IPlayerState interface inside the 
-  `src/gameplay/player/states/` directory:
-  1. AIRBORNE (PlayerAirborneState): Translates swing inputs, gravity metrics, 
-     drag damping, and detects limits.
-  2. WALL_STICKING (PlayerWallStickingState / PlayerWallSlidingState): Handles 
-     friction factors, WallBug attaching coordinates, and vertical slide inputs. 
-     Passive tension charging is disabled.
-  3. LAUNCHING (PlayerLaunchingState): Integrates high-speed sling release 
-     forces, launch damping, and checks limit boundaries.
+  Player kinematics are isolated into states implementing a shared interface:
+  1. AIRBORNE: Manages gravitational descent, swing input steering, and drag 
+     damping.
+  2. WALL_STICKING: Handles friction coefficients, dynamic wall-clinging 
+     offsets, and sliding dampeners. Passive tension charging is restricted 
+     exclusively to this state.
+  3. LAUNCHING: Governs high-velocity release vectors, target-seeking trajectory, 
+     and launch dampening.
 
 - THE TETHER AS A ONE-WAY RATCHET & MANUAL REELING:
-  1. Elongation: The maximum length of the rope can only increase while wall sliding.
-  2. Instant Reeling: Reeling slack updates maxLength immediately.
-  3. Strict Fall Clamp: Momentum converts cleanly into a pendulum arc when arrested.
-  4. Manual Reel-In: Pressing UP (W / ArrowUp) manually reels in the tether, immediately 
-     decreasing its maxLength and desiredLength to climb surfaces or pull the player up.
+  * Elongation: Maximum allowed rope capacity only increases while sliding or 
+    clinging to walls.
+  * Slack Recovery: Reeling actions immediately update active rope bounds, 
+    reducing the slack threshold.
+  * Pendulum Constraint: Player movement is restricted to a spherical arc 
+    whenever the distance to the anchor exceeds current maximum length, cleanly 
+    transferring linear velocity into swing momentum.
+  * Manual Reel-In: Input intent maps directly to tether contraction, allowing 
+    the player to manually shorten maximum length to climb objects or pull 
+    themselves upward.
 
 - PHYSICS-BASED ELASTIC TENSION:
-  * Elastic Tautness: Passive wall-slide tension is removed. Tension is calculated 
-    purely based on physical stretch: Tautness = currentLength / maxLength.
-  * Tautness Threshold: Tension begins building once Tautness exceeds 85%, scaling 
-    up to 1.0 (and 1.3 under extreme overload). Tension building is strictly 
-    constrained to the WALL_STICKING state, and decays rapidly in mid-air swings.
+  * Elastic Tautness: Tension is a direct calculation of stretch (the ratio 
+    of current length to max allowed length). Tension begins building once 
+    tautness passes a specific safety ratio.
   * Progress-Linked Tension Cap: The maximum achievable tension is capped 
-    proportionally to the current reeled-out progress: (maxLength - 5.4) / (38.0 - 5.4).
-  * Safe Spawn dangling: At starting unreeled spawn length (maxLength = 5.4), 
-    tension is capped at a safe 0.15 (Stage 1 / Green), preventing instant deaths.
-  * Fling Launch Zones:
-    - Stage 1 (Green Zone, Tension < 0.555): Safe release. Letting go of the 
-      wall simply detaches the player into standard airborne falling trajectory 
-      with a gentle, controlled outward nudge. No launch speed is applied.
-    - Stage 2 (Yellow Zone, 0.555 <= Tension < 0.80): Standard Fling Launch. 
-      Launches player towards Weaver stinger tip at high velocity.
-    - Stage 3 (Red Zone, Tension >= 0.80): Extreme Fling Launch. Unlocks only 
-      when the line has been unreeled to its upper limit on the wall, enabling 
-      powerful lunge attacks.
+    proportionally to the current unreeled rope length. At minimal unreeled length, 
+    tension is capped at a low safety stage to prevent immediate, accidental snaps.
+  * Tension Release Zones (Fling Stages):
+    - Stage 1 (Slack Zone): Safe release. Detaching from the wall results in a 
+      standard airborne falling trajectory with a gentle outward nudge.
+    - Stage 2 (Taut Zone): Fling launch. Launches player toward the active Weaver 
+      anchor point at high velocity.
+    - Stage 3 (Overloaded Zone): High-intensity fling. Only available when the 
+      line is unreeled near maximum capacity, releasing extreme kinetic power.
 
 ===============================================================================
 3. COMBAT, DYNAMIC WEAVER REELING & SHOCKWAVE RECOVERY
 ===============================================================================
-- COMBAT MELEE SHOCKWAVE REEL-IN:
-  * Cocoon Shockwave: During WeaverShockwaveState, if the player is caught inside 
-    the shockwave's radius (6.8 units) in a vulnerable state, they take damage and 
-    are instantly reeled back to the compact, starting initial length (maxLength = 5.4).
+- MELEE SHOCKWAVE REEL-IN:
+  * When caught in the Weaver's shockwave blast, the player's thread is 
+    instantly reeled back to its compact initial length, making the player highly 
+    vulnerable.
 
-- WEAVER STRIKE SEQUENCE & 25% RETRACTIVE REEL-IN:
-  * Damaging the Weaver triggers her STRIKING combat state (PREP -> THRUST -> RECOVER).
-  * Recovery Transition: When transitioning from the strike dash (THRUST) to recover 
-    (RECOVER), the Weaver reels the player in by 25% (pTether.maxLength *= 0.75).
-  * Targeted Combat Shot: Immediately upon entering recovery, the Weaver fires a 
-    targeted web projectile targeting the player's exact coordinates.
-  * Ascension Reel-In: While the Weaver climbs back to her patrol ceiling line in 
-    WeaverAscendingState, she simultaneously reels the player's tether back down 
-    to the baseline default initial length (maxLength = 5.4).
+- WEAVER STRIKE SEQUENCE & RETRACTIVE REEL-IN:
+  * Damaging the Weaver triggers a structured strike state (Telegraph -> Thrust -> Recovery).
+  * On transition to the Recovery phase, the Weaver contracts the player's 
+    maximum tether length by a fixed percentage, pulling them closer to danger.
+  * At the start of Recovery, the Weaver launches a direct web projectile 
+    targeting the player's coordinates.
+  * While ascending back to patrol altitude, the Weaver continuously reels 
+    the player's maximum thread capacity back to initial starting values.
 
 ===============================================================================
-4. TENSION UI BAR REWORK & COLOR GRAMMAR
+4. TENSION UI BAR & COLOR GRAMMAR
 ===============================================================================
-- DUAL-PURPOSE TENSION BAR UI:
-  * Reeled-Out Progress: The progress bar filled width representing 0% to 100% 
-    corresponds to how much tether capacity (slack/reel of tether) has been 
-    unreeled (from 5.4 to 38.0 units).
-  * Elastic Tautness Glow: The bar's color and pulsing glow reflect the current 
-    elastic tension:
-    - Green (Tension < 0.555): Slack / Stage 1. No active glow.
-    - Yellow (0.555 <= Tension < 0.80): Taut / Stage 2. Active amber glow.
-    - Red (Tension >= 0.80): Overloaded / Stage 3. High intensity crimson pulse.
+- DUAL-PURPOSE TENSION BAR:
+  * Reeled-Out Progress: The fill ratio of the physical bar corresponds directly 
+    to the active capacity of unreeled tether relative to absolute system limits.
+  * Elastic Tautness Glow: The bar's color and pulse speed reflect active elastic 
+    tension stages:
+    - Stage 1 (Slack): Neutral color, no glow.
+    - Stage 2 (Taut): Alert color, warm glow, indicators of fling readiness.
+    - Stage 3 (Overloaded): High-frequency alert, extreme pulsing glow, warning of 
+      tether fatigue or imminent snap.
 
 ===============================================================================
 5. THE FLYING HEALTH BUG SYSTEM & COLLISION KINETICS
 ===============================================================================
 - DYNAMIC SPATIAL LIFECYCLE:
-  * Flying minions (Health Bugs) spawn from the bottom of the corridor with a 
-    high frequency (testing interval: 1.5s) and fly vertically upwards.
-  * Upon reaching the middle of the playable viewport, they pause for 3 to 6 
-    seconds, then continue their ascent out of bounds.
+  * Flying units spawn below the viewport limits and ascend vertically. 
+  * Upon entering the comfort viewport zone, they pause for a randomized period 
+    before continuing their ascent out of bounds.
 
 - RE-CALIBRATED INTERACTION STAGES:
-  * Stage 0 & 1 (Slack release, launchPower < 0.555): Harmless elastic overlaps. 
-    Player safely bumps or gently shoves the bug without popping.
-  * Stage 2 (Active Fling, 0.555 <= launchPower < 0.80): High-momentum shove. 
-    Bounces harmlessly unless spiked, which pops the bug and damages the Weaver.
-  * Stage 3 (Overloaded Tension, tension >= 0.80 / launchPower >= 0.80): 
-    Extreme kinetic impact. Pops standard bugs immediately, spawning seek-healing 
-    green particles that fly to the HUD's HP slots, or activates high-velocity 
-    wall-bouncing pinball mode.
+  * Stage 0 & 1 (Slack Overlaps): Harmless. The player pushes or slides past 
+    the bug safely without damage.
+  * Stage 2 (Active Fling): High-momentum impact. Bounces the bug away 
+    unless directed into hazards, which pops the bug and inflicts heavy damage 
+    on the Weaver.
+  * Stage 3 (Overloaded Tension): Absolute kinetic rupture. Pops standard bugs 
+    on impact, releasing homing heal particles that seek player slots on the HUD, 
+    or triggers high-velocity wall-bouncing pinball kinetics.
 
 ===============================================================================
 END OF DOCUMENT
