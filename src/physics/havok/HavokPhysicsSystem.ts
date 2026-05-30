@@ -169,15 +169,6 @@ export class HavokPhysicsSystem implements ISystem {
   public update(): void {
     this.context.commands.flush();
     const transforms = this.context.stores.get<TransformComponent>("transform");
-    for (const [, curr] of transforms.entries()) {
-      curr.prevX = curr.x;
-      curr.prevY = curr.y;
-      curr.prevZ = curr.z;
-      curr.prevQx = curr.qx;
-      curr.prevQy = curr.qy;
-      curr.prevQz = curr.qz;
-      curr.prevQw = curr.qw;
-    }
     const targets = this.context.stores.get<KinematicTargetComponent>("target");
     const pTarget = targets.get(this.context.refs.player);
     const pTrans = transforms.get(this.context.refs.player);

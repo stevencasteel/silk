@@ -73,6 +73,7 @@ import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
 import { VisualStateDressingSystem } from "../visual/systems/VisualStateDressingSystem";
 import { LegJointAnimationSystem } from "../visual/systems/LegJointAnimationSystem";
+import { TransformHistorySystem } from "../visual/systems/TransformHistorySystem";
 import { CombatSystem } from "../gameplay/combat/CombatSystem";
 import { HealthSystem } from "../gameplay/combat/HealthSystem";
 import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
@@ -196,6 +197,7 @@ export class CompositionRoot {
 
     const parallaxScroll = new ParallaxScrollSystem(context);
     const interpolationSystem = new EntityInterpolationSystem(context);
+    const transformHistory = new TransformHistorySystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
     const legAnimationSystem = new LegJointAnimationSystem(context);
@@ -223,6 +225,7 @@ export class CompositionRoot {
 
     systemManager.register(spawner);
     systemManager.register(renderSystem);
+    systemManager.register(transformHistory);
     systemManager.register(physicsSystem);
     systemManager.register(kinematicIntegrationSystem);
     systemManager.register(environmentClampingSystem);
