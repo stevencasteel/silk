@@ -1,4 +1,6 @@
-import { Engine } from "../core/engine/Engine";
+import {
+  
+  Engine } from "../core/engine/Engine";
 import { EventBroker } from "../core/events/EventBroker";
 import { SystemManager } from "../core/systems/SystemManager";
 import { CommandBus } from "../core/commands/CommandBus";
@@ -8,6 +10,7 @@ import { EntityRefs } from "../core/ecs/EntityRefs";
 import { StoreContainer } from "../core/ecs/StoreContainer";
 import { SystemContext } from "../core/engine/SystemContext";
 import {
+  HitStopComponent,
   CollisionResponseComponent,
   PlayerCosmeticComponent,
   WeaverCosmeticComponent,
@@ -115,6 +118,7 @@ export class CompositionRoot {
     const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
     const healthBugs = new ComponentStore<HealthBugComponent>();
     const healthBugTags = new ComponentStore<HealthBugTag>();
+    const hitStops = new ComponentStore<HitStopComponent>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -158,6 +162,7 @@ export class CompositionRoot {
     registerStore("boundaryConstraint", boundaryConstraints);
     registerStore("healthBug", healthBugs);
     registerStore("healthBugTag", healthBugTags);
+    registerStore("hitStop", hitStops);
 
     const visualRegistry = new VisualRegistry();
 

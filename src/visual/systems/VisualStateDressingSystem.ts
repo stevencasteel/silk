@@ -5,6 +5,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
+  HitStopComponent,
   PlayerCosmeticComponent,
   WeaverCosmeticComponent,
   WeaverAIComponent,
@@ -47,7 +48,10 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
+    const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
     for (const [id, cosmetic] of cosmeticStore.entries()) {
+      const hs = hitStops.get(id);
+      if (hs && hs.timeRemaining > 0) continue;
       const wTrans = transformStore.get(id);
       if (!wTrans) continue;
 

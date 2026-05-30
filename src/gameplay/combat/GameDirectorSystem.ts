@@ -1,8 +1,13 @@
-import { ISystem } from "../../contracts/ISystem";
+import {
+  
+  ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { HealthComponent, TetherComponent } from "../../core/ecs/Components";
+import {
+  HitStopComponent, HealthComponent,
+  TetherComponent
+} from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
@@ -85,13 +90,15 @@ export class GameDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        EngineTime.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
+        const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
+        if (hs) hs.timeRemaining = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        EngineTime.hitStopTimer = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
+        const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.weaver);
+        if (hs) hs.timeRemaining = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
       })
     );
 
@@ -113,7 +120,8 @@ export class GameDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-        EngineTime.hitStopTimer = 0;
+        const hsStore = this.context.stores.get<HitStopComponent>("hitStop");
+        for (const [, hs] of hsStore.entries()) hs.timeRemaining = 0;
         EngineTime.hitLagTimer = 0;
         EngineTime.hitLagScale = 1.0;
       })
@@ -149,6 +157,11 @@ export class GameDirectorSystem implements ISystem {
   };
 
   public update(dt: number): void {
+    const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
+    for (const [, hs] of hitStops.entries()) {
+      if (hs.timeRemaining > 0) hs.timeRemaining = Math.max(0, hs.timeRemaining - dt);
+    }
+
     if (this.resetRequested) {
       this.resetGame();
       this.resetRequested = false;

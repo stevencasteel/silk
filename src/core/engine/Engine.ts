@@ -112,10 +112,9 @@ export class Engine {
     if (this.isPaused) return;
 
     EngineTime.update(dt);
-    const isHitStop = EngineTime.isHitStop;
     const scaledDt = dt * EngineTime.activeTimeScale;
 
-    this.systemManager.updateAll(scaledDt, isHitStop);
+    this.systemManager.updateAll(scaledDt);
   }
 
   private render(alpha: number): void {

@@ -1,6 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
+import {
+  HitStopComponent, WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
@@ -125,6 +126,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public update(dt: number): void {
+    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.weaver);
+    if (hs && hs.timeRemaining > 0) return;
+
     const aiComp = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);

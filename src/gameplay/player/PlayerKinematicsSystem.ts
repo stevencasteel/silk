@@ -4,6 +4,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import {
+  HitStopComponent,
   TetherComponent,
   KinematicTargetComponent,
   TraversalStateComponent,
@@ -47,6 +48,9 @@ export class PlayerKinematicsSystem implements ISystem {
   }
 
   public update(dt: number): void {
+    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
+    if (hs && hs.timeRemaining > 0) return;
+
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
     const target = this.context.stores
       .get<KinematicTargetComponent>("target")

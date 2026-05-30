@@ -286,3 +286,7 @@ export interface HealthBugComponent {
 export interface HealthBugTag {
   readonly tag?: "healthBug";
 }
+
+export interface HitStopComponent {
+  timeRemaining: number;
+}

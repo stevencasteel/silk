@@ -2,7 +2,8 @@ import { solveScaleSpring, solveSpringDamper } from "../../core/utils/EngineUtil
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
+import {
+  HitStopComponent, TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
@@ -13,6 +14,9 @@ export class PlayerAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
+    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
+    if (hs && hs.timeRemaining > 0) return;
+
     const pTrans = this.context.stores
       .get<TransformComponent>("transform")
       .get(this.context.refs.player);

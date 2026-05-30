@@ -1,5 +1,8 @@
-import { SystemContext } from "../../../core/engine/SystemContext";
 import {
+  
+  SystemContext } from "../../../core/engine/SystemContext";
+import {
+  HitStopComponent,
   KinematicTargetComponent,
   KinematicVelocityComponent,
   TetherComponent,
@@ -135,7 +138,8 @@ export class PlayerStateUtils {
             pTrans.scaleVelY = 36.0;
             pTrans.scaleVelX = -18.0;
             pTrans.scaleVelZ = -18.0;
-            EngineTime.hitStopTimer = 0.10;
+            const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
+            if (hs) hs.timeRemaining = 0.10;
           } else if (isSweetSpot) {
             pTrans.scaleVelY = 22.0;
             pTrans.scaleVelX = -11.0;

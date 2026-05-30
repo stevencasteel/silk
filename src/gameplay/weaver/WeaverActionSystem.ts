@@ -1,7 +1,8 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+import {
+  HitStopComponent, WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class WeaverActionSystem implements ISystem {
@@ -10,6 +11,9 @@ export class WeaverActionSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
+    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.weaver);
+    if (hs && hs.timeRemaining > 0) return;
+
     void dt;
     const aiStore = this.context.stores.get<WeaverAIComponent>("weaverAI");
     const velocityStore = this.context.stores.get<KinematicVelocityComponent>("velocity");

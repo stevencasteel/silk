@@ -2,6 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
+  HitStopComponent,
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
@@ -15,6 +16,9 @@ export class TetherReelingSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
+    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
+    if (hs && hs.timeRemaining > 0) return;
+
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
     const trav = this.context.stores
       .get<TraversalStateComponent>("traversal")

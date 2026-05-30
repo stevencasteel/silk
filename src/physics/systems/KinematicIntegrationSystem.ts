@@ -1,7 +1,8 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+import {
+  HitStopComponent, TransformComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
 
 export class KinematicIntegrationSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -12,7 +13,10 @@ export class KinematicIntegrationSystem implements ISystem {
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const velocities = this.context.stores.get<KinematicVelocityComponent>("velocity");
 
+    const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
     for (const [id, trans] of transforms.entries()) {
+      const hs = hitStops.get(id);
+      if (hs && hs.timeRemaining > 0) continue;
       if (id === this.context.refs.player || id === this.context.refs.weaver) {
         continue;
       }

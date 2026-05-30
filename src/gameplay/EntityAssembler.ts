@@ -1,6 +1,7 @@
 import { SystemContext } from "../core/engine/SystemContext";
 import { EntityId } from "../core/ecs/Entity";
 import {
+  HitStopComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -81,6 +82,7 @@ export class EntityAssembler {
 
     context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
     context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
+    context.stores.get<HitStopComponent>("hitStop").add(weaverId, { timeRemaining: 0 });
 
     context.stores.get<WeaverCosmeticComponent>("weaverCosmetic").add(weaverId, {
       emissiveHue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
@@ -255,6 +257,7 @@ export class EntityAssembler {
     });
     context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
     context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+    context.stores.get<HitStopComponent>("hitStop").add(playerId, { timeRemaining: 0 });
 
     context.stores.get<PlayerCosmeticComponent>("playerCosmetic").add(playerId, {
       emissiveR: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R,
