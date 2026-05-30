@@ -71,5 +71,19 @@ export class CollisionResolutionSystem implements ISystem {
         }
       }
     }
+
+    for (const [resId, response] of responses.entries()) {
+      if (response.layer === "HAZARD" && response.onOverlap) {
+        const playerTrans = transforms.get(this.context.refs.player);
+        const hazardTrans = transforms.get(resId);
+        if (playerTrans && hazardTrans) {
+          const dist = getDistance2D(playerTrans.x, playerTrans.y, hazardTrans.x, hazardTrans.y);
+          const combinedRadius = 2.4;
+          if (dist < combinedRadius) {
+            response.onOverlap(this.context.refs.player, this.context);
+          }
+        }
+      }
+    }
   }
 }
