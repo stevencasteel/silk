@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 10:32:36 PM
+ [SYSTEM] Generated: 5/30/2026, 10:35:13 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -165,6 +165,7 @@
 │   │       ├── EntityInterpolationSystem.ts
 │   │       ├── LegJointAnimationSystem.ts
 │   │       ├── ParallaxScrollSystem.ts
+│   │       ├── TransformHistorySystem.ts
 │   │       └── VisualStateDressingSystem.ts
 │   ├── App.css
 │   ├── App.tsx
@@ -1220,6 +1221,7 @@ import { ParallaxScrollSystem } from "../visual/systems/ParallaxScrollSystem";
 import { EntityInterpolationSystem } from "../visual/systems/EntityInterpolationSystem";
 import { VisualStateDressingSystem } from "../visual/systems/VisualStateDressingSystem";
 import { LegJointAnimationSystem } from "../visual/systems/LegJointAnimationSystem";
+import { TransformHistorySystem } from "../visual/systems/TransformHistorySystem";
 import { CombatSystem } from "../gameplay/combat/CombatSystem";
 import { HealthSystem } from "../gameplay/combat/HealthSystem";
 import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
@@ -1343,6 +1345,7 @@ export class CompositionRoot {
 
     const parallaxScroll = new ParallaxScrollSystem(context);
     const interpolationSystem = new EntityInterpolationSystem(context);
+    const transformHistory = new TransformHistorySystem(context);
 
     const dressingSystem = new VisualStateDressingSystem(context);
     const legAnimationSystem = new LegJointAnimationSystem(context);
@@ -1370,6 +1373,7 @@ export class CompositionRoot {
 
     systemManager.register(spawner);
     systemManager.register(renderSystem);
+    systemManager.register(transformHistory);
     systemManager.register(physicsSystem);
     systemManager.register(kinematicIntegrationSystem);
     systemManager.register(environmentClampingSystem);
@@ -13187,15 +13191,6 @@ export class HavokPhysicsSystem implements ISystem {
   public update(): void {
     this.context.commands.flush();
     const transforms = this.context.stores.get<TransformComponent>("transform");
-    for (const [, curr] of transforms.entries()) {
-      curr.prevX = curr.x;
-      curr.prevY = curr.y;
-      curr.prevZ = curr.z;
-      curr.prevQx = curr.qx;
-      curr.prevQy = curr.qy;
-      curr.prevQz = curr.qz;
-      curr.prevQw = curr.qw;
-    }
     const targets = this.context.stores.get<KinematicTargetComponent>("target");
     const pTarget = targets.get(this.context.refs.player);
     const pTrans = transforms.get(this.context.refs.player);
@@ -18422,6 +18417,43 @@ export class ParallaxScrollSystem implements ISystem {
   public dispose(): void {
     this._tracker.clear();
     this.cachedScrollables = null;
+  }
+}
+
+
+
+● ./src/visual/systems/TransformHistorySystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase } from "../../contracts/SystemPhase";
+import { TransformComponent } from "../../core/ecs/Components";
+import { SystemContext } from "../../core/engine/SystemContext";
+
+export class TransformHistorySystem implements ISystem {
+  readonly phase = SystemPhase.Input;
+
+  constructor(private context: SystemContext) {}
+
+  public update(): void {
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    for (const [, curr] of transforms.entries()) {
+      curr.prevX = curr.x;
+      curr.prevY = curr.y;
+      curr.prevZ = curr.z;
+      curr.prevQx = curr.qx;
+      curr.prevQy = curr.qy;
+      curr.prevQz = curr.qz;
+      curr.prevQw = curr.qw;
+      if (curr.scaleX !== undefined) {
+        curr.prevScaleX = curr.scaleX;
+      }
+      if (curr.scaleY !== undefined) {
+        curr.prevScaleY = curr.scaleY;
+      }
+      if (curr.scaleZ !== undefined) {
+        curr.prevScaleZ = curr.scaleZ;
+      }
+    }
   }
 }
 
