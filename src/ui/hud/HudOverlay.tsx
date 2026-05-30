@@ -207,10 +207,10 @@ export const HudOverlay: React.FC = () => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
       const tension = detail.tension ?? 0;
-      const maxLength = detail.maxLength ?? 10.8;
+      const maxLength = detail.maxLength ?? 5.4;
 
       const maxReelLimit = 38.0;
-      const minReelLimit = 10.8;
+      const minReelLimit = 5.4;
 
       // Filled width represents reeled-out tether progress (0% to 100%)
       const reelProgress = (maxLength - minReelLimit) / (maxReelLimit - minReelLimit);

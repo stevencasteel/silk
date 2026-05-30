@@ -64,7 +64,7 @@ export const ARENA_CONFIG = {
   },
   TETHER: {
     MAX_LENGTH: 24.0,
-    INITIAL_LENGTH: 10.8
+    INITIAL_LENGTH: 5.4
   },
   SCROLL_SPEED: {
     BASE: 6.75,
@@ -121,7 +121,7 @@ export const GAMEPLAY_TUNING = {
     SPIKE_KNOCKBACK_Y: 8.0
   },
   REEL: {
-    MIN_LENGTH: 10.8,
+    MIN_LENGTH: 5.4,
     MAX_LENGTH: 38.0,
     IN_SPEED: 10.0,
     OUT_SPEED: 14.0,
