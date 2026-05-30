@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 11:47:53 PM
+ [SYSTEM] Generated: 5/30/2026, 11:52:00 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3281,7 +3281,7 @@ export const GAMEPLAY_TUNING = {
       WALL_SLIDE_X: 0.75,
       WALL_SLIDE_Y: 1.15,
       WALL_SLIDE_Z: 1.0,
-      LAUNCH_POWER_MULT: 0.35,
+      LAUNCH_POWER_MULT: 0.20,
       AIRBORNE_STRETCH_MAX: 0.3,
       AIRBORNE_SPEED_BASIS: 30.0,
       SQUASH_LAND_X: 1.22,
@@ -8729,7 +8729,8 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent, TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
+  HitStopComponent, TransformComponent, PlayerCosmeticComponent,
+  KinematicVelocityComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
@@ -8770,16 +8771,24 @@ export class PlayerAnimationSystem implements ISystem {
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
 
+    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    const vel = velStore.get(this.context.refs.player);
+    const speedX = vel ? vel.x : 0.0;
+
     const currentRot = cosmetic.currentRotation ?? 0;
     const rotVel = cosmetic.rotationVel ?? 0;
-    const targetRot = cosmetic.rotationAngle;
+    
+    // Dynamic aerodynamic lean based on horizontal velocity (Damped Harmonic Oscillator target offset)
+    const velocityLean = speedX * -0.022; 
+    const targetRot = cosmetic.rotationAngle + velocityLean;
 
     let diff = targetRot - currentRot;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     const adjustedTarget = currentRot + diff;
 
-    const rotStiffness = 140;
-    const rotDamping = 10;
+    // Utilize dynamic state-driven spring parameters rather than hardcoded ones
+    const rotStiffness = cosmetic.springStiffness;
+    const rotDamping = cosmetic.springDamping;
 
     const result = solveSpringDamper(
       currentRot,
@@ -9831,8 +9840,8 @@ export class PlayerAirborneState implements IPlayerState {
       cosmetic.targetScaleY = 1.0 + stretchFactor;
       cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
       cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
-      cosmetic.springStiffness = 240;
-      cosmetic.springDamping = 10;
+      cosmetic.springStiffness = 160;
+      cosmetic.springDamping = 8;
 
       const rotDx = tether.anchorX - target.x;
       const rotDy = tether.anchorY - target.y;
@@ -9959,8 +9968,8 @@ export class PlayerLaunchingState implements IPlayerState {
       cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
       cosmetic.targetScaleY = 1.0 + stretchFactor;
       cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
-      cosmetic.springStiffness = 280;
-      cosmetic.springDamping = 8;
+      cosmetic.springStiffness = 250;
+      cosmetic.springDamping = 9;
 
       const vx = vel.x;
       const vy = vel.y;
@@ -10671,8 +10680,8 @@ export class PlayerWallStickingState implements IPlayerState {
       cosmetic.targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
       cosmetic.targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
       cosmetic.targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
-      cosmetic.springStiffness = 200;
-      cosmetic.springDamping = 12;
+      cosmetic.springStiffness = 220;
+      cosmetic.springDamping = 14;
 
       cosmetic.rotationAngle = 0;
       cosmetic.slerpFactor = tuning.SLERP_FACTOR;
