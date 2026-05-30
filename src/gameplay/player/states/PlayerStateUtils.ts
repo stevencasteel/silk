@@ -102,12 +102,15 @@ export class PlayerStateUtils {
       storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
-    let speedMultiplier = 0.65;
-    if (isSweetSpot) {
-      speedMultiplier = 1.38;
-    } else if (isOverload) {
-      speedMultiplier = 1.78;
-    }
+    // Continuous progressive speed multiplier: starts very small and scales dynamically
+    const minT = reelConfig.SWEET_SPOT_MIN;
+    const maxT = 1.3; // Maximum possible overload peak tension
+    const rangeFactor = Math.max(0, Math.min(1.0, (storedTension - minT) / (maxT - minT)));
+    
+    // Ramps from 0.35 (very small fling) up to 2.2 (powerful extreme lunge)
+    const minMult = 0.35;
+    const maxMult = 2.2;
+    const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, 1.5);
 
     const bonusMultiplier = trav.hasFlingBonus ? 1.15 : 1.0;
     const power = tuning.FLING_IMPULSE * speedMultiplier * bonusMultiplier;

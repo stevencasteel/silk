@@ -36,7 +36,7 @@ export class TutorialSystem implements ISystem {
           !this.step0Completed &&
           this.calibrationStep === 0 &&
           currentState === "WALL_STICKING" &&
-          tension >= 0.375
+          tension >= 0.555
         ) {
           this.step0Completed = true;
           this.calibrationStep = 1;

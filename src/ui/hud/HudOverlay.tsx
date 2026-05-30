@@ -207,23 +207,23 @@ export const HudOverlay: React.FC = () => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
       const tension = detail.tension ?? 0;
-      const maxLength = detail.maxLength ?? 12.0;
+      const maxLength = detail.maxLength ?? 10.8;
 
       const maxReelLimit = 38.0;
-      const minReelLimit = 7.0;
+      const minReelLimit = 10.8;
 
       // Filled width represents reeled-out tether progress (0% to 100%)
       const reelProgress = (maxLength - minReelLimit) / (maxReelLimit - minReelLimit);
-      const barWidthPercent = Math.max(5.0, Math.min(100.0, reelProgress * 100.0));
+      const barWidthPercent = Math.max(0.0, Math.min(100.0, reelProgress * 100.0));
 
-      // Color/Glow represents dynamic elastic tautness
+      // Color/Glow represents dynamic elastic tautness (Restored sweet-spot and red thresholds)
       let color = "rgb(34, 197, 94)";
       let glow = "rgba(34, 197, 94, 0.45)";
 
       if (tension >= 0.80) {
         color = "rgb(239, 68, 68)";
         glow = "rgba(239, 68, 68, 0.95)";
-      } else if (tension >= 0.375) {
+      } else if (tension >= 0.555) {
         color = "rgb(234, 179, 8)";
         glow = "rgba(234, 179, 8, 0.75)";
       }
@@ -792,8 +792,8 @@ export const HudOverlay: React.FC = () => {
                 <div
                   style={{
                     position: "absolute",
-                    left: "37.5%",
-                    width: "42.5%",
+                    left: "42.7%",
+                    width: "37.3%",
                     top: 0,
                     bottom: 0,
                     background: "rgba(234, 179, 8, 0.05)",
@@ -829,7 +829,7 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "37.5%",
+                      left: "42.7%",
                       color: "rgba(234,179,8,0.45)"
                     }}
                   >

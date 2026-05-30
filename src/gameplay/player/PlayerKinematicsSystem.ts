@@ -129,11 +129,27 @@ export class PlayerKinematicsSystem implements ISystem {
 
     if (trav.state === "AIRBORNE" || trav.state === "LAUNCHING") {
       PlayerStateUtils.enforcePendulumConstraint(target, vel, tether);
+    } else if (trav.state === "WALL_STICKING") {
+      const dx = target.x - tether.anchorX;
+      const maxDy = Math.sqrt(Math.max(0.1, tether.maxLength * tether.maxLength - dx * dx));
+      if (target.y < tether.anchorY - maxDy) {
+        target.y = tether.anchorY - maxDy;
+        if (vel.y < 0) {
+          vel.y = 0;
+        }
+        if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
+          const transforms = this.context.stores.get<TransformComponent>("transform");
+          const bugTrans = transforms.get(trav.stickyEntityId);
+          if (bugTrans) {
+            trav.stickyWallYOffset = target.y - bugTrans.y;
+          }
+        }
+      }
     }
 
     tether.currentLength = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    this.updateTensionMeter(dt, tether);
+    this.updateTensionMeter(dt, tether, trav);
 
     this.tensionPayload.tension = tether.tension;
     this.context.broker.publish(GameEvent.TETHER_TENSION_CHANGE, this.tensionPayload);
@@ -163,12 +179,14 @@ export class PlayerKinematicsSystem implements ISystem {
 
   private updateTensionMeter(
     dt: number,
-    tether: TetherComponent
+    tether: TetherComponent,
+    trav: TraversalStateComponent
   ): void {
     const tautnessThreshold = 0.85;
     const currentTautness = tether.currentLength / Math.max(1.0, tether.maxLength);
+    const isWallSticking = trav.state === "WALL_STICKING";
 
-    if (currentTautness >= tautnessThreshold) {
+    if (currentTautness >= tautnessThreshold && isWallSticking) {
       const stretchAmount = (currentTautness - tautnessThreshold) / (1.0 - tautnessThreshold);
       const absoluteMin = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
       const absoluteMax = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
@@ -178,7 +196,8 @@ export class PlayerKinematicsSystem implements ISystem {
 
       tether.tension = Math.max(0.0, Math.min(maxAchievableTension, stretchAmount * maxAchievableTension));
     } else {
-      tether.tension = Math.max(0.0, tether.tension - 8.0 * dt);
+      const decayRate = GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE ? GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * 2.0 : 8.0;
+      tether.tension = Math.max(0.0, tether.tension - decayRate * dt);
     }
   }
 }

@@ -221,7 +221,7 @@ export class ProjectileSystem implements ISystem {
           const hasIframe = pIframe && pIframe.timeRemaining > 0;
 
           const launchPower = pTrav ? pTrav.launchPower || 0 : 0;
-          if (isLaunching && launchPower >= 0.375) {
+          if (isLaunching && launchPower >= 0.555) {
             const dx = trans.x - pTrans.x;
             const dy = trans.y - pTrans.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;

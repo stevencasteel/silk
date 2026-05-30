@@ -7,7 +7,8 @@ import {
   ProjectileComponent,
   HitboxComponent,
   HurtboxComponent,
-  CollisionResponseComponent
+  CollisionResponseComponent,
+  HealthBugComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -78,7 +79,14 @@ export class CollisionResolutionSystem implements ISystem {
         const hazardTrans = transforms.get(resId);
         if (playerTrans && hazardTrans) {
           const dist = getDistance2D(playerTrans.x, playerTrans.y, hazardTrans.x, hazardTrans.y);
-          const combinedRadius = 2.4;
+          
+          let combinedRadius = 2.4;
+          const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+          const hBug = hBugStore ? hBugStore.get(resId) : undefined;
+          if (hBug && hBug.variant !== "NORMAL" && !hBug.spikesDisarmed) {
+            combinedRadius = 3.4;
+          }
+          
           if (dist < combinedRadius) {
             response.onOverlap(this.context.refs.player, this.context);
           }

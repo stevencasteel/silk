@@ -68,7 +68,11 @@ SILK starts in the vertical portrait arena immediately without title screens.
   3. LAUNCHING (PlayerLaunchingState): Integrates high-speed sling release 
      forces, launch damping, and checks limit boundaries.
 
-- THE TETHER AS A ONE-WAY RATCHET:
+- THE TETHER AS A ONE-WAY RATCHET & MANUAL REELING:
+  1. Elongation: The maximum length of the rope can only increase while wall sliding.
+  2. Instant Reeling: Reeling slack updates maxLength immediately.
+  3. Strict Fall Clamp: Momentum converts cleanly into a pendulum arc when arrested.
+  4. Manual Reel-In: Pressing UP (W / ArrowUp) manually reels in the tether, immediately decreasing its maxLength and desiredLength to climb surfaces or pull the player up.
   1. Elongation: The maximum length of the rope can only increase while wall sliding.
   2. Instant Reeling: Reeling slack updates maxLength immediately.
   3. Strict Fall Clamp: Momentum converts cleanly into a pendulum arc when arrested.
@@ -77,7 +81,7 @@ SILK starts in the vertical portrait arena immediately without title screens.
   * Elastic Tautness: Passive wall-slide tension is removed. Tension is calculated 
     purely based on physical stretch: Tautness = currentLength / maxLength.
   * Tautness Threshold: Tension begins building once Tautness exceeds 85%, scaling 
-    up to 1.0 (and 1.3 under extreme overload).
+    up to 1.0 (and 1.3 under extreme overload). Tension building is strictly constrained to the WALL_STICKING state, and decays rapidly in mid-air swings.
   * Progress-Linked Tension Cap: The maximum achievable tension is capped 
     proportionally to the current reeled-out progress: (maxLength - 7.0) / (38.0 - 7.0).
   * Safe Spawn dangling: At starting unreeled spawn length (maxLength = 12.0), 

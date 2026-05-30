@@ -64,7 +64,7 @@ export const ARENA_CONFIG = {
   },
   TETHER: {
     MAX_LENGTH: 24.0,
-    INITIAL_LENGTH: 12.0
+    INITIAL_LENGTH: 10.8
   },
   SCROLL_SPEED: {
     BASE: 6.75,
@@ -121,7 +121,7 @@ export const GAMEPLAY_TUNING = {
     SPIKE_KNOCKBACK_Y: 8.0
   },
   REEL: {
-    MIN_LENGTH: 7.0,
+    MIN_LENGTH: 10.8,
     MAX_LENGTH: 38.0,
     IN_SPEED: 10.0,
     OUT_SPEED: 14.0,
@@ -130,7 +130,7 @@ export const GAMEPLAY_TUNING = {
     REEL_IN_TENSION_RATE: 0.35,
     REEL_OUT_TENSION_RELIEF: 0.55,
     WALL_SLIDE_PASSIVE_TENSION_RATE: 0.40,
-    SWEET_SPOT_MIN: 0.375,
+    SWEET_SPOT_MIN: 0.555,
     SWEET_SPOT_MAX: 0.80
   }
 } as const;

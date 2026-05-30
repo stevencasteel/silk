@@ -516,7 +516,7 @@ export class HealthBugSystem implements ISystem {
     }
 
     // STAGE 2 (Active Fling): 0.375 <= Tension / launchPower < 0.80
-    if (isLaunching && launchPower >= 0.375) {
+    if (isLaunching && launchPower >= 0.555) {
       if (hitSpikes) {
         this.popBug(bugId);
       } else {

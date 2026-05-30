@@ -3,7 +3,9 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   TetherComponent,
-  TraversalStateComponent
+  TraversalStateComponent,
+  InputIntentComponent,
+  KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
@@ -25,34 +27,54 @@ export class TetherReelingSystem implements ISystem {
 
     tether.reelHeat = Math.max(0.0, tether.reelHeat - dt * 0.8);
 
-    const AUTO_SLACK_MARGIN = 0.5;
-    if (!isWebTrapped) {
-      tether.desiredLength = Math.min(
-        tether.desiredLength,
-        tether.currentLength + AUTO_SLACK_MARGIN
-      );
-    }
-    tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
+    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
 
-    if (tether.maxLength > tether.desiredLength) {
-      // Reeling IN (Slack takeup)
-      const resistance = Math.max(0.1, 1.0 - tether.tension);
-      const easeSpeed = reelConfig.IN_SPEED * resistance;
-      const maxDelta = easeSpeed * dt;
-      if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
-        tether.maxLength = tether.desiredLength;
-      } else {
-        tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
-      }
-      tether.reelVelocity = -easeSpeed;
-    } else if (tether.maxLength < tether.desiredLength) {
-      // Reeling OUT
-      const rate = 16.0;
-      const lerpFactor = 1.0 - Math.exp(-dt * rate);
-      tether.maxLength += (tether.desiredLength - tether.maxLength) * lerpFactor;
-      tether.reelVelocity = (tether.desiredLength - tether.maxLength) * rate;
+    // Manual Reel-In by pressing Up (W / ArrowUp)
+    const isPressingUp = input && input.y > 0;
+
+    if (isPressingUp && !isWebTrapped && target) {
+      const manualInSpeed = 16.0; // Responsive manual climb and reel rate
+      const minPossibleLength = Math.max(
+        reelConfig.MIN_LENGTH,
+        Math.abs(target.x - tether.anchorX) + 0.5
+      );
+
+      tether.desiredLength = Math.max(minPossibleLength, tether.desiredLength - manualInSpeed * dt);
+      tether.maxLength = Math.max(minPossibleLength, tether.maxLength - manualInSpeed * dt);
+      tether.reelVelocity = -manualInSpeed;
+      tether.reelHeat = Math.min(5.0, tether.reelHeat + dt * 3.5); // Increase wire glow on manual reel
     } else {
-      tether.reelVelocity = 0;
+      // Standard auto-slack takeup and reeling logic
+      const AUTO_SLACK_MARGIN = 0.5;
+      if (!isWebTrapped) {
+        tether.desiredLength = Math.min(
+          tether.desiredLength,
+          tether.currentLength + AUTO_SLACK_MARGIN
+        );
+      }
+      tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
+
+      if (tether.maxLength > tether.desiredLength) {
+        // Reeling IN (Slack takeup)
+        const resistance = Math.max(0.1, 1.0 - tether.tension);
+        const easeSpeed = reelConfig.IN_SPEED * resistance;
+        const maxDelta = easeSpeed * dt;
+        if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
+          tether.maxLength = tether.desiredLength;
+        } else {
+          tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
+        }
+        tether.reelVelocity = -easeSpeed;
+      } else if (tether.maxLength < tether.desiredLength) {
+        // Reeling OUT
+        const rate = 16.0;
+        const lerpFactor = 1.0 - Math.exp(-dt * rate);
+        tether.maxLength += (tether.desiredLength - tether.maxLength) * lerpFactor;
+        tether.reelVelocity = (tether.desiredLength - tether.maxLength) * rate;
+      } else {
+        tether.reelVelocity = 0;
+      }
     }
   }
 }
