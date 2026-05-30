@@ -6,7 +6,7 @@ import { TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Comp
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
-  readonly phase = SystemPhase.Kinematics;
+  readonly phase = SystemPhase.RenderSync;
 
   private readonly _targetQuat = new BABYLON.Quaternion();
 

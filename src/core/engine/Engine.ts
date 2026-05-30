@@ -113,7 +113,7 @@ export class Engine {
 
     EngineTime.update(dt);
     const isHitStop = EngineTime.isHitStop;
-    const scaledDt = dt * EngineTime.timeScale;
+    const scaledDt = dt * EngineTime.activeTimeScale;
 
     this.systemManager.updateAll(scaledDt, isHitStop);
   }

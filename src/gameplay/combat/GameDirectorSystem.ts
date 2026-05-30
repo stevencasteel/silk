@@ -98,14 +98,24 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
         if (!payload.isWall) {
-          EngineTime.hitStopTimer = 0.04;
+          EngineTime.hitLagTimer = 0.15;
+          EngineTime.hitLagScale = 0.15;
         }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
+        EngineTime.hitLagTimer = 0.18;
+        EngineTime.hitLagScale = 0.20;
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         EngineTime.hitStopTimer = 0;
+        EngineTime.hitLagTimer = 0;
+        EngineTime.hitLagScale = 1.0;
       })
     );
 
