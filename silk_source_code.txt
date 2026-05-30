@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/29/2026, 9:29:39 PM
+ [SYSTEM] Generated: 5/30/2026, 4:00:40 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2871,6 +2871,7 @@ export interface TraversalStateComponent {
   isWebTrapped?: boolean;
   escapeProgress?: number;
   escapeRequired?: number;
+  recoilTimer?: number;
   lastEscapeDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | "";
   hasFlingBonus?: boolean;
   safeLaunchTimer?: number;
@@ -5727,6 +5728,14 @@ export class ProjectileSystem implements ISystem {
                 pVel.y += pushY * kickbackSpeed;
               }
 
+              if (pTrav) {
+                pTrav.recoilTimer = 0.25;
+              }
+
+              pTrans.scaleVelX = -8.0;
+              pTrans.scaleVelY = 16.0;
+              pTrans.scaleVelZ = -8.0;
+
               if (pTrav && pTrav.state === "WALL_STICKING") {
                 const pushDistance = 4.0; // Kinetic vertical wall sliding shift
                 const verticalShift = pushY * pushDistance;
@@ -8026,6 +8035,20 @@ export class PlayerKinematicsSystem implements ISystem {
       trav.safeLaunchTimer = Math.max(0, trav.safeLaunchTimer - dt);
     }
 
+    if (trav.recoilTimer !== undefined && trav.recoilTimer > 0) {
+      trav.recoilTimer = Math.max(0, trav.recoilTimer - dt);
+
+      const knockbackFriction = 35.0;
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      if (speed > 0.01) {
+        const decel = knockbackFriction * dt;
+        const newSpeed = Math.max(0, speed - decel);
+        const scale = newSpeed / speed;
+        vel.x *= scale;
+        vel.y *= scale;
+      }
+    }
+
     const stateObj = this.states.get(trav.state);
     if (stateObj) {
       const nextState = stateObj.update(this.context, dt);
@@ -8847,6 +8870,7 @@ export class PlayerAirborneState implements IPlayerState {
     const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
+    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -8874,7 +8898,7 @@ export class PlayerAirborneState implements IPlayerState {
     }
 
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt;
-    vel.x += input.x * tuning.SWING_STEER_FORCE * trappedDamping * dt;
+    vel.x += input.x * tuning.SWING_STEER_FORCE * trappedDamping * recoilFactor * dt;
 
     if (input.y > 0 && tether.isAttached) {
       const dxVal = tether.anchorX - target.x;
@@ -8988,6 +9012,7 @@ export class PlayerLaunchingState implements IPlayerState {
     const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
+    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -9010,7 +9035,7 @@ export class PlayerLaunchingState implements IPlayerState {
     }
 
     trav.launchTimer -= dt;
-    vel.x += input.x * tuning.LAUNCH_STEER_FORCE * trappedDamping * dt;
+    vel.x += input.x * tuning.LAUNCH_STEER_FORCE * trappedDamping * recoilFactor * dt;
     vel.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * tuning.LAUNCH_GRAVITY_MULT * dt;
 
     const damp = Math.pow(tuning.DRAG_DAMPING, dt * CANONICAL_UNITS.TEMPORAL.LEGACY_FPS_BASIS);
@@ -9665,7 +9690,8 @@ export class PlayerWallStickingState implements IPlayerState {
 
     const stillPressingIn = input.x === trav.wallDir;
     const webMass = trav.webMass || 1;
-    const controlFactor = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
+    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
+    const controlFactor = (isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0) * recoilFactor;
 
     if (!stillPressingIn && !isTrapped) {
       PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
