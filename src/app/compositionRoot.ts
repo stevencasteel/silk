@@ -33,7 +33,9 @@ import {
   HitboxComponent,
   HurtboxComponent,
   ParticleRequestComponent,
-  BoundaryConstraintComponent
+  BoundaryConstraintComponent,
+  HealthBugComponent,
+  HealthBugTag
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -64,6 +66,7 @@ import { TetherReelingSystem } from "../gameplay/player/TetherReelingSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
+import { HealthBugSystem } from "../gameplay/player/HealthBugSystem";
 import { TutorialSystem } from "../gameplay/player/TutorialSystem";
 import { TetherStrainSystem } from "../gameplay/player/TetherStrainSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
@@ -111,6 +114,8 @@ export class CompositionRoot {
     const hurtboxes = new ComponentStore<HurtboxComponent>();
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
     const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
+    const healthBugs = new ComponentStore<HealthBugComponent>();
+    const healthBugTags = new ComponentStore<HealthBugTag>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -153,6 +158,8 @@ export class CompositionRoot {
     registerStore("weaverTag", weaverTags);
     registerStore("particleRequest", particleRequests);
     registerStore("boundaryConstraint", boundaryConstraints);
+    registerStore("healthBug", healthBugs);
+    registerStore("healthBugTag", healthBugTags);
 
     const visualRegistry = new VisualRegistry();
 
@@ -187,6 +194,7 @@ export class CompositionRoot {
     const environmentCollision = new VerticalBoundarySystem(context);
     const strainCollision = new TetherStrainSystem(context);
     const wallBugSystem = new WallBugSystem(context);
+    const healthBugSystem = new HealthBugSystem(context);
     const tutorialSystem = new TutorialSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
@@ -232,6 +240,7 @@ export class CompositionRoot {
     systemManager.register(environmentCollision);
     systemManager.register(strainCollision);
     systemManager.register(wallBugSystem);
+    systemManager.register(healthBugSystem);
     systemManager.register(tutorialSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);

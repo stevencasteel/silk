@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 12:55:59 PM
+ [SYSTEM] Generated: 5/30/2026, 1:47:57 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -98,6 +98,7 @@
 │   │   │   │   ├── PlayerStateHints.ts
 │   │   │   │   ├── PlayerStateUtils.ts
 │   │   │   │   └── PlayerWallStickingState.ts
+│   │   │   ├── HealthBugSystem.ts
 │   │   │   ├── IPlayerState.ts
 │   │   │   ├── PlayerAnimationSystem.ts
 │   │   │   ├── PlayerInputSystem.ts
@@ -151,6 +152,7 @@
 │   │   │   └── RasterShearPlugin.ts
 │   │   ├── mesh/
 │   │   │   ├── ArenaGeometry.ts
+│   │   │   ├── HealthBugVisualFactory.ts
 │   │   │   ├── PlayerSilkVisualFactory.ts
 │   │   │   ├── WallBugVisualFactory.ts
 │   │   │   └── WeaverVisualFactory.ts
@@ -391,7 +393,7 @@ protocol based on scope:
 ===============================================================================
 SILK — MASTER ENGINEERING + ARCHITECTURE DOCUMENT
 Vertical Slice / Production Framework
-Version: 1.7 (Spiked Wall-Bugs & Console-Grade Color Grammar)
+Version: 1.8 (Flying Health Bugs & Multi-Stage Web Interactions)
 Target Stack: React 19 + TypeScript 6 + Vite + Tone.js
 Engine: Babylon.js (v7.47.0+) + Havok Physics V2 (v1.3.12+)
 Architecture: Strict Custom ECS (Entity Component System)
@@ -531,6 +533,7 @@ To deliver consistent visual hierarchy, color acts as a direct indicator:
   high-intensity white core, and perfect releases trigger brief white flashes.
 - Deep Imperial Purple: The resting carapace of the Weaver.
 - Saturated Black: Defeated or inert matter.
+- Healing Green: Positive restoration elements, active recovery state, and seeking health particles.
 
 ===============================================================================
 5. AUDIO-VISUAL JUICE & SPECTACLE
@@ -561,6 +564,69 @@ To deliver consistent visual hierarchy, color acts as a direct indicator:
     interpolated smoothly by EntityInterpolationSystem.
   * Materials: PBR materials with screen-space Bloom mapping and customized 
     displacement/warp shader plugins (WarpMaterialPlugin, ProjectileNoisePlugin).
+
+===============================================================================
+6. THE FLYING HEALTH BUG SYSTEM & COCOON INTERACTIONS
+===============================================================================
+- DYNAMIC SPATIAL LIFECYCLE:
+  * Flying minions (Health Bugs) spawn from the bottom of the corridor with a 
+    high frequency (testing interval: 1.5s) and fly vertically upwards.
+  * Upon reaching the middle of the playable viewport, they pause for 3 to 6 
+    seconds, then continue their ascent out of bounds.
+  * If the Health Bug is displaced by player interactions but survives, it enters 
+    a RECOVERING state, dampening its velocity and interpolating back to its 
+    baseline trajectory coordinates to complete its path and despawn.
+
+- PROCEDURAL SPHERICAL CHARACTER DESIGN:
+  * Glass Body: Built around a transparent, bulbous 3D glass sphere.
+  * Rotating Accents: Two procedural rotor fins oscillate continuously above 
+    the shell, spinning in direct proportion to current velocity.
+  * Color Gradient Cores: 
+    * Normal variant: Vibrant solid green core inside the glass.
+    * Spiked variants (TOP, RIGHT, BOTTOM, LEFT): Sharp conical spikes point in 
+      the designated direction. The inner core renders a linear gradient on a 
+      DynamicTexture, shifting from green on the safe side to red on the 
+      spiked side.
+
+- PROJECTILE OVERLAPS & THE CARRIED STATE:
+  * If a Weaver web projectile hits a Health Bug, it carries the bug along its 
+    flight vector (assigning its velocity and offset positions).
+  * While being carried, if either entity collides with an elevator wall or an 
+    active Wall Bug, they stick instantly, transforming the Health Bug into a 
+    static platform.
+  * If the carried Health Bug does not collide with a side surface, it continues 
+    safely down the center of the shaft, eventually despawning off-screen.
+
+- WEB-INSULATION & SAFE CLINGING:
+  * If the player is cocooned (isWebTrapped === true) OR if the Health Bug is 
+    coated in web-shot, the spiked hazard collision is neutralized. All spike 
+    damage is bypassed, allowing safe physical contact.
+  * Web-coated bugs or web-trapped players activate a StickySurfaceComponent 
+    on the Health Bug. The player can voluntarily cling to the Health Bug's 
+    sides as if it were a sticky wall, sliding or charging tension on it.
+
+- MULTI-STAGE INERTIAL FORCE IMPACTS:
+  * Stage 0 (Airborne/Dangling, launchPower < 0.375): Standard elastic overlap. 
+    Pressing lateral inputs into the bug gently shoves/steers its coordinates.
+  * Stage 1 (Medium Force, 0.375 <= launchPower < 0.80): High-momentum shove. 
+    Bounces harmlessly off the Weaver unless it is a spiked variant, which pops 
+    the bug and damages the Weaver. Pops immediately if shoved into Wall Bug spikes.
+  * Stage 2 (High Force/Fling, launchPower >= 0.80): Activates pinball mode. 
+    The bug bounces erratically off walls with micro-hitstops and heavy screen 
+    shaking. Pops on contact with the Weaver (doing standard damage; extra 
+    damage if spiked) or if it hits Wall Bug spikes. Can also pop stuck web-covered 
+    bugs with Stage 2+ force.
+  * Stage 3 (Overloaded Tension, tension >= 0.95): Instant popping on impact 
+    due to extreme kinetic energy, unless the player impacts the spiked side 
+    directly. Direct spike impact triggers normal player knockback, while the 
+    Health Bug stays alive and spins rapidly in place.
+
+- PROCEDURAL HEALING RESOLUTION:
+  * Popping a Health Bug triggers visual game juice: a burst of green particles 
+    is generated in world space.
+  * These particles seek the precise world coordinate corresponding to the HUD 
+    bezel's HP LED display at (-12.5, 25.5, 0).
+  * On arrival, they heal 1 HP slot (only if player is at < max integrity).
 
 ===============================================================================
 END OF DOCUMENT
@@ -1204,7 +1270,9 @@ import {
   HitboxComponent,
   HurtboxComponent,
   ParticleRequestComponent,
-  BoundaryConstraintComponent
+  BoundaryConstraintComponent,
+  HealthBugComponent,
+  HealthBugTag
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -1235,6 +1303,7 @@ import { TetherReelingSystem } from "../gameplay/player/TetherReelingSystem";
 import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem";
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
+import { HealthBugSystem } from "../gameplay/player/HealthBugSystem";
 import { TutorialSystem } from "../gameplay/player/TutorialSystem";
 import { TetherStrainSystem } from "../gameplay/player/TetherStrainSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
@@ -1282,6 +1351,8 @@ export class CompositionRoot {
     const hurtboxes = new ComponentStore<HurtboxComponent>();
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
     const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
+    const healthBugs = new ComponentStore<HealthBugComponent>();
+    const healthBugTags = new ComponentStore<HealthBugTag>();
 
     const playerTags = new ComponentStore<PlayerTag>();
     const weaverTags = new ComponentStore<WeaverTag>();
@@ -1324,6 +1395,8 @@ export class CompositionRoot {
     registerStore("weaverTag", weaverTags);
     registerStore("particleRequest", particleRequests);
     registerStore("boundaryConstraint", boundaryConstraints);
+    registerStore("healthBug", healthBugs);
+    registerStore("healthBugTag", healthBugTags);
 
     const visualRegistry = new VisualRegistry();
 
@@ -1358,6 +1431,7 @@ export class CompositionRoot {
     const environmentCollision = new VerticalBoundarySystem(context);
     const strainCollision = new TetherStrainSystem(context);
     const wallBugSystem = new WallBugSystem(context);
+    const healthBugSystem = new HealthBugSystem(context);
     const tutorialSystem = new TutorialSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
@@ -1403,6 +1477,7 @@ export class CompositionRoot {
     systemManager.register(environmentCollision);
     systemManager.register(strainCollision);
     systemManager.register(wallBugSystem);
+    systemManager.register(healthBugSystem);
     systemManager.register(tutorialSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
@@ -3026,6 +3101,38 @@ export interface BoundaryConstraintComponent {
   limitX: number;
   layer: "PLAYER" | "PROJECTILE";
   onBoundaryHit?: (id: number, side: "LEFT" | "RIGHT", currentX: number) => void;
+}
+
+
+export type HealthBugState = "FLYING_UP" | "PAUSED" | "CONTINUING" | "SHOVED" | "PINBALL" | "SPINNING" | "RECOVERING" | "DEAD";
+export type HealthBugVariant = "NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT";
+
+export interface HealthBugComponent {
+  state: HealthBugState;
+  variant: HealthBugVariant;
+  timer: number;
+  pauseDuration: number;
+  x: number;
+  y: number;
+  preInfluenceX: number;
+  preInfluenceY: number;
+  preInfluenceState: HealthBugState;
+  isPlayerAttached: boolean;
+  spinTimer: number;
+  isWebTrapped: boolean;          // Covered in web-shot
+  stuckToProjectileId?: number;   // ID of carrying web-shot
+  isStuckOnWall: boolean;
+  isStuckToBug: boolean;
+  stickyEntityId?: number;
+  stickyOffsetX?: number;
+  stickyOffsetY?: number;
+  spikesDisarmed: boolean;
+  rotorAngle: number;
+  pauseThresholdY: number;
+}
+
+export interface HealthBugTag {
+  readonly tag?: "healthBug";
 }
 
 
@@ -5441,6 +5548,7 @@ import {
   InvulnerabilityComponent,
   ParticleRequestComponent,
   WallBugComponent,
+  HealthBugComponent,
   TetherComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
@@ -6130,6 +6238,27 @@ export class ProjectileSystem implements ISystem {
       }
 
       if (!p.isStuck && !p.isTrappingPlayer && !p.isCharging) {
+        // 2.5 Check intersection with Health Bugs to carry them
+        const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+        if (hBugStore) {
+          for (const [hBugId, hBug] of hBugStore.entries()) {
+            if (hBug.isWebTrapped) continue;
+            const hBugTrans = transformStore.get(hBugId);
+            if (!hBugTrans) continue;
+
+            const dx = trans.x - hBugTrans.x;
+            const dy = trans.y - hBugTrans.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const combinedRadius = 0.9 + 2.0; // Recalibrated Health Bug Radius
+
+            if (dist < combinedRadius) {
+              hBug.isWebTrapped = true;
+              hBug.stuckToProjectileId = projId;
+              break;
+            }
+          }
+        }
+
         const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
         if (bugStore) {
           let hitRegistered = false;
@@ -7838,6 +7967,668 @@ export class WeaverShatterSystem implements ISystem {
       this.debrisMat.dispose();
       this.debrisMat = null;
     }
+  }
+}
+
+
+
+● ./src/gameplay/player/HealthBugSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  KinematicVelocityComponent,
+  HealthBugComponent,
+  StickySurfaceComponent,
+  ProjectileComponent,
+  TraversalStateComponent,
+  HealthComponent,
+  CollisionResponseComponent,
+  ParticleRequestComponent
+} from "../../core/ecs/Components";
+import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { GameEvent } from "../../core/events/GameEvents";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { HealthBugVisualFactory } from "../../visual/mesh/HealthBugVisualFactory";
+import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
+import * as BABYLON from "@babylonjs/core";
+
+interface PooledBug {
+  entityId: number;
+  rootNode: BABYLON.TransformNode;
+  active: boolean;
+}
+
+export class HealthBugSystem implements ISystem {
+  readonly phase = SystemPhase.Gameplay;
+  readonly initPhase = InitPhase.Gameplay;
+
+  private spawnTimer = 0.0;
+  private readonly spawnInterval = 1.5; // Testing interval
+  private bugPool: PooledBug[] = [];
+  private readonly POOL_SIZE = 2;
+
+  private laneBag: number[] = [];
+  private readonly LANES = [-5.0, -3.0, -1.0, 0.0, 1.0, 3.0, 5.0];
+  private lastSelectedLaneIndex = -1;
+  private lastSpawnedX = -999.0;
+
+  private _tracker = new SubscriptionTracker();
+  private activeHealParticles: { mesh: BABYLON.Mesh; life: number }[] = [];
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      const bugId = this.context.world.create();
+      
+      const rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(bugId, scene, "NORMAL");
+      rootNode.setEnabled(false);
+      rootNode.position.set(0, -999, 0);
+
+      this.context.visualRegistration.registerTransformNode(bugId, rootNode);
+
+      this.bugPool.push({
+        entityId: bugId,
+        rootNode,
+        active: false
+      });
+    }
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.clearAll();
+        this.spawnTimer = 0.0;
+        this.laneBag = [];
+        this.lastSelectedLaneIndex = -1;
+        this.lastSpawnedX = -999.0;
+      })
+    );
+  }
+
+  public update(dt: number): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    this.spawnTimer += dt;
+    const activeCount = this.bugPool.filter((p) => p.active).length;
+
+    if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
+      this.spawnTimer = 0.0;
+      this.spawnBugFromPool();
+    }
+
+    this.updateBugs(dt);
+    this.updateSeekingParticles(dt);
+  }
+
+  private updateBugs(dt: number): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+
+    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const bugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+    const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
+    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+
+    for (let i = 0; i < this.bugPool.length; i++) {
+      const pBug = this.bugPool[i];
+      if (!pBug.active) continue;
+
+      const bug = bugStore.get(pBug.entityId);
+      const trans = transforms.get(pBug.entityId);
+      const vel = velStore.get(pBug.entityId);
+      const sticky = stickyStore.get(pBug.entityId);
+
+      if (!bug || !trans || !vel || !sticky) continue;
+
+      const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      bug.rotorAngle = (bug.rotorAngle + Math.max(2.0, speed * 2.0) * dt) % (Math.PI * 2.0);
+
+      const rotorsNode = pBug.rootNode.getChildren().find((c) => c.name.startsWith("health_bug_rotors"));
+      if (rotorsNode instanceof BABYLON.TransformNode) {
+        rotorsNode.rotation.y = bug.rotorAngle;
+      }
+
+      if (bug.y < cameraY - 32.0 || bug.y > cameraY + 36.0) {
+        this.recycleBug(pBug);
+        continue;
+      }
+
+      if (bug.isWebTrapped && bug.stuckToProjectileId !== undefined) {
+        const projStore = this.context.stores.get<ProjectileComponent>("projectile");
+        const proj = projStore.get(bug.stuckToProjectileId);
+        const projTrans = transforms.get(bug.stuckToProjectileId);
+
+        if (proj && proj.isActive && projTrans) {
+          bug.x = projTrans.x;
+          bug.y = projTrans.y;
+          vel.x = 0;
+          vel.y = 0;
+
+          if (proj.isStuckOnWall || proj.isStuckToBug) {
+            bug.isStuckOnWall = proj.isStuckOnWall;
+            bug.isStuckToBug = !!proj.isStuckToBug;
+            bug.stickyEntityId = proj.stickyEntityId;
+            bug.stickyOffsetX = proj.stickyOffsetX;
+            bug.stickyOffsetY = proj.stickyOffsetY;
+          }
+        } else {
+          bug.isWebTrapped = false;
+          bug.stuckToProjectileId = undefined;
+          bug.state = "RECOVERING";
+        }
+      }
+
+      if (bug.isStuckToBug && bug.stickyEntityId !== undefined) {
+        const parentTrans = transforms.get(bug.stickyEntityId);
+        if (parentTrans) {
+          bug.x = parentTrans.x + (bug.stickyOffsetX || 0);
+          bug.y = parentTrans.y + (bug.stickyOffsetY || 0);
+        } else {
+          this.recycleBug(pBug);
+          continue;
+        }
+      } else if (bug.isStuckOnWall) {
+        bug.y -= currentScrollSpeed * dt;
+      }
+
+      const playerTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+      const isPlayerTrapped = !!(playerTrav && playerTrav.isWebTrapped);
+      const isWebShieldActive = bug.isWebTrapped || isPlayerTrapped;
+
+      sticky.isActive = isWebShieldActive;
+
+      if (!bug.isWebTrapped && !bug.isStuckOnWall && !bug.isStuckToBug) {
+        switch (bug.state) {
+          case "FLYING_UP":
+            vel.x = 0;
+            vel.y = 4.5;
+            bug.y += vel.y * dt;
+
+            if (bug.y >= bug.pauseThresholdY) {
+              bug.state = "PAUSED";
+              bug.timer = 0.0;
+              bug.pauseDuration = 3.0 + Math.random() * 3.0;
+            }
+            break;
+
+          case "PAUSED": {
+            vel.x = 0;
+            vel.y = 0; // Holds absolute world position completely static relative to fixed camera view
+            bug.timer += dt;
+
+            if (bug.timer >= bug.pauseDuration) {
+              bug.state = "CONTINUING";
+            }
+            break;
+          }
+
+          case "CONTINUING":
+            vel.x = 0;
+            vel.y = 6.2;
+            bug.y += vel.y * dt;
+            break;
+
+          case "SHOVED":
+            vel.x *= Math.pow(0.92, dt * 60.0);
+            vel.y *= Math.pow(0.92, dt * 60.0);
+            bug.x += vel.x * dt;
+            bug.y += vel.y * dt;
+
+            if (Math.abs(vel.x) + Math.abs(vel.y) < 1.5) {
+              bug.state = "RECOVERING";
+              bug.timer = 0.0;
+            }
+            break;
+
+          case "PINBALL": {
+            vel.x *= Math.pow(0.98, dt * 60.0);
+            vel.y *= Math.pow(0.98, dt * 60.0);
+            bug.x += vel.x * dt;
+            bug.y += vel.y * dt;
+
+            const limitX = ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 2.0;
+            if (bug.x < -limitX) {
+              bug.x = -limitX;
+              vel.x *= -0.85;
+              this.triggerPinballShake(0.5);
+            } else if (bug.x > limitX) {
+              bug.x = limitX;
+              vel.x *= -0.85;
+              this.triggerPinballShake(0.5);
+            }
+
+            if (Math.abs(vel.x) + Math.abs(vel.y) < 2.0) {
+              bug.state = "RECOVERING";
+              bug.timer = 0.0;
+            }
+            break;
+          }
+
+          case "SPINNING": {
+            bug.timer += dt;
+            const currentAngle = (bug.timer * 25.0) % (Math.PI * 2.0);
+            
+            // Render spin correctly by writing the quaternion directly into the Transform Component
+            const spinQuat = BABYLON.Quaternion.RotationYawPitchRoll(currentAngle, 0, 0);
+            trans.qx = spinQuat.x;
+            trans.qy = spinQuat.y;
+            trans.qz = spinQuat.z;
+            trans.qw = spinQuat.w;
+
+            vel.x = 0;
+            vel.y = -currentScrollSpeed;
+            bug.y += vel.y * dt;
+
+            if (bug.timer >= 1.5) {
+              trans.qx = 0;
+              trans.qy = 0;
+              trans.qz = 0;
+              trans.qw = 1;
+              bug.state = "RECOVERING";
+            }
+            break;
+          }
+
+          case "RECOVERING": {
+            const speedScale = 4.0;
+            const dx = bug.preInfluenceX - bug.x;
+            const dy = bug.preInfluenceY - bug.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 0.25) {
+              bug.x = bug.preInfluenceX;
+              bug.y = bug.preInfluenceY;
+              bug.state = bug.preInfluenceState;
+            } else {
+              vel.x = (dx / distance) * speedScale;
+              vel.y = (dy / distance) * speedScale;
+              bug.x += vel.x * dt;
+              bug.y += vel.y * dt;
+            }
+            break;
+          }
+        }
+      }
+
+      trans.x = bug.x;
+      trans.y = bug.y;
+      pBug.rootNode.position.set(bug.x, bug.y, 1.5);
+    }
+  }
+
+  private spawnBugFromPool(): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    const pBug = this.bugPool.find((p) => !p.active);
+    if (!pBug) return;
+
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+
+    const startY = cameraY - 26.0;
+    const startX = this.getNextLane();
+
+    const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] = [
+      "NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"
+    ];
+    const chosenVariant = variants[Math.floor(Math.random() * variants.length)];
+
+    this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
+    pBug.rootNode.dispose();
+    
+    pBug.rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(pBug.entityId, scene, chosenVariant);
+    this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
+
+    pBug.rootNode.position.set(startX, startY, 1.5);
+    pBug.rootNode.setEnabled(true);
+
+    this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
+      x: startX,
+      y: startY,
+      z: 1.5,
+      qx: 0,
+      qy: 0,
+      qz: 0,
+      qw: 1,
+      prevX: startX,
+      prevY: startY,
+      prevZ: 1.5,
+      prevQx: 0,
+      prevQy: 0,
+      prevQz: 0,
+      prevQw: 1,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      scaleZ: 1.0,
+      prevScaleX: 1.0,
+      prevScaleY: 1.0,
+      prevScaleZ: 1.0
+    });
+
+    const calculatedPauseY = cameraY - 4.0 + Math.random() * 12.0;
+
+    this.context.stores.get<HealthBugComponent>("healthBug").add(pBug.entityId, {
+      state: "FLYING_UP",
+      variant: chosenVariant,
+      timer: 0.0,
+      pauseDuration: 3.0 + Math.random() * 3.0,
+      x: startX,
+      y: startY,
+      preInfluenceX: startX,
+      preInfluenceY: calculatedPauseY + 14.0,
+      preInfluenceState: "CONTINUING",
+      isPlayerAttached: false,
+      spinTimer: 0.0,
+      isWebTrapped: false,
+      isStuckOnWall: false,
+      isStuckToBug: false,
+      spikesDisarmed: false,
+      rotorAngle: 0.0,
+      pauseThresholdY: calculatedPauseY
+    });
+    this.lastSpawnedX = startX;
+
+    this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
+      isActive: false,
+      width: 4.0,
+      height: 4.0,
+      speed: 0.0
+    });
+
+    this.context.stores.get<KinematicVelocityComponent>("velocity").add(pBug.entityId, {
+      x: 0,
+      y: 4.5,
+      z: 0
+    });
+
+    this.context.stores.get<CollisionResponseComponent>("collisionResponse").add(pBug.entityId, {
+      layer: "HAZARD",
+      onOverlap: (otherId, ctx) => {
+        const sysCtx = ctx as SystemContext;
+        this.handlePlayerOverlap(pBug.entityId, otherId, sysCtx);
+      }
+    });
+
+    pBug.active = true;
+  }
+
+  private handlePlayerOverlap(bugId: number, playerId: number, ctx: SystemContext): void {
+    const bug = ctx.stores.get<HealthBugComponent>("healthBug").get(bugId);
+    const pTrans = ctx.stores.get<TransformComponent>("transform").get(playerId);
+    const pTrav = ctx.stores.get<TraversalStateComponent>("traversal").get(playerId);
+    const pVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(playerId);
+
+    if (!bug || !pTrans || !pTrav || !pVel) return;
+
+    const isFlinging = pTrav.state === "LAUNCHING";
+    const launchPower = pTrav.launchPower || 0;
+
+    const isPlayerTrapped = pTrav.isWebTrapped;
+    const isWebShieldActive = bug.isWebTrapped || isPlayerTrapped;
+
+    const hitSpikes = bug.variant !== "NORMAL" && !bug.spikesDisarmed && !isWebShieldActive;
+
+    if (isFlinging && launchPower >= 0.95) {
+      if (hitSpikes) {
+        bug.state = "SPINNING";
+        bug.timer = 0.0;
+
+        const knockbackX = (pTrans.x > bug.x ? 1 : -1) * 20.0;
+        pVel.x = knockbackX;
+        pVel.y = 8.0;
+        pTrav.state = "AIRBORNE";
+
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.85, duration: 0.35 });
+        ctx.broker.publish(GameEvent.UI_SFX_ALARM, undefined);
+      } else {
+        this.popBug(bugId);
+      }
+      return;
+    }
+
+    if (isFlinging && launchPower >= 0.80) {
+      if (hitSpikes) {
+        this.popBug(bugId);
+      } else {
+        bug.state = "PINBALL";
+        const shoveX = (bug.x > pTrans.x ? 1 : -1) * 25.0;
+        const shoveY = 12.0;
+
+        const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+        if (bugVel) {
+          bugVel.x = shoveX;
+          bugVel.y = shoveY;
+        }
+        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.65, duration: 0.3 });
+        ctx.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+      }
+      return;
+    }
+
+    if (isFlinging && launchPower >= 0.375) {
+      if (hitSpikes) {
+        this.popBug(bugId);
+      } else {
+        bug.state = "SHOVED";
+        const shoveX = (bug.x > pTrans.x ? 1 : -1) * 15.0;
+        const shoveY = 8.0;
+
+        const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+        if (bugVel) {
+          bugVel.x = shoveX;
+          bugVel.y = shoveY;
+        }
+        ctx.broker.publish(GameEvent.UI_SFX_TICK, undefined);
+      }
+      return;
+    }
+
+    if (hitSpikes) {
+      ctx.commands.dispatch({
+        type: "DAMAGE_REQUEST",
+        targetId: playerId,
+        amount: 1,
+        source: "HEALTH_BUG_SPIKES",
+        knockbackX: (pTrans.x > bug.x ? 1 : -1) * 16.0,
+        knockbackY: 8.0
+      });
+    } else {
+      bug.state = "SHOVED";
+      const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+      if (bugVel) {
+        bugVel.x = (bug.x > pTrans.x ? 1 : -1) * 6.5;
+        bugVel.y = 2.0;
+      }
+    }
+  }
+
+  public popBug(bugId: number): void {
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const bugTrans = transforms.get(bugId);
+    if (!bugTrans) return;
+
+    const scene = this.context.visualQuery.getScene();
+    if (scene) {
+      const pCount = 8;
+      for (let i = 0; i < pCount; i++) {
+        const pMesh = BABYLON.MeshBuilder.CreateSphere(
+          `heal_particle_${performance.now()}_${i}`,
+          { diameter: 0.16, segments: 4 },
+          scene
+        );
+        pMesh.position.set(bugTrans.x + (Math.random() - 0.5) * 0.5, bugTrans.y + (Math.random() - 0.5) * 0.5, 0);
+        
+        const pMat = new BABYLON.StandardMaterial(`heal_particle_mat_${i}`, scene);
+        pMat.emissiveColor = new BABYLON.Color3(0.1, 0.95, 0.15);
+        pMat.disableLighting = true;
+        pMesh.material = pMat;
+
+        this.activeHealParticles.push({
+          mesh: pMesh,
+          life: 1.0
+        });
+      }
+    }
+
+    const reqId = this.context.world.create();
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      reqStore.add(reqId, {
+        strategy: WEB_SPLAT_STRATEGY,
+        x: bugTrans.x,
+        y: bugTrans.y,
+        z: 0
+      });
+    }
+
+    this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: bugTrans.x, y: bugTrans.y, isWall: false });
+    this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+
+    const poolBug = this.bugPool.find((p) => p.entityId === bugId);
+    if (poolBug) {
+      this.recycleBug(poolBug);
+    }
+  }
+
+  private updateSeekingParticles(dt: number): void {
+    const targetX = -12.5;
+    const targetY = 25.5;
+
+    for (let i = this.activeHealParticles.length - 1; i >= 0; i--) {
+      const p = this.activeHealParticles[i];
+      p.life -= dt;
+
+      const dx = targetX - p.mesh.position.x;
+      const dy = targetY - p.mesh.position.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 0.35 || p.life <= 0) {
+        if (dist < 0.35) {
+          const healthStore = this.context.stores.get<HealthComponent>("health");
+          const pHealth = healthStore.get(this.context.refs.player);
+          if (pHealth && pHealth.current < pHealth.max) {
+            pHealth.current = Math.min(pHealth.max, pHealth.current + 1);
+            this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
+              hp: pHealth.current,
+              maxHp: pHealth.max
+            });
+            this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+          }
+        }
+        p.mesh.dispose();
+        if (p.mesh.material) p.mesh.material.dispose();
+        this.activeHealParticles.splice(i, 1);
+      } else {
+        const speed = 24.0;
+        p.mesh.position.x += (dx / dist) * speed * dt;
+        p.mesh.position.y += (dy / dist) * speed * dt;
+      }
+    }
+  }
+
+  private triggerPinballShake(mult: number): void {
+    this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+      amplitude: 0.4 * mult,
+      duration: 0.25 * mult
+    });
+  }
+
+  private getNextLane(): number {
+    if (this.laneBag.length === 0) {
+      this.refillLaneBag();
+    }
+    
+    // Ensure the new lane X coordinate is at least 4.0 units away from the last spawned X coordinate
+    let attemptIndex = -1;
+    for (let i = this.laneBag.length - 1; i >= 0; i--) {
+      const tempX = this.LANES[this.laneBag[i]];
+      if (this.lastSpawnedX === -999.0 || Math.abs(tempX - this.lastSpawnedX) >= 4.0) {
+        attemptIndex = i;
+        break;
+      }
+    }
+
+    if (attemptIndex !== -1) {
+      const laneIndex = this.laneBag.splice(attemptIndex, 1)[0];
+      this.lastSelectedLaneIndex = laneIndex;
+      return this.LANES[laneIndex];
+    }
+
+    const laneIndex = this.laneBag.pop()!;
+    this.lastSelectedLaneIndex = laneIndex;
+    return this.LANES[laneIndex];
+  }
+
+  private refillLaneBag(): void {
+    const indices = [0, 1, 2, 3, 4, 5, 6];
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = indices[i];
+      indices[i] = indices[j];
+      indices[j] = temp;
+    }
+    if (indices[indices.length - 1] === this.lastSelectedLaneIndex && indices.length > 1) {
+      const temp = indices[indices.length - 1];
+      indices[indices.length - 1] = indices[0];
+      indices[0] = temp;
+    }
+    this.laneBag = indices;
+  }
+
+  private recycleBug(pBug: PooledBug): void {
+    pBug.active = false;
+    pBug.rootNode.setEnabled(false);
+    pBug.rootNode.position.set(0, -999, 0);
+
+    this.context.stores.get<HealthBugComponent>("healthBug").remove(pBug.entityId);
+    this.context.stores.get<StickySurfaceComponent>("stickySurface").remove(pBug.entityId);
+    this.context.stores.get<KinematicVelocityComponent>("velocity").remove(pBug.entityId);
+    this.context.stores.get<CollisionResponseComponent>("collisionResponse").remove(pBug.entityId);
+
+    const trans = this.context.stores.get<TransformComponent>("transform").get(pBug.entityId);
+    if (trans) {
+      trans.x = 0;
+      trans.y = -999;
+      trans.prevX = 0;
+      trans.prevY = -999;
+    }
+  }
+
+  private clearAll(): void {
+    for (let i = 0; i < this.bugPool.length; i++) {
+      this.recycleBug(this.bugPool[i]);
+    }
+    this.spawnTimer = 0.0;
+
+    this.activeHealParticles.forEach((p) => {
+      p.mesh.dispose();
+      if (p.mesh.material) p.mesh.material.dispose();
+    });
+    this.activeHealParticles = [];
+  }
+
+  public dispose(): void {
+    this._tracker.clear();
+    this.clearAll();
+    for (let i = 0; i < this.bugPool.length; i++) {
+      this.context.visualRegistration.unregisterTransformNode(this.bugPool[i].entityId);
+    }
+    this.bugPool = [];
   }
 }
 
@@ -15189,6 +15980,169 @@ export class ArenaGeometry {
       rightTick.position.set(tickX, initialY, 0);
       rightTick.metadata = { type: "scrolling_tick", index: i, initialY: initialY };
     }
+  }
+}
+
+
+
+● ./src/visual/mesh/HealthBugVisualFactory.ts
+────────────────────────────────────────────────────
+import * as BABYLON from "@babylonjs/core";
+import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+
+export class HealthBugVisualFactory {
+  public static buildBugMeshHierarchy(
+    id: number,
+    scene: BABYLON.Scene,
+    variant: "NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT"
+  ): BABYLON.TransformNode {
+    const root = new BABYLON.TransformNode(`health_bug_root_${id}`, scene);
+
+    // 1. Bulbous Glass Outer Shell (Diameter 4.0)
+    const glass = BABYLON.MeshBuilder.CreateSphere(
+      `health_bug_glass_${id}`,
+      { diameter: 4.0, segments: 16 },
+      scene
+    );
+    
+    const glassMat = new BABYLON.PBRMaterial(`health_bug_glass_mat_${id}`, scene);
+    glassMat.metallic = 0.1;
+    glassMat.roughness = 0.05;
+    glassMat.alpha = 0.32;
+    glassMat.transparencyMode = BABYLON.PBRMaterial.PBRMATERIAL_ALPHABLEND;
+    glassMat.albedoColor = new BABYLON.Color3(0.9, 0.95, 1.0);
+    glassMat.clearCoat.isEnabled = true;
+    glassMat.clearCoat.intensity = 1.0;
+    glassMat.clearCoat.roughness = 0.02;
+    glass.material = glassMat;
+    glass.parent = root;
+
+    // 2. Inner Glowing Core with Sharp Split Color Grammar
+    const core = BABYLON.MeshBuilder.CreateSphere(
+      `health_bug_core_${id}`,
+      { diameter: 2.5, segments: 12 },
+      scene
+    );
+    core.parent = root;
+
+    const coreMat = new BABYLON.PBRMaterial(`health_bug_core_mat_${id}`, scene);
+    coreMat.roughness = 0.15;
+    coreMat.metallic = 0.02;
+
+    const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
+    const greenColor = { r: 0.1, g: 0.95, b: 0.15 };
+
+    const redStyle = `rgb(${Math.floor(spikeColor.r * 255)}, ${Math.floor(spikeColor.g * 255)}, ${Math.floor(spikeColor.b * 255)})`;
+    const greenStyle = `rgb(${Math.floor(greenColor.r * 255)}, ${Math.floor(greenColor.g * 255)}, ${Math.floor(greenColor.b * 255)})`;
+
+    if (variant === "NORMAL") {
+      coreMat.albedoColor = new BABYLON.Color3(greenColor.r, greenColor.g, greenColor.b);
+      coreMat.emissiveColor = new BABYLON.Color3(greenColor.r * 1.5, greenColor.g * 1.5, greenColor.b * 1.5);
+    } else {
+      const res = 128;
+      const dynTex = new BABYLON.DynamicTexture(`health_bug_core_tex_${id}`, res, scene, true);
+      const ctx = dynTex.getContext() as unknown as CanvasRenderingContext2D;
+
+      // Draw standard top-half Red, bottom-half Green texture split
+      ctx.fillStyle = redStyle;
+      ctx.fillRect(0, 0, res, res / 2);
+      ctx.fillStyle = greenStyle;
+      ctx.fillRect(0, res / 2, res, res / 2);
+      dynTex.update();
+
+      coreMat.albedoTexture = dynTex;
+      coreMat.emissiveTexture = dynTex;
+      coreMat.emissiveColor = new BABYLON.Color3(1.3, 1.3, 1.3);
+
+      // Set rotation strictly using Quaternion to ensure the pipeline respects the alignment
+      if (variant === "SPIKED_TOP") {
+        core.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, Math.PI);
+      } else if (variant === "SPIKED_BOTTOM") {
+        core.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, 0);
+      } else if (variant === "SPIKED_LEFT") {
+        core.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, -Math.PI / 2);
+      } else if (variant === "SPIKED_RIGHT") {
+        core.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, Math.PI / 2);
+      }
+    }
+    core.material = coreMat;
+
+    // 3. Rotor Fin Assembly
+    const rotorRoot = new BABYLON.TransformNode(`health_bug_rotors_${id}`, scene);
+    rotorRoot.position.set(0, 2.2, 0);
+    rotorRoot.parent = root;
+
+    const stem = BABYLON.MeshBuilder.CreateCylinder(
+      `rotor_stem_${id}`,
+      { height: 0.55, diameter: 0.2 },
+      scene
+    );
+    stem.position.set(0, -0.25, 0);
+    
+    const metalMat = new BABYLON.PBRMaterial(`health_bug_metal_mat_${id}`, scene);
+    metalMat.metallic = 0.95;
+    metalMat.roughness = 0.15;
+    metalMat.albedoColor = new BABYLON.Color3(0.5, 0.53, 0.58);
+    stem.material = metalMat;
+    stem.parent = rotorRoot;
+
+    const blade1 = BABYLON.MeshBuilder.CreateBox(
+      `blade1_${id}`,
+      { width: 3.25, height: 0.05, depth: 0.375 },
+      scene
+    );
+    blade1.material = metalMat;
+    blade1.parent = rotorRoot;
+
+    const blade2 = BABYLON.MeshBuilder.CreateBox(
+      `blade2_${id}`,
+      { width: 0.375, height: 0.05, depth: 3.25 },
+      scene
+    );
+    blade2.material = metalMat;
+    blade2.parent = rotorRoot;
+
+    // 4. Large Obvious Spikes covering a full 180-degree semicircle (11 Spikes, zero gaps)
+    if (variant !== "NORMAL") {
+      const spikeMat = new BABYLON.StandardMaterial(`health_bug_spike_mat_${id}`, scene);
+      spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
+      spikeMat.disableLighting = true;
+
+      const spikeContainer = new BABYLON.TransformNode(`spikes_container_${id}`, scene);
+      spikeContainer.parent = root;
+
+      const spikeCount = 11;
+      for (let s = 0; s < spikeCount; s++) {
+        // Evenly distribute from -PI/2 to +PI/2
+        const theta = -Math.PI / 2 + (s / (spikeCount - 1)) * Math.PI;
+
+        const spike = BABYLON.MeshBuilder.CreateCylinder(
+          `spike_${id}_${s}`,
+          { height: 1.8, diameterTop: 0.0, diameterBottom: 0.75, tessellation: 6 },
+          scene
+        );
+        spike.material = spikeMat;
+        spike.parent = spikeContainer;
+
+        const baseDist = 2.1;
+
+        if (variant === "SPIKED_TOP") {
+          spike.position.set(Math.sin(theta) * baseDist, Math.cos(theta) * baseDist, 0);
+          spike.rotation.z = -theta;
+        } else if (variant === "SPIKED_BOTTOM") {
+          spike.position.set(Math.sin(theta) * baseDist, -Math.cos(theta) * baseDist, 0);
+          spike.rotation.z = Math.PI + theta;
+        } else if (variant === "SPIKED_LEFT") {
+          spike.position.set(-Math.cos(theta) * baseDist, Math.sin(theta) * baseDist, 0);
+          spike.rotation.z = Math.PI / 2 - theta;
+        } else if (variant === "SPIKED_RIGHT") {
+          spike.position.set(Math.cos(theta) * baseDist, Math.sin(theta) * baseDist, 0);
+          spike.rotation.z = -Math.PI / 2 + theta;
+        }
+      }
+    }
+
+    return root;
   }
 }
 

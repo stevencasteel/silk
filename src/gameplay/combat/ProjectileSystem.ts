@@ -17,6 +17,7 @@ import {
   InvulnerabilityComponent,
   ParticleRequestComponent,
   WallBugComponent,
+  HealthBugComponent,
   TetherComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
@@ -706,6 +707,27 @@ export class ProjectileSystem implements ISystem {
       }
 
       if (!p.isStuck && !p.isTrappingPlayer && !p.isCharging) {
+        // 2.5 Check intersection with Health Bugs to carry them
+        const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+        if (hBugStore) {
+          for (const [hBugId, hBug] of hBugStore.entries()) {
+            if (hBug.isWebTrapped) continue;
+            const hBugTrans = transformStore.get(hBugId);
+            if (!hBugTrans) continue;
+
+            const dx = trans.x - hBugTrans.x;
+            const dy = trans.y - hBugTrans.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const combinedRadius = 0.9 + 2.0; // Recalibrated Health Bug Radius
+
+            if (dist < combinedRadius) {
+              hBug.isWebTrapped = true;
+              hBug.stuckToProjectileId = projId;
+              break;
+            }
+          }
+        }
+
         const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
         if (bugStore) {
           let hitRegistered = false;

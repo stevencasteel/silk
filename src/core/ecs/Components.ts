@@ -264,3 +264,35 @@ export interface BoundaryConstraintComponent {
   layer: "PLAYER" | "PROJECTILE";
   onBoundaryHit?: (id: number, side: "LEFT" | "RIGHT", currentX: number) => void;
 }
+
+
+export type HealthBugState = "FLYING_UP" | "PAUSED" | "CONTINUING" | "SHOVED" | "PINBALL" | "SPINNING" | "RECOVERING" | "DEAD";
+export type HealthBugVariant = "NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT";
+
+export interface HealthBugComponent {
+  state: HealthBugState;
+  variant: HealthBugVariant;
+  timer: number;
+  pauseDuration: number;
+  x: number;
+  y: number;
+  preInfluenceX: number;
+  preInfluenceY: number;
+  preInfluenceState: HealthBugState;
+  isPlayerAttached: boolean;
+  spinTimer: number;
+  isWebTrapped: boolean;          // Covered in web-shot
+  stuckToProjectileId?: number;   // ID of carrying web-shot
+  isStuckOnWall: boolean;
+  isStuckToBug: boolean;
+  stickyEntityId?: number;
+  stickyOffsetX?: number;
+  stickyOffsetY?: number;
+  spikesDisarmed: boolean;
+  rotorAngle: number;
+  pauseThresholdY: number;
+}
+
+export interface HealthBugTag {
+  readonly tag?: "healthBug";
+}
