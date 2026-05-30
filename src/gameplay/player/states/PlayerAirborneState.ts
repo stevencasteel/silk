@@ -56,7 +56,7 @@ export class PlayerAirborneState implements IPlayerState {
 
       const rotDx = tether.anchorX - target.x;
       const rotDy = tether.anchorY - target.y;
-      cosmetic.rotationAngle = rotDx !== 0 || rotDy !== 1 ? -Math.atan2(rotDx, rotDy) : 0;
+      cosmetic.rotationAngle = (rotDx !== 0 || rotDy !== 0) ? -Math.atan2(rotDx, rotDy) : 0;
       cosmetic.slerpFactor = tuning.SLERP_FACTOR;
 
       cosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;
