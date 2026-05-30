@@ -48,8 +48,8 @@ export class PlayerLaunchingState implements IPlayerState {
       cosmetic.targetScaleX = 1.0 - stretchFactor * 0.5;
       cosmetic.targetScaleY = 1.0 + stretchFactor;
       cosmetic.targetScaleZ = 1.0 - stretchFactor * 0.5;
-      cosmetic.springStiffness = 220;
-      cosmetic.springDamping = 14;
+      cosmetic.springStiffness = 280;
+      cosmetic.springDamping = 8;
 
       const vx = vel.x;
       const vy = vel.y;

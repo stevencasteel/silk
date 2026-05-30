@@ -77,9 +77,9 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleX = squash.SQUASH_LAND_X;
             pTrans.scaleY = squash.SQUASH_LAND_Y;
             pTrans.scaleZ = squash.SQUASH_LAND_Z;
-            pTrans.scaleVelX = 0;
-            pTrans.scaleVelY = 0;
-            pTrans.scaleVelZ = 0;
+            pTrans.scaleVelX = -15.0;
+            pTrans.scaleVelY = 20.0;
+            pTrans.scaleVelZ = -15.0;
           }
         }
         target.y = minY;

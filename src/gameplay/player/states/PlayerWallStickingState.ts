@@ -54,8 +54,8 @@ export class PlayerWallStickingState implements IPlayerState {
       cosmetic.targetScaleX = tuning.SQUASH_STRETCH.WALL_SLIDE_X;
       cosmetic.targetScaleY = tuning.SQUASH_STRETCH.WALL_SLIDE_Y;
       cosmetic.targetScaleZ = tuning.SQUASH_STRETCH.WALL_SLIDE_Z;
-      cosmetic.springStiffness = 220;
-      cosmetic.springDamping = 14;
+      cosmetic.springStiffness = 200;
+      cosmetic.springDamping = 12;
 
       cosmetic.rotationAngle = 0;
       cosmetic.slerpFactor = tuning.SLERP_FACTOR;
