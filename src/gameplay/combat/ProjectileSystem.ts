@@ -1068,18 +1068,31 @@ export class ProjectileSystem implements ISystem {
           body.setTargetTransform(this._scratchPos, this._scratchRot);
         }
       } else {
-        const flyTime = p.lifeTime;
-        const wobbleSpeed = 45.0;
-        const wobbleAmp = 0.06;
-        const wobble = Math.sin(flyTime * wobbleSpeed) * wobbleAmp;
-
         trans.prevScaleX = trans.scaleX;
         trans.prevScaleY = trans.scaleY;
         trans.prevScaleZ = trans.scaleZ;
 
-        trans.scaleX = 0.65 * (1.0 + wobble);
-        trans.scaleY = 1.75 * (1.0 - wobble);
-        trans.scaleZ = 0.65 * (1.0 + wobble);
+        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId) || { x: 0, y: 0 };
+        const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+        
+        // Dynamically rotate projectile to perfectly face its actual velocity vector
+        if (speed > 0.1) {
+          const angle = Math.atan2(vel.y, vel.x) - Math.PI / 2;
+          if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
+          BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, angle, mesh.rotationQuaternion);
+          trans.qx = mesh.rotationQuaternion.x;
+          trans.qy = mesh.rotationQuaternion.y;
+          trans.qz = mesh.rotationQuaternion.z;
+          trans.qw = mesh.rotationQuaternion.w;
+        }
+
+        // Dynamic Speed-based Squash & Stretch
+        const baseScale = 0.85;
+        const stretchAmount = Math.min(1.8, speed * 0.045);
+        
+        trans.scaleX = baseScale * Math.max(0.3, 1.0 - stretchAmount * 0.35);
+        trans.scaleY = baseScale * (1.0 + stretchAmount);
+        trans.scaleZ = baseScale * Math.max(0.3, 1.0 - stretchAmount * 0.35);
 
         mesh.position.set(trans.x, trans.y, trans.z);
         mesh.scaling.set(trans.scaleX, trans.scaleY, trans.scaleZ);
