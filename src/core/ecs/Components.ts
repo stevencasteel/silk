@@ -153,6 +153,7 @@ export interface ProjectileComponent {
   stickyOffsetX?: number;
   stickyOffsetY?: number;
   isStuckToBug?: boolean;
+  isRed?: boolean;
 }
 
 export type SweepPhase = "SWEEP" | "HOLD" | "LAUNCH";

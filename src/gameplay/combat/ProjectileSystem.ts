@@ -37,9 +37,12 @@ export class ProjectileSystem implements ISystem {
   private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
 
   private projMatActive: BABYLON.PBRMaterial | null = null;
+  private projMatActiveRed: BABYLON.PBRMaterial | null = null;
   private projMatStuck: BABYLON.PBRMaterial | null = null;
+  private projMatStuckRed: BABYLON.PBRMaterial | null = null;
   private projMatTrapped: BABYLON.PBRMaterial | null = null;
   private unsubShoot: (() => void) | null = null;
+  private shotCounter = 0;
   private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
 
@@ -58,7 +61,16 @@ export class ProjectileSystem implements ISystem {
       this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
     )._noisePlugin = noisePlugin;
 
+    this.projMatActiveRed = this.createBaseProjectileMaterial("projectileMatActiveRed", scene);
+    this.projMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
+    const noisePluginRed = new ProjectileNoisePlugin(this.projMatActiveRed);
+    (
+      this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+    )._noisePlugin = noisePluginRed;
+
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck", scene);
+    this.projMatStuckRed = this.createBaseProjectileMaterial("projectileMatStuckRed", scene);
+    this.projMatStuckRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
 
     // Trapped material initialization with active vertex displacement shaders
     this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped", scene);
@@ -189,7 +201,7 @@ export class ProjectileSystem implements ISystem {
                 mesh.scaling.set(0.24, 1.45, 1.45);
                 mesh.position.x = projTrans.x;
                 mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-                const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+                const stuckMat = mesh.getScene().getMaterialByName(pComp.isRed ? "projectileMatStuckRed" : "projectileMatStuck");
                 if (stuckMat) {
                   mesh.material = stuckMat;
                 }
@@ -397,12 +409,14 @@ export class ProjectileSystem implements ISystem {
 
               pComp.isTrappingPlayer = true;
 
-              sysCtx.commands.dispatch({
-                type: "DAMAGE_REQUEST",
-                targetId: otherId,
-                amount: 1,
-                source: "PROJECTILE"
-              });
+              if (pComp.isRed) {
+                sysCtx.commands.dispatch({
+                  type: "DAMAGE_REQUEST",
+                  targetId: otherId,
+                  amount: 1,
+                  source: "PROJECTILE"
+                });
+              }
 
               const reqId = sysCtx.world.create();
               const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
@@ -440,6 +454,7 @@ export class ProjectileSystem implements ISystem {
     this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
       this.clearAll();
       this.noiseTime = 0.0;
+      this.shotCounter = 0;
     });
   }
 
@@ -583,6 +598,8 @@ export class ProjectileSystem implements ISystem {
     pComp.isTrappingPlayer = false;
     pComp.lifeTime = 0.0;
     pComp.isCharging = true;
+    pComp.isRed = (this.shotCounter % 3 === 2);
+    this.shotCounter++;
 
     trans.x = x;
     trans.y = y;
@@ -603,7 +620,7 @@ export class ProjectileSystem implements ISystem {
 
     mesh.position.set(x, y, 0);
     mesh.scaling.set(0.001, 0.001, 0.001);
-    mesh.material = this.projMatActive;
+    mesh.material = pComp.isRed ? this.projMatActiveRed : this.projMatActive;
     mesh.isVisible = true;
     mesh.setEnabled(true);
 
@@ -656,6 +673,14 @@ export class ProjectileSystem implements ISystem {
       )._noisePlugin;
       if (noisePlugin) {
         noisePlugin.time = this.noiseTime;
+      }
+    }
+    if (this.projMatActiveRed) {
+      const noisePluginRed = (
+        this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin }
+      )._noisePlugin;
+      if (noisePluginRed) {
+        noisePluginRed.time = this.noiseTime;
       }
     }
 
@@ -1161,7 +1186,9 @@ export class ProjectileSystem implements ISystem {
     this.projectileEntities = [];
 
     if (this.projMatActive) this.projMatActive.dispose();
+    if (this.projMatActiveRed) this.projMatActiveRed.dispose();
     if (this.projMatStuck) this.projMatStuck.dispose();
+    if (this.projMatStuckRed) this.projMatStuckRed.dispose();
     if (this.projMatTrapped) this.projMatTrapped.dispose();
   }
 }

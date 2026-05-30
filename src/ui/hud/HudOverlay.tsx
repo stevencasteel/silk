@@ -457,8 +457,11 @@ export const HudOverlay: React.FC = () => {
         </div>
       ) : awaitingGesture ? (
         <div className="overlay-root font-mono backdrop-wipe-gesture pointer-events-auto">
-          <div className="overlay-modal start-screen-modal victory-border max-w-sm w-full p-8 flex flex-col items-center">
-            <button
+          <div className="overlay-modal start-screen-modal victory-border max-w-md w-full p-8 flex flex-col items-center">
+                <p className="text-[11px] text-zinc-400 tracking-wide uppercase mb-6 leading-relaxed select-none max-w-sm text-center">
+                  A game about being tethered to something dangerous <u><i>with a mind of its own</i></u>, where the tension between you and the thing trying to kill you is literally your only weapon.
+                </p>
+                <button
               onClick={() => {
                 playConfirmSynth();
                 useOverlayStore.getState().setAwaitingGesture(false);
