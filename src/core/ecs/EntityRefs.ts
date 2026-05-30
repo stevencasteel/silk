@@ -36,9 +36,4 @@ export class EntityRefs implements IEntityRefs {
   public set weaver(id: EntityId) {
     this._weaver = id;
   }
-
-  public clear(): void {
-    this._player = -1;
-    this._weaver = -1;
-  }
 }

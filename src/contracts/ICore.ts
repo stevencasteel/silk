@@ -53,5 +53,4 @@ export interface IEcsWorld {
 export interface IEntityRefs {
   player: EntityId;
   weaver: EntityId;
-  clear(): void;
 }

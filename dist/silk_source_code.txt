@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 4:33:11 PM
+ [SYSTEM] Generated: 5/30/2026, 4:41:32 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2333,7 +2333,6 @@ export interface IEcsWorld {
 export interface IEntityRefs {
   player: EntityId;
   weaver: EntityId;
-  clear(): void;
 }
 
 
@@ -2841,7 +2840,7 @@ export interface InvulnerabilityComponent {
   timeRemaining: number;
 }
 
-export type TraversalState = "AIRBORNE" | "WALL_STICKING" | "LAUNCHING" | "GROUNDED";
+export type TraversalState = "AIRBORNE" | "WALL_STICKING" | "LAUNCHING";
 
 export interface TraversalStateComponent {
   state: TraversalState;
@@ -3167,11 +3166,6 @@ export class EntityRefs implements IEntityRefs {
   public set weaver(id: EntityId) {
     this._weaver = id;
   }
-
-  public clear(): void {
-    this._player = -1;
-    this._weaver = -1;
-  }
 }
 
 
@@ -3283,7 +3277,6 @@ export const GAMEPLAY_TUNING = {
     FLING_IMPULSE: 76.0,
     LAUNCH_DURATION: 0.7,
     LAUNCH_GRAVITY_MULT: 0.22,
-    SCALE_INTERP_RATE: 15.0,
     SLERP_FACTOR: 0.22,
     DRAG_DAMPING: 0.99,
     SQUASH_STRETCH: {
@@ -3338,7 +3331,6 @@ export const WEAVER_AI_TUNING = {
     POOL_SIZE: 16,
     TELEGRAPH_TIME: 1.4,
     RELOAD_TIME: 2.4,
-    OFFSET_Y: 1.8,
     SPEED: 15.0,
     MAX_LIFE: 8.0,
     PROJECTILE_DIAMETER: 1.8,
@@ -4378,25 +4370,7 @@ export function solveScaleSpring(
   trans.scaleVelZ = springZ.velocity;
 }
 
-export function setKinematicVelocity(
-  ctx: {
-    commands: {
-      dispatch: (cmd: { type: string; entityId: number; x: number; y: number; z: number }) => void;
-    };
-  },
-  entityId: number,
-  x: number,
-  y: number,
-  z: number = 0
-): void {
-  ctx.commands.dispatch({
-    type: "SET_KINEMATIC_VELOCITY",
-    entityId,
-    x,
-    y,
-    z
-  });
-}
+
 
 const _stingerLocalTip = new BABYLON.Vector3();
 const _stingerQ = new BABYLON.Quaternion();
@@ -13614,7 +13588,6 @@ export function CursorLayer({ cursorType, isPressed }: CursorLayerProps) {
 import { CursorType } from "./useCursorStore";
 
 export interface CursorVariantConfig {
-  blendMode: "normal" | "difference" | "exclusion";
   color: string;
   isBase: boolean;
   bubbleSize: number;
@@ -13623,28 +13596,24 @@ export interface CursorVariantConfig {
 
 export const CURSOR_VARIANTS: Record<CursorType, CursorVariantConfig> = {
   default: {
-    blendMode: "normal",
     color: "#10b981",
     isBase: true,
     bubbleSize: 0,
     bubbleBg: "transparent"
   },
   button: {
-    blendMode: "normal",
     color: "#10b981",
     isBase: true,
     bubbleSize: 0,
     bubbleBg: "transparent"
   },
   text: {
-    blendMode: "normal",
     color: "#10b981",
     isBase: false,
     bubbleSize: 32,
     bubbleBg: "transparent"
   },
   hidden: {
-    blendMode: "normal",
     color: "transparent",
     isBase: false,
     bubbleSize: 0,
@@ -14884,7 +14853,7 @@ export class HudSyncSystem implements ISystem, IUpdateable {
     this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         const stateHints = PlayerStateHints.getHintForState(
-          this.currentState as "AIRBORNE" | "WALL_STICKING" | "LAUNCHING" | "GROUNDED",
+          this.currentState as "AIRBORNE" | "WALL_STICKING" | "LAUNCHING",
           tension
         );
         overlayStore.setTraversalHint(stateHints.text, stateHints.color, stateHints.opacity);
@@ -14979,7 +14948,6 @@ import { create } from "zustand";
 
 export interface PlayerState {
   playerHp: number;
-  playerMaxHp: number;
   currentState: string;
   isWebTrapped: boolean;
   escapeProgress: number;
@@ -15045,7 +15013,6 @@ export interface InputStoreState {
 
 const PLAYER_RESET = {
   playerHp: 5,
-  playerMaxHp: 5,
   currentState: "AIRBORNE",
   isWebTrapped: false,
   escapeProgress: 0,
@@ -15057,7 +15024,7 @@ const PLAYER_RESET = {
 const WEAVER_RESET = {
   weaverHp: 100,
   weaverMaxHp: 100,
-  weaverState: "SWEEPING",
+  weaverState: "PATROLLING",
   weaverHue: "rgb(239, 68, 68)"
 };
 
@@ -15085,8 +15052,9 @@ export const usePlayerStore = create<PlayerState>((set) => ({
     return { tetherDamage: damage };
   }),
   setPlayerHp: (hp, maxHp) => set((state) => {
-    if (state.playerHp === hp && state.playerMaxHp === maxHp) return {};
-    return { playerHp: hp, playerMaxHp: maxHp };
+    void maxHp;
+    if (state.playerHp === hp) return {};
+    return { playerHp: hp };
   }),
   setCurrentState: (state) => set((stateObj) => {
     if (stateObj.currentState === state) return {};

@@ -120,25 +120,7 @@ export function solveScaleSpring(
   trans.scaleVelZ = springZ.velocity;
 }
 
-export function setKinematicVelocity(
-  ctx: {
-    commands: {
-      dispatch: (cmd: { type: string; entityId: number; x: number; y: number; z: number }) => void;
-    };
-  },
-  entityId: number,
-  x: number,
-  y: number,
-  z: number = 0
-): void {
-  ctx.commands.dispatch({
-    type: "SET_KINEMATIC_VELOCITY",
-    entityId,
-    x,
-    y,
-    z
-  });
-}
+
 
 const _stingerLocalTip = new BABYLON.Vector3();
 const _stingerQ = new BABYLON.Quaternion();

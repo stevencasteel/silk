@@ -2,7 +2,6 @@ import { create } from "zustand";
 
 export interface PlayerState {
   playerHp: number;
-  playerMaxHp: number;
   currentState: string;
   isWebTrapped: boolean;
   escapeProgress: number;
@@ -68,7 +67,6 @@ export interface InputStoreState {
 
 const PLAYER_RESET = {
   playerHp: 5,
-  playerMaxHp: 5,
   currentState: "AIRBORNE",
   isWebTrapped: false,
   escapeProgress: 0,
@@ -108,8 +106,9 @@ export const usePlayerStore = create<PlayerState>((set) => ({
     return { tetherDamage: damage };
   }),
   setPlayerHp: (hp, maxHp) => set((state) => {
-    if (state.playerHp === hp && state.playerMaxHp === maxHp) return {};
-    return { playerHp: hp, playerMaxHp: maxHp };
+    void maxHp;
+    if (state.playerHp === hp) return {};
+    return { playerHp: hp };
   }),
   setCurrentState: (state) => set((stateObj) => {
     if (stateObj.currentState === state) return {};
