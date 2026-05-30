@@ -218,6 +218,8 @@ export interface PlayerCosmeticComponent {
   springDamping: number;
   rotationAngle: number;
   slerpFactor: number;
+  rotationVel?: number;
+  currentRotation?: number;
 }
 
 export interface WeaverCosmeticComponent {

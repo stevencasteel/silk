@@ -1,4 +1,4 @@
-import { solveScaleSpring } from "../../core/utils/EngineUtils";
+import { solveScaleSpring, solveSpringDamper } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -8,7 +8,6 @@ import * as BABYLON from "@babylonjs/core";
 export class PlayerAnimationSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
 
-  private readonly _currentQuat = new BABYLON.Quaternion();
   private readonly _targetQuat = new BABYLON.Quaternion();
 
   constructor(private context: SystemContext) {}
@@ -41,20 +40,34 @@ export class PlayerAnimationSystem implements ISystem {
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
 
-    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, cosmetic.rotationAngle, this._targetQuat);
+    const currentRot = cosmetic.currentRotation ?? 0;
+    const rotVel = cosmetic.rotationVel ?? 0;
+    const targetRot = cosmetic.rotationAngle;
 
-    this._currentQuat.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
+    let diff = targetRot - currentRot;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    const adjustedTarget = currentRot + diff;
 
-    BABYLON.Quaternion.SlerpToRef(
-      this._currentQuat,
-      this._targetQuat,
-      cosmetic.slerpFactor,
-      this._currentQuat
+    const rotStiffness = 140;
+    const rotDamping = 10;
+
+    const result = solveSpringDamper(
+      currentRot,
+      adjustedTarget,
+      rotVel,
+      dt,
+      rotStiffness,
+      rotDamping
     );
 
-    pTrans.qx = this._currentQuat.x;
-    pTrans.qy = this._currentQuat.y;
-    pTrans.qz = this._currentQuat.z;
-    pTrans.qw = this._currentQuat.w;
+    cosmetic.currentRotation = result.value;
+    cosmetic.rotationVel = result.velocity;
+
+    BABYLON.Quaternion.RotationAxisToRef(BABYLON.Axis.Z, result.value, this._targetQuat);
+
+    pTrans.qx = this._targetQuat.x;
+    pTrans.qy = this._targetQuat.y;
+    pTrans.qz = this._targetQuat.z;
+    pTrans.qw = this._targetQuat.w;
   }
 }
