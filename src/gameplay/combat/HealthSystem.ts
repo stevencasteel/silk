@@ -1,4 +1,4 @@
-import { PlayerSparkStrategy, WeaverSparkStrategy } from "../juice/ParticleStrategies";
+import { PLAYER_SPARK_STRATEGY, WEAVER_SPARK_STRATEGY } from "../juice/ParticleStrategies";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -39,7 +39,7 @@ export class HealthSystem implements ISystem {
       const requestStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
       if (requestStore) {
         requestStore.add(reqId, {
-          strategy: isPlayer ? new PlayerSparkStrategy() : new WeaverSparkStrategy(),
+          strategy: isPlayer ? PLAYER_SPARK_STRATEGY : WEAVER_SPARK_STRATEGY,
           x: targetTrans.x,
           y: targetTrans.y,
           z: targetTrans.z

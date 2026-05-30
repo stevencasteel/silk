@@ -9,12 +9,11 @@ import {
   ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
-import { WebSplatStrategy } from "../../juice/ParticleStrategies";
+import { WEB_SPLAT_STRATEGY } from "../../juice/ParticleStrategies";
 import * as BABYLON from "@babylonjs/core";
 
 interface ShockwaveRing {
   mesh: BABYLON.Mesh;
-  material: BABYLON.StandardMaterial;
   currentScale: number;
   targetScale: number;
   speed: number;
@@ -40,11 +39,21 @@ export class WeaverShockwaveState implements IWeaverState {
   private activeRings: ShockwaveRing[] = [];
   private ringSpawnTimers: number[] = [];
 
+  private _sharedRingMaterial: BABYLON.StandardMaterial | null = null;
+
   public enter(ctx: SystemContext): void {
     this.phase = "DELAY";
     this.timer = this.DELAY_DURATION;
     this.hasBlastTriggered = false;
     this.ringSpawnTimers = [];
+
+    const scene = ctx.visualQuery.getScene();
+    if (scene && !this._sharedRingMaterial) {
+      this._sharedRingMaterial = new BABYLON.StandardMaterial("sharedShockwaveRingMat", scene);
+      this._sharedRingMaterial.diffuseColor = new BABYLON.Color3(1.0, 0.0, 0.1);
+      this._sharedRingMaterial.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.1);
+      this._sharedRingMaterial.disableLighting = true;
+    }
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (ai) {
@@ -61,7 +70,6 @@ export class WeaverShockwaveState implements IWeaverState {
   private clearRings(): void {
     for (let i = 0; i < this.activeRings.length; i++) {
       this.activeRings[i].mesh.dispose();
-      this.activeRings[i].material.dispose();
     }
     this.activeRings = [];
     this.ringSpawnTimers = [];
@@ -69,7 +77,7 @@ export class WeaverShockwaveState implements IWeaverState {
 
   private spawnShockwaveRing(ctx: SystemContext): void {
     const scene = ctx.visualQuery.getScene();
-    if (!scene) return;
+    if (!scene || !this._sharedRingMaterial) return;
 
     const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
     if (!wTrans) return;
@@ -86,17 +94,11 @@ export class WeaverShockwaveState implements IWeaverState {
 
     ring.position.set(wTrans.x, wTrans.y, 0);
     ring.rotation.x = Math.PI / 2;
-
-    const mat = new BABYLON.StandardMaterial(`shockwave_ring_mat_${performance.now()}`, scene);
-    mat.diffuseColor = new BABYLON.Color3(1.0, 0.0, 0.1);
-    mat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.1);
-    mat.alpha = 0.95;
-    mat.disableLighting = true;
-    ring.material = mat;
+    ring.material = this._sharedRingMaterial;
+    ring.visibility = 0.95;
 
     this.activeRings.push({
       mesh: ring,
-      material: mat,
       currentScale: 0.1,
       targetScale: this.SHOCKWAVE_RADIUS * 2.0,
       speed: 22.0,
@@ -127,11 +129,10 @@ export class WeaverShockwaveState implements IWeaverState {
       ring.alpha = Math.max(0, ring.alpha - dt * 2.0);
 
       ring.mesh.scaling.set(ring.currentScale, 1.0, ring.currentScale);
-      ring.material.alpha = ring.alpha;
+      ring.mesh.visibility = ring.alpha;
 
       if (ring.alpha <= 0.01 || ring.currentScale >= ring.targetScale) {
         ring.mesh.dispose();
-        ring.material.dispose();
         this.activeRings.splice(i, 1);
       }
     }
@@ -184,7 +185,7 @@ export class WeaverShockwaveState implements IWeaverState {
             for (let i = 0; i < 2; i++) {
               const reqId = ctx.world.create();
               reqStore.add(reqId, {
-                strategy: new WebSplatStrategy(),
+                strategy: WEB_SPLAT_STRATEGY,
                 x: wTrans.x,
                 y: wTrans.y,
                 z: 0

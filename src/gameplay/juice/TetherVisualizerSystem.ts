@@ -26,6 +26,7 @@ export class TetherVisualizerSystem implements ISystem {
   private scratchAnchor = new BABYLON.Vector3();
   private scratchPlayer = new BABYLON.Vector3();
   private scratchCtrl = new BABYLON.Vector3();
+  private _localHeadTop = new BABYLON.Vector3();
 
   private isSnapped = false;
   private snapTimer = 0.0;
@@ -135,9 +136,9 @@ export class TetherVisualizerSystem implements ISystem {
 
       if (pNode) {
         const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
-        const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
+        this._localHeadTop.set(0, height / 2, 0);
         BABYLON.Vector3.TransformCoordinatesToRef(
-          localHeadTop,
+          this._localHeadTop,
           pNode.getWorldMatrix(),
           this.scratchPlayer
         );

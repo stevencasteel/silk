@@ -13,7 +13,7 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
+import { LAUNCH_TRAIL_STRATEGY } from "../../juice/ParticleStrategies";
 
 export class PlayerLaunchingState implements IPlayerState {
   public readonly type: TraversalState = "LAUNCHING";
@@ -124,7 +124,7 @@ export class PlayerLaunchingState implements IPlayerState {
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
     if (reqStore) {
       reqStore.add(reqId, {
-        strategy: new LaunchTrailStrategy(),
+        strategy: LAUNCH_TRAIL_STRATEGY,
         x: target.x,
         y: target.y,
         z: 0

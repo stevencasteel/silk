@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 11:19:53 AM
+ [SYSTEM] Generated: 5/30/2026, 11:28:14 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -5307,7 +5307,7 @@ export class GameDirectorSystem implements ISystem {
 
 ● ./src/gameplay/combat/HealthSystem.ts
 ────────────────────────────────────────────────────
-import { PlayerSparkStrategy, WeaverSparkStrategy } from "../juice/ParticleStrategies";
+import { PLAYER_SPARK_STRATEGY, WEAVER_SPARK_STRATEGY } from "../juice/ParticleStrategies";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -5348,7 +5348,7 @@ export class HealthSystem implements ISystem {
       const requestStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
       if (requestStore) {
         requestStore.add(reqId, {
-          strategy: isPlayer ? new PlayerSparkStrategy() : new WeaverSparkStrategy(),
+          strategy: isPlayer ? PLAYER_SPARK_STRATEGY : WEAVER_SPARK_STRATEGY,
           x: targetTrans.x,
           y: targetTrans.y,
           z: targetTrans.z
@@ -5422,7 +5422,7 @@ export class HealthSystem implements ISystem {
 
 ● ./src/gameplay/combat/ProjectileSystem.ts
 ────────────────────────────────────────────────────
-import { WebSplatStrategy } from "../juice/ParticleStrategies";
+import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
 import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -5652,7 +5652,7 @@ export class ProjectileSystem implements ISystem {
             const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
             if (reqStore) {
               reqStore.add(reqId, {
-                strategy: new WebSplatStrategy(),
+                strategy: WEB_SPLAT_STRATEGY,
                 x: trans.x,
                 y: trans.y,
                 z: trans.z
@@ -5777,7 +5777,7 @@ export class ProjectileSystem implements ISystem {
               const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
               if (reqStore) {
                 reqStore.add(reqId, {
-                  strategy: new WebSplatStrategy(),
+                  strategy: WEB_SPLAT_STRATEGY,
                   x: trans.x,
                   y: trans.y,
                   z: trans.z
@@ -5830,7 +5830,7 @@ export class ProjectileSystem implements ISystem {
               const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
               if (reqStore) {
                 reqStore.add(reqId, {
-                  strategy: new WebSplatStrategy(),
+                  strategy: WEB_SPLAT_STRATEGY,
                   x: trans.x,
                   y: trans.y,
                   z: trans.z
@@ -5960,7 +5960,7 @@ export class ProjectileSystem implements ISystem {
           const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
           if (reqStore) {
             reqStore.add(reqId, {
-              strategy: new WebSplatStrategy(),
+              strategy: WEB_SPLAT_STRATEGY,
               x: trans.x,
               y: trans.y,
               z: trans.z
@@ -6251,11 +6251,11 @@ export class ProjectileSystem implements ISystem {
           this.projMatTrapped.emissiveColor.set(rVal * 0.18, gVal * 0.18, bVal * 0.18);
         }
 
-        const massScale = Math.min(10.0, 1.0 + ((pTrav.webMass || 1) - 1) * 1.0);
+        const addedSize = Math.min(10.0, ((pTrav.webMass || 1) - 1) * 1.2);
 
-        let targetScaleX = 1.0 * massScale;
-        let targetScaleY = 1.15 * massScale;
-        let targetScaleZ = 1.0 * massScale;
+        let targetScaleX = 1.0 + addedSize;
+        let targetScaleY = 1.15 + addedSize;
+        let targetScaleZ = 1.0 + addedSize;
 
         if (pTrav.state === "WALL_STICKING") {
           trans.qx = 0;
@@ -6272,9 +6272,9 @@ export class ProjectileSystem implements ISystem {
           }
           mesh.rotationQuaternion.set(0, 0, 0, 1);
 
-          targetScaleX = 0.28 * massScale;
-          targetScaleY = 2.0 * massScale;
-          targetScaleZ = 2.0 * massScale;
+          targetScaleX = 0.28 + addedSize * 0.28;
+          targetScaleY = 2.0 + addedSize;
+          targetScaleZ = 2.0 + addedSize;
 
           const wallOffset = pTrav.wallDir * 0.25;
           trans.x = pTrans.x + wallOffset;
@@ -6366,7 +6366,7 @@ export class ProjectileSystem implements ISystem {
           if (reqStore) {
             const reqId = this.context.world.create();
             reqStore.add(reqId, {
-              strategy: new WebSplatStrategy(),
+              strategy: WEB_SPLAT_STRATEGY,
               x: trans.x,
               y: trans.y,
               z: trans.z
@@ -6893,9 +6893,9 @@ export class LaunchTrailStrategy implements IParticleEmitterStrategy {
 
 export class WallStickSparksStrategy implements IParticleEmitterStrategy {
   constructor(
-    private wallNormalX: number,
-    private tension: number,
-    private dt: number
+    public wallNormalX: number,
+    public tension: number,
+    public dt: number
   ) {}
 
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
@@ -6930,6 +6930,12 @@ export class WallStickSparksStrategy implements IParticleEmitterStrategy {
   }
 }
 
+export const PLAYER_SPARK_STRATEGY = new PlayerSparkStrategy();
+export const WEAVER_SPARK_STRATEGY = new WeaverSparkStrategy();
+export const LANDING_DUST_STRATEGY = new LandingDustStrategy();
+export const WEB_SPLAT_STRATEGY = new WebSplatStrategy();
+export const LAUNCH_TRAIL_STRATEGY = new LaunchTrailStrategy();
+
 
 
 ● ./src/gameplay/juice/TetherVisualizerSystem.ts
@@ -6962,6 +6968,7 @@ export class TetherVisualizerSystem implements ISystem {
   private scratchAnchor = new BABYLON.Vector3();
   private scratchPlayer = new BABYLON.Vector3();
   private scratchCtrl = new BABYLON.Vector3();
+  private _localHeadTop = new BABYLON.Vector3();
 
   private isSnapped = false;
   private snapTimer = 0.0;
@@ -7071,9 +7078,9 @@ export class TetherVisualizerSystem implements ISystem {
 
       if (pNode) {
         const height = ARENA_CONFIG.ENTITY.PLAYER_HEIGHT;
-        const localHeadTop = new BABYLON.Vector3(0, height / 2, 0);
+        this._localHeadTop.set(0, height / 2, 0);
         BABYLON.Vector3.TransformCoordinatesToRef(
-          localHeadTop,
+          this._localHeadTop,
           pNode.getWorldMatrix(),
           this.scratchPlayer
         );
@@ -8449,7 +8456,7 @@ export class TutorialSystem implements ISystem {
 
 ● ./src/gameplay/player/VerticalBoundarySystem.ts
 ────────────────────────────────────────────────────
-import { LandingDustStrategy } from "../juice/ParticleStrategies";
+import { LANDING_DUST_STRATEGY } from "../juice/ParticleStrategies";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -8513,7 +8520,7 @@ export class VerticalBoundarySystem implements ISystem {
           const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
           if (reqStore) {
             reqStore.add(reqId, {
-              strategy: new LandingDustStrategy(),
+              strategy: LANDING_DUST_STRATEGY,
               x: target.x,
               y: minY,
               z: 0
@@ -9042,7 +9049,7 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { LaunchTrailStrategy } from "../../juice/ParticleStrategies";
+import { LAUNCH_TRAIL_STRATEGY } from "../../juice/ParticleStrategies";
 
 export class PlayerLaunchingState implements IPlayerState {
   public readonly type: TraversalState = "LAUNCHING";
@@ -9153,7 +9160,7 @@ export class PlayerLaunchingState implements IPlayerState {
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
     if (reqStore) {
       reqStore.add(reqId, {
-        strategy: new LaunchTrailStrategy(),
+        strategy: LAUNCH_TRAIL_STRATEGY,
         x: target.x,
         y: target.y,
         z: 0
@@ -9681,6 +9688,7 @@ import { WallStickSparksStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerWallStickingState implements IPlayerState {
   public readonly type: TraversalState = "WALL_STICKING";
+  private _sparksStrategy = new WallStickSparksStrategy(0, 0, 0);
 
   public enter(ctx: SystemContext): void {
     void ctx;
@@ -9736,8 +9744,12 @@ export class PlayerWallStickingState implements IPlayerState {
     const sparkReqId = ctx.world.create();
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
     if (reqStore) {
+      this._sparksStrategy.wallNormalX = trav.wallNormalX;
+      this._sparksStrategy.tension = tether.tension;
+      this._sparksStrategy.dt = dt;
+
       reqStore.add(sparkReqId, {
-        strategy: new WallStickSparksStrategy(trav.wallNormalX, tether.tension, dt),
+        strategy: this._sparksStrategy,
         x: trav.wallDir * target.x,
         y: target.y,
         z: 0
@@ -10680,12 +10692,11 @@ import {
   ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX, getDistance2D } from "../../../core/utils/EngineUtils";
-import { WebSplatStrategy } from "../../juice/ParticleStrategies";
+import { WEB_SPLAT_STRATEGY } from "../../juice/ParticleStrategies";
 import * as BABYLON from "@babylonjs/core";
 
 interface ShockwaveRing {
   mesh: BABYLON.Mesh;
-  material: BABYLON.StandardMaterial;
   currentScale: number;
   targetScale: number;
   speed: number;
@@ -10711,11 +10722,21 @@ export class WeaverShockwaveState implements IWeaverState {
   private activeRings: ShockwaveRing[] = [];
   private ringSpawnTimers: number[] = [];
 
+  private _sharedRingMaterial: BABYLON.StandardMaterial | null = null;
+
   public enter(ctx: SystemContext): void {
     this.phase = "DELAY";
     this.timer = this.DELAY_DURATION;
     this.hasBlastTriggered = false;
     this.ringSpawnTimers = [];
+
+    const scene = ctx.visualQuery.getScene();
+    if (scene && !this._sharedRingMaterial) {
+      this._sharedRingMaterial = new BABYLON.StandardMaterial("sharedShockwaveRingMat", scene);
+      this._sharedRingMaterial.diffuseColor = new BABYLON.Color3(1.0, 0.0, 0.1);
+      this._sharedRingMaterial.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.1);
+      this._sharedRingMaterial.disableLighting = true;
+    }
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (ai) {
@@ -10732,7 +10753,6 @@ export class WeaverShockwaveState implements IWeaverState {
   private clearRings(): void {
     for (let i = 0; i < this.activeRings.length; i++) {
       this.activeRings[i].mesh.dispose();
-      this.activeRings[i].material.dispose();
     }
     this.activeRings = [];
     this.ringSpawnTimers = [];
@@ -10740,7 +10760,7 @@ export class WeaverShockwaveState implements IWeaverState {
 
   private spawnShockwaveRing(ctx: SystemContext): void {
     const scene = ctx.visualQuery.getScene();
-    if (!scene) return;
+    if (!scene || !this._sharedRingMaterial) return;
 
     const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
     if (!wTrans) return;
@@ -10757,17 +10777,11 @@ export class WeaverShockwaveState implements IWeaverState {
 
     ring.position.set(wTrans.x, wTrans.y, 0);
     ring.rotation.x = Math.PI / 2;
-
-    const mat = new BABYLON.StandardMaterial(`shockwave_ring_mat_${performance.now()}`, scene);
-    mat.diffuseColor = new BABYLON.Color3(1.0, 0.0, 0.1);
-    mat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.1);
-    mat.alpha = 0.95;
-    mat.disableLighting = true;
-    ring.material = mat;
+    ring.material = this._sharedRingMaterial;
+    ring.visibility = 0.95;
 
     this.activeRings.push({
       mesh: ring,
-      material: mat,
       currentScale: 0.1,
       targetScale: this.SHOCKWAVE_RADIUS * 2.0,
       speed: 22.0,
@@ -10798,11 +10812,10 @@ export class WeaverShockwaveState implements IWeaverState {
       ring.alpha = Math.max(0, ring.alpha - dt * 2.0);
 
       ring.mesh.scaling.set(ring.currentScale, 1.0, ring.currentScale);
-      ring.material.alpha = ring.alpha;
+      ring.mesh.visibility = ring.alpha;
 
       if (ring.alpha <= 0.01 || ring.currentScale >= ring.targetScale) {
         ring.mesh.dispose();
-        ring.material.dispose();
         this.activeRings.splice(i, 1);
       }
     }
@@ -10855,7 +10868,7 @@ export class WeaverShockwaveState implements IWeaverState {
             for (let i = 0; i < 2; i++) {
               const reqId = ctx.world.create();
               reqStore.add(reqId, {
-                strategy: new WebSplatStrategy(),
+                strategy: WEB_SPLAT_STRATEGY,
                 x: wTrans.x,
                 y: wTrans.y,
                 z: 0
@@ -14255,18 +14268,42 @@ const OVERLAY_RESET = {
 
 export const usePlayerStore = create<PlayerState>((set) => ({
   ...PLAYER_RESET,
-  setTetherDamage: (damage) => set({ tetherDamage: damage }),
-  setPlayerHp: (hp, maxHp) => set({ playerHp: hp, playerMaxHp: maxHp }),
-  setCurrentState: (state) => set({ currentState: state }),
-  setWebTrapped: (trapped, progress, required, webMass = 1) =>
-    set({ isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required, webMass }),
+  setTetherDamage: (damage) => set((state) => {
+    if (state.tetherDamage === damage) return {};
+    return { tetherDamage: damage };
+  }),
+  setPlayerHp: (hp, maxHp) => set((state) => {
+    if (state.playerHp === hp && state.playerMaxHp === maxHp) return {};
+    return { playerHp: hp, playerMaxHp: maxHp };
+  }),
+  setCurrentState: (state) => set((stateObj) => {
+    if (stateObj.currentState === state) return {};
+    return { currentState: state };
+  }),
+  setWebTrapped: (trapped, progress, required, webMass = 1) => set((state) => {
+    if (
+      state.isWebTrapped === trapped &&
+      state.escapeProgress === progress &&
+      state.escapeRequired === required &&
+      state.webMass === webMass
+    ) {
+      return {};
+    }
+    return { isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required, webMass };
+  }),
   reset: () => set(PLAYER_RESET)
 }));
 
 export const useWeaverStore = create<WeaverState>((set) => ({
   ...WEAVER_RESET,
-  setWeaverHealth: (hp, maxHp) => set({ weaverHp: hp, weaverMaxHp: maxHp }),
-  setWeaverState: (state, hue) => set({ weaverState: state, weaverHue: hue }),
+  setWeaverHealth: (hp, maxHp) => set((state) => {
+    if (state.weaverHp === hp && state.weaverMaxHp === maxHp) return {};
+    return { weaverHp: hp, weaverMaxHp: maxHp };
+  }),
+  setWeaverState: (state, hue) => set((stateObj) => {
+    if (stateObj.weaverState === state && stateObj.weaverHue === hue) return {};
+    return { weaverState: state, weaverHue: hue };
+  }),
   reset: () => set(WEAVER_RESET)
 }));
 
@@ -14275,8 +14312,16 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   wins: 0,
   losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
-  setTraversalHint: (text, color, opacity) =>
-    set({ traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity }),
+  setTraversalHint: (text, color, opacity) => set((state) => {
+    if (
+      state.traversalHint === text &&
+      state.traversalHintColor === color &&
+      state.traversalHintOpacity === opacity
+    ) {
+      return {};
+    }
+    return { traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity };
+  }),
   showOverlay: (title, color, subtitle) =>
     set({
       overlayVisible: true,

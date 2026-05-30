@@ -1,4 +1,4 @@
-import { WebSplatStrategy } from "../juice/ParticleStrategies";
+import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
 import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -228,7 +228,7 @@ export class ProjectileSystem implements ISystem {
             const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
             if (reqStore) {
               reqStore.add(reqId, {
-                strategy: new WebSplatStrategy(),
+                strategy: WEB_SPLAT_STRATEGY,
                 x: trans.x,
                 y: trans.y,
                 z: trans.z
@@ -353,7 +353,7 @@ export class ProjectileSystem implements ISystem {
               const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
               if (reqStore) {
                 reqStore.add(reqId, {
-                  strategy: new WebSplatStrategy(),
+                  strategy: WEB_SPLAT_STRATEGY,
                   x: trans.x,
                   y: trans.y,
                   z: trans.z
@@ -406,7 +406,7 @@ export class ProjectileSystem implements ISystem {
               const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
               if (reqStore) {
                 reqStore.add(reqId, {
-                  strategy: new WebSplatStrategy(),
+                  strategy: WEB_SPLAT_STRATEGY,
                   x: trans.x,
                   y: trans.y,
                   z: trans.z
@@ -536,7 +536,7 @@ export class ProjectileSystem implements ISystem {
           const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
           if (reqStore) {
             reqStore.add(reqId, {
-              strategy: new WebSplatStrategy(),
+              strategy: WEB_SPLAT_STRATEGY,
               x: trans.x,
               y: trans.y,
               z: trans.z
@@ -942,7 +942,7 @@ export class ProjectileSystem implements ISystem {
           if (reqStore) {
             const reqId = this.context.world.create();
             reqStore.add(reqId, {
-              strategy: new WebSplatStrategy(),
+              strategy: WEB_SPLAT_STRATEGY,
               x: trans.x,
               y: trans.y,
               z: trans.z

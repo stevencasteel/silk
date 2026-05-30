@@ -1,4 +1,4 @@
-import { LandingDustStrategy } from "../juice/ParticleStrategies";
+import { LANDING_DUST_STRATEGY } from "../juice/ParticleStrategies";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -62,7 +62,7 @@ export class VerticalBoundarySystem implements ISystem {
           const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
           if (reqStore) {
             reqStore.add(reqId, {
-              strategy: new LandingDustStrategy(),
+              strategy: LANDING_DUST_STRATEGY,
               x: target.x,
               y: minY,
               z: 0

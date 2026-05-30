@@ -177,9 +177,9 @@ export class LaunchTrailStrategy implements IParticleEmitterStrategy {
 
 export class WallStickSparksStrategy implements IParticleEmitterStrategy {
   constructor(
-    private wallNormalX: number,
-    private tension: number,
-    private dt: number
+    public wallNormalX: number,
+    public tension: number,
+    public dt: number
   ) {}
 
   public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
@@ -213,3 +213,9 @@ export class WallStickSparksStrategy implements IParticleEmitterStrategy {
     }
   }
 }
+
+export const PLAYER_SPARK_STRATEGY = new PlayerSparkStrategy();
+export const WEAVER_SPARK_STRATEGY = new WeaverSparkStrategy();
+export const LANDING_DUST_STRATEGY = new LandingDustStrategy();
+export const WEB_SPLAT_STRATEGY = new WebSplatStrategy();
+export const LAUNCH_TRAIL_STRATEGY = new LaunchTrailStrategy();

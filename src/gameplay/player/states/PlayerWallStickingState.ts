@@ -21,6 +21,7 @@ import { WallStickSparksStrategy } from "../../juice/ParticleStrategies";
 
 export class PlayerWallStickingState implements IPlayerState {
   public readonly type: TraversalState = "WALL_STICKING";
+  private _sparksStrategy = new WallStickSparksStrategy(0, 0, 0);
 
   public enter(ctx: SystemContext): void {
     void ctx;
@@ -76,8 +77,12 @@ export class PlayerWallStickingState implements IPlayerState {
     const sparkReqId = ctx.world.create();
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
     if (reqStore) {
+      this._sparksStrategy.wallNormalX = trav.wallNormalX;
+      this._sparksStrategy.tension = tether.tension;
+      this._sparksStrategy.dt = dt;
+
       reqStore.add(sparkReqId, {
-        strategy: new WallStickSparksStrategy(trav.wallNormalX, tether.tension, dt),
+        strategy: this._sparksStrategy,
         x: trav.wallDir * target.x,
         y: target.y,
         z: 0
