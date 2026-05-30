@@ -42,7 +42,7 @@ export class PlayerWallStickingState implements IPlayerState {
 
     const isTrapped = !!trav.isWebTrapped;
 
-    const hitSpike = PlayerStateUtils.handleActiveWallBugSpikeCheck(ctx, vel, trav, isTrapped);
+    const hitSpike = PlayerStateUtils.handleActiveWallBugSpikeCheck(ctx, vel, trav);
     if (hitSpike) {
       return "AIRBORNE";
     }
@@ -107,6 +107,7 @@ export class PlayerWallStickingState implements IPlayerState {
 
       if (!sticky || !sticky.isActive || !bugTrans || trav.stickyWallYOffset === undefined) {
         trav.state = "AIRBORNE";
+        trav.lastStickyEntityId = trav.stickyEntityId;
         trav.stickyEntityId = -1;
         trav.wallDir = 0;
         return "AIRBORNE";

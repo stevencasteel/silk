@@ -20,6 +20,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { HealthBugVisualFactory } from "../../visual/mesh/HealthBugVisualFactory";
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
+import { PlayerStateUtils } from "./states/PlayerStateUtils";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledBug {
@@ -90,8 +91,75 @@ export class HealthBugSystem implements ISystem {
       this.spawnBugFromPool();
     }
 
+    // 1. Check collisions between Health Bugs
+    this.checkHealthBugCollisions();
+
+    // 2. Update individual bugs and Wall Bug spike collisions
     this.updateBugs(dt);
     this.updateSeekingParticles(dt);
+  }
+
+  private checkHealthBugCollisions(): void {
+    const bugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+    const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+    
+    for (let i = 0; i < this.bugPool.length; i++) {
+      const pBugA = this.bugPool[i];
+      if (!pBugA.active) continue;
+      const bugA = bugStore.get(pBugA.entityId);
+      if (!bugA) continue;
+
+      for (let j = i + 1; j < this.bugPool.length; j++) {
+        const pBugB = this.bugPool[j];
+        if (!pBugB.active) continue;
+        const bugB = bugStore.get(pBugB.entityId);
+        if (!bugB) continue;
+
+        const dx = bugB.x - bugA.x;
+        const dy = bugB.y - bugA.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const combinedRadius = 4.0; // radius 2.0 each
+
+        if (dist < combinedRadius) {
+          const isSpikedA = bugA.variant !== "NORMAL" && !bugA.spikesDisarmed;
+          const isSpikedB = bugB.variant !== "NORMAL" && !bugB.spikesDisarmed;
+
+          if (isSpikedA || isSpikedB) {
+            this.popBug(pBugA.entityId);
+            this.popBug(pBugB.entityId);
+          } else {
+            const overlap = combinedRadius - dist;
+            const nx = dx / (dist || 1.0);
+            const ny = dy / (dist || 1.0);
+
+            bugA.x -= nx * overlap * 0.5;
+            bugA.y -= ny * overlap * 0.5;
+            bugB.x += nx * overlap * 0.5;
+            bugB.y += ny * overlap * 0.5;
+
+            bugA.preInfluenceX = bugA.x;
+            bugA.preInfluenceY = bugA.y;
+            bugB.preInfluenceX = bugB.x;
+            bugB.preInfluenceY = bugB.y;
+
+            const velA = velStore.get(pBugA.entityId);
+            const velB = velStore.get(pBugB.entityId);
+            if (velA && velB) {
+              const kx = velA.x - velB.x;
+              const ky = velA.y - velB.y;
+              const p = kx * nx + ky * ny;
+              if (p > 0) {
+                const bounceElasticity = 0.85;
+                velA.x -= nx * p * bounceElasticity;
+                velA.y -= ny * p * bounceElasticity;
+                velB.x += nx * p * bounceElasticity;
+                velB.y += ny * p * bounceElasticity;
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   private updateBugs(dt: number): void {
@@ -107,6 +175,10 @@ export class HealthBugSystem implements ISystem {
     const bugStore = this.context.stores.get<HealthBugComponent>("healthBug");
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
+
+    const playerTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const playerInput = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    const isPlayerTrapped = !!(playerTrav && playerTrav.isWebTrapped);
 
     for (let i = 0; i < this.bugPool.length; i++) {
       const pBug = this.bugPool[i];
@@ -170,25 +242,39 @@ export class HealthBugSystem implements ISystem {
         bug.y -= currentScrollSpeed * dt;
       }
 
-      const playerTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-      const playerInput = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-      const isPlayerTrapped = !!(playerTrav && playerTrav.isWebTrapped);
-      const isWebShieldActive = bug.isWebTrapped || isPlayerTrapped;
+      // --- IN-BOUND PLAYER CLING / STEERING LOGIC ---
+      const isPlayerStickingToThis = 
+        playerTrav && 
+        playerTrav.state === "WALL_STICKING" && 
+        playerTrav.stickyEntityId === pBug.entityId;
 
-      sticky.isActive = isWebShieldActive;
+      if (isPlayerStickingToThis && playerInput) {
+        const pushSpeedX = 6.0;
+        const pushSpeedY = 7.0;
 
-      if (
-        playerTrav &&
-        isPlayerTrapped &&
-        playerTrav.state === "WALL_STICKING" &&
-        playerTrav.stickyEntityId === pBug.entityId &&
-        playerInput
-      ) {
-        const steerSpeed = 6.0;
-        const steerAmt = playerInput.x * steerSpeed * dt;
-        bug.x = Math.max(-12.0, Math.min(12.0, bug.x + steerAmt));
+        if (isPlayerTrapped) {
+          // Web-trapped steering: press left/right (away/towards) to direct
+          if (playerInput.x !== 0) {
+            bug.x = Math.max(-12.0, Math.min(12.0, bug.x + playerInput.x * pushSpeedX * dt));
+          }
+          if (playerInput.y > 0) {
+            bug.y += pushSpeedY * dt;
+          }
+        } else {
+          // Un-trapped steering: press towards to steer horizontally
+          const isPushingTowards = playerInput.x === playerTrav.wallDir;
+          if (isPushingTowards) {
+            bug.x = Math.max(-12.0, Math.min(12.0, bug.x + playerInput.x * pushSpeedX * dt));
+          }
+          if (playerInput.y > 0) {
+            bug.y += pushSpeedY * dt;
+          }
+        }
+
         bug.preInfluenceX = bug.x;
+        bug.preInfluenceY = bug.y;
       }
+      // ----------------------------------------------
 
       if (!bug.isWebTrapped && !bug.isStuckOnWall && !bug.isStuckToBug) {
         switch (bug.state) {
@@ -302,6 +388,42 @@ export class HealthBugSystem implements ISystem {
         }
       }
 
+      // Check collision with Wall Bug spikes for any active state
+      const wallBugStore = this.context.stores.get<WallBugComponent>("wallBug");
+      if (wallBugStore) {
+        let hitWallBugSpikes = false;
+        for (const [wBugId, wBug] of wallBugStore.entries()) {
+          const wBugTrans = transforms.get(wBugId);
+          if (!wBugTrans) continue;
+
+          const halfW = wBug.width / 2;
+          const halfH = wBug.height / 2;
+          const bugRadius = 2.0;
+
+          const overlapX = Math.abs(bug.x - wBugTrans.x) <= halfW + bugRadius;
+          const overlapY = Math.abs(bug.y - wBugTrans.y) <= halfH + bugRadius;
+
+          if (overlapX && overlapY) {
+            const isLeft = bug.x < wBugTrans.x;
+            const isRight = bug.x > wBugTrans.x;
+
+            const hitSpikedLeft = wBug.spikedSide === "LEFT" && isLeft && !wBug.spikesDisarmed;
+            const hitSpikedRight = wBug.spikedSide === "RIGHT" && isRight && !wBug.spikesDisarmed;
+
+            if (hitSpikedLeft || hitSpikedRight) {
+              hitWallBugSpikes = true;
+              break;
+            }
+          }
+        }
+
+        if (hitWallBugSpikes) {
+          this.popBug(pBug.entityId);
+          continue;
+        }
+      }
+
+      // Check collision with Boss (Weaver)
       const weaverTrans = transforms.get(this.context.refs.weaver);
       if (weaverTrans && (bug.state === "SHOVED" || bug.state === "PINBALL")) {
         const dx = bug.x - weaverTrans.x;
@@ -339,40 +461,6 @@ export class HealthBugSystem implements ISystem {
             this.popBug(pBug.entityId);
             continue;
           }
-        }
-      }
-
-      const wallBugStore = this.context.stores.get<WallBugComponent>("wallBug");
-      if (wallBugStore && (bug.state === "SHOVED" || bug.state === "PINBALL")) {
-        let hitWallBugSpikes = false;
-        for (const [wBugId, wBug] of wallBugStore.entries()) {
-          const wBugTrans = transforms.get(wBugId);
-          if (!wBugTrans) continue;
-
-          const halfW = wBug.width / 2;
-          const halfH = wBug.height / 2;
-          const bugRadius = 2.0;
-
-          const overlapX = Math.abs(bug.x - wBugTrans.x) <= halfW + bugRadius;
-          const overlapY = Math.abs(bug.y - wBugTrans.y) <= halfH + bugRadius;
-
-          if (overlapX && overlapY) {
-            const isLeft = bug.x < wBugTrans.x;
-            const isRight = bug.x > wBugTrans.x;
-
-            const hitSpikedLeft = wBug.spikedSide === "LEFT" && isLeft && !wBug.spikesDisarmed;
-            const hitSpikedRight = wBug.spikedSide === "RIGHT" && isRight && !wBug.spikesDisarmed;
-
-            if (hitSpikedLeft || hitSpikedRight) {
-              hitWallBugSpikes = true;
-              break;
-            }
-          }
-        }
-
-        if (hitWallBugSpikes) {
-          this.popBug(pBug.entityId);
-          continue;
         }
       }
 
@@ -455,7 +543,7 @@ export class HealthBugSystem implements ISystem {
     this.lastSpawnedX = startX;
 
     this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
-      isActive: false,
+      isActive: true, // Always active so player can stick to it!
       width: 4.0,
       height: 4.0,
       speed: 0.0
@@ -485,6 +573,11 @@ export class HealthBugSystem implements ISystem {
     const pVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(playerId);
 
     if (!bug || !pTrans || !pTrav || !pVel) return;
+
+    // Skip hazard overlap entirely if player is already sticking to it
+    if (pTrav.state === "WALL_STICKING" && pTrav.stickyEntityId === bugId) {
+      return;
+    }
 
     const isLaunching = pTrav.state === "LAUNCHING";
     const launchPower = pTrav.launchPower || 0;
@@ -534,7 +627,6 @@ export class HealthBugSystem implements ISystem {
     }
 
     // STAGE 0 & 1 (Safe slide, slack release, or non-flinging overlaps): launchPower < 0.375
-    // Purely elastic overlap. No popping triggers. Safe physics shoves only.
     if (hitSpikes) {
       ctx.commands.dispatch({
         type: "DAMAGE_REQUEST",
@@ -545,11 +637,40 @@ export class HealthBugSystem implements ISystem {
         knockbackY: 8.0
       });
     } else {
-      bug.state = "SHOVED";
-      const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
-      if (bugVel) {
-        bugVel.x = (bug.x > pTrans.x ? 1 : -1) * 6.5;
-        bugVel.y = 2.0;
+      const input = ctx.stores.get<InputIntentComponent>("input").get(playerId);
+      const bugWallDir = pTrans.x > bug.x ? -1 : 1; // if player is to the right, wall/bug is to their left (-1)
+      const pressingIn = input && input.x === bugWallDir;
+
+      if (pressingIn) {
+        // Player is pressing towards the safe side of the bug -> Stick to it!
+        PlayerStateUtils.applyWallImpactSquash(ctx);
+
+        pTrav.state = "WALL_STICKING";
+        pTrav.wallDir = bugWallDir;
+        pTrav.wallNormalX = -bugWallDir;
+        pTrav.stickyEntityId = bugId;
+        
+        const halfW = 2.0; // Health Bug half width
+        pTrav.stickyWallX = bug.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+        pTrav.stickyWallYOffset = pTrans.y - bug.y;
+
+        pTrans.x = pTrav.stickyWallX;
+        pVel.x = 0;
+        pVel.y = -ParallaxScrollSystem.currentScrollSpeed;
+
+        ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+          x: pTrans.x,
+          y: pTrans.y,
+          wallNormalX: -bugWallDir
+        });
+      } else {
+        // Not pressing in -> Safe shove!
+        bug.state = "SHOVED";
+        const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+        if (bugVel) {
+          bugVel.x = (bug.x > pTrans.x ? 1 : -1) * 6.5;
+          bugVel.y = 2.0;
+        }
       }
     }
   }

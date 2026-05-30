@@ -8,7 +8,8 @@ import {
   HitboxComponent,
   HurtboxComponent,
   CollisionResponseComponent,
-  HealthBugComponent
+  HealthBugComponent,
+  TraversalStateComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -78,6 +79,12 @@ export class CollisionResolutionSystem implements ISystem {
         const playerTrans = transforms.get(this.context.refs.player);
         const hazardTrans = transforms.get(resId);
         if (playerTrans && hazardTrans) {
+          const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+          const pTrav = travStore ? travStore.get(this.context.refs.player) : undefined;
+          if (pTrav && pTrav.lastStickyEntityId === resId) {
+            continue;
+          }
+          
           const dist = getDistance2D(playerTrans.x, playerTrans.y, hazardTrans.x, hazardTrans.y);
           
           let combinedRadius = 2.4;

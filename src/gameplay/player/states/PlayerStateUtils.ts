@@ -9,6 +9,7 @@ import {
   PlayerCosmeticComponent,
   StickySurfaceComponent,
   WallBugComponent,
+  HealthBugComponent,
   CollisionStateComponent,
   InputIntentComponent,
   TraversalState
@@ -219,12 +220,13 @@ export class PlayerStateUtils {
     input: InputIntentComponent,
     nextX: number,
     nextY: number,
-    isTrapped: boolean,
+    _isTrapped: boolean,
     currentState: TraversalState
   ): TraversalState | null {
     const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
+    const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
 
     if (!stickyStore || !bugTransStore) return null;
 
@@ -263,12 +265,31 @@ export class PlayerStateUtils {
           const pressingIn = input.x === bugWallDir;
 
           const bug = bugStore ? bugStore.get(bugId) : undefined;
+          const hBug = hBugStore ? hBugStore.get(bugId) : undefined;
           const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
+          const isPlayerTrapped = trav.isWebTrapped;
+          const isWebShieldActive = hBug ? (hBug.isWebTrapped || isPlayerTrapped) : isPlayerTrapped;
           const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-          const spikesActive = bug && bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
 
-          if (spikesActive && !isTrapped && !inSafeWindow) {
+          let spikesActive = false;
+          if (bug) {
+            spikesActive = bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+          } else if (hBug) {
+            if (!hBug.spikesDisarmed) {
+              if (hBug.variant === "SPIKED_LEFT" && distToBugX < 0) {
+                spikesActive = true;
+              } else if (hBug.variant === "SPIKED_RIGHT" && distToBugX > 0) {
+                spikesActive = true;
+              } else if (hBug.variant === "SPIKED_TOP" && nextY > bugTrans.y) {
+                spikesActive = true;
+              } else if (hBug.variant === "SPIKED_BOTTOM" && nextY < bugTrans.y) {
+                spikesActive = true;
+              }
+            }
+          }
+
+          if (spikesActive && !isWebShieldActive && !inSafeWindow) {
             const colStore = ctx.stores.get<CollisionStateComponent>("collisionState");
             const pCol = colStore.get(ctx.refs.player);
             if (pCol) {
@@ -311,7 +332,7 @@ export class PlayerStateUtils {
             return currentState === "LAUNCHING" ? "AIRBORNE" : null;
           }
 
-          if (pressingIn || isTrapped) {
+          if (pressingIn || isPlayerTrapped) {
             PlayerStateUtils.applyWallImpactSquash(ctx);
 
             trav.state = "WALL_STICKING";
@@ -351,20 +372,29 @@ export class PlayerStateUtils {
   public static handleActiveWallBugSpikeCheck(
     ctx: SystemContext,
     vel: KinematicVelocityComponent,
-    trav: TraversalStateComponent,
-    isTrapped: boolean
+    trav: TraversalStateComponent
   ): boolean {
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
+      const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
+      
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
-      const isSpikedOnClingSide =
-        bug &&
-        !bug.spikesDisarmed &&
-        ((trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
-          (trav.wallDir === 1 && bug.spikedSide === "LEFT"));
+      const hBug = hBugStore ? hBugStore.get(trav.stickyEntityId) : undefined;
+
+      const isPlayerTrapped = trav.isWebTrapped;
+      const isWebShieldActive = hBug ? (hBug.isWebTrapped || isPlayerTrapped) : isPlayerTrapped;
+
+      let isSpikedOnClingSide = false;
+      if (bug && !bug.spikesDisarmed) {
+        isSpikedOnClingSide = (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
+                             (trav.wallDir === 1 && bug.spikedSide === "LEFT");
+      } else if (hBug && !hBug.spikesDisarmed) {
+        isSpikedOnClingSide = (trav.wallDir === -1 && hBug.variant === "SPIKED_RIGHT") ||
+                             (trav.wallDir === 1 && hBug.variant === "SPIKED_LEFT");
+      }
 
       const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
-      if (isSpikedOnClingSide && !isTrapped && !inSafeWindow) {
+      if (isSpikedOnClingSide && !isWebShieldActive && !inSafeWindow) {
         trav.state = "AIRBORNE";
         trav.lastStickyEntityId = trav.stickyEntityId;
         trav.stickyEntityId = -1;
