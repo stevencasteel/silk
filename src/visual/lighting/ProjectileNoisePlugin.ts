@@ -36,9 +36,9 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
           CUSTOM_VERTEX_DEFINITIONS: `
             #ifdef NOISE
             uniform float u_noiseTime;
+            varying vec3 vLocalPos;
 
             float getNoiseVal(vec3 pos, float time) {
-                // Calibrated frequencies and 3.0x amplitude for 1.8 diameter bounds
                 float n = sin(pos.x * 2.0 + time * 5.0) * 
                           cos(pos.y * 2.3 + time * 6.3) * 
                           sin(pos.z * 2.6 + time * 4.1);
@@ -49,6 +49,7 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
           `,
           CUSTOM_VERTEX_UPDATE_POSITION: `
             #ifdef NOISE
+            vLocalPos = positionUpdated;
             float noiseVal = getNoiseVal(positionUpdated, u_noiseTime);
 
             #ifdef NORMAL
@@ -78,12 +79,13 @@ export class ProjectileNoisePlugin extends MaterialPluginBase {
           CUSTOM_FRAGMENT_DEFINITIONS: `
             #ifdef NOISE
             uniform float u_noiseTime;
+            varying vec3 vLocalPos;
             #endif
           `,
           CUSTOM_FRAGMENT_BEFORE_LIGHTS: `
             #ifdef NOISE
             #ifdef NORMAL
-            vec3 pos = vPositionW;
+            vec3 pos = vLocalPos;
             float epsF = 0.005;
             float hLF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
             float hR_xF = sin((pos.x + epsF) * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;

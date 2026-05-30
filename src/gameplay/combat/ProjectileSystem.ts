@@ -333,6 +333,22 @@ export class ProjectileSystem implements ISystem {
               pTrav.webMass = (pTrav.webMass || 1) + 1;
               pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
 
+              const pStore = sysCtx.stores.get<ProjectileComponent>("projectile");
+              const transformStore = sysCtx.stores.get<TransformComponent>("transform");
+              for (let idx = 0; idx < this.POOL_SIZE; idx++) {
+                const pid = this.projectileEntities[idx];
+                const activeProj = pStore.get(pid);
+                if (activeProj && activeProj.isActive && activeProj.isTrappingPlayer) {
+                  const activeTrans = transformStore.get(pid);
+                  if (activeTrans) {
+                    activeTrans.scaleVelX = (activeTrans.scaleVelX || 0) + 10.0;
+                    activeTrans.scaleVelY = (activeTrans.scaleVelY || 0) - 15.0;
+                    activeTrans.scaleVelZ = (activeTrans.scaleVelZ || 0) + 10.0;
+                  }
+                  break;
+                }
+              }
+
               const reqId = sysCtx.world.create();
               const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
               if (reqStore) {
@@ -811,7 +827,11 @@ export class ProjectileSystem implements ISystem {
           this.projMatTrapped.emissiveColor.set(rVal * 0.18, gVal * 0.18, bVal * 0.18);
         }
 
-        const massScale = Math.pow(1.15, (pTrav.webMass || 1) - 1);
+        const addedSize = Math.min(10.0, ((pTrav.webMass || 1) - 1) * 1.2);
+
+        let targetScaleX = 1.0 + addedSize;
+        let targetScaleY = 1.15 + addedSize;
+        let targetScaleZ = 1.0 + addedSize;
 
         if (pTrav.state === "WALL_STICKING") {
           trans.qx = 0;
@@ -828,9 +848,9 @@ export class ProjectileSystem implements ISystem {
           }
           mesh.rotationQuaternion.set(0, 0, 0, 1);
 
-          trans.scaleX = 0.28 * massScale;
-          trans.scaleY = 2.0 * massScale;
-          trans.scaleZ = 2.0 * massScale;
+          targetScaleX = 0.28 + addedSize * 0.28;
+          targetScaleY = 2.0 + addedSize;
+          targetScaleZ = 2.0 + addedSize;
 
           const wallOffset = pTrav.wallDir * 0.25;
           trans.x = pTrans.x + wallOffset;
@@ -845,10 +865,6 @@ export class ProjectileSystem implements ISystem {
             mesh.material = this.projMatTrapped;
           }
         } else {
-          trans.scaleX = 1.0 * massScale;
-          trans.scaleY = 1.15 * massScale;
-          trans.scaleZ = 1.0 * massScale;
-
           trans.x = pTrans.x;
           trans.y = pTrans.y;
           trans.z = pTrans.z;
@@ -857,13 +873,52 @@ export class ProjectileSystem implements ISystem {
           trans.prevY = pTrans.prevY;
           trans.prevZ = pTrans.prevZ;
 
+          trans.qx = pTrans.qx;
+          trans.qy = pTrans.qy;
+          trans.qz = pTrans.qz;
+          trans.qw = pTrans.qw;
+          trans.prevQx = pTrans.prevQx;
+          trans.prevQy = pTrans.prevQy;
+          trans.prevQz = pTrans.prevQz;
+          trans.prevQw = pTrans.prevQw;
+
+          if (!mesh.rotationQuaternion) {
+            mesh.rotationQuaternion = new BABYLON.Quaternion();
+          }
+          mesh.rotationQuaternion.set(trans.qx, trans.qy, trans.qz, trans.qw);
+
           if (mesh.material !== this.projMatTrapped) {
             mesh.material = this.projMatTrapped;
           }
         }
 
+        if (trans.scaleX === undefined) trans.scaleX = 1.0;
+        if (trans.scaleY === undefined) trans.scaleY = 1.0;
+        if (trans.scaleZ === undefined) trans.scaleZ = 1.0;
+        if (trans.scaleVelX === undefined) trans.scaleVelX = 0;
+        if (trans.scaleVelY === undefined) trans.scaleVelY = 0;
+        if (trans.scaleVelZ === undefined) trans.scaleVelZ = 0;
+
+        const stiffness = 180;
+        const damping = 15;
+
+        const dx = trans.scaleX! - targetScaleX;
+        const ax = -stiffness * dx - damping * trans.scaleVelX!;
+        trans.scaleVelX! += ax * dt;
+        trans.scaleX! += trans.scaleVelX! * dt;
+
+        const dy = trans.scaleY! - targetScaleY;
+        const ay = -stiffness * dy - damping * trans.scaleVelY!;
+        trans.scaleVelY! += ay * dt;
+        trans.scaleY! += trans.scaleVelY! * dt;
+
+        const dz = trans.scaleZ! - targetScaleZ;
+        const az = -stiffness * dz - damping * trans.scaleVelZ!;
+        trans.scaleVelZ! += az * dt;
+        trans.scaleZ! += trans.scaleVelZ! * dt;
+
         mesh.position.set(trans.x, trans.y, trans.z);
-        mesh.scaling.set(trans.scaleX, trans.scaleY, trans.scaleZ);
+        mesh.scaling.set(trans.scaleX!, trans.scaleY!, trans.scaleZ!);
 
         const body = this.bodiesMap.get(projId);
         if (body) {
