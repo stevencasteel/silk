@@ -150,7 +150,7 @@ export class WeaverStrikingState implements IWeaverState {
     if (cosmetic && wVel) {
       cosmetic.emissiveHue = aiComp.hue;
       const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
-      const rawAngle = Math.atan2(wVel.y, wVel.x) + Math.PI / 2;
+      const rawAngle = Math.atan2(wVel.y, -wVel.x) + Math.PI / 2;
       const normalizedAngle = Math.atan2(Math.sin(rawAngle), Math.cos(rawAngle));
       const maxRotation = Math.PI * 0.55; // Clamp to ~99 degrees to prevent going upside down
 
