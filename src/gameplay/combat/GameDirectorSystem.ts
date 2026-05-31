@@ -20,7 +20,7 @@ export class GameDirectorSystem implements ISystem {
   private maxCinematicSimTime = 0.6;
 
   private adrenalineTimer = 0.0;
-  private readonly ADRENALINE_SURGE_DURATION = 1.2;
+  private readonly _adrenalineSurgeDuration = 1.2;
 
   constructor(
     private context: SystemContext,
@@ -77,7 +77,7 @@ export class GameDirectorSystem implements ISystem {
           console.log(
             "[GameDirectorSystem] Player dropped to 1 HP! Triggering Adrenaline Surge slomo..."
           );
-          this.adrenalineTimer = this.ADRENALINE_SURGE_DURATION;
+          this.adrenalineTimer = this._adrenalineSurgeDuration;
         }
       })
     );
@@ -205,7 +205,7 @@ export class GameDirectorSystem implements ISystem {
     } else {
       if (this.adrenalineTimer > 0) {
         this.adrenalineTimer -= dt;
-        const progress = Math.max(0, this.adrenalineTimer / this.ADRENALINE_SURGE_DURATION);
+        const progress = Math.max(0, this.adrenalineTimer / this._adrenalineSurgeDuration);
         this.context.runtime.timeScale = 0.45 + (1.0 - progress) * 0.55;
       } else {
         this.context.runtime.timeScale = 1.0;
@@ -246,31 +246,32 @@ export class GameDirectorSystem implements ISystem {
     this.cinematicTimer = 0.0;
     this.adrenalineTimer = 0.0;
     this.context.runtime.timeScale = 1.0;
-    this.context.runtime.gameStarted = true; // Game is already started, just resetting
+    this.context.runtime.gameStarted = true;
 
-    // Clean up any remaining entities from previous game
     this.cleanupGameEnd();
 
-    this.spawner.spawnWeaver(this.context.refs.weaver);
-    this.spawner.spawnPlayer(this.context.refs.player);
+    Promise.all([
+      this.spawner.spawnWeaver(this.context.refs.weaver),
+      this.spawner.spawnPlayer(this.context.refs.player)
+    ]).then(() => {
+      this.context.broker.publish(GameEvent.GAME_RESET, undefined);
 
-    this.context.broker.publish(GameEvent.GAME_RESET, undefined);
+      const healths = this.context.stores.get<HealthComponent>("health");
+      const pHealth = healths.get(this.context.refs.player);
+      const wHealth = healths.get(this.context.refs.weaver);
 
-    const healths = this.context.stores.get<HealthComponent>("health");
-    const pHealth = healths.get(this.context.refs.player);
-    const wHealth = healths.get(this.context.refs.weaver);
-
-    this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-      hp: pHealth?.current || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
-      maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
-    });
-    this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
-      state: "PATROLLING",
-      hue: HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
-    });
-    this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
-      hp: wHealth?.current || 100,
-      maxHp: wHealth?.max || 100
+      this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
+        hp: pHealth?.current || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY,
+        maxHp: pHealth?.max || GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
+      });
+      this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
+        state: "PATROLLING",
+        hue: HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
+      });
+      this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
+        hp: wHealth?.current || 100,
+        maxHp: wHealth?.max || 100
+      });
     });
   }
 

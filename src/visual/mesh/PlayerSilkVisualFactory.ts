@@ -3,12 +3,12 @@ import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig
 import * as BABYLON from "@babylonjs/core";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
-export function createPlayerVisualMesh(
+export async function createPlayerVisualMesh(
   scene: BABYLON.Scene,
   height: number,
   radius: number,
   subdivisions: number
-): BABYLON.Mesh {
+): Promise<BABYLON.Mesh> {
   const pMesh = BABYLON.MeshBuilder.CreateCapsule(
     "playerVisual",
     {
@@ -31,16 +31,16 @@ export function createPlayerVisualMesh(
   pMat.sheen.color = new BABYLON.Color3(psc.r, psc.g, psc.b);
   pMesh.material = pMat;
 
-  decoratePlayerSilkVisual(scene, pMesh, height, radius);
+  await decoratePlayerSilkVisual(scene, pMesh, height, radius);
   return pMesh;
 }
 
-export function decoratePlayerSilkVisual(
+export async function decoratePlayerSilkVisual(
   scene: BABYLON.Scene,
   pMesh: BABYLON.Mesh,
   height: number,
   radius: number
-): void {
+): Promise<void> {
   pMesh.isVisible = false;
 
   const childMeshes = pMesh.getChildMeshes();
@@ -85,15 +85,31 @@ export function decoratePlayerSilkVisual(
   silkMat.roughness = 0.08;
   silkMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 1.0);
 
-  applyProceduralTextures(textureGen, "silkFiber", scene, silkMat, {
-    resolution: 512,
-    noiseScale: 40.0,
-    bumpStrength: 3.2,
-    baseColor: new BABYLON.Color3(0.95, 0.95, 1.0),
-    roughnessMin: 0.05,
-    roughnessMax: 0.12,
-    metallic: 0.92
-  });
+  const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
+  bandMat.metallic = 0.95;
+  bandMat.roughness = 0.06;
+  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+
+  await Promise.all([
+    applyProceduralTextures(textureGen, "silkFiber", scene, silkMat, {
+      resolution: 512,
+      noiseScale: 40.0,
+      bumpStrength: 3.2,
+      baseColor: new BABYLON.Color3(0.95, 0.95, 1.0),
+      roughnessMin: 0.05,
+      roughnessMax: 0.12,
+      metallic: 0.92
+    }),
+    applyProceduralTextures(textureGen, "silkBand", scene, bandMat, {
+      resolution: 256,
+      noiseScale: 30.0,
+      bumpStrength: 2.8,
+      baseColor: new BABYLON.Color3(1.0, 1.0, 1.0),
+      roughnessMin: 0.04,
+      roughnessMax: 0.1,
+      metallic: 0.95
+    })
+  ]);
 
   silkMat.sheen.isEnabled = true;
   silkMat.sheen.intensity = 0.95;
@@ -105,21 +121,6 @@ export function decoratePlayerSilkVisual(
 
   cocoonShell.material = silkMat;
   cocoonShell.parent = pMesh;
-
-  const bandMat = new BABYLON.PBRMaterial("playerBandMat", scene);
-  bandMat.metallic = 0.95;
-  bandMat.roughness = 0.06;
-  bandMat.albedoColor = new BABYLON.Color3(1.0, 1.0, 1.0);
-
-  applyProceduralTextures(textureGen, "silkBand", scene, bandMat, {
-    resolution: 256,
-    noiseScale: 30.0,
-    bumpStrength: 2.8,
-    baseColor: new BABYLON.Color3(1.0, 1.0, 1.0),
-    roughnessMin: 0.04,
-    roughnessMax: 0.1,
-    metallic: 0.95
-  });
 
   bandMat.sheen.isEnabled = true;
   bandMat.sheen.intensity = 0.85;

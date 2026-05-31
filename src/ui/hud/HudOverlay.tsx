@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert } from "lucide-react";
+import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Settings, Package, Layers } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameEvent } from "../../core/events/GameEvents";
 import { VISUAL_JUICE_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import confetti from "canvas-confetti";
 
 interface CalibrationStepMeta {
   successTitle: string;
@@ -54,6 +55,13 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
   }
 };
 
+const LOADING_STEPS = [
+  { id: 0, label: "LOAD AUDIO & CONTROLS", sub: "Pre-warming Tone.js synthesizers & binding controls", icon: Cpu },
+  { id: 1, label: "INITIALIZE PHYSICS BOUNDS", sub: "Forming boundaries & invisible static bounds", icon: Settings },
+  { id: 2, label: "GENERATE ACTOR TEXTURES", sub: "Baking procedural heightmaps for Player & Weaver", icon: Package },
+  { id: 3, label: "COMPILE SCENE SHADERS", sub: "Compiling PBR materials & pre-warming render pipelines", icon: Layers }
+];
+
 export const HudOverlay: React.FC = () => {
   const playerState = usePlayerStore(
     useShallow((s) => ({
@@ -77,8 +85,6 @@ export const HudOverlay: React.FC = () => {
   const { weaverHp, weaverMaxHp } = weaverState;
 
   const tensionBarFillRef = useRef<HTMLDivElement | null>(null);
-  const logsEndRef = useRef<HTMLDivElement | null>(null);
-
 
   const overlayState = useOverlayStore(
     useShallow((s) => ({
@@ -114,19 +120,12 @@ export const HudOverlay: React.FC = () => {
     wins,
     losses,
     bootStatus,
-    bootLogs,
     loadingProgress,
     menuIndex,
     setMenuIndex,
     calibrationStep,
     publishEvent
   } = overlayState;
-
-  useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [bootLogs]);
 
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
   useEffect(() => {
@@ -196,8 +195,6 @@ export const HudOverlay: React.FC = () => {
     publishEvent(GameEvent.UI_SFX_CONFIRM, undefined);
   }, [publishEvent]);
 
-
-
   const handleClearStats = useCallback(() => {
     window.dispatchEvent(new CustomEvent("silk-clear-stats"));
     setTickerWins(0);
@@ -228,11 +225,9 @@ export const HudOverlay: React.FC = () => {
       const maxReelLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
       const minReelLimit = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
 
-      // Filled width represents reeled-out tether progress (0% to 100%)
       const reelProgress = (maxLength - minReelLimit) / (maxReelLimit - minReelLimit);
       const barWidthPercent = Math.max(0.0, Math.min(100.0, reelProgress * 100.0));
 
-      // Color/Glow based on reel progress to match visual stage markers
       const uiConfig = VISUAL_JUICE_CONFIG.TETHER_UI;
       let color = `rgb(${uiConfig.COLOR_GREEN.r}, ${uiConfig.COLOR_GREEN.g}, ${uiConfig.COLOR_GREEN.b})`;
       let glow = `rgba(${uiConfig.GLOW_GREEN.r}, ${uiConfig.GLOW_GREEN.g}, ${uiConfig.GLOW_GREEN.b}, ${uiConfig.GLOW_GREEN.a})`;
@@ -441,7 +436,16 @@ export const HudOverlay: React.FC = () => {
     };
   }, [overlayVisible, wins, losses, playTickSynth]);
 
-
+  useEffect(() => {
+    if (overlayVisible && overlayTitle === "VICTORY") {
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.55 },
+        colors: ["#10b981", "#34d399", "#a7f3d0", "#ffffff"]
+      });
+    }
+  }, [overlayVisible, overlayTitle]);
 
   const isBooting = bootStatus !== "READY" && !awaitingGesture;
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
@@ -452,35 +456,76 @@ export const HudOverlay: React.FC = () => {
     : "led-yellow led-spring-impact";
   const activeStep = CALIBRATION_STEPS[displayedStep];
 
+  const getLoadingStepIndex = () => {
+    const status = bootStatus.toUpperCase();
+    if (status.includes("BOOTSTRAP") || status.includes("LOADING RENDER")) return 0;
+    if (status.includes("PERSISTANCE") || status.includes("KINEMATICS") || status.includes("AUDIO") || status.includes("SYSTEMS")) return 1;
+    if (status.includes("WORLD") || status.includes("WEAVER") || status.includes("PLAYER")) return 2;
+    if (status.includes("ARENA") || status.includes("SHADER") || status.includes("WARM") || status.includes("UI") || status.includes("COMPILING")) return 3;
+    return 4;
+  };
+
+  const currentLoadingStep = getLoadingStepIndex();
+
   return (
     <>
       {isBooting ? (
-        <div className="overlay-root font-mono pointer-events-auto">
-          <div className="overlay-modal max-w-2xl w-[90vw] border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center shadow-2xl h-[65vh]">
-            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.3em] text-xl mb-4 animate-pulse">
-              LOADING...
+        <div className="overlay-root font-mono pointer-events-auto bg-[#050506]/98 flex flex-col justify-center items-center">
+          <div className="relative p-10 rounded-[24px] bg-[#0c0e12] border border-white/5 shadow-2xl max-w-sm w-full mx-auto"
+               style={{
+                 boxShadow: "-8px -8px 24px rgba(255,255,255,0.02), 12px 12px 36px rgba(0,0,0,0.85)"
+               }}>
+            
+            <h2 className="text-zinc-500 font-bold uppercase tracking-[0.25em] text-xs mb-8 text-center select-none">
+              INITIALIZING HARNESS
             </h2>
-            <div className="w-full bg-black border border-zinc-800 h-2 mb-4 overflow-hidden rounded flex-shrink-0">
+
+            <div className="flex flex-col gap-6 mb-8">
+              {LOADING_STEPS.map((step) => {
+                const isActive = step.id === currentLoadingStep;
+                const isCompleted = step.id < currentLoadingStep;
+                const StepIcon = step.icon;
+
+                return (
+                  <div key={step.id} className={`flex items-center gap-4 transition-all duration-300 ${isActive ? "opacity-100 scale-102" : isCompleted ? "opacity-45" : "opacity-20"}`}>
+                    <div className={`relative flex items-center justify-center w-10 h-10 rounded-[12px] border transition-all duration-300 ${
+                      isActive 
+                        ? "bg-[#141820] border-emerald-500/30 text-emerald-500 shadow-inner" 
+                        : isCompleted 
+                          ? "bg-[#07080b] border-emerald-500/10 text-emerald-500" 
+                          : "bg-[#07080b] border-zinc-800 text-zinc-600"
+                    }`}
+                    style={isActive ? { boxShadow: "inset 2px 2px 5px rgba(0,0,0,0.5), 0 0 10px rgba(16,185,129,0.1)" } : {}}>
+                      <StepIcon size={16} className={isActive ? "animate-pulse" : ""} />
+                      {isActive && (
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0c0e12]" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-[10px] font-black tracking-wider ${isActive ? "text-emerald-500" : isCompleted ? "text-zinc-400" : "text-zinc-600"}`}>
+                        {step.label}
+                      </div>
+                      <div className="text-[8px] text-zinc-500 tracking-normal truncate">
+                        {isActive ? bootStatus : step.sub}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="relative w-full h-2 rounded-full bg-[#07080b] border border-white/[0.02] p-0.5 overflow-hidden shadow-inner">
               <div
-                className="h-full bg-emerald-500 transition-all duration-300 ease-out"
+                className="h-full rounded-full bg-emerald-500 transition-all duration-300 ease-out"
                 style={{
                   width: `${Math.round(loadingProgress * 100)}%`,
-                  boxShadow: loadingProgress > 0 ? "0 0 10px rgba(16, 185, 129, 0.5)" : "none"
+                  boxShadow: "0 0 8px rgba(16,185,129,0.5)"
                 }}
               />
             </div>
-            <div className="w-full flex-1 bg-[#050506] border border-zinc-800/80 rounded p-4 flex flex-col justify-start text-xs sm:text-sm text-zinc-400 overflow-hidden shadow-inner">
-              <div className="overflow-y-auto flex-1 flex flex-col gap-2 w-full text-left" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                {bootLogs.map((log, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <span className="text-emerald-500 shrink-0 select-none font-bold">
-                      {idx === bootLogs.length - 1 && bootStatus !== "READY" ? "⟳" : "✓"}
-                    </span>
-                    <span className="break-words font-medium">{log}</span>
-                  </div>
-                ))}
-                <div ref={logsEndRef} className="h-4 shrink-0" />
-              </div>
+            
+            <div className="text-[7.5px] text-zinc-600 tracking-wider text-right mt-1.5 font-bold uppercase select-none">
+              CALIBRATING SYSTEM SENSORS: {Math.round(loadingProgress * 100)}%
             </div>
           </div>
         </div>

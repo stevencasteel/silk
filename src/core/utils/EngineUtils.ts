@@ -67,20 +67,19 @@ export interface IProceduralTextureGenerator {
   }>;
 }
 
-export function applyProceduralTextures(
+export async function applyProceduralTextures(
   textureGen: IProceduralTextureGenerator,
   name: string,
   scene: BABYLON.Scene,
   material: BABYLON.PBRMaterial,
   config: ProceduralTextureConfig,
   customSetup?: (mat: BABYLON.PBRMaterial) => void
-): void {
-  textureGen.generatePBRTextures(name, scene, config).then((textures) => {
-    configurePBRTextures(material, textures);
-    if (customSetup) {
-      customSetup(material);
-    }
-  });
+): Promise<void> {
+  const textures = await textureGen.generatePBRTextures(name, scene, config);
+  configurePBRTextures(material, textures);
+  if (customSetup) {
+    customSetup(material);
+  }
 }
 
 export function solveSpringDamper(

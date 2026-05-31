@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   --bg-void: rgb(5, 5, 6);
   --bg-surface: rgb(14, 14, 17);
@@ -10,7 +12,6 @@
   --accent-danger: rgb(239, 68, 68);
   --accent-success: rgb(16, 185, 129);
 
-  /* Neomorphic Design Tokens */
   --void-bg: #07080b;
   --surface-bg: #0c0e12;
   --surface-elevated: #141820;
@@ -55,7 +56,6 @@ body,
   z-index: 85;
 }
 
-/* Mechanical Cabinet Panels */
 .cabinet-header-panel {
   width: 100%;
   height: 60px;
@@ -147,7 +147,6 @@ body,
   }
 }
 
-/* Mechanical Cabinet Footer */
 .cabinet-footer-panel {
   width: 100%;
   height: 48px;
@@ -244,7 +243,6 @@ body,
   border-radius: 4px;
 }
 
-/* Master Overlay System */
 .overlay-root {
   position: absolute;
   inset: 0;
@@ -266,7 +264,6 @@ body,
   backdrop-filter: blur(12px) !important;
 }
 
-/* Elevated Neomorphic Modals */
 .overlay-modal {
   display: flex;
   flex-direction: column;
@@ -359,7 +356,6 @@ body,
   text-transform: uppercase;
 }
 
-/* Polished Neomorphic Stats Grid */
 .gameover-stat-card {
   width: 100%;
   margin-top: 24px;
@@ -393,7 +389,6 @@ body,
   font-family: monospace;
 }
 
-/* Project Silk Color Matching Numbers */
 .gameover-stat-win {
   color: var(--signal-green) !important;
   text-shadow: 0 0 8px var(--signal-green-glow);
@@ -428,7 +423,6 @@ body,
   position: relative;
 }
 
-/* Balanced Indicators and Core Shadows */
 .gameover-inline-arrow {
   display: inline-block;
   font-family: monospace;
@@ -490,7 +484,6 @@ body,
   transform: scale(0.98);
 }
 
-/* LED Matrix System resembling glossy spheres */
 .led-dot {
   width: 14px;
   height: 14px;
@@ -531,7 +524,6 @@ body,
     0 0 16px var(--signal-yellow-glow) !important;
 }
 
-/* Core Animations */
 @keyframes led-squash-spring {
   0% {
     transform: scale(1);
@@ -743,7 +735,6 @@ body,
   }
 }
 
-/* Project Silk Style Structural Overrides */
 .gameover-divider {
   height: 1px;
   width: 60px;
@@ -806,7 +797,6 @@ body,
   text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
 }
 
-/* Project Silk style LED Damage Shaking/Decay animation */
 @keyframes led-shake-die-decay {
   0% {
     transform: translate(2px, 2px) scale(1.3) rotate(5deg);
@@ -835,7 +825,6 @@ body,
   animation: led-shake-die-decay 0.45s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }
 
-/* Neomorphic Utility Classes */
 .neo-elevated {
   background: var(--surface-elevated) !important;
   box-shadow: var(--shadow-light), var(--shadow-dark) !important;
@@ -848,15 +837,11 @@ body,
   border: 1px solid rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Progressive blur overlay for seamless immediate startup */
 .backdrop-wipe-gesture {
   background: rgba(5, 5, 6, 0.25) !important;
   backdrop-filter: blur(2px) !important;
 }
 
-/* ==========================================================================
-   PROJECT SILK - RESTORED NEOMORPHIC KEYCAP STYLES
-   ========================================================================== */
 .keycap-box {
   display: inline-flex;
   align-items: center;

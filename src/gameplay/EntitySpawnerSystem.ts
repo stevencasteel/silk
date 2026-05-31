@@ -16,7 +16,7 @@ export class EntitySpawnerSystem implements ISystem {
 
   constructor(private context: SystemContext) {}
 
-  public init(): void {
+  public async init(): Promise<void> {
     const scene = this.context.visualQuery.getScene();
     if (scene && scene.isPhysicsEnabled()) {
       const cylHalfHeight =
@@ -29,12 +29,16 @@ export class EntitySpawnerSystem implements ISystem {
       );
     }
 
-    // Pre-spawn entities on initialization so they are fully loaded, textured, and compiled
-    this.spawnWeaver();
-    this.spawnPlayer();
+    this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "GENERATING WEAVER CARAPACE AND PBR TEXTURES..."
+    });
+    await this.spawnWeaver();
 
-    // Temporarily keep them enabled during startup so RenderSystem can successfully warm up their shaders.
-    // We will disable them visually immediately upon receiving the READY signal.
+    this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "GENERATING PLAYER COCOON SILK TEXTURES..."
+    });
+    await this.spawnPlayer();
+
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
         if (payload.status === "READY") {
@@ -43,20 +47,21 @@ export class EntitySpawnerSystem implements ISystem {
       })
     );
 
-    // Show them when the game state officially starts
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_STARTED, () => {
         this.setEntitiesEnabled(true);
       })
     );
 
-    // Respawn/Reset entities on game reset
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.despawnAll();
-        this.spawnWeaver();
-        this.spawnPlayer();
-        this.setEntitiesEnabled(true);
+        Promise.all([
+          this.spawnWeaver(),
+          this.spawnPlayer()
+        ]).then(() => {
+          this.setEntitiesEnabled(true);
+        });
       })
     );
   }
@@ -72,27 +77,27 @@ export class EntitySpawnerSystem implements ISystem {
     if (pNode) pNode.setEnabled(enabled);
   }
 
-  public spawnWeaver(existingId?: EntityId): EntityId {
+  public async spawnWeaver(existingId?: EntityId): Promise<EntityId> {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return -1;
 
     const weaverId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(weaverId);
 
-    EntityAssembler.assembleWeaver(this.context, weaverId, scene);
+    await EntityAssembler.assembleWeaver(this.context, weaverId, scene);
     this.context.refs.weaver = weaverId;
 
     return weaverId;
   }
 
-  public spawnPlayer(existingId?: EntityId): EntityId {
+  public async spawnPlayer(existingId?: EntityId): Promise<EntityId> {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return -1;
 
     const playerId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(playerId);
 
-    EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedPlayerShape);
+    await EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedPlayerShape);
     this.context.refs.player = playerId;
 
     return playerId;

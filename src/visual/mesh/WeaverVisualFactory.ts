@@ -99,12 +99,12 @@ function createWeaverMaterial(
   return mat;
 }
 
-export function createWeaverVisualMesh(
+export async function createWeaverVisualMesh(
   scene: BABYLON.Scene,
   radius: number,
   subdivisions: number,
   registerShadowCaster?: (mesh: BABYLON.AbstractMesh) => void
-): BABYLON.Mesh {
+): Promise<BABYLON.Mesh> {
   const wMesh = BABYLON.MeshBuilder.CreateIcoSphere(
     "weaverVisual",
     { radius, subdivisions },
@@ -153,16 +153,16 @@ export function createWeaverVisualMesh(
   const shearPlugin = new SilkMaterialPlugin(wMat, { shear: true });
   (wMat as BABYLON.PBRMaterial & { _shearPlugin?: SilkMaterialPlugin })._shearPlugin = shearPlugin;
 
-  decorateWeaverVisual(scene, wMesh, radius, registerShadowCaster);
+  await decorateWeaverVisual(scene, wMesh, radius, registerShadowCaster);
   return wMesh;
 }
 
-export function decorateWeaverVisual(
+export async function decorateWeaverVisual(
   scene: BABYLON.Scene,
   wMesh: BABYLON.Mesh,
   radius: number,
   registerShadowCaster?: (mesh: BABYLON.AbstractMesh) => void
-): void {
+): Promise<void> {
   wMesh.isVisible = false;
 
   const childMeshes = wMesh.getChildMeshes();
@@ -181,48 +181,10 @@ export function decorateWeaverVisual(
   );
 
   const carapaceMat = createWeaverMaterial("carapaceMat", scene, imperialPurple, 0.98, 0.06, true);
-
-  applyProceduralTextures(textureGen, "carapaceShell", scene, carapaceMat, {
-    resolution: 512,
-    noiseScale: 18.0,
-    bumpStrength: 1.65,
-    baseColor: imperialPurple,
-    roughnessMin: 0.05,
-    roughnessMax: 0.15,
-    metallic: 0.98,
-    ridgeStrength: 0.13,
-    ridgeScale: 0.54,
-    ridgeDirectionX: 0.25,
-    ridgeDirectionY: 1.0,
-    colorVariation: 0.16
-  });
-
-  const upperPurple = new BABYLON.Color3(
-    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.r * 1.6,
-    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.g,
-    ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
-  );
-
-  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, {
+  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, imperialPurple, 0.95, 0.08, true, {
     shear: true,
     gradient: true
   });
-
-  applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
-    resolution: 512,
-    noiseScale: 16.0,
-    bumpStrength: 1.85,
-    baseColor: upperPurple,
-    roughnessMin: 0.05,
-    roughnessMax: 0.15,
-    metallic: 0.95,
-    ridgeStrength: 0.18,
-    ridgeScale: 0.48,
-    ridgeDirectionX: 0.12,
-    ridgeDirectionY: 1.0,
-    colorVariation: 0.18
-  });
-
   const legMat = createWeaverMaterial(
     "legMat",
     scene,
@@ -231,38 +193,66 @@ export function decorateWeaverVisual(
     0.05,
     false
   );
-
-  applyProceduralTextures(textureGen, "legScratches", scene, legMat, {
-    resolution: 256,
-    noiseScale: 26.0,
-    bumpStrength: 1.55,
-    baseColor: new BABYLON.Color3(0.06, 0.0, 0.1),
-    roughnessMin: 0.03,
-    roughnessMax: 0.12,
-    metallic: 0.98,
-    ridgeStrength: 0.22,
-    ridgeScale: 1.15,
-    ridgeDirectionX: 0.08,
-    ridgeDirectionY: 1.0,
-    colorVariation: 0.12
-  });
-
   const footMat = createWeaverMaterial("footMat", scene, imperialPurple, 0.98, 0.06, true);
 
-  applyProceduralTextures(textureGen, "carapaceShell", scene, footMat, {
-    resolution: 512,
-    noiseScale: 18.0,
-    bumpStrength: 1.65,
-    baseColor: imperialPurple,
-    roughnessMin: 0.05,
-    roughnessMax: 0.15,
-    metallic: 0.98,
-    ridgeStrength: 0.13,
-    ridgeScale: 0.54,
-    ridgeDirectionX: 0.25,
-    ridgeDirectionY: 1.0,
-    colorVariation: 0.16
-  });
+  await Promise.all([
+    applyProceduralTextures(textureGen, "carapaceShell", scene, carapaceMat, {
+      resolution: 512,
+      noiseScale: 18.0,
+      bumpStrength: 1.65,
+      baseColor: imperialPurple,
+      roughnessMin: 0.05,
+      roughnessMax: 0.15,
+      metallic: 0.98,
+      ridgeStrength: 0.13,
+      ridgeScale: 0.54,
+      ridgeDirectionX: 0.25,
+      ridgeDirectionY: 1.0,
+      colorVariation: 0.16
+    }),
+    applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
+      resolution: 512,
+      noiseScale: 16.0,
+      bumpStrength: 1.85,
+      baseColor: new BABYLON.Color3(imperialPurple.r * 1.6, imperialPurple.g, imperialPurple.b * 1.6),
+      roughnessMin: 0.05,
+      roughnessMax: 0.15,
+      metallic: 0.95,
+      ridgeStrength: 0.18,
+      ridgeScale: 0.48,
+      ridgeDirectionX: 0.12,
+      ridgeDirectionY: 1.0,
+      colorVariation: 0.18
+    }),
+    applyProceduralTextures(textureGen, "legScratches", scene, legMat, {
+      resolution: 256,
+      noiseScale: 26.0,
+      bumpStrength: 1.55,
+      baseColor: new BABYLON.Color3(0.06, 0.0, 0.1),
+      roughnessMin: 0.03,
+      roughnessMax: 0.12,
+      metallic: 0.98,
+      ridgeStrength: 0.22,
+      ridgeScale: 1.15,
+      ridgeDirectionX: 0.08,
+      ridgeDirectionY: 1.0,
+      colorVariation: 0.12
+    }),
+    applyProceduralTextures(textureGen, "carapaceShell", scene, footMat, {
+      resolution: 512,
+      noiseScale: 18.0,
+      bumpStrength: 1.65,
+      baseColor: imperialPurple,
+      roughnessMin: 0.05,
+      roughnessMax: 0.15,
+      metallic: 0.98,
+      ridgeStrength: 0.13,
+      ridgeScale: 0.54,
+      ridgeDirectionX: 0.25,
+      ridgeDirectionY: 1.0,
+      colorVariation: 0.16
+    })
+  ]);
 
   const eyeMat = new BABYLON.PBRMaterial("weaverEyeMat", scene);
   eyeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);

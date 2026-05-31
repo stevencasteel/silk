@@ -12,6 +12,15 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
     }
   >();
 
+  private static promiseCache = new Map<
+    string,
+    Promise<{
+      albedo: BABYLON.DynamicTexture;
+      normal: BABYLON.DynamicTexture;
+      orm: BABYLON.DynamicTexture;
+    }>
+  >();
+
   constructor() {
     const permutation = new Uint8Array(256);
     for (let i = 0; i < 256; i++) {
@@ -73,6 +82,25 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
       return cached;
     }
 
+    let pending = ProceduralTextureGenerator.promiseCache.get(name);
+    if (!pending) {
+      pending = this.executeGeneration(name, scene, config, onProgress);
+      ProceduralTextureGenerator.promiseCache.set(name, pending);
+    }
+
+    return pending;
+  }
+
+  private async executeGeneration(
+    name: string,
+    scene: BABYLON.Scene,
+    config: ProceduralTextureConfig,
+    onProgress?: (percent: number) => void
+  ): Promise<{
+    albedo: BABYLON.DynamicTexture;
+    normal: BABYLON.DynamicTexture;
+    orm: BABYLON.DynamicTexture;
+  }> {
     const res = config.resolution;
     const albedoTex = new BABYLON.DynamicTexture(`${name}_albedo`, res, scene, true);
     const normalTex = new BABYLON.DynamicTexture(`${name}_normal`, res, scene, true);
@@ -88,7 +116,7 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
 
     const heightMap = new Float32Array(res * res);
     for (let y = 0; y < res; y++) {
-      if (y % 16 === 0) {
+      if (y % 32 === 0) {
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
         if (onProgress) onProgress((y / res) * 0.45);
       }
@@ -116,7 +144,7 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
     }
 
     for (let y = 0; y < res; y++) {
-      if (y % 16 === 0) {
+      if (y % 32 === 0) {
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
         if (onProgress) onProgress(0.45 + (y / res) * 0.55);
       }
@@ -182,7 +210,9 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
     ormTex.update();
 
     const textures = { albedo: albedoTex, normal: normalTex, orm: ormTex };
+    
     ProceduralTextureGenerator.textureCache.set(name, textures);
+    ProceduralTextureGenerator.promiseCache.delete(name);
 
     if (onProgress) onProgress(1.0);
     return textures;
@@ -195,5 +225,6 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
       texs.orm.dispose();
     });
     ProceduralTextureGenerator.textureCache.clear();
+    ProceduralTextureGenerator.promiseCache.clear();
   }
 }

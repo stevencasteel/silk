@@ -28,11 +28,11 @@ import * as BABYLON from "@babylonjs/core";
 import { GameEvent } from "../core/events/GameEvents";
 
 export class EntityAssembler {
-  public static assembleWeaver(
+  public static async assembleWeaver(
     context: SystemContext,
     weaverId: EntityId,
     scene: BABYLON.Scene
-  ): void {
+  ): Promise<void> {
     context.stores.get<TransformComponent>("transform").add(weaverId, {
       x: 0,
       y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
@@ -174,7 +174,7 @@ export class EntityAssembler {
     const regCaster = (m: BABYLON.AbstractMesh) =>
       context.visualRegistration.registerShadowCaster(m);
 
-    const wMesh = createWeaverVisualMesh(
+    const wMesh = await createWeaverVisualMesh(
       scene,
       radius,
       ARENA_CONFIG.ENTITY.WEAVER_ICOSPHERE_SUBDIVISIONS,
@@ -197,13 +197,12 @@ export class EntityAssembler {
     }
   }
 
-  public static assemblePlayer(
+  public static async assemblePlayer(
     context: SystemContext,
     playerId: EntityId,
     scene: BABYLON.Scene,
     sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null
-  ): void {
-    // Start player closely below Weaver body
+  ): Promise<void> {
     const initialY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - ARENA_CONFIG.TETHER.INITIAL_LENGTH;
 
     context.stores.get<TransformComponent>("transform").add(playerId, {
@@ -358,7 +357,7 @@ export class EntityAssembler {
       return;
     }
 
-    const pMesh = createPlayerVisualMesh(
+    const pMesh = await createPlayerVisualMesh(
       scene,
       ARENA_CONFIG.ENTITY.PLAYER_HEIGHT,
       ARENA_CONFIG.ENTITY.PLAYER_RADIUS,

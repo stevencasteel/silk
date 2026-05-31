@@ -11,7 +11,7 @@ import * as BABYLON from "@babylonjs/core";
 
 export class RenderSystem implements ISystem {
   readonly phase = SystemPhase.PostRender;
-  readonly initPhase = InitPhase.Bootstrap;
+  readonly initPhase = InitPhase.UI; // Deferred compile pass after all assets are fully spawned
   private engine: BABYLON.Engine | null = null;
   private scene: BABYLON.Scene | null = null;
   private canvas: HTMLCanvasElement;
@@ -24,21 +24,23 @@ export class RenderSystem implements ISystem {
     private broker: IEventBroker
   ) {
     this.canvas = canvas;
-  }
-
-  public async init(): Promise<void> {
-    ProceduralTextureGenerator.clearCache();
-
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "LOADING RENDER ENGINE..."
-    });
-
     this.engine = new BABYLON.Engine(this.canvas, true, {
       preserveDrawingBuffer: true,
       stencil: true
     });
     this.scene = new BABYLON.Scene(this.engine);
     this.scene.clearColor = new BABYLON.Color4(0.015, 0.005, 0.025, 1.0);
+
+    // Bind early so getScene() is alive right from InitPhase.Bootstrap
+    this.visualRegistry.setSceneAndShadows(this.scene, null);
+  }
+
+  public async init(): Promise<void> {
+    ProceduralTextureGenerator.clearCache();
+
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "LOADING ENVIRONMENT TEXTURE & LIGHTS..."
+    });
 
     const preset = POST_PROCESSING_PRESETS;
 
@@ -49,7 +51,7 @@ export class RenderSystem implements ISystem {
         preset.CAMERA.DEFAULT_POS.y,
         preset.CAMERA.DEFAULT_POS.z
       ),
-      this.scene
+      this.scene!
     );
     camera.setTarget(
       new BABYLON.Vector3(
@@ -60,28 +62,24 @@ export class RenderSystem implements ISystem {
     );
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
 
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "LOADING ENVIRONMENT TEXTURE..."
-    });
-
     const envTexture = BABYLON.CubeTexture.CreateFromPrefilteredData(
       "https://assets.babylonjs.com/environments/environmentSpecular.env",
-      this.scene
+      this.scene!
     );
-    this.scene.environmentTexture = envTexture;
-    this.scene.environmentIntensity = 1.45;
+    this.scene!.environmentTexture = envTexture;
+    this.scene!.environmentIntensity = 1.45;
 
     const ambientLight = new BABYLON.HemisphericLight(
       "ambientLight",
       new BABYLON.Vector3(0, 1, 0),
-      this.scene
+      this.scene!
     );
     ambientLight.intensity = 0.08;
 
     const dirLight = new BABYLON.DirectionalLight(
       "dirLight",
       new BABYLON.Vector3(-0.35, -0.75, 0.55),
-      this.scene
+      this.scene!
     );
     dirLight.intensity = 1.65;
     dirLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
@@ -89,7 +87,7 @@ export class RenderSystem implements ISystem {
     const dirFillLight = new BABYLON.DirectionalLight(
       "dirFillLight",
       new BABYLON.Vector3(0.35, -0.75, 0.55),
-      this.scene
+      this.scene!
     );
     dirFillLight.intensity = 1.35;
     dirFillLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
@@ -126,7 +124,7 @@ export class RenderSystem implements ISystem {
       new BABYLON.Vector3(0.0, 1.0, 0.55),
       Math.PI * 0.42,
       2.8,
-      this.scene
+      this.scene!
     );
     lowerBackLight.intensity = 3.8;
     lowerBackLight.range = 58.0;
@@ -144,7 +142,7 @@ export class RenderSystem implements ISystem {
       uplight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     });
 
-    const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene, [
+    const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, this.scene!, [
       camera
     ]);
     pipeline.samples = preset.RENDERER.SAMPLES;
@@ -170,7 +168,7 @@ export class RenderSystem implements ISystem {
     pipeline.chromaticAberration.radialIntensity = 1.2;
     this.pipeline = pipeline;
 
-    this.scene.lights.forEach((light) => {
+    this.scene!.lights.forEach((light) => {
       light.specular.set(0, 0, 0);
     });
 
@@ -179,26 +177,35 @@ export class RenderSystem implements ISystem {
     shadowGen.filteringQuality = BABYLON.ShadowGenerator.QUALITY_MEDIUM;
     shadowGen.darkness = preset.RENDERER.SHADOW_DARKNESS;
 
-    this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
+    // This automatically registers shadows to already-spawned entities (Player/Weaver)
+    this.visualRegistry.setSceneAndShadows(this.scene!, shadowGen);
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "GENERATING ARENA GEOMETRY..."
+      status: "GENERATING ARENA SHAFT GEOMETRY..."
     });
 
-    const arenaGeo = new ArenaGeometry(this.scene);
+    const arenaGeo = new ArenaGeometry(this.scene!);
     await arenaGeo.generateElevatorShaft();
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "COMPILING SHADERS & PREPARING SCENE..."
+      status: "COMPILING SHADERS & PRE-WARMING PIPELINE..."
     });
-    await this.scene.whenReadyAsync();
 
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "WARMING SHADER PIPELINE..."
-    });
-    
-    // Force complete compilation of materials by actively drawing a background frame before revealing
-    if (this.engine) {
+    // Manually trigger a render frame synchronously. This forces the WebGL context
+    // to compile materials and bind procedural textures immediately.
+    if (this.engine && this.scene) {
+      this.engine.beginFrame();
+      this.scene.render();
+      this.engine.endFrame();
+    }
+
+    // Race the ready check with a 1.2-second timeout to prevent loading locks on slower contexts
+    await Promise.race([
+      this.scene!.whenReadyAsync(),
+      new Promise<void>((resolve) => setTimeout(resolve, 1200))
+    ]);
+
+    if (this.engine && this.scene) {
       this.engine.beginFrame();
       this.scene.render();
       this.engine.endFrame();
@@ -238,8 +245,6 @@ export class RenderSystem implements ISystem {
         }
       })
     );
-
-
 
     window.addEventListener("resize", this.handleResize);
   }

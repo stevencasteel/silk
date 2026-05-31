@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   base: "./",
   resolve: {
     alias: {
@@ -19,7 +20,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Isolate key engine layers into targeted parallel chunks
           if (id.includes('@babylonjs/core')) {
             return 'babylon-core';
           }

@@ -10,6 +10,20 @@ export class VisualRegistry implements IVisualRegistry {
   public setSceneAndShadows(scene: BABYLON.Scene, shadowGen: BABYLON.ShadowGenerator | null): void {
     this.scene = scene;
     this.shadowGen = shadowGen;
+    if (shadowGen) {
+      this.visualNodes.forEach((node) => {
+        if (node instanceof BABYLON.AbstractMesh) {
+          shadowGen.addShadowCaster(node);
+          node.receiveShadows = true;
+          node.getChildMeshes().forEach((m) => {
+            if (!m.name.includes("weaver_eye") && !m.name.includes("foot_")) {
+              shadowGen.addShadowCaster(m);
+              m.receiveShadows = true;
+            }
+          });
+        }
+      });
+    }
   }
 
   public getScene(): BABYLON.Scene | null {
