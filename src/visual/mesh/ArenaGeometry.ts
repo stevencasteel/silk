@@ -34,10 +34,35 @@ export class ArenaGeometry {
     backdropPanelMaterial.roughness = 0.88;
     backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
 
+    const backdropPanelMaterial2 = new BABYLON.PBRMaterial("shaftBackdropPanelMat2", this.scene);
+    backdropPanelMaterial2.metallic = 0.08;
+    backdropPanelMaterial2.roughness = 0.82;
+    backdropPanelMaterial2.albedoColor = new BABYLON.Color3(0.045, 0.051, 0.062);
+
+    const backdropPanelMaterial3 = new BABYLON.PBRMaterial("shaftBackdropPanelMat3", this.scene);
+    backdropPanelMaterial3.metallic = 0.03;
+    backdropPanelMaterial3.roughness = 0.91;
+    backdropPanelMaterial3.albedoColor = new BABYLON.Color3(0.032, 0.037, 0.045);
+
+    const backdropPanelMaterial4 = new BABYLON.PBRMaterial("shaftBackdropPanelMat4", this.scene);
+    backdropPanelMaterial4.metallic = 0.06;
+    backdropPanelMaterial4.roughness = 0.86;
+    backdropPanelMaterial4.albedoColor = new BABYLON.Color3(0.041, 0.047, 0.057);
+
     const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
     gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
     gashMaterial.roughness = 1.0;
     gashMaterial.metallic = 0.0;
+
+    const crackMaterial = new BABYLON.PBRMaterial("shaftCrackMat", this.scene);
+    crackMaterial.albedoColor = new BABYLON.Color3(0.005, 0.006, 0.008);
+    crackMaterial.roughness = 0.95;
+    crackMaterial.metallic = 0.0;
+
+    const dentMaterial = new BABYLON.PBRMaterial("shaftDentMat", this.scene);
+    dentMaterial.albedoColor = new BABYLON.Color3(0.012, 0.014, 0.018);
+    dentMaterial.roughness = 0.92;
+    dentMaterial.metallic = 0.05;
 
     const texturesPromise = Promise.all([
       textureGen
@@ -75,17 +100,17 @@ export class ArenaGeometry {
       textureGen
         .generatePBRTextures("shaftBackdropConcrete", this.scene, {
           resolution: 1024,
-          noiseScale: 12.0,
-          bumpStrength: 3.1,
+          noiseScale: 14.0,
+          bumpStrength: 4.2,
           baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
-          roughnessMin: 0.82,
+          roughnessMin: 0.78,
           roughnessMax: 0.99,
           metallic: 0.0,
-          ridgeStrength: 0.16,
-          ridgeScale: 0.34,
-          ridgeDirectionX: 0.65,
+          ridgeStrength: 0.22,
+          ridgeScale: 0.42,
+          ridgeDirectionX: 0.72,
           ridgeDirectionY: 1.0,
-          colorVariation: 0.2
+          colorVariation: 0.28
         })
         .then((textures) => {
           configurePBRTextures(backdropMaterial, textures);
@@ -174,6 +199,33 @@ export class ArenaGeometry {
     backdropPanelBase.isVisible = false;
     backdropPanelBase.receiveShadows = true;
 
+    const backdropPanelBase2 = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase2",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase2.material = backdropPanelMaterial2;
+    backdropPanelBase2.isVisible = false;
+    backdropPanelBase2.receiveShadows = true;
+
+    const backdropPanelBase3 = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase3",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase3.material = backdropPanelMaterial3;
+    backdropPanelBase3.isVisible = false;
+    backdropPanelBase3.receiveShadows = true;
+
+    const backdropPanelBase4 = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase4",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase4.material = backdropPanelMaterial4;
+    backdropPanelBase4.isVisible = false;
+    backdropPanelBase4.receiveShadows = true;
+
     const backdropGashBase = BABYLON.MeshBuilder.CreateBox(
       "backdropGashBase",
       { width: 1.0, height: 1.0, depth: 0.1 },
@@ -182,6 +234,24 @@ export class ArenaGeometry {
     backdropGashBase.material = gashMaterial;
     backdropGashBase.isVisible = false;
     backdropGashBase.receiveShadows = false;
+
+    const backdropCrackBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropCrackBase",
+      { width: 1.0, height: 1.0, depth: 0.06 },
+      this.scene
+    );
+    backdropCrackBase.material = crackMaterial;
+    backdropCrackBase.isVisible = false;
+    backdropCrackBase.receiveShadows = false;
+
+    const backdropDentBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropDentBase",
+      { width: 1.0, height: 1.0, depth: 0.15 },
+      this.scene
+    );
+    backdropDentBase.material = dentMaterial;
+    backdropDentBase.isVisible = false;
+    backdropDentBase.receiveShadows = true;
 
     const backdropPanelCount = 28;
     const backdropPanelSpacing = wallHeight / backdropPanelCount;
@@ -192,7 +262,15 @@ export class ArenaGeometry {
       const panelHeight = backdropPanelSpacing * (0.62 + Math.abs(Math.cos(i * 0.93)) * 0.42);
       const panelDepth = 0.09 + Math.abs(Math.sin(i * 4.73)) * 0.07;
 
-      const backdropPanel = backdropPanelBase.createInstance(`backdropPanel_${i}`);
+      // Vary panel material for color variety
+      const materialVariant = i % 4;
+      let panelBase;
+      if (materialVariant === 0) panelBase = backdropPanelBase;
+      else if (materialVariant === 1) panelBase = backdropPanelBase2;
+      else if (materialVariant === 2) panelBase = backdropPanelBase3;
+      else panelBase = backdropPanelBase4;
+
+      const backdropPanel = panelBase.createInstance(`backdropPanel_${i}`);
       backdropPanel.position.set(bandOffset, panelY, backdropZ - 0.22);
       backdropPanel.scaling.set(panelWidth, panelHeight, panelDepth);
 
@@ -217,16 +295,52 @@ export class ArenaGeometry {
     for (let i = 0; i < gashCount; i++) {
       const scratchY = (i - gashCount / 2) * gashSpacing + wallHeight * 0.1;
       const scratchX = Math.sin(i * 3.83) * backdropWidth * 0.43;
-      const scratch = backdropGashBase.createInstance(`backdropGash_${i}`);
-      scratch.position.set(scratchX, scratchY, backdropZ - 0.31);
-      scratch.scaling.set(
-        0.06 + Math.abs(Math.sin(i * 1.41)) * 0.08,
-        0.75 + Math.abs(Math.cos(i * 2.37)) * 1.15,
-        0.14
-      );
-      scratch.rotation.z = Math.sin(i * 2.61) * 0.92;
+      
+      // Vary damage type based on index
+      const damageType = i % 3;
+      let damageMesh;
+      
+      if (damageType === 0) {
+        // Deep gash
+        damageMesh = backdropGashBase.createInstance(`backdropGash_${i}`);
+        damageMesh.position.set(scratchX, scratchY, backdropZ - 0.31);
+        damageMesh.scaling.set(
+          0.06 + Math.abs(Math.sin(i * 1.41)) * 0.08,
+          0.75 + Math.abs(Math.cos(i * 2.37)) * 1.15,
+          0.14
+        );
+        damageMesh.rotation.z = Math.sin(i * 2.61) * 0.92;
+      } else if (damageType === 1) {
+        // Thin crack
+        damageMesh = backdropCrackBase.createInstance(`backdropCrack_${i}`);
+        damageMesh.position.set(
+          scratchX + Math.cos(i * 1.9) * backdropWidth * 0.12,
+          scratchY + Math.sin(i * 2.3) * 0.5,
+          backdropZ - 0.28
+        );
+        damageMesh.scaling.set(
+          0.02 + Math.abs(Math.sin(i * 2.8)) * 0.03,
+          1.2 + Math.abs(Math.cos(i * 1.7)) * 0.8,
+          0.08
+        );
+        damageMesh.rotation.z = Math.sin(i * 3.1) * 1.4 + Math.cos(i * 1.5) * 0.5;
+      } else {
+        // Shallow dent
+        damageMesh = backdropDentBase.createInstance(`backdropDent_${i}`);
+        damageMesh.position.set(
+          scratchX - Math.sin(i * 2.1) * backdropWidth * 0.18,
+          scratchY + Math.cos(i * 1.8) * 0.4,
+          backdropZ - 0.26
+        );
+        damageMesh.scaling.set(
+          0.15 + Math.abs(Math.cos(i * 2.4)) * 0.12,
+          0.25 + Math.abs(Math.sin(i * 1.9)) * 0.2,
+          0.18
+        );
+        damageMesh.rotation.z = Math.cos(i * 2.7) * 0.6;
+      }
 
-      scratch.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
+      damageMesh.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
     }
 
     const panelCount = 20;
