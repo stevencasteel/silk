@@ -77,6 +77,8 @@ export const HudOverlay: React.FC = () => {
   const { weaverHp, weaverMaxHp } = weaverState;
 
   const tensionBarFillRef = useRef<HTMLDivElement | null>(null);
+  const logsEndRef = useRef<HTMLDivElement | null>(null);
+
 
   const overlayState = useOverlayStore(
     useShallow((s) => ({
@@ -91,6 +93,7 @@ export const HudOverlay: React.FC = () => {
       wins: s.wins,
       losses: s.losses,
       bootStatus: s.bootStatus,
+      bootLogs: s.bootLogs,
       loadingProgress: s.loadingProgress,
       menuIndex: s.menuIndex,
       setMenuIndex: s.setMenuIndex,
@@ -111,12 +114,19 @@ export const HudOverlay: React.FC = () => {
     wins,
     losses,
     bootStatus,
+    bootLogs,
     loadingProgress,
     menuIndex,
     setMenuIndex,
     calibrationStep,
     publishEvent
   } = overlayState;
+
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [bootLogs]);
 
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
   useEffect(() => {
@@ -446,11 +456,11 @@ export const HudOverlay: React.FC = () => {
     <>
       {isBooting ? (
         <div className="overlay-root font-mono pointer-events-auto">
-          <div className="overlay-modal max-w-sm w-full border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
-            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-sm mb-4 animate-pulse">
-              INITIALIZING...
+          <div className="overlay-modal max-w-2xl w-[90vw] border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center shadow-2xl h-[65vh]">
+            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.3em] text-xl mb-4 animate-pulse">
+              LOADING...
             </h2>
-            <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
+            <div className="w-full bg-black border border-zinc-800 h-2 mb-4 overflow-hidden rounded flex-shrink-0">
               <div
                 className="h-full bg-emerald-500 transition-all duration-300 ease-out"
                 style={{
@@ -459,9 +469,19 @@ export const HudOverlay: React.FC = () => {
                 }}
               />
             </div>
-            <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
-              {bootStatus}
-            </pre>
+            <div className="w-full flex-1 bg-[#050506] border border-zinc-800/80 rounded p-4 flex flex-col justify-start text-xs sm:text-sm text-zinc-400 overflow-hidden shadow-inner">
+              <div className="overflow-y-auto flex-1 flex flex-col gap-2 w-full text-left" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                {bootLogs.map((log, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <span className="text-emerald-500 shrink-0 select-none font-bold">
+                      {idx === bootLogs.length - 1 && bootStatus !== "READY" ? "⟳" : "✓"}
+                    </span>
+                    <span className="break-words font-medium">{log}</span>
+                  </div>
+                ))}
+                <div ref={logsEndRef} className="h-4 shrink-0" />
+              </div>
+            </div>
           </div>
         </div>
       ) : awaitingGesture ? (

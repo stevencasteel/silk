@@ -33,8 +33,15 @@ export class EntitySpawnerSystem implements ISystem {
     this.spawnWeaver();
     this.spawnPlayer();
 
-    // Initially hide them so they do not render or glitch behind the loading/start overlays
-    this.setEntitiesEnabled(false);
+    // Temporarily keep them enabled during startup so RenderSystem can successfully warm up their shaders.
+    // We will disable them visually immediately upon receiving the READY signal.
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
+        if (payload.status === "READY") {
+          this.setEntitiesEnabled(false);
+        }
+      })
+    );
 
     // Show them when the game state officially starts
     this._tracker.add(

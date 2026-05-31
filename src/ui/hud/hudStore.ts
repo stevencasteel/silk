@@ -26,6 +26,7 @@ export interface WeaverState {
 }
 
 export interface OverlayState {
+  bootLogs: string[];
   bootStatus: string;
   loadingProgress: number;
   traversalHint: string;
@@ -48,6 +49,7 @@ export interface OverlayState {
   setCalibrationStep: (step: number) => void;
 
   setBootStatus: (status: string) => void;
+  addBootLog: (log: string) => void;
   setLoadingProgress: (progress: number) => void;
   setTraversalHint: (text: string, color: string, opacity: number) => void;
   showOverlay: (title: string, color: string, subtitle: string) => void;
@@ -85,6 +87,7 @@ const WEAVER_RESET = {
 };
 
 const OVERLAY_RESET = {
+  bootLogs: [],
   bootStatus: "READY",
   loadingProgress: 0,
   traversalHint: "",
@@ -155,6 +158,7 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   wins: 0,
   losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
+  addBootLog: (log) => set((state) => ({ bootLogs: [...state.bootLogs, log] })),
   setLoadingProgress: (progress) => set({ loadingProgress: progress }),
   setTraversalHint: (text, color, opacity) =>
     set((state) => {

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 2:27:01 PM
+ [SYSTEM] Generated: 5/31/2026, 2:34:28 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1174,6 +1174,7 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
   const overlay = useOverlayStore.getState();
 
   overlay.setBootStatus("INITIALIZING...");
+  overlay.addBootLog("INITIALIZING BOOT SEQUENCE...");
   overlay.setAwaitingGesture(false);
 
   try {
@@ -1183,6 +1184,7 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
 
     const unsubscribe = engine.eventBroker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
       overlay.setBootStatus(payload.status);
+      overlay.addBootLog(payload.status);
       const progressMatch = payload.status.match(/\((\d+)%\)/);
       if (progressMatch) {
         const progress = parseInt(progressMatch[1], 10) / 100;
@@ -1195,9 +1197,9 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
     return engine;
   } catch (error) {
     console.error("Failed to bootstrap application:", error);
-    overlay.setBootStatus(
-      "BOOT FAILED: " + (error instanceof Error ? error.message : String(error))
-    );
+    const errMsg = "BOOT FAILED: " + (error instanceof Error ? error.message : String(error));
+    overlay.setBootStatus(errMsg);
+    overlay.addBootLog(errMsg);
     overlay.setLoadingProgress(0);
     throw error;
   }
@@ -2938,7 +2940,7 @@ export class Engine {
       const phaseNames = ["BOOTSTRAP", "WORLD", "GAMEPLAY", "UI"];
       const progressPercent = Math.round(progress * 100);
       this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-        status: `[${phaseNames[phase]}] ${systemName}... (${progressPercent}%)`
+        status: `[${phaseNames[phase]}] INITIALIZING ${systemName.replace(/System$/, '').toUpperCase()}... (${progressPercent}%)`
       });
     });
 
@@ -4407,8 +4409,15 @@ export class EntitySpawnerSystem implements ISystem {
     this.spawnWeaver();
     this.spawnPlayer();
 
-    // Initially hide them so they do not render or glitch behind the loading/start overlays
-    this.setEntitiesEnabled(false);
+    // Temporarily keep them enabled during startup so RenderSystem can successfully warm up their shaders.
+    // We will disable them visually immediately upon receiving the READY signal.
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
+        if (payload.status === "READY") {
+          this.setEntitiesEnabled(false);
+        }
+      })
+    );
 
     // Show them when the game state officially starts
     this._tracker.add(
@@ -14329,6 +14338,8 @@ export const HudOverlay: React.FC = () => {
   const { weaverHp, weaverMaxHp } = weaverState;
 
   const tensionBarFillRef = useRef<HTMLDivElement | null>(null);
+  const logsEndRef = useRef<HTMLDivElement | null>(null);
+
 
   const overlayState = useOverlayStore(
     useShallow((s) => ({
@@ -14343,6 +14354,7 @@ export const HudOverlay: React.FC = () => {
       wins: s.wins,
       losses: s.losses,
       bootStatus: s.bootStatus,
+      bootLogs: s.bootLogs,
       loadingProgress: s.loadingProgress,
       menuIndex: s.menuIndex,
       setMenuIndex: s.setMenuIndex,
@@ -14363,12 +14375,19 @@ export const HudOverlay: React.FC = () => {
     wins,
     losses,
     bootStatus,
+    bootLogs,
     loadingProgress,
     menuIndex,
     setMenuIndex,
     calibrationStep,
     publishEvent
   } = overlayState;
+
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [bootLogs]);
 
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
   useEffect(() => {
@@ -14698,11 +14717,11 @@ export const HudOverlay: React.FC = () => {
     <>
       {isBooting ? (
         <div className="overlay-root font-mono pointer-events-auto">
-          <div className="overlay-modal max-w-sm w-full border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
-            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-sm mb-4 animate-pulse">
-              INITIALIZING...
+          <div className="overlay-modal max-w-2xl w-[90vw] border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center shadow-2xl h-[65vh]">
+            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.3em] text-xl mb-4 animate-pulse">
+              LOADING...
             </h2>
-            <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
+            <div className="w-full bg-black border border-zinc-800 h-2 mb-4 overflow-hidden rounded flex-shrink-0">
               <div
                 className="h-full bg-emerald-500 transition-all duration-300 ease-out"
                 style={{
@@ -14711,9 +14730,19 @@ export const HudOverlay: React.FC = () => {
                 }}
               />
             </div>
-            <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
-              {bootStatus}
-            </pre>
+            <div className="w-full flex-1 bg-[#050506] border border-zinc-800/80 rounded p-4 flex flex-col justify-start text-xs sm:text-sm text-zinc-400 overflow-hidden shadow-inner">
+              <div className="overflow-y-auto flex-1 flex flex-col gap-2 w-full text-left" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                {bootLogs.map((log, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <span className="text-emerald-500 shrink-0 select-none font-bold">
+                      {idx === bootLogs.length - 1 && bootStatus !== "READY" ? "⟳" : "✓"}
+                    </span>
+                    <span className="break-words font-medium">{log}</span>
+                  </div>
+                ))}
+                <div ref={logsEndRef} className="h-4 shrink-0" />
+              </div>
+            </div>
           </div>
         </div>
       ) : awaitingGesture ? (
@@ -15420,12 +15449,6 @@ export class HudSyncSystem implements ISystem, IUpdateable {
     });
 
     this.subscriptions.push(
-      this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {
-        overlayStore.setBootStatus(status);
-      })
-    );
-
-    this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         const stateHints = PlayerStateHints.getHintForState(
           this.currentState as "AIRBORNE" | "WALL_STICKING" | "LAUNCHING",
@@ -15547,6 +15570,7 @@ export interface WeaverState {
 }
 
 export interface OverlayState {
+  bootLogs: string[];
   bootStatus: string;
   loadingProgress: number;
   traversalHint: string;
@@ -15569,6 +15593,7 @@ export interface OverlayState {
   setCalibrationStep: (step: number) => void;
 
   setBootStatus: (status: string) => void;
+  addBootLog: (log: string) => void;
   setLoadingProgress: (progress: number) => void;
   setTraversalHint: (text: string, color: string, opacity: number) => void;
   showOverlay: (title: string, color: string, subtitle: string) => void;
@@ -15606,6 +15631,7 @@ const WEAVER_RESET = {
 };
 
 const OVERLAY_RESET = {
+  bootLogs: [],
   bootStatus: "READY",
   loadingProgress: 0,
   traversalHint: "",
@@ -15676,6 +15702,7 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   wins: 0,
   losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
+  addBootLog: (log) => set((state) => ({ bootLogs: [...state.bootLogs, log] })),
   setLoadingProgress: (progress) => set({ loadingProgress: progress }),
   setTraversalHint: (text, color, opacity) =>
     set((state) => {
@@ -18317,6 +18344,17 @@ export class RenderSystem implements ISystem {
       status: "COMPILING SHADERS & PREPARING SCENE..."
     });
     await this.scene.whenReadyAsync();
+
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "WARMING SHADER PIPELINE..."
+    });
+    
+    // Force complete compilation of materials by actively drawing a background frame before revealing
+    if (this.engine) {
+      this.engine.beginFrame();
+      this.scene.render();
+      this.engine.endFrame();
+    }
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {

@@ -6,6 +6,7 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
   const overlay = useOverlayStore.getState();
 
   overlay.setBootStatus("INITIALIZING...");
+  overlay.addBootLog("INITIALIZING BOOT SEQUENCE...");
   overlay.setAwaitingGesture(false);
 
   try {
@@ -15,6 +16,7 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
 
     const unsubscribe = engine.eventBroker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
       overlay.setBootStatus(payload.status);
+      overlay.addBootLog(payload.status);
       const progressMatch = payload.status.match(/\((\d+)%\)/);
       if (progressMatch) {
         const progress = parseInt(progressMatch[1], 10) / 100;
@@ -27,9 +29,9 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
     return engine;
   } catch (error) {
     console.error("Failed to bootstrap application:", error);
-    overlay.setBootStatus(
-      "BOOT FAILED: " + (error instanceof Error ? error.message : String(error))
-    );
+    const errMsg = "BOOT FAILED: " + (error instanceof Error ? error.message : String(error));
+    overlay.setBootStatus(errMsg);
+    overlay.addBootLog(errMsg);
     overlay.setLoadingProgress(0);
     throw error;
   }

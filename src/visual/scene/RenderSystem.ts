@@ -193,6 +193,17 @@ export class RenderSystem implements ISystem {
     });
     await this.scene.whenReadyAsync();
 
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "WARMING SHADER PIPELINE..."
+    });
+    
+    // Force complete compilation of materials by actively drawing a background frame before revealing
+    if (this.engine) {
+      this.engine.beginFrame();
+      this.scene.render();
+      this.engine.endFrame();
+    }
+
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         if (this.pipeline) {

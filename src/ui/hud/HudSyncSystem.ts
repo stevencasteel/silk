@@ -62,12 +62,6 @@ export class HudSyncSystem implements ISystem, IUpdateable {
     });
 
     this.subscriptions.push(
-      this.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, ({ status }) => {
-        overlayStore.setBootStatus(status);
-      })
-    );
-
-    this.subscriptions.push(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
         const stateHints = PlayerStateHints.getHintForState(
           this.currentState as "AIRBORNE" | "WALL_STICKING" | "LAUNCHING",

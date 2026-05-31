@@ -53,7 +53,7 @@ export class Engine {
       const phaseNames = ["BOOTSTRAP", "WORLD", "GAMEPLAY", "UI"];
       const progressPercent = Math.round(progress * 100);
       this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-        status: `[${phaseNames[phase]}] ${systemName}... (${progressPercent}%)`
+        status: `[${phaseNames[phase]}] INITIALIZING ${systemName.replace(/System$/, '').toUpperCase()}... (${progressPercent}%)`
       });
     });
 
