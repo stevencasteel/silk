@@ -308,6 +308,11 @@ export const HudOverlay: React.FC = () => {
   }, [playerHp]);
 
   const handleProceed = useCallback(() => {
+    const isFullyLoaded = bootStatus === "READY" && awaitingGesture;
+    if (!isFullyLoaded) {
+      return;
+    }
+
     playConfirmSynth();
     publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
     useOverlayStore.getState().setAwaitingGesture(false);
@@ -317,7 +322,7 @@ export const HudOverlay: React.FC = () => {
     if (canvas) {
       canvas.focus();
     }
-  }, [playConfirmSynth, publishEvent]);
+  }, [bootStatus, awaitingGesture, playConfirmSynth, publishEvent]);
 
   // Handle specific keys to progress once fully loaded
   useEffect(() => {
