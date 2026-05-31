@@ -325,10 +325,12 @@ export class HealthBugSystem implements ISystem {
               bug.x = -limitX;
               vel.x *= -0.85;
               this.triggerPinballShake(0.5);
+              this.context.broker.publish(GameEvent.HEALTH_BUG_PINBALL, undefined);
             } else if (bug.x > limitX) {
               bug.x = limitX;
               vel.x *= -0.85;
               this.triggerPinballShake(0.5);
+              this.context.broker.publish(GameEvent.HEALTH_BUG_PINBALL, undefined);
             }
 
             if (Math.abs(vel.x) + Math.abs(vel.y) < 2.0) {
@@ -601,6 +603,10 @@ export class HealthBugSystem implements ISystem {
     const bugTrans = transforms.get(bugId);
     if (!bugTrans) return;
 
+    const bugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+    const bug = bugStore.get(bugId);
+    const variant = bug?.variant || "NORMAL";
+
     const scene = this.context.visualQuery.getScene();
     if (scene) {
       const pCount = 8;
@@ -644,7 +650,11 @@ export class HealthBugSystem implements ISystem {
       y: bugTrans.y,
       isWall: false
     });
-    this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+
+    // Trigger new layered procedural sound
+    this.context.broker.publish(GameEvent.HEALTH_BUG_POP, {
+      variant: variant as "NORMAL" | "SPIKED" | "PINBALL" | "SPINNING"
+    });
 
     this.pool.release(bugId);
   }
@@ -672,6 +682,8 @@ export class HealthBugSystem implements ISystem {
               maxHp: pHealth.max
             });
             this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+            // Trigger heal sound
+            this.context.broker.publish(GameEvent.HEALTH_BUG_HEAL, undefined);
           }
         }
         p.mesh.dispose();

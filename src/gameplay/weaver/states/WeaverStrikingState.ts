@@ -13,7 +13,8 @@ import {
   WeaverAIComponent,
   ActorCosmeticComponent,
   KinematicVelocityComponent,
-  TetherComponent
+  TetherComponent,
+  HealthComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX, getDistance2D, getWeaverAbdomenTip } from "../../../core/utils/EngineUtils";
 
@@ -58,6 +59,15 @@ export class WeaverStrikingState implements IWeaverState {
       this.targetPos.x = 0;
       this.targetPos.y = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     }
+
+    // Trigger striking phase sound
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore?.get(ctx.refs.weaver);
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    ctx.broker.publish(GameEvent.WEAVER_STRIKING_PHASE, {
+      phase: "PREP",
+      isBerserk
+    });
   }
 
   private startThrust(ctx: SystemContext): void {
@@ -88,6 +98,15 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.desiredVelocityX = this.thrustVelocity.x;
       aiComp.desiredVelocityY = this.thrustVelocity.y;
     }
+
+    // Trigger striking phase sound
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore?.get(ctx.refs.weaver);
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    ctx.broker.publish(GameEvent.WEAVER_STRIKING_PHASE, {
+      phase: "THRUST",
+      isBerserk
+    });
   }
 
   private startRecover(ctx: SystemContext): void {
@@ -136,6 +155,15 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.shootTargetY = playerTrans.y;
       aiComp.shootIsRelease = true;
     }
+
+    // Trigger striking phase sound
+    const healthStore = ctx.stores.get<HealthComponent>("health");
+    const health = healthStore?.get(ctx.refs.weaver);
+    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
+    ctx.broker.publish(GameEvent.WEAVER_STRIKING_PHASE, {
+      phase: "RECOVER",
+      isBerserk
+    });
   }
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
