@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 7:56:40 PM
+ [SYSTEM] Generated: 5/30/2026, 8:01:17 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -13381,6 +13381,9 @@ export class HavokPhysicsSystem implements ISystem {
   readonly phase = SystemPhase.PhysicsStep;
   readonly initPhase = InitPhase.Bootstrap;
   private havokPlugin: BABYLON.HavokPlugin | null = null;
+  private static isInitialized = false;
+
+  private barriers: { body: BABYLON.PhysicsBody; shape: BABYLON.PhysicsShape; mesh: BABYLON.Mesh }[] = [];
 
   private _scratchPos = new BABYLON.Vector3();
   private _scratchRot = new BABYLON.Quaternion();
@@ -13419,6 +13422,11 @@ export class HavokPhysicsSystem implements ISystem {
             throw new Error("HavokPhysics failed to load from both local and CDN sources");
           }
         }
+
+        if (HavokPhysicsSystem.isInitialized) {
+          return;
+        }
+        HavokPhysicsSystem.isInitialized = true;
 
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
         scene.enablePhysics(
@@ -13509,6 +13517,8 @@ export class HavokPhysicsSystem implements ISystem {
     const body = new BABYLON.PhysicsBody(mesh, BABYLON.PhysicsMotionType.STATIC, false, scene);
     body.shape = shape;
     body.setMassProperties({ mass: 0 });
+
+    this.barriers.push({ body, shape, mesh });
     return body;
   }
 
@@ -13560,6 +13570,20 @@ export class HavokPhysicsSystem implements ISystem {
       this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
       wMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
+  }
+
+  public dispose(): void {
+    this.barriers.forEach((b) => {
+      b.body.dispose();
+      b.shape.dispose();
+      b.mesh.dispose();
+    });
+    this.barriers = [];
+    if (this.havokPlugin) {
+      this.havokPlugin.dispose();
+      this.havokPlugin = null;
+    }
+    HavokPhysicsSystem.isInitialized = false;
   }
 }
 
@@ -16291,8 +16315,7 @@ export class RasterShearPlugin extends MaterialPluginBase {
 
 ● ./src/visual/mesh/ArenaGeometry.ts
 ────────────────────────────────────────────────────
-import { applyProceduralTextures } from "../../core/utils/EngineUtils";
-
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -16300,7 +16323,7 @@ import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator"
 export class ArenaGeometry {
   constructor(private scene: BABYLON.Scene) {}
 
-  public generateElevatorShaft(): void {
+  public async generateElevatorShaft(): Promise<void> {
     const textureGen = new ProceduralTextureGenerator();
 
     const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
@@ -16308,50 +16331,10 @@ export class ArenaGeometry {
     wallMaterial.roughness = 0.85;
     wallMaterial.albedoColor = new BABYLON.Color3(0.043, 0.051, 0.063);
 
-    applyProceduralTextures(
-      textureGen,
-      "concreteWall",
-      this.scene,
-      wallMaterial,
-      {
-        resolution: 512,
-        noiseScale: 10.0,
-        bumpStrength: 2.5,
-        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
-        roughnessMin: 0.75,
-        roughnessMax: 0.98,
-        metallic: 0.0
-      },
-      (mat) => {
-        mat.enableSpecularAntiAliasing = true;
-        mat.forceIrradianceInFragment = true;
-      }
-    );
-
     const panelMaterial = new BABYLON.PBRMaterial("panelMat", this.scene);
     panelMaterial.metallic = 0.25;
     panelMaterial.roughness = 0.65;
     panelMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.11);
-
-    applyProceduralTextures(
-      textureGen,
-      "scrollingPanel",
-      this.scene,
-      panelMaterial,
-      {
-        resolution: 512,
-        noiseScale: 16.0,
-        bumpStrength: 1.8,
-        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
-        roughnessMin: 0.45,
-        roughnessMax: 0.75,
-        metallic: 0.2
-      },
-      (mat) => {
-        mat.enableSpecularAntiAliasing = true;
-        mat.forceIrradianceInFragment = true;
-      }
-    );
 
     const verticalGrooveMaterial = new BABYLON.PBRMaterial("grooveMat", this.scene);
     verticalGrooveMaterial.albedoColor = new BABYLON.Color3(0.015, 0.015, 0.02);
@@ -16363,12 +16346,46 @@ export class ArenaGeometry {
     backdropMaterial.roughness = 0.94;
     backdropMaterial.albedoColor = new BABYLON.Color3(0.026, 0.03, 0.037);
 
-    applyProceduralTextures(
-      textureGen,
-      "shaftBackdropConcrete",
-      this.scene,
-      backdropMaterial,
-      {
+    const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
+    backdropPanelMaterial.metallic = 0.05;
+    backdropPanelMaterial.roughness = 0.88;
+    backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
+
+    const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
+    gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
+    gashMaterial.roughness = 1.0;
+    gashMaterial.metallic = 0.0;
+
+    const texturesPromise = Promise.all([
+      textureGen.generatePBRTextures("concreteWall", this.scene, {
+        resolution: 512,
+        noiseScale: 10.0,
+        bumpStrength: 2.5,
+        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
+        roughnessMin: 0.75,
+        roughnessMax: 0.98,
+        metallic: 0.0
+      }).then((textures) => {
+        configurePBRTextures(wallMaterial, textures);
+        wallMaterial.enableSpecularAntiAliasing = true;
+        wallMaterial.forceIrradianceInFragment = true;
+      }),
+
+      textureGen.generatePBRTextures("scrollingPanel", this.scene, {
+        resolution: 512,
+        noiseScale: 16.0,
+        bumpStrength: 1.8,
+        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
+        roughnessMin: 0.45,
+        roughnessMax: 0.75,
+        metallic: 0.2
+      }).then((textures) => {
+        configurePBRTextures(panelMaterial, textures);
+        panelMaterial.enableSpecularAntiAliasing = true;
+        panelMaterial.forceIrradianceInFragment = true;
+      }),
+
+      textureGen.generatePBRTextures("shaftBackdropConcrete", this.scene, {
         resolution: 1024,
         noiseScale: 12.0,
         bumpStrength: 3.1,
@@ -16381,22 +16398,14 @@ export class ArenaGeometry {
         ridgeDirectionX: 0.65,
         ridgeDirectionY: 1.0,
         colorVariation: 0.2
-      },
-      (mat) => {
-        mat.enableSpecularAntiAliasing = true;
-        mat.forceIrradianceInFragment = true;
-      }
-    );
+      }).then((textures) => {
+        configurePBRTextures(backdropMaterial, textures);
+        backdropMaterial.enableSpecularAntiAliasing = true;
+        backdropMaterial.forceIrradianceInFragment = true;
+      })
+    ]);
 
-    const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
-    backdropPanelMaterial.metallic = 0.05;
-    backdropPanelMaterial.roughness = 0.88;
-    backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
-
-    const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
-    gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
-    gashMaterial.roughness = 1.0;
-    gashMaterial.metallic = 0.0;
+    await texturesPromise;
 
     const wallThickness = 2.0;
     const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
@@ -17924,7 +17933,6 @@ export class RenderSystem implements ISystem {
   }
 
   public async init(): Promise<void> {
-    // Force procedural textures to clear cache on boot to generate the new Weaver imperial purple
     ProceduralTextureGenerator.clearCache();
 
     this.engine = new BABYLON.Engine(this.canvas, true, {
@@ -18072,7 +18080,7 @@ export class RenderSystem implements ISystem {
     this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
 
     const arenaGeo = new ArenaGeometry(this.scene);
-    arenaGeo.generateElevatorShaft();
+    await arenaGeo.generateElevatorShaft();
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {

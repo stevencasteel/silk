@@ -23,6 +23,9 @@ export class HavokPhysicsSystem implements ISystem {
   readonly phase = SystemPhase.PhysicsStep;
   readonly initPhase = InitPhase.Bootstrap;
   private havokPlugin: BABYLON.HavokPlugin | null = null;
+  private static isInitialized = false;
+
+  private barriers: { body: BABYLON.PhysicsBody; shape: BABYLON.PhysicsShape; mesh: BABYLON.Mesh }[] = [];
 
   private _scratchPos = new BABYLON.Vector3();
   private _scratchRot = new BABYLON.Quaternion();
@@ -61,6 +64,11 @@ export class HavokPhysicsSystem implements ISystem {
             throw new Error("HavokPhysics failed to load from both local and CDN sources");
           }
         }
+
+        if (HavokPhysicsSystem.isInitialized) {
+          return;
+        }
+        HavokPhysicsSystem.isInitialized = true;
 
         this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
         scene.enablePhysics(
@@ -151,6 +159,8 @@ export class HavokPhysicsSystem implements ISystem {
     const body = new BABYLON.PhysicsBody(mesh, BABYLON.PhysicsMotionType.STATIC, false, scene);
     body.shape = shape;
     body.setMassProperties({ mass: 0 });
+
+    this.barriers.push({ body, shape, mesh });
     return body;
   }
 
@@ -202,5 +212,19 @@ export class HavokPhysicsSystem implements ISystem {
       this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
       wMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
     }
+  }
+
+  public dispose(): void {
+    this.barriers.forEach((b) => {
+      b.body.dispose();
+      b.shape.dispose();
+      b.mesh.dispose();
+    });
+    this.barriers = [];
+    if (this.havokPlugin) {
+      this.havokPlugin.dispose();
+      this.havokPlugin = null;
+    }
+    HavokPhysicsSystem.isInitialized = false;
   }
 }

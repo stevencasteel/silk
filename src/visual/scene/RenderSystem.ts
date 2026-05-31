@@ -27,7 +27,6 @@ export class RenderSystem implements ISystem {
   }
 
   public async init(): Promise<void> {
-    // Force procedural textures to clear cache on boot to generate the new Weaver imperial purple
     ProceduralTextureGenerator.clearCache();
 
     this.engine = new BABYLON.Engine(this.canvas, true, {
@@ -175,7 +174,7 @@ export class RenderSystem implements ISystem {
     this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
 
     const arenaGeo = new ArenaGeometry(this.scene);
-    arenaGeo.generateElevatorShaft();
+    await arenaGeo.generateElevatorShaft();
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {

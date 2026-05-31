@@ -1,5 +1,4 @@
-import { applyProceduralTextures } from "../../core/utils/EngineUtils";
-
+import { configurePBRTextures } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
@@ -7,7 +6,7 @@ import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator"
 export class ArenaGeometry {
   constructor(private scene: BABYLON.Scene) {}
 
-  public generateElevatorShaft(): void {
+  public async generateElevatorShaft(): Promise<void> {
     const textureGen = new ProceduralTextureGenerator();
 
     const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
@@ -15,50 +14,10 @@ export class ArenaGeometry {
     wallMaterial.roughness = 0.85;
     wallMaterial.albedoColor = new BABYLON.Color3(0.043, 0.051, 0.063);
 
-    applyProceduralTextures(
-      textureGen,
-      "concreteWall",
-      this.scene,
-      wallMaterial,
-      {
-        resolution: 512,
-        noiseScale: 10.0,
-        bumpStrength: 2.5,
-        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
-        roughnessMin: 0.75,
-        roughnessMax: 0.98,
-        metallic: 0.0
-      },
-      (mat) => {
-        mat.enableSpecularAntiAliasing = true;
-        mat.forceIrradianceInFragment = true;
-      }
-    );
-
     const panelMaterial = new BABYLON.PBRMaterial("panelMat", this.scene);
     panelMaterial.metallic = 0.25;
     panelMaterial.roughness = 0.65;
     panelMaterial.albedoColor = new BABYLON.Color3(0.08, 0.09, 0.11);
-
-    applyProceduralTextures(
-      textureGen,
-      "scrollingPanel",
-      this.scene,
-      panelMaterial,
-      {
-        resolution: 512,
-        noiseScale: 16.0,
-        bumpStrength: 1.8,
-        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
-        roughnessMin: 0.45,
-        roughnessMax: 0.75,
-        metallic: 0.2
-      },
-      (mat) => {
-        mat.enableSpecularAntiAliasing = true;
-        mat.forceIrradianceInFragment = true;
-      }
-    );
 
     const verticalGrooveMaterial = new BABYLON.PBRMaterial("grooveMat", this.scene);
     verticalGrooveMaterial.albedoColor = new BABYLON.Color3(0.015, 0.015, 0.02);
@@ -70,12 +29,46 @@ export class ArenaGeometry {
     backdropMaterial.roughness = 0.94;
     backdropMaterial.albedoColor = new BABYLON.Color3(0.026, 0.03, 0.037);
 
-    applyProceduralTextures(
-      textureGen,
-      "shaftBackdropConcrete",
-      this.scene,
-      backdropMaterial,
-      {
+    const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
+    backdropPanelMaterial.metallic = 0.05;
+    backdropPanelMaterial.roughness = 0.88;
+    backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
+
+    const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
+    gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
+    gashMaterial.roughness = 1.0;
+    gashMaterial.metallic = 0.0;
+
+    const texturesPromise = Promise.all([
+      textureGen.generatePBRTextures("concreteWall", this.scene, {
+        resolution: 512,
+        noiseScale: 10.0,
+        bumpStrength: 2.5,
+        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
+        roughnessMin: 0.75,
+        roughnessMax: 0.98,
+        metallic: 0.0
+      }).then((textures) => {
+        configurePBRTextures(wallMaterial, textures);
+        wallMaterial.enableSpecularAntiAliasing = true;
+        wallMaterial.forceIrradianceInFragment = true;
+      }),
+
+      textureGen.generatePBRTextures("scrollingPanel", this.scene, {
+        resolution: 512,
+        noiseScale: 16.0,
+        bumpStrength: 1.8,
+        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
+        roughnessMin: 0.45,
+        roughnessMax: 0.75,
+        metallic: 0.2
+      }).then((textures) => {
+        configurePBRTextures(panelMaterial, textures);
+        panelMaterial.enableSpecularAntiAliasing = true;
+        panelMaterial.forceIrradianceInFragment = true;
+      }),
+
+      textureGen.generatePBRTextures("shaftBackdropConcrete", this.scene, {
         resolution: 1024,
         noiseScale: 12.0,
         bumpStrength: 3.1,
@@ -88,22 +81,14 @@ export class ArenaGeometry {
         ridgeDirectionX: 0.65,
         ridgeDirectionY: 1.0,
         colorVariation: 0.2
-      },
-      (mat) => {
-        mat.enableSpecularAntiAliasing = true;
-        mat.forceIrradianceInFragment = true;
-      }
-    );
+      }).then((textures) => {
+        configurePBRTextures(backdropMaterial, textures);
+        backdropMaterial.enableSpecularAntiAliasing = true;
+        backdropMaterial.forceIrradianceInFragment = true;
+      })
+    ]);
 
-    const backdropPanelMaterial = new BABYLON.PBRMaterial("shaftBackdropPanelMat", this.scene);
-    backdropPanelMaterial.metallic = 0.05;
-    backdropPanelMaterial.roughness = 0.88;
-    backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
-
-    const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
-    gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
-    gashMaterial.roughness = 1.0;
-    gashMaterial.metallic = 0.0;
+    await texturesPromise;
 
     const wallThickness = 2.0;
     const wallHeight = ARENA_CONFIG.VERTICAL.WALL_GEOMETRY_HEIGHT;
