@@ -18,10 +18,20 @@ interface ActiveDebris {
   lifeRemaining: number;
 }
 
+interface PrebuiltDebris {
+  mesh: BABYLON.Mesh;
+  centroid: BABYLON.Vector3;
+  outward: BABYLON.Vector3;
+  initialScale: BABYLON.Vector3;
+  speedMult: number;
+  lifeMult: number;
+}
+
 export class WeaverShatterSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
 
   private activeDebrisList: ActiveDebris[] = [];
+  private pooledDebris: PrebuiltDebris[] = [];
   private debrisMat: BABYLON.PBRMaterial | null = null;
   private unsubscribes: (() => void)[] = [];
 
@@ -38,14 +48,13 @@ export class WeaverShatterSystem implements ISystem {
     this.debrisMat.metallic = 0.8;
     this.debrisMat.roughness = 0.4;
 
+    this.prebuildDebrisPool(scene);
+
     this.unsubscribes.push(
       this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
         if (weaverNode) {
-          const sceneObj = this.context.visualQuery.getScene();
-          if (sceneObj) {
-            this.spawnDeathDebris(weaverNode.position, sceneObj);
-          }
+          this.spawnDeathDebris(weaverNode.position);
           weaverNode.setEnabled(false);
         }
       })
@@ -62,54 +71,7 @@ export class WeaverShatterSystem implements ISystem {
     );
   }
 
-  private registerDebrisShard(
-    mesh: BABYLON.Mesh,
-    pos: BABYLON.Vector3,
-    centroid: BABYLON.Vector3,
-    outward: BABYLON.Vector3,
-    activeMat: BABYLON.Material,
-    speedMult: number,
-    lifeMult: number
-  ): void {
-    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
-
-    mesh.rotationQuaternion = null;
-    mesh.rotation.set(
-      Math.random() * Math.PI * 2,
-      Math.random() * Math.PI * 2,
-      Math.random() * Math.PI * 2
-    );
-
-    mesh.position = pos.add(centroid).add(outward.scale(0.35));
-    mesh.material = activeMat;
-
-    this.context.visualRegistration.registerShadowCaster(mesh);
-
-    const speed =
-      config.VELOCITY_Y_MIN +
-      Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * speedMult;
-    const vx = outward.x * speed + (Math.random() - 0.5) * 8.0;
-    const vy = outward.y * speed + (Math.random() - 0.5) * 8.0;
-    const vz = (Math.random() - 0.5) * 1.5;
-
-    const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
-    const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
-    const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
-
-    this.activeDebrisList.push({
-      mesh,
-      body: null,
-      velocity: new BABYLON.Vector3(vx, vy, vz),
-      angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
-      lifeRemaining: config.LIFE * lifeMult
-    });
-  }
-
-  private spawnDeathDebris(pos: BABYLON.Vector3, scene: BABYLON.Scene): void {
-    const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
-    const weaverMesh = weaverNode instanceof BABYLON.Mesh ? weaverNode : null;
-    const activeMat = (weaverMesh?.material || this.debrisMat!) as BABYLON.Material;
-
+  private prebuildDebrisPool(scene: BABYLON.Scene): void {
     const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
     const proxyShell = BABYLON.MeshBuilder.CreateIcoSphere(
       "shellProxy",
@@ -125,7 +87,7 @@ export class WeaverShatterSystem implements ISystem {
         const y = positions[i + 1];
         const z = positions[i + 2];
         if (y < 0) {
-          const r_sphere = Math.sqrt(rLimit * rLimit - y * y);
+          const r_sphere = Math.sqrt(Math.max(0, rLimit * rLimit - y * y));
           if (r_sphere > 0.001) {
             const r_cone = rLimit * (1.0 + y / rLimit);
             const scaleFactor = r_cone / r_sphere;
@@ -168,7 +130,7 @@ export class WeaverShatterSystem implements ISystem {
           .scale(1 / 3);
         const outward = centroid.clone().normalize();
 
-        const customMesh = new BABYLON.Mesh("shard_" + i, scene);
+        const customMesh = new BABYLON.Mesh("shard_pooled_" + i, scene);
         const vertexData = new BABYLON.VertexData();
         vertexData.positions = [
           p1.x - centroid.x,
@@ -185,16 +147,16 @@ export class WeaverShatterSystem implements ISystem {
 
         vertexData.applyToMesh(customMesh);
         customMesh.convertToFlatShadedMesh();
+        customMesh.setEnabled(false);
 
-        this.registerDebrisShard(
-          customMesh,
-          pos,
+        this.pooledDebris.push({
+          mesh: customMesh,
           centroid,
           outward,
-          activeMat,
-          1.5,
-          0.8 + Math.random() * 0.4
-        );
+          initialScale: new BABYLON.Vector3(1.0, 1.0, 1.0),
+          speedMult: 1.5,
+          lifeMult: 0.8 + Math.random() * 0.4
+        });
       }
     }
     proxyShell.dispose();
@@ -288,7 +250,7 @@ export class WeaverShatterSystem implements ISystem {
         }
       }
 
-      const customMesh = new BABYLON.Mesh("core_shard_" + b, scene);
+      const customMesh = new BABYLON.Mesh("core_shard_pooled_" + b, scene);
       const vertexData = new BABYLON.VertexData();
       vertexData.positions = localPositions;
       vertexData.indices = localIndices;
@@ -298,17 +260,60 @@ export class WeaverShatterSystem implements ISystem {
       vertexData.normals = computedNormals;
       vertexData.applyToMesh(customMesh);
       customMesh.convertToFlatShadedMesh();
+      customMesh.setEnabled(false);
 
-      this.registerDebrisShard(
-        customMesh,
-        pos,
+      this.pooledDebris.push({
+        mesh: customMesh,
         centroid,
         outward,
-        activeMat,
-        0.8,
-        0.9 + Math.random() * 0.3
-      );
+        initialScale: new BABYLON.Vector3(1.0, 1.0, 1.0),
+        speedMult: 0.8,
+        lifeMult: 0.9 + Math.random() * 0.3
+      });
     }
+  }
+
+  private spawnDeathDebris(pos: BABYLON.Vector3): void {
+    const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
+    const weaverMesh = weaverNode instanceof BABYLON.Mesh ? weaverNode : null;
+    const activeMat = (weaverMesh?.material || this.debrisMat!) as BABYLON.Material;
+
+    const config = VISUAL_JUICE_CONFIG.PARTICLES.DEBRIS;
+
+    this.pooledDebris.forEach((p) => {
+      p.mesh.rotationQuaternion = null;
+      p.mesh.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+      );
+
+      p.mesh.position = pos.add(p.centroid).add(p.outward.scale(0.35));
+      p.mesh.material = activeMat;
+      p.mesh.scaling.copyFrom(p.initialScale);
+      p.mesh.setEnabled(true);
+
+      this.context.visualRegistration.registerShadowCaster(p.mesh);
+
+      const speed =
+        config.VELOCITY_Y_MIN +
+        Math.random() * (config.VELOCITY_Y_MAX - config.VELOCITY_Y_MIN) * p.speedMult;
+      const vx = p.outward.x * speed + (Math.random() - 0.5) * 8.0;
+      const vy = p.outward.y * speed + (Math.random() - 0.5) * 8.0;
+      const vz = (Math.random() - 0.5) * 1.5;
+
+      const rotVelX = (Math.random() - 0.5) * config.ANGULAR_MAX;
+      const rotVelY = (Math.random() - 0.5) * config.ANGULAR_MAX;
+      const rotVelZ = (Math.random() - 0.5) * config.ANGULAR_MAX;
+
+      this.activeDebrisList.push({
+        mesh: p.mesh,
+        body: null,
+        velocity: new BABYLON.Vector3(vx, vy, vz),
+        angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
+        lifeRemaining: config.LIFE * p.lifeMult
+      });
+    });
   }
 
   public update(dt: number): void {
@@ -327,11 +332,7 @@ export class WeaverShatterSystem implements ISystem {
       d.lifeRemaining -= dt;
 
       if (d.lifeRemaining <= 0 || d.mesh.position.y < disposeThreshold) {
-        if (d.body) {
-          if (d.body.shape) d.body.shape.dispose();
-          d.body.dispose();
-        }
-        d.mesh.dispose();
+        d.mesh.setEnabled(false);
         this.activeDebrisList.splice(i, 1);
       } else {
         if (d.lifeRemaining < config.SCALE_DECAY_TIME) {
@@ -339,88 +340,86 @@ export class WeaverShatterSystem implements ISystem {
           d.mesh.scaling.set(ratio, ratio, ratio);
         }
 
-        if (!d.body) {
-          d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
+        d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 1.6;
 
-          const debrisDrag = Math.pow(0.95, dt * 60.0);
-          d.velocity.x *= debrisDrag;
-          d.velocity.z *= debrisDrag;
+        const debrisDrag = Math.pow(0.95, dt * 60.0);
+        d.velocity.x *= debrisDrag;
+        d.velocity.z *= debrisDrag;
 
-          d.mesh.position.x += d.velocity.x * dt;
-          d.mesh.position.y += d.velocity.y * dt;
-          d.mesh.position.z += d.velocity.z * dt;
+        d.mesh.position.x += d.velocity.x * dt;
+        d.mesh.position.y += d.velocity.y * dt;
+        d.mesh.position.z += d.velocity.z * dt;
 
-          d.mesh.rotation.x += d.angularVelocity.x * dt;
-          d.mesh.rotation.y += d.angularVelocity.y * dt;
-          d.mesh.rotation.z += d.angularVelocity.z * dt;
+        d.mesh.rotation.x += d.angularVelocity.x * dt;
+        d.mesh.rotation.y += d.angularVelocity.y * dt;
+        d.mesh.rotation.z += d.angularVelocity.z * dt;
 
-          if (d.mesh.position.x < -wallLimit) {
-            d.mesh.position.x = -wallLimit;
-            d.velocity.x *= -0.65;
-            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
-          } else if (d.mesh.position.x > wallLimit) {
-            d.mesh.position.x = wallLimit;
-            d.velocity.x *= -0.65;
-            d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
-          }
+        if (d.mesh.position.x < -wallLimit) {
+          d.mesh.position.x = -wallLimit;
+          d.velocity.x *= -0.65;
+          d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
+        } else if (d.mesh.position.x > wallLimit) {
+          d.mesh.position.x = wallLimit;
+          d.velocity.x *= -0.65;
+          d.angularVelocity.y += (Math.random() - 0.5) * 6.0;
+        }
 
-          if (playerNode) {
-            const dx = d.mesh.position.x - playerNode.position.x;
-            const dy = d.mesh.position.y - playerNode.position.y;
-            const distSq = dx * dx + dy * dy;
-            const pRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.45;
-            if (distSq < pRadius * pRadius) {
-              const dist = Math.sqrt(distSq) || 0.1;
-              const nx = dx / dist;
-              const ny = dy / dist;
-              d.mesh.position.x = playerNode.position.x + nx * pRadius;
-              d.mesh.position.y = playerNode.position.y + ny * pRadius;
-              const dot = d.velocity.x * nx + d.velocity.y * ny;
-              if (dot < 0) {
-                d.velocity.x -= dot * nx * 1.5;
-                d.velocity.y -= dot * ny * 1.5;
-                d.velocity.x += nx * 4.0;
-                d.velocity.y += ny * 4.0;
-              }
+        if (playerNode) {
+          const dx = d.mesh.position.x - playerNode.position.x;
+          const dy = d.mesh.position.y - playerNode.position.y;
+          const distSq = dx * dx + dy * dy;
+          const pRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.45;
+          if (distSq < pRadius * pRadius) {
+            const dist = Math.sqrt(distSq) || 0.1;
+            const nx = dx / dist;
+            const ny = dy / dist;
+            d.mesh.position.x = playerNode.position.x + nx * pRadius;
+            d.mesh.position.y = playerNode.position.y + ny * pRadius;
+            const dot = d.velocity.x * nx + d.velocity.y * ny;
+            if (dot < 0) {
+              d.velocity.x -= dot * nx * 1.5;
+              d.velocity.y -= dot * ny * 1.5;
+              d.velocity.x += nx * 4.0;
+              d.velocity.y += ny * 4.0;
             }
           }
+        }
 
-          for (let j = i - 1; j >= 0; j--) {
-            const d2 = this.activeDebrisList[j];
-            if (d2.body) continue;
-            const dx = d2.mesh.position.x - d.mesh.position.x;
-            const dy = d2.mesh.position.y - d.mesh.position.y;
-            const distSq = dx * dx + dy * dy;
+        for (let j = i - 1; j >= 0; j--) {
+          const d2 = this.activeDebrisList[j];
+          if (d2.body) continue;
+          const dx = d2.mesh.position.x - d.mesh.position.x;
+          const dy = d2.mesh.position.y - d.mesh.position.y;
+          const distSq = dx * dx + dy * dy;
 
-            const isPyramid1 = d.mesh.name.includes("core_shard");
-            const isPyramid2 = d2.mesh.name.includes("core_shard");
-            const r1 = isPyramid1 ? 0.6 : 0.16;
-            const r2 = isPyramid2 ? 0.6 : 0.16;
-            const minDist = r1 + r2;
+          const isPyramid1 = d.mesh.name.includes("core_shard");
+          const isPyramid2 = d2.mesh.name.includes("core_shard");
+          const r1 = isPyramid1 ? 0.6 : 0.16;
+          const r2 = isPyramid2 ? 0.6 : 0.16;
+          const minDist = r1 + r2;
 
-            if (distSq < minDist * minDist) {
-              const dist = Math.sqrt(distSq) || 0.1;
-              const nx = dx / dist;
-              const ny = dy / dist;
+          if (distSq < minDist * minDist) {
+            const dist = Math.sqrt(distSq) || 0.1;
+            const nx = dx / dist;
+            const ny = dy / dist;
 
-              const overlap = minDist - dist;
-              d.mesh.position.x -= nx * overlap * 0.5;
-              d.mesh.position.y -= ny * overlap * 0.5;
-              d2.mesh.position.x += nx * overlap * 0.5;
-              d2.mesh.position.y += ny * overlap * 0.5;
+            const overlap = minDist - dist;
+            d.mesh.position.x -= nx * overlap * 0.5;
+            d.mesh.position.y -= ny * overlap * 0.5;
+            d2.mesh.position.x += nx * overlap * 0.5;
+            d2.mesh.position.y += ny * overlap * 0.5;
 
-              const kx = d.velocity.x - d2.velocity.x;
-              const ky = d.velocity.y - d2.velocity.y;
-              const p = kx * nx + ky * ny;
-              if (p > 0) {
-                d.velocity.x -= nx * p * 0.8;
-                d.velocity.y -= ny * p * 0.8;
-                d2.velocity.x += nx * p * 0.8;
-                d2.velocity.y += ny * p * 0.8;
+            const kx = d.velocity.x - d2.velocity.x;
+            const ky = d.velocity.y - d2.velocity.y;
+            const p = kx * nx + ky * ny;
+            if (p > 0) {
+              d.velocity.x -= nx * p * 0.8;
+              d.velocity.y -= ny * p * 0.8;
+              d2.velocity.x += nx * p * 0.8;
+              d2.velocity.y += ny * p * 0.8;
 
-                d.angularVelocity.z += (Math.random() - 0.5) * 3.0;
-                d2.angularVelocity.z += (Math.random() - 0.5) * 3.0;
-              }
+              d.angularVelocity.z += (Math.random() - 0.5) * 3.0;
+              d2.angularVelocity.z += (Math.random() - 0.5) * 3.0;
             }
           }
         }
@@ -429,13 +428,10 @@ export class WeaverShatterSystem implements ISystem {
   }
 
   private clearDebris(): void {
-    for (const d of this.activeDebrisList) {
-      if (d.body) {
-        if (d.body.shape) d.body.shape.dispose();
-        d.body.dispose();
-      }
-      d.mesh.dispose();
-    }
+    this.pooledDebris.forEach((p) => {
+      p.mesh.setEnabled(false);
+      p.mesh.scaling.copyFrom(p.initialScale);
+    });
     this.activeDebrisList = [];
   }
 
@@ -443,6 +439,10 @@ export class WeaverShatterSystem implements ISystem {
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     this.clearDebris();
+    this.pooledDebris.forEach((p) => {
+      p.mesh.dispose();
+    });
+    this.pooledDebris = [];
     if (this.debrisMat) {
       this.debrisMat.dispose();
       this.debrisMat = null;

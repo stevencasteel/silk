@@ -77,28 +77,28 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
     this.tensionAlarmSynth.volume.value = -18;
   }
 
-  public triggerImpact(pitch: string | number, duration: string, delay?: string | number): void {
+  public triggerImpact(pitch: string | number, duration: string, time?: string | number): void {
     const now = performance.now();
     if (now - this.lastImpactTime < 40) return;
     this.lastImpactTime = now;
 
     try {
       if (this.impactSynth) {
-        this.impactSynth.triggerAttackRelease(pitch, duration, delay);
+        this.impactSynth.triggerAttackRelease(pitch, duration, time);
       }
     } catch (e) {
       void e;
     }
   }
 
-  public triggerNoise(duration: string, delay?: string | number): void {
+  public triggerNoise(duration: string, time?: string | number): void {
     const now = performance.now();
     if (now - this.lastNoiseTime < 40) return;
     this.lastNoiseTime = now;
 
     try {
       if (this.noiseSynth) {
-        this.noiseSynth.triggerAttackRelease(duration, delay);
+        this.noiseSynth.triggerAttackRelease(duration, time);
       }
     } catch (e) {
       void e;
@@ -112,9 +112,7 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
 
     try {
       if (this.tickSynth) {
-        // Prevent start-time drift asserts by allowing Tone to auto-schedule immediate triggers
-        void time;
-        this.tickSynth.triggerAttackRelease(pitch, duration);
+        this.tickSynth.triggerAttackRelease(pitch, duration, time);
       }
     } catch (e) {
       void e;
@@ -128,8 +126,7 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
 
     try {
       if (this.confirmSynth) {
-        void time;
-        this.confirmSynth.triggerAttackRelease(pitch, duration);
+        this.confirmSynth.triggerAttackRelease(pitch, duration, time);
       }
     } catch (e) {
       void e;
@@ -143,8 +140,7 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
 
     try {
       if (this.tensionAlarmSynth) {
-        void time;
-        this.tensionAlarmSynth.triggerAttackRelease(pitch, duration);
+        this.tensionAlarmSynth.triggerAttackRelease(pitch, duration, time);
       }
     } catch (e) {
       void e;
