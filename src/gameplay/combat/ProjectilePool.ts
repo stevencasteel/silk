@@ -1,3 +1,4 @@
+import { triggerMeshFadeIn } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
@@ -250,6 +251,7 @@ export class ProjectilePool {
       mesh.material = isRed ? this.projMatActiveRed : this.projMatActive;
       mesh.isVisible = true;
       mesh.setEnabled(true);
+      triggerMeshFadeIn(mesh, 0.22);
 
       vel.x = 0;
       vel.y = 0;

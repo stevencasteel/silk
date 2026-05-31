@@ -294,3 +294,42 @@ export function collectPBRMaterials(mesh: BABYLON.AbstractMesh): BABYLON.PBRMate
   });
   return materials;
 }
+
+
+export function triggerMeshFadeIn(
+  node: BABYLON.TransformNode | null | undefined,
+  durationSeconds: number = 0.4
+): void {
+  if (!node) return;
+  const scene = node.getScene();
+  if (!scene) return;
+
+  const childMeshes = node.getChildMeshes(false);
+  const meshes = node instanceof BABYLON.AbstractMesh ? [node, ...childMeshes] : childMeshes;
+
+  meshes.forEach((m) => {
+    m.visibility = 0.0;
+  });
+
+  let elapsed = 0;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    if (node.isDisposed()) {
+      scene.onBeforeRenderObservable.remove(observer);
+      return;
+    }
+
+    const dt = scene.getEngine().getDeltaTime() / 1000;
+    elapsed += dt;
+    const progress = Math.min(1.0, elapsed / durationSeconds);
+
+    meshes.forEach((m) => {
+      if (!m.isDisposed()) {
+        m.visibility = progress;
+      }
+    });
+
+    if (progress >= 1.0) {
+      scene.onBeforeRenderObservable.remove(observer);
+    }
+  });
+}

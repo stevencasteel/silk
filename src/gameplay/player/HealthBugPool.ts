@@ -1,3 +1,4 @@
+import { triggerMeshFadeIn } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
@@ -63,6 +64,7 @@ export class HealthBugPool {
 
     pBug.rootNode.position.set(startX, startY, 1.5);
     pBug.rootNode.setEnabled(true);
+    triggerMeshFadeIn(pBug.rootNode, 0.4);
 
     this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,

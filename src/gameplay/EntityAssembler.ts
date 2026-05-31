@@ -1,3 +1,4 @@
+import { triggerMeshFadeIn } from "../core/utils/EngineUtils";
 import { SystemContext } from "../core/engine/SystemContext";
 import { EntityId } from "../core/ecs/Entity";
 import {
@@ -167,6 +168,7 @@ export class EntityAssembler {
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
       existingNode.scaling.set(1.0, 1.0, 1.0);
       existingNode.setEnabled(true);
+      triggerMeshFadeIn(existingNode, 0.6);
       return;
     }
 
@@ -182,6 +184,7 @@ export class EntityAssembler {
     );
 
     context.visualRegistration.registerTransformNode(weaverId, wMesh);
+    triggerMeshFadeIn(wMesh, 0.6);
 
     if (scene.isPhysicsEnabled()) {
       const wBody = new BABYLON.PhysicsBody(
@@ -354,6 +357,7 @@ export class EntityAssembler {
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
       existingNode.scaling.set(1.0, 1.0, 1.0);
       existingNode.setEnabled(true);
+      triggerMeshFadeIn(existingNode, 0.6);
       return;
     }
 
@@ -365,6 +369,7 @@ export class EntityAssembler {
     );
 
     context.visualRegistration.registerTransformNode(playerId, pMesh);
+    triggerMeshFadeIn(pMesh, 0.6);
 
     if (scene.isPhysicsEnabled() && sharedPlayerShape) {
       const pBody = new BABYLON.PhysicsBody(

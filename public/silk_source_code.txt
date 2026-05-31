@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 5:35:56 PM
+ [SYSTEM] Generated: 5/31/2026, 5:48:45 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -4102,6 +4102,45 @@ export function collectPBRMaterials(mesh: BABYLON.AbstractMesh): BABYLON.PBRMate
 }
 
 
+export function triggerMeshFadeIn(
+  node: BABYLON.TransformNode | null | undefined,
+  durationSeconds: number = 0.4
+): void {
+  if (!node) return;
+  const scene = node.getScene();
+  if (!scene) return;
+
+  const childMeshes = node.getChildMeshes(false);
+  const meshes = node instanceof BABYLON.AbstractMesh ? [node, ...childMeshes] : childMeshes;
+
+  meshes.forEach((m) => {
+    m.visibility = 0.0;
+  });
+
+  let elapsed = 0;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    if (node.isDisposed()) {
+      scene.onBeforeRenderObservable.remove(observer);
+      return;
+    }
+
+    const dt = scene.getEngine().getDeltaTime() / 1000;
+    elapsed += dt;
+    const progress = Math.min(1.0, elapsed / durationSeconds);
+
+    meshes.forEach((m) => {
+      if (!m.isDisposed()) {
+        m.visibility = progress;
+      }
+    });
+
+    if (progress >= 1.0) {
+      scene.onBeforeRenderObservable.remove(observer);
+    }
+  });
+}
+
+
 
 ● ./src/core/utils/EntityPool.ts
 ────────────────────────────────────────────────────
@@ -4116,6 +4155,7 @@ export interface IEntityPool<T, Args extends unknown[] = []> {
 
 ● ./src/gameplay/EntityAssembler.ts
 ────────────────────────────────────────────────────
+import { triggerMeshFadeIn } from "../core/utils/EngineUtils";
 import { SystemContext } from "../core/engine/SystemContext";
 import { EntityId } from "../core/ecs/Entity";
 import {
@@ -4285,6 +4325,7 @@ export class EntityAssembler {
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
       existingNode.scaling.set(1.0, 1.0, 1.0);
       existingNode.setEnabled(true);
+      triggerMeshFadeIn(existingNode, 0.6);
       return;
     }
 
@@ -4300,6 +4341,7 @@ export class EntityAssembler {
     );
 
     context.visualRegistration.registerTransformNode(weaverId, wMesh);
+    triggerMeshFadeIn(wMesh, 0.6);
 
     if (scene.isPhysicsEnabled()) {
       const wBody = new BABYLON.PhysicsBody(
@@ -4472,6 +4514,7 @@ export class EntityAssembler {
       existingNode.rotationQuaternion = BABYLON.Quaternion.Identity();
       existingNode.scaling.set(1.0, 1.0, 1.0);
       existingNode.setEnabled(true);
+      triggerMeshFadeIn(existingNode, 0.6);
       return;
     }
 
@@ -4483,6 +4526,7 @@ export class EntityAssembler {
     );
 
     context.visualRegistration.registerTransformNode(playerId, pMesh);
+    triggerMeshFadeIn(pMesh, 0.6);
 
     if (scene.isPhysicsEnabled() && sharedPlayerShape) {
       const pBody = new BABYLON.PhysicsBody(
@@ -5167,6 +5211,7 @@ export class HealthSystem implements ISystem {
 
 ● ./src/gameplay/combat/ProjectilePool.ts
 ────────────────────────────────────────────────────
+import { triggerMeshFadeIn } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
@@ -5419,6 +5464,7 @@ export class ProjectilePool {
       mesh.material = isRed ? this.projMatActiveRed : this.projMatActive;
       mesh.isVisible = true;
       mesh.setEnabled(true);
+      triggerMeshFadeIn(mesh, 0.22);
 
       vel.x = 0;
       vel.y = 0;
@@ -7960,6 +8006,7 @@ export class WeaverShatterSystem implements ISystem {
 
 ● ./src/gameplay/player/HealthBugPool.ts
 ────────────────────────────────────────────────────
+import { triggerMeshFadeIn } from "../../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
@@ -8025,6 +8072,7 @@ export class HealthBugPool {
 
     pBug.rootNode.position.set(startX, startY, 1.5);
     pBug.rootNode.setEnabled(true);
+    triggerMeshFadeIn(pBug.rootNode, 0.4);
 
     this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,
@@ -9688,6 +9736,7 @@ export class VerticalBoundarySystem implements ISystem {
 
 ● ./src/gameplay/player/WallBugSystem.ts
 ────────────────────────────────────────────────────
+import { triggerMeshFadeIn } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
@@ -9970,6 +10019,7 @@ export class WallBugSystem implements ISystem {
     pBug.active = true;
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
+    triggerMeshFadeIn(pBug.rootNode, 0.4);
   }
 
   private recycleBug(pBug: PooledBug): void {

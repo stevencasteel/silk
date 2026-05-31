@@ -1,3 +1,4 @@
+import { triggerMeshFadeIn } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
@@ -280,6 +281,7 @@ export class WallBugSystem implements ISystem {
     pBug.active = true;
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
+    triggerMeshFadeIn(pBug.rootNode, 0.4);
   }
 
   private recycleBug(pBug: PooledBug): void {
