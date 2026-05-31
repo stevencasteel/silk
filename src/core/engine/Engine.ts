@@ -6,6 +6,17 @@ import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
 import { RuntimeState } from "./RuntimeState";
 import { PauseHandler } from "./PauseHandler";
+import { ISystem } from "../../contracts/ISystem";
+import * as BABYLON from "@babylonjs/core";
+
+interface SystemManagerPrivateAccess {
+  systems: ISystem[];
+}
+
+interface RenderSystemPrivateAccess {
+  scene: BABYLON.Scene | null;
+  engine: BABYLON.Engine | null;
+}
 
 export class Engine {
   private loop: GameLoop;
@@ -49,12 +60,16 @@ export class Engine {
     try {
       if (!this.systemManager) return false;
 
-      const renderSystem = (this.systemManager as any).systems?.find(
-        (s: any) => s.constructor.name === "RenderSystem"
-      );
+      const manager = this.systemManager as unknown as SystemManagerPrivateAccess;
+      if (!manager.systems) return false;
+
+      const renderSystem = manager.systems.find(
+        (s) => s.constructor.name === "RenderSystem"
+      ) as unknown as RenderSystemPrivateAccess | undefined;
+      
       if (!renderSystem) return false;
 
-      const scene = (renderSystem as any).scene;
+      const scene = renderSystem.scene;
       if (!scene) return false;
 
       if (!scene.isReady()) {
@@ -107,17 +122,21 @@ export class Engine {
         console.warn("[Engine Pre-flight] Systems ready check timed out, proceeding with fallback.");
       }
 
-      const renderSystem = (this.systemManager as any).systems?.find(
-        (s: any) => s.constructor.name === "RenderSystem"
-      );
-      if (renderSystem) {
-        const scene = (renderSystem as any).scene;
-        const engine = (renderSystem as any).engine;
-        if (scene && engine) {
-          for (let i = 0; i < 3; i++) {
-            engine.beginFrame();
-            scene.render();
-            engine.endFrame();
+      const manager = this.systemManager as unknown as SystemManagerPrivateAccess;
+      if (manager.systems) {
+        const renderSystem = manager.systems.find(
+          (s) => s.constructor.name === "RenderSystem"
+          ) as unknown as RenderSystemPrivateAccess | undefined;
+        
+        if (renderSystem) {
+          const scene = renderSystem.scene;
+          const engine = renderSystem.engine;
+          if (scene && engine) {
+            for (let i = 0; i < 3; i++) {
+              engine.beginFrame();
+              scene.render();
+              engine.endFrame();
+            }
           }
         }
       }

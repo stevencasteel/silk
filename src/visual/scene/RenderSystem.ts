@@ -286,10 +286,14 @@ export class RenderSystem implements ISystem {
     window.removeEventListener("resize", this.handleResize);
     this._tracker.clear();
     this.visualRegistry.clear();
-    if (this.scene) this.scene.dispose();
-    if (this.engine) this.engine.dispose();
-
-    // Clean up cache cleanly on teardown
+    if (this.scene) {
+      this.scene.dispose();
+      this.scene = null;
+    }
+    if (this.engine) {
+      this.engine.dispose();
+      this.engine = null;
+    }
     ProceduralTextureGenerator.clearCache();
   }
 }
