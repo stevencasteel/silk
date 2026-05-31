@@ -181,29 +181,29 @@ export class TetherVisualizerSystem implements ISystem {
 
       let vibAmp = 0;
       if (tension >= 0.95) {
-        vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.5;
+        vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_HIGH_TENSION_MULT;
       } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
         vibAmp =
           (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
           VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       }
 
-      const vibOffset = Math.sin(vibPhase * (tension >= 0.95 ? 3.5 : 1.0)) * vibAmp;
+      const vibOffset = Math.sin(vibPhase * (tension >= 0.95 ? VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_HIGH_TENSION_FREQ_MULT : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
 
       let MathSag = this.MAX_SAG * (1.0 - Math.min(1.0, tension)) + vibOffset;
       if (tension < 0.4) {
-        MathSag *= 1.3;
+        MathSag *= VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_LOW_TENSION_MULT;
       } else if (isSweetSpot) {
-        MathSag *= 0.15;
+        MathSag *= VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_SWEET_SPOT_MULT;
       }
 
       if (tether.reelVelocity < 0) {
-        MathSag *= Math.max(0.15, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
+        MathSag *= Math.max(VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_REEL_IN_MIN, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
       } else if (tether.reelVelocity > 0) {
-        MathSag *= 1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4;
+        MathSag *= 1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_REEL_OUT_MULT;
       }
 
       this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
@@ -238,11 +238,11 @@ export class TetherVisualizerSystem implements ISystem {
 
         let waveAmp = VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
         if (tension < 0.4) {
-          waveAmp *= 1.8;
+          waveAmp *= VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVE_LOW_TENSION_MULT;
         } else if (isSweetSpot) {
-          waveAmp *= 0.35;
+          waveAmp *= VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVE_SWEET_SPOT_MULT;
         } else if (tension >= 0.95) {
-          waveAmp *= 0.1;
+          waveAmp *= VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVE_HIGH_TENSION_MULT;
           pt.x += (Math.random() - 0.5) * 0.08;
           pt.y += (Math.random() - 0.5) * 0.08;
         }
@@ -252,10 +252,10 @@ export class TetherVisualizerSystem implements ISystem {
 
       let radius = this.BASE_RADIUS + Math.min(1.0, tension) * (this.MAX_RADIUS - this.BASE_RADIUS);
       if (tension < 0.4) {
-        radius *= 0.85;
+        radius *= VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_LOW_TENSION_MULT;
       } else if (isSweetSpot) {
-        const pulse = Math.sin(timeMs * 0.03) * 0.015;
-        radius = this.MAX_RADIUS * 1.1 + pulse;
+        const pulse = Math.sin(timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_PULSE_FREQ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_PULSE_AMP;
+        radius = this.MAX_RADIUS * VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_SWEET_SPOT_MULT + pulse;
       }
 
       this.tetherMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {

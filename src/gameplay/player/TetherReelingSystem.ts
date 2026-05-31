@@ -36,21 +36,19 @@ export class TetherReelingSystem implements ISystem {
     const isPressingUp = input && input.y > 0;
 
     if (isPressingUp && !isWebTrapped && target) {
-      const manualInSpeed = 16.0;
       const minPossibleLength = Math.max(
         reelConfig.MIN_LENGTH,
-        Math.abs(target.x - tether.anchorX) + 0.5
+        Math.abs(target.x - tether.anchorX) + reelConfig.MIN_LENGTH_OFFSET
       );
 
-      tether.desiredLength = Math.max(minPossibleLength, tether.desiredLength - manualInSpeed * dt);
-      tether.maxLength = Math.max(minPossibleLength, tether.maxLength - manualInSpeed * dt);
-      tether.reelVelocity = -manualInSpeed;
+      tether.desiredLength = Math.max(minPossibleLength, tether.desiredLength - reelConfig.MANUAL_IN_SPEED * dt);
+      tether.maxLength = Math.max(minPossibleLength, tether.maxLength - reelConfig.MANUAL_IN_SPEED * dt);
+      tether.reelVelocity = -reelConfig.MANUAL_IN_SPEED;
     } else {
-      const AUTO_SLACK_MARGIN = 0.5;
       if (!isWebTrapped) {
         tether.desiredLength = Math.min(
           tether.desiredLength,
-          tether.currentLength + AUTO_SLACK_MARGIN
+          tether.currentLength + reelConfig.AUTO_SLACK_MARGIN
         );
       }
       tether.desiredLength = Math.max(
@@ -64,8 +62,8 @@ export class TetherReelingSystem implements ISystem {
           tether.desiredLength,
           tether.reelVelocity,
           dt,
-          180.0,
-          15.0
+          reelConfig.SPRING_STIFFNESS,
+          reelConfig.SPRING_DAMPING
         );
         tether.maxLength = springResult.value;
         tether.reelVelocity = springResult.velocity;

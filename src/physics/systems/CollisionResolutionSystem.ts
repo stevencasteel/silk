@@ -11,6 +11,7 @@ import {
   HealthBugComponent,
   TraversalStateComponent
 } from "../../core/ecs/Components";
+import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
 
 export class CollisionResolutionSystem implements ISystem {
@@ -92,11 +93,11 @@ export class CollisionResolutionSystem implements ISystem {
 
           const dist = getDistance2D(playerTrans.x, playerTrans.y, hazardTrans.x, hazardTrans.y);
 
-          let combinedRadius = 2.4;
+          let combinedRadius = GAMEPLAY_TUNING.COMBAT.HAZARD_COLLISION_RADIUS_NORMAL;
           const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
           const hBug = hBugStore ? hBugStore.get(resId) : undefined;
           if (hBug && hBug.variant !== "NORMAL" && !hBug.spikesDisarmed) {
-            combinedRadius = 3.4;
+            combinedRadius = GAMEPLAY_TUNING.COMBAT.HAZARD_COLLISION_RADIUS_SPIKED;
           }
 
           if (dist < combinedRadius) {

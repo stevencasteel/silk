@@ -81,7 +81,7 @@ export class PlayerStateUtils {
     const launchedFromBug = trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1;
     if (launchedFromBug) {
       trav.lastStickyEntityId = trav.stickyEntityId;
-      trav.safeLaunchTimer = 0.4;
+      trav.safeLaunchTimer = GAMEPLAY_TUNING.PLAYER.FLING.SAFE_LAUNCH_DURATION;
     }
     trav.stickyEntityId = -1;
 
@@ -91,13 +91,13 @@ export class PlayerStateUtils {
       trav.launchPower = 0.05;
       trav.launchTimer = 0;
 
-      const nudgeDistance = 0.35;
+      const nudgeDistance = GAMEPLAY_TUNING.PLAYER.FLING.LOW_TENSION_NUDGE_DISTANCE;
       target.x += trav.wallNormalX * nudgeDistance;
-      vel.x = trav.wallNormalX * 5.5;
-      vel.y = Math.max(vel.y, -3.0);
+      vel.x = trav.wallNormalX * GAMEPLAY_TUNING.PLAYER.FLING.LOW_TENSION_NUDGE_SPEED;
+      vel.y = Math.max(vel.y, GAMEPLAY_TUNING.PLAYER.FLING.LOW_TENSION_MIN_VEL_Y);
 
       trav.wallDir = 0;
-      trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
+      trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, GAMEPLAY_TUNING.PLAYER.FLING.SAFE_LAUNCH_DURATION);
 
       const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -121,14 +121,14 @@ export class PlayerStateUtils {
     const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
     const minT = reelConfig.SWEET_SPOT_MIN;
-    const maxT = 1.3;
+    const maxT = GAMEPLAY_TUNING.PLAYER.TENSION.MAX_ACHIEVABLE_TENSION;
     const rangeFactor = Math.max(0, Math.min(1.0, (storedTension - minT) / (maxT - minT)));
 
-    const minMult = 0.35;
-    const maxMult = 2.2;
-    const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, 1.5);
+    const minMult = GAMEPLAY_TUNING.PLAYER.FLING.MIN_MULTIPLIER;
+    const maxMult = GAMEPLAY_TUNING.PLAYER.FLING.MAX_MULTIPLIER;
+    const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, GAMEPLAY_TUNING.PLAYER.FLING.RANGE_POWER);
 
-    const bonusMultiplier = trav.hasFlingBonus ? 1.15 : 1.0;
+    const bonusMultiplier = trav.hasFlingBonus ? GAMEPLAY_TUNING.PLAYER.FLING.BONUS_MULTIPLIER : 1.0;
     const power = tuning.FLING_IMPULSE * speedMultiplier * bonusMultiplier;
     const powerScale = storedTension;
 
@@ -144,19 +144,20 @@ export class PlayerStateUtils {
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(ctx.refs.player);
+    const cosmeticConfig = GAMEPLAY_TUNING.PLAYER.COSMETIC;
     if (pTrans) {
       if (isOverload) {
-        pTrans.scaleVelY = 36.0;
-        pTrans.scaleVelX = -18.0;
-        pTrans.scaleVelZ = -18.0;
+        pTrans.scaleVelY = cosmeticConfig.OVERLOAD_SCALE_VEL_Y;
+        pTrans.scaleVelX = cosmeticConfig.OVERLOAD_SCALE_VEL_X;
+        pTrans.scaleVelZ = cosmeticConfig.OVERLOAD_SCALE_VEL_Z;
         const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
-        if (hs) hs.timeRemaining = 0.1;
+        if (hs) hs.timeRemaining = cosmeticConfig.HITSTOP_OVERLOAD;
       } else if (isSweetSpot) {
-        pTrans.scaleVelY = 22.0;
-        pTrans.scaleVelX = -11.0;
-        pTrans.scaleVelZ = -11.0;
-        ctx.runtime.hitLagTimer = 0.08;
-        ctx.runtime.hitLagScale = 0.15;
+        pTrans.scaleVelY = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Y;
+        pTrans.scaleVelX = cosmeticConfig.SWEET_SPOT_SCALE_VEL_X;
+        pTrans.scaleVelZ = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Z;
+        ctx.runtime.hitLagTimer = cosmeticConfig.HITSTOP_SWEET_SPOT;
+        ctx.runtime.hitLagScale = cosmeticConfig.HITSTOP_SWEET_SPOT_SCALE;
       } else {
         pTrans.scaleVelY = powerScale * 15.0;
         pTrans.scaleVelX = -powerScale * 7.5;
@@ -511,7 +512,7 @@ export class PlayerStateUtils {
         trav.isWebTrapped = false;
         trav.escapeProgress = 0;
         trav.lastEscapeDirection = "";
-        trav.safeLaunchTimer = 1.5;
+        trav.safeLaunchTimer = GAMEPLAY_TUNING.PLAYER.FLING.SAFE_LAUNCH_DURATION * 3.75;
 
         if (trav.state === "WALL_STICKING") {
           trav.hasFlingBonus = true;

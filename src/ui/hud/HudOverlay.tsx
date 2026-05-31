@@ -5,6 +5,7 @@ import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert } from "lucide-rea
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameEvent } from "../../core/events/GameEvents";
+import { VISUAL_JUICE_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 interface CalibrationStepMeta {
   successTitle: string;
@@ -209,33 +210,34 @@ export const HudOverlay: React.FC = () => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
       const tension = detail.tension ?? 0;
-      const maxLength = detail.maxLength ?? 5.4;
+      const maxLength = detail.maxLength ?? GAMEPLAY_TUNING.REEL.MIN_LENGTH;
 
-      const maxReelLimit = 38.0;
-      const minReelLimit = 5.4;
+      const maxReelLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+      const minReelLimit = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
 
       // Filled width represents reeled-out tether progress (0% to 100%)
       const reelProgress = (maxLength - minReelLimit) / (maxReelLimit - minReelLimit);
       const barWidthPercent = Math.max(0.0, Math.min(100.0, reelProgress * 100.0));
 
       // Color/Glow represents dynamic elastic tautness (Restored sweet-spot and red thresholds)
-      let color = "rgb(34, 197, 94)";
-      let glow = "rgba(34, 197, 94, 0.45)";
+      const uiConfig = VISUAL_JUICE_CONFIG.TETHER_UI;
+      let color = `rgb(${uiConfig.COLOR_GREEN.r}, ${uiConfig.COLOR_GREEN.g}, ${uiConfig.COLOR_GREEN.b})`;
+      let glow = `rgba(${uiConfig.GLOW_GREEN.r}, ${uiConfig.GLOW_GREEN.g}, ${uiConfig.GLOW_GREEN.b}, ${uiConfig.GLOW_GREEN.a})`;
 
-      if (tension >= 0.8) {
-        color = "rgb(239, 68, 68)";
-        glow = "rgba(239, 68, 68, 0.95)";
-      } else if (tension >= 0.555) {
-        color = "rgb(234, 179, 8)";
-        glow = "rgba(234, 179, 8, 0.75)";
+      if (tension >= uiConfig.THRESHOLD_RED) {
+        color = `rgb(${uiConfig.COLOR_RED.r}, ${uiConfig.COLOR_RED.g}, ${uiConfig.COLOR_RED.b})`;
+        glow = `rgba(${uiConfig.GLOW_RED.r}, ${uiConfig.GLOW_RED.g}, ${uiConfig.GLOW_RED.b}, ${uiConfig.GLOW_RED.a})`;
+      } else if (tension >= uiConfig.THRESHOLD_YELLOW) {
+        color = `rgb(${uiConfig.COLOR_YELLOW.r}, ${uiConfig.COLOR_YELLOW.g}, ${uiConfig.COLOR_YELLOW.b})`;
+        glow = `rgba(${uiConfig.GLOW_YELLOW.r}, ${uiConfig.GLOW_YELLOW.g}, ${uiConfig.GLOW_YELLOW.b}, ${uiConfig.GLOW_YELLOW.a})`;
       }
 
       if (tensionBarFillRef.current) {
         tensionBarFillRef.current.style.width = `${barWidthPercent.toFixed(1)}%`;
         tensionBarFillRef.current.style.background = color;
 
-        if (tension > 0.05) {
-          const pulse = 1.0 + Math.sin(performance.now() * 0.05 * tension) * 0.1;
+        if (tension > uiConfig.MIN_TENSION_FOR_EFFECTS) {
+          const pulse = 1.0 + Math.sin(performance.now() * uiConfig.PULSE_FREQ * tension) * uiConfig.PULSE_AMP;
           tensionBarFillRef.current.style.boxShadow = `0 0 ${Math.floor(12 * tension * pulse)}px ${glow}`;
           tensionBarFillRef.current.style.transform = `scaleY(${pulse.toFixed(2)})`;
         } else {

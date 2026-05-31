@@ -181,26 +181,27 @@ export class PlayerKinematicsSystem implements ISystem {
     tether: TetherComponent,
     trav: TraversalStateComponent
   ): void {
-    const tautnessThreshold = 0.85;
+    const tensionConfig = GAMEPLAY_TUNING.PLAYER.TENSION;
     const currentTautness = tether.currentLength / Math.max(1.0, tether.maxLength);
     const isWallSticking = trav.state === "WALL_STICKING";
+    const isAirborne = trav.state === "AIRBORNE" && tensionConfig.BUILD_IN_AIRBORNE;
+    const isLaunching = trav.state === "LAUNCHING" && tensionConfig.BUILD_IN_LAUNCHING;
+    const shouldBuildTension = isWallSticking || isAirborne || isLaunching;
 
-    if (currentTautness >= tautnessThreshold && isWallSticking) {
-      const stretchAmount = (currentTautness - tautnessThreshold) / (1.0 - tautnessThreshold);
+    if (currentTautness >= tensionConfig.TAUTNESS_THRESHOLD && shouldBuildTension) {
+      const stretchAmount = (currentTautness - tensionConfig.TAUTNESS_THRESHOLD) / (1.0 - tensionConfig.TAUTNESS_THRESHOLD);
       const absoluteMin = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
       const absoluteMax = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
 
       const reelProgress = (tether.maxLength - absoluteMin) / (absoluteMax - absoluteMin);
-      const maxAchievableTension = Math.max(0.15, Math.min(1.3, reelProgress * 1.3));
+      const maxAchievableTension = Math.max(0.15, Math.min(tensionConfig.MAX_ACHIEVABLE_TENSION, reelProgress * tensionConfig.MAX_ACHIEVABLE_TENSION));
 
       tether.tension = Math.max(
         0.0,
         Math.min(maxAchievableTension, stretchAmount * maxAchievableTension)
       );
     } else {
-      const decayRate = GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE
-        ? GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * 2.0
-        : 8.0;
+      const decayRate = GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * tensionConfig.DECAY_MULTIPLIER;
       tether.tension = Math.max(0.0, tether.tension - decayRate * dt);
     }
   }

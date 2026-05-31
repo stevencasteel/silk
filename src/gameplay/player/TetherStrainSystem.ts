@@ -54,7 +54,7 @@ export class TetherStrainSystem implements ISystem {
 
       if (tether.tension >= this.SNAP_LIMIT) {
         const now = performance.now();
-        if (now - tStrain.lastDamageTime! > 800) {
+        if (now - tStrain.lastDamageTime! > CANONICAL_UNITS.TETHER_STRAIN.DAMAGE_COOLDOWN_MS) {
           tStrain.damageCount! += 1;
           tStrain.lastDamageTime = now;
 
@@ -69,7 +69,7 @@ export class TetherStrainSystem implements ISystem {
               amplitude: 0.95,
               duration: 0.45
             });
-            tether.tension = 0.62;
+            tether.tension = CANONICAL_UNITS.TETHER_STRAIN.TENSION_RESET_AFTER_DAMAGE;
           }
         }
       }

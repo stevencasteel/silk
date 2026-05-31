@@ -89,7 +89,7 @@ export class PlayerWallStickingState implements IPlayerState {
       });
     }
 
-    const stillPressingIn = input.x === trav.wallDir;
+    const stillPressingIn = Math.abs(input.x - trav.wallDir) < GAMEPLAY_TUNING.PLAYER.INPUT_TOLERANCE;
     const webMass = trav.webMass || 1;
     const recoilFactor = trav.recoilTimer !== undefined && trav.recoilTimer > 0 ? 0.15 : 1.0;
     const controlFactor =
@@ -121,9 +121,9 @@ export class PlayerWallStickingState implements IPlayerState {
 
       let slideSpeed = 0.0;
       if (input.y > 0) {
-        slideSpeed = 5.0 * controlFactor;
+        slideSpeed = GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
       } else if (input.y < 0) {
-        slideSpeed = -5.0 * controlFactor;
+        slideSpeed = -GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
       }
       trav.stickyWallYOffset += slideSpeed * dt;
       trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
