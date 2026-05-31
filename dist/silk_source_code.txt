@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 7:28:37 PM
+ [SYSTEM] Generated: 5/30/2026, 7:30:22 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -9584,6 +9584,16 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleVelX = -15.0;
             pTrans.scaleVelY = 20.0;
             pTrans.scaleVelZ = -15.0;
+
+            // Phase 4: Dynamic Impact Overshoot for landing
+            const impactFactor = Math.min(1.0, Math.abs(vel.y) / 50.0);
+            pTrans.scaleX += impactFactor * 0.4;
+            pTrans.scaleY -= impactFactor * 0.4;
+            pTrans.scaleZ += impactFactor * 0.4;
+            
+            pTrans.scaleVelX -= impactFactor * 40.0;
+            pTrans.scaleVelY += impactFactor * 60.0;
+            pTrans.scaleVelZ -= impactFactor * 40.0;
           }
         }
         target.y = minY;
@@ -10459,14 +10469,23 @@ export class PlayerStateUtils {
 
   public static applyWallImpactSquash(ctx: SystemContext): void {
     const transforms = ctx.stores.get<TransformComponent>("transform");
+    const velocities = ctx.stores.get<KinematicVelocityComponent>("velocity");
     const pTrans = transforms.get(ctx.refs.player);
-    if (pTrans) {
+    const pVel = velocities.get(ctx.refs.player);
+
+    if (pTrans && pVel) {
       const squash = GAMEPLAY_TUNING.PLAYER.SQUASH_STRETCH;
-      pTrans.scaleX = squash.SQUASH_WALL_X;
-      pTrans.scaleY = squash.SQUASH_WALL_Y;
+      const impactSpeed = Math.abs(pVel.x);
+      const impactFactor = Math.min(1.0, impactSpeed / 50.0);
+
+      // Deepen the squash based on impact speed
+      pTrans.scaleX = Math.max(0.3, squash.SQUASH_WALL_X - impactFactor * 0.35);
+      pTrans.scaleY = Math.min(2.0, squash.SQUASH_WALL_Y + impactFactor * 0.5);
       pTrans.scaleZ = 1.0;
-      pTrans.scaleVelX = 0;
-      pTrans.scaleVelY = 0;
+
+      // Inject aggressive counter-velocity to force a juicy spring overshoot ("boing")
+      pTrans.scaleVelX = 15.0 + impactFactor * 55.0; 
+      pTrans.scaleVelY = -(15.0 + impactFactor * 55.0);
       pTrans.scaleVelZ = 0;
     }
   }

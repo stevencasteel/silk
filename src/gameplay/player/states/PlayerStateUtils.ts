@@ -218,14 +218,23 @@ export class PlayerStateUtils {
 
   public static applyWallImpactSquash(ctx: SystemContext): void {
     const transforms = ctx.stores.get<TransformComponent>("transform");
+    const velocities = ctx.stores.get<KinematicVelocityComponent>("velocity");
     const pTrans = transforms.get(ctx.refs.player);
-    if (pTrans) {
+    const pVel = velocities.get(ctx.refs.player);
+
+    if (pTrans && pVel) {
       const squash = GAMEPLAY_TUNING.PLAYER.SQUASH_STRETCH;
-      pTrans.scaleX = squash.SQUASH_WALL_X;
-      pTrans.scaleY = squash.SQUASH_WALL_Y;
+      const impactSpeed = Math.abs(pVel.x);
+      const impactFactor = Math.min(1.0, impactSpeed / 50.0);
+
+      // Deepen the squash based on impact speed
+      pTrans.scaleX = Math.max(0.3, squash.SQUASH_WALL_X - impactFactor * 0.35);
+      pTrans.scaleY = Math.min(2.0, squash.SQUASH_WALL_Y + impactFactor * 0.5);
       pTrans.scaleZ = 1.0;
-      pTrans.scaleVelX = 0;
-      pTrans.scaleVelY = 0;
+
+      // Inject aggressive counter-velocity to force a juicy spring overshoot ("boing")
+      pTrans.scaleVelX = 15.0 + impactFactor * 55.0; 
+      pTrans.scaleVelY = -(15.0 + impactFactor * 55.0);
       pTrans.scaleVelZ = 0;
     }
   }

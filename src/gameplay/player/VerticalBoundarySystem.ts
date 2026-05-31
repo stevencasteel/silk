@@ -80,6 +80,16 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleVelX = -15.0;
             pTrans.scaleVelY = 20.0;
             pTrans.scaleVelZ = -15.0;
+
+            // Phase 4: Dynamic Impact Overshoot for landing
+            const impactFactor = Math.min(1.0, Math.abs(vel.y) / 50.0);
+            pTrans.scaleX += impactFactor * 0.4;
+            pTrans.scaleY -= impactFactor * 0.4;
+            pTrans.scaleZ += impactFactor * 0.4;
+            
+            pTrans.scaleVelX -= impactFactor * 40.0;
+            pTrans.scaleVelY += impactFactor * 60.0;
+            pTrans.scaleVelZ -= impactFactor * 40.0;
           }
         }
         target.y = minY;
