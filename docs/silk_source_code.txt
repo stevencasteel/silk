@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 3:57:30 PM
+ [SYSTEM] Generated: 5/31/2026, 4:10:00 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1156,6 +1156,7 @@ export default function App() {
         <div id="debug-telemetry-root" />
         <div className="viewport-container">
           <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
+          <canvas id="confetti-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 82 }} />
           <div className="vignette-overlay" />
           <ErrorBoundary>
             <HudOverlay />
@@ -14580,13 +14581,50 @@ export const HudOverlay: React.FC = () => {
   }, [overlayVisible, wins, losses, playTickSynth]);
 
   useEffect(() => {
-    if (overlayVisible && overlayTitle === "VICTORY") {
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.55 },
-        colors: ["#10b981", "#34d399", "#a7f3d0", "#ffffff"]
-      });
+    if (overlayVisible) {
+      const confettiCanvas = document.getElementById("confetti-canvas") as HTMLCanvasElement | null;
+      if (confettiCanvas) {
+        const myConfetti = confetti.create(confettiCanvas, { resize: true, useWorker: true });
+
+        if (overlayTitle === "VICTORY") {
+          myConfetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.55 },
+            colors: ["#10b981", "#34d399", "#a7f3d0", "#ffffff"]
+          });
+        } else if (overlayTitle === "DEFEATED") {
+          // Constant dense rainfall of charcoal/red embers descending through entire cabinet, behind modal
+          const intervalId = setInterval(() => {
+            myConfetti({
+              particleCount: 4, // Raised particle count per tick
+              angle: 270 + (Math.random() - 0.5) * 12, // Facing downwards
+              spread: 30,
+              startVelocity: 14 + Math.random() * 12, // Rapid descent speed
+              decay: 0.95,
+              gravity: 0.9,
+              scalar: 0.65 + Math.random() * 0.35, // Varied particle scaling
+              origin: { 
+                y: 0.0, // Emerge from top edge of cabinet play area
+                x: Math.random() // Rain across entire width of cabinet
+              },
+              colors: [
+                "#dc2626", // High-contrast Red
+                "#991b1b", // Deep Crimson
+                "#7f1d1d", // Dark Burgundy
+                "#71717a", // Zinc-500 (High-visibility light grey)
+                "#52525b", // Zinc-600 (High-visibility medium grey)
+                "#3f3f46"  // Zinc-700 (High-visibility dark charcoal)
+              ]
+            });
+          }, 32); // Faster ticker interval for constant heavy particle density
+
+          return () => {
+            clearInterval(intervalId);
+            myConfetti.reset();
+          };
+        }
+      }
     }
   }, [overlayVisible, overlayTitle]);
 
@@ -14613,7 +14651,7 @@ export const HudOverlay: React.FC = () => {
             <div className="p-4 rounded-xl border border-white/5 bg-[#0c0e12]/60 backdrop-blur-sm shadow-lg">
               <p className="text-[10px] sm:text-xs text-zinc-400 tracking-wide leading-relaxed select-none">
                 A game about being tethered to something dangerous{" "}
-                <span className="text-emerald-400 font-bold italic">with a mind of its own</span>, where the tension between you and the thing trying to kill you is literally your only weapon.
+                <span className="font-bold italic" style={{ color: "var(--signal-green)" }}>with a mind of its own</span>, where the tension between you and the thing trying to kill you is literally your only weapon.
               </p>
             </div>
           </div>

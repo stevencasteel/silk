@@ -446,13 +446,57 @@ export const HudOverlay: React.FC = () => {
   }, [overlayVisible, wins, losses, playTickSynth]);
 
   useEffect(() => {
-    if (overlayVisible && overlayTitle === "VICTORY") {
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.55 },
-        colors: ["#10b981", "#34d399", "#a7f3d0", "#ffffff"]
-      });
+    if (overlayVisible) {
+      const confettiCanvas = document.getElementById("confetti-canvas") as HTMLCanvasElement | null;
+      if (confettiCanvas) {
+        const myConfetti = confetti.create(confettiCanvas, { resize: true, useWorker: true });
+
+        if (overlayTitle === "VICTORY") {
+          myConfetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.55 },
+            colors: ["#10b981", "#34d399", "#a7f3d0", "#ffffff"]
+          });
+        } else if (overlayTitle === "DEFEATED") {
+          let laneIndex = 0;
+          const NUM_LANES = 8;
+          
+          // Sequenced lane rainfall for perfectly uniform horizontal distribution
+          const intervalId = setInterval(() => {
+            for (let k = 0; k < 3; k++) {
+              const currentLane = (laneIndex + k * 3) % NUM_LANES;
+              const xCoord = (currentLane / (NUM_LANES - 1)) * 0.9 + 0.05 + (Math.random() - 0.5) * 0.05;
+              
+              myConfetti({
+                particleCount: 1,
+                angle: 270 + (Math.random() - 0.5) * 10, // Pointing straight down with minimal sway
+                spread: 15,
+                startVelocity: 14 + Math.random() * 8, // Direct gravity acceleration downward
+                decay: 0.95,
+                gravity: 0.85,
+                scalar: 0.65 + Math.random() * 0.3, // Varied soot sizes
+                origin: { 
+                  y: 0.0, // Emerge from top of cabinet play area
+                  x: Math.max(0.01, Math.min(0.99, xCoord)) 
+                },
+                colors: [
+                  "#dc2626", // High-contrast True Red
+                  "#991b1b", // Deep Burgundy
+                  "#374151", // Gray-700 (High-visibility dark iron grey - never shines white)
+                  "#27272a"  // Zinc-800 (Charcoal black - never shines white)
+                ]
+              });
+            }
+            laneIndex = (laneIndex + 1) % NUM_LANES;
+          }, 24); // High frequency interval for dense, continuous streaming rainfall
+
+          return () => {
+            clearInterval(intervalId);
+            myConfetti.reset();
+          };
+        }
+      }
     }
   }, [overlayVisible, overlayTitle]);
 
@@ -1066,14 +1110,16 @@ export const HudOverlay: React.FC = () => {
 
       <AnimatePresence>
         {overlayVisible && (
-          <div className="overlay-root backdrop-wipe-active pointer-events-auto">
+          <div className="overlay-root backdrop-wipe-active pointer-events-auto overflow-hidden">
+            {/* Confetti canvas layered above the dark blur but below the card */}
+            <canvas id="confetti-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }} />
             <motion.div
               layout
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", stiffness: 220, damping: 26 }}
-              className={`overlay-modal ${overlayTitle === "DEFEATED" ? "defeat-border" : "victory-border"}`}
+              className={`overlay-modal relative z-10 ${overlayTitle === "DEFEATED" ? "defeat-border" : "victory-border"}`}
             >
               {staggerPhase >= 1 && (
                 <motion.div
