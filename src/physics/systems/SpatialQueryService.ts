@@ -24,14 +24,20 @@ export class SpatialQueryService implements ISpatialQueryService {
       physicsEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
       if (this._raycastResult.hasHit && this._raycastResult.body) {
-        return {
-          hasHit: true,
-          hitDistance: this._raycastResult.hitDistance,
-          hitPointX: this._raycastResult.hitPointWorld.x,
-          hitPointY: this._raycastResult.hitPointWorld.y,
-          hitNormalX: this._raycastResult.hitNormalWorld.x,
-          hitNormalY: this._raycastResult.hitNormalWorld.y
-        };
+        const hitNode = this._raycastResult.body.transformNode;
+        const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
+        const playerNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
+
+        if (hitNode !== weaverNode && hitNode !== playerNode) {
+          return {
+            hasHit: true,
+            hitDistance: this._raycastResult.hitDistance,
+            hitPointX: this._raycastResult.hitPointWorld.x,
+            hitPointY: this._raycastResult.hitPointWorld.y,
+            hitNormalX: this._raycastResult.hitNormalWorld.x,
+            hitNormalY: this._raycastResult.hitNormalWorld.y
+          };
+        }
       }
     }
 
@@ -60,14 +66,20 @@ export class SpatialQueryService implements ISpatialQueryService {
       physicsEngine.raycastToRef(this._rayStart, this._rayEnd, this._raycastResult);
 
       if (this._raycastResult.hasHit && this._raycastResult.body) {
-        return {
-          hasHit: true,
-          hitDistance: this._raycastResult.hitDistance,
-          hitPointX: this._raycastResult.hitPointWorld.x,
-          hitPointY: this._raycastResult.hitPointWorld.y,
-          hitNormalX: this._raycastResult.hitNormalWorld.x,
-          hitNormalY: this._raycastResult.hitNormalWorld.y
-        };
+        const hitNode = this._raycastResult.body.transformNode;
+        const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
+        const playerNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
+
+        if (hitNode !== weaverNode && hitNode !== playerNode) {
+          return {
+            hasHit: true,
+            hitDistance: this._raycastResult.hitDistance,
+            hitPointX: this._raycastResult.hitPointWorld.x,
+            hitPointY: this._raycastResult.hitPointWorld.y,
+            hitNormalX: this._raycastResult.hitNormalWorld.x,
+            hitNormalY: this._raycastResult.hitNormalWorld.y
+          };
+        }
       }
     }
 
@@ -86,12 +98,12 @@ export class SpatialQueryService implements ISpatialQueryService {
     targetY: number,
     halfWidth: number
   ): { isWallClinging: boolean; wallNormalX: number } {
-    const wallCheckDist = halfWidth + 0.15;
-    const lHit = this.castHorizontalRay(targetX, targetY, -1, wallCheckDist);
+    const wallCheckDist = 0.15;
+    const lHit = this.castHorizontalRay(targetX - halfWidth, targetY, -1, wallCheckDist);
     if (lHit.hasHit) {
       return { isWallClinging: true, wallNormalX: 1 };
     }
-    const rHit = this.castHorizontalRay(targetX, targetY, 1, wallCheckDist);
+    const rHit = this.castHorizontalRay(targetX + halfWidth, targetY, 1, wallCheckDist);
     if (rHit.hasHit) {
       return { isWallClinging: true, wallNormalX: -1 };
     }

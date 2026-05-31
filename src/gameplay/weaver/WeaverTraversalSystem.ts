@@ -71,25 +71,19 @@ export class WeaverTraversalSystem implements ISystem {
         let hitWallNormal = 0;
 
         if (concreteEngine && Math.abs(vel.x) > 0.001) {
-          const castLength =
-            ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
+          const checkLength = Math.max(0.1, Math.abs(vel.x) * dt);
+          const startX = trans.x + sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
 
           const hitResult = this.queryService.castHorizontalRay(
-            trans.x,
+            startX,
             trans.y,
             sState.direction,
-            castLength
+            checkLength
           );
 
           if (hitResult.hasHit) {
-            const hitDistance = hitResult.hitDistance;
-            if (
-              hitDistance <=
-              ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
-            ) {
-              hitWallNormal = Math.sign(hitResult.hitNormalX);
-              nextX = hitResult.hitPointX - sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-            }
+            hitWallNormal = Math.sign(hitResult.hitNormalX);
+            nextX = hitResult.hitPointX - sState.direction * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
           }
         } else {
           const fallbackLimit =
@@ -134,42 +128,31 @@ export class WeaverTraversalSystem implements ISystem {
     if (concreteEngine) {
       if (Math.abs(vel.x) > 0.01) {
         const dirX = Math.sign(vel.x);
-        const castLength = ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.abs(vel.x) * dt);
+        const checkLength = Math.max(0.1, Math.abs(vel.x) * dt);
+        const startX = trans.x + dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
 
-        const hitResult = this.queryService.castHorizontalRay(trans.x, target.y, dirX, castLength);
+        const hitResult = this.queryService.castHorizontalRay(startX, target.y, dirX, checkLength);
 
         if (hitResult.hasHit) {
-          const hitDistance = hitResult.hitDistance;
-          if (
-            hitDistance <=
-            ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.abs(vel.x) * dt)
-          ) {
-            target.x = hitResult.hitPointX - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-            if (vel.x * dirX > 0) vel.x = 0;
-          }
+          target.x = hitResult.hitPointX - dirX * ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          if (vel.x * dirX > 0) vel.x = 0;
         }
       }
 
-      const castLengthDown =
-        ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.1, Math.max(0, -vel.y) * dt);
+      const checkLengthDown = Math.max(0.1, Math.max(0, -vel.y) * dt);
+      const startY = trans.y - ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
 
       const floorHitResult = this.queryService.castVerticalRay(
         target.x,
-        trans.y,
+        startY,
         -1,
-        castLengthDown
+        checkLengthDown
       );
 
       if (floorHitResult.hasHit && !isStriking) {
-        const hitDistance = floorHitResult.hitDistance;
-        if (
-          hitDistance <=
-          ARENA_CONFIG.ENTITY.WEAVER_RADIUS + Math.max(0.01, Math.max(0, -vel.y) * dt)
-        ) {
-          isGrounded = true;
-          target.y = floorHitResult.hitPointY + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-          if (vel.y < 0) vel.y = 0;
-        }
+        isGrounded = true;
+        target.y = floorHitResult.hitPointY + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+        if (vel.y < 0) vel.y = 0;
       }
 
       const wallClingResult = this.queryService.checkAabbWallCling(

@@ -9,7 +9,8 @@ import {
   TraversalStateComponent,
   KinematicTargetComponent,
   KinematicVelocityComponent,
-  HitboxComponent
+  HitboxComponent,
+  HitStopComponent
 } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 
@@ -43,6 +44,10 @@ export class CombatSystem implements ISystem {
     const pTrav = this.context.stores
       .get<TraversalStateComponent>("traversal")
       .get(this.context.refs.player);
+
+    const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
+    const wHs = hitStops ? hitStops.get(this.context.refs.weaver) : undefined;
+    const isWeaverHitStopped = wHs ? wHs.timeRemaining > 0 : false;
 
     const tuning = GAMEPLAY_TUNING.COMBAT;
 
@@ -80,7 +85,7 @@ export class CombatSystem implements ISystem {
     const pActiveDamage = pHb ? pHb.isActive : false;
     const wActiveDamage = wHb ? wHb.isActive : false;
 
-    if (!pActiveDamage && !wActiveDamage) {
+    if (!pActiveDamage && !wActiveDamage && !isWeaverHitStopped) {
       const overlap = this.COMBINED_RADIUS_THRESHOLD - dist;
       const nx = dx / dist;
       const ny = dy / dist;
