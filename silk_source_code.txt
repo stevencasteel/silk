@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 2:51:32 AM
+ [SYSTEM] Generated: 5/31/2026, 2:55:55 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1419,7 +1419,7 @@ export class CompositionRoot {
 ● ./src/audio/systems/AudioDirectorSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
-import { SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { SubscriptionTracker, MultiEventListener } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -1439,7 +1439,7 @@ export class AudioDirectorSystem implements ISystem {
 
   private broker: IEventBroker;
   private _tracker = new SubscriptionTracker();
-  private gestureTriggerRef: (() => void) | null = null;
+  private gestureListener = new MultiEventListener();
 
   private hitComboCount = 0;
   private lastHitTime = 0;
@@ -1451,15 +1451,22 @@ export class AudioDirectorSystem implements ISystem {
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
 
-    this.gestureTriggerRef = (): void => {
+    this.gestureListener.add(window, "click", () => {
       this.bootAudioEngine();
       this.removeGestureListeners();
-    };
-
-    window.addEventListener("click", this.gestureTriggerRef);
-    window.addEventListener("keydown", this.gestureTriggerRef);
-    window.addEventListener("touchend", this.gestureTriggerRef);
-    window.addEventListener("mousedown", this.gestureTriggerRef);
+    });
+    this.gestureListener.add(window, "keydown", () => {
+      this.bootAudioEngine();
+      this.removeGestureListeners();
+    });
+    this.gestureListener.add(window, "touchend", () => {
+      this.bootAudioEngine();
+      this.removeGestureListeners();
+    });
+    this.gestureListener.add(window, "mousedown", () => {
+      this.bootAudioEngine();
+      this.removeGestureListeners();
+    });
   }
 
   public init(): void {
@@ -1693,13 +1700,7 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   private removeGestureListeners(): void {
-    if (this.gestureTriggerRef) {
-      window.removeEventListener("click", this.gestureTriggerRef);
-      window.removeEventListener("keydown", this.gestureTriggerRef);
-      window.removeEventListener("touchend", this.gestureTriggerRef);
-      window.removeEventListener("mousedown", this.gestureTriggerRef);
-      this.gestureTriggerRef = null;
-    }
+    this.gestureListener.removeAll();
   }
 
   private bootAudioEngine(): void {
@@ -2361,21 +2362,14 @@ function hasMethod(system: unknown, methodName: string): boolean {
   return typeof candidate[methodName] === "function";
 }
 
-export function isInitializable(system: unknown): system is IInitializable {
-  return hasMethod(system, "init");
+function createTypeGuard<T>(methodName: string): (system: unknown) => system is T {
+  return (system: unknown): system is T => hasMethod(system, methodName);
 }
 
-export function isUpdateable(system: unknown): system is IUpdateable {
-  return hasMethod(system, "update");
-}
-
-export function isRenderable(system: unknown): system is IRenderable {
-  return hasMethod(system, "render");
-}
-
-export function isDisposable(system: unknown): system is IDisposable {
-  return hasMethod(system, "dispose");
-}
+export const isInitializable = createTypeGuard<IInitializable>("init");
+export const isUpdateable = createTypeGuard<IUpdateable>("update");
+export const isRenderable = createTypeGuard<IRenderable>("render");
+export const isDisposable = createTypeGuard<IDisposable>("dispose");
 
 
 
@@ -4161,6 +4155,26 @@ export class SystemManager {
     }
   }
 
+  private executeWithProfiling<T extends ISystem>(
+    system: T,
+    operation: (system: T) => void,
+    phaseSuffix: string
+  ): void {
+    const isProfiling = this.profiler.isEnabled;
+    const start = isProfiling ? performance.now() : 0;
+    try {
+      operation(system);
+    } catch (err) {
+      console.error(`System ${this.systemNames.get(system)} crashed during ${phaseSuffix}:`, err);
+    }
+    if (isProfiling) {
+      this.profiler.recordSystem(
+        this.systemNames.get(system)! + phaseSuffix,
+        performance.now() - start
+      );
+    }
+  }
+
   public updateAll(dt: number): void {
     const isProfiling = this.profiler.isEnabled;
     if (isProfiling) {
@@ -4172,15 +4186,7 @@ export class SystemManager {
       const system = this.systems[i];
 
       if (isUpdateable(system)) {
-        const start = isProfiling ? performance.now() : 0;
-        try {
-          system.update(dt);
-        } catch (err) {
-          console.error(`System ${this.systemNames.get(system)} crashed during update:`, err);
-        }
-        if (isProfiling) {
-          this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
-        }
+        this.executeWithProfiling(system, (s) => s.update(dt), "");
       }
     }
   }
@@ -4190,18 +4196,7 @@ export class SystemManager {
     for (let i = 0; i < this.systems.length; i++) {
       const system = this.systems[i];
       if (isRenderable(system)) {
-        const start = isProfiling ? performance.now() : 0;
-        try {
-          system.render(alpha);
-        } catch (err) {
-          console.error(`System ${this.systemNames.get(system)} crashed during render:`, err);
-        }
-        if (isProfiling) {
-          this.profiler.recordSystem(
-            this.systemNames.get(system)! + " (Render)",
-            performance.now() - start
-          );
-        }
+        this.executeWithProfiling(system, (s) => s.render(alpha), " (Render)");
       }
     }
     if (isProfiling) {
@@ -4244,6 +4239,22 @@ export class SubscriptionTracker {
       this._unsubs[i]();
     }
     this._unsubs.length = 0;
+  }
+}
+
+export class MultiEventListener {
+  private listeners: Array<{ target: EventTarget; event: string; handler: EventListener }> = [];
+
+  public add(target: EventTarget, event: string, handler: EventListener): void {
+    target.addEventListener(event, handler);
+    this.listeners.push({ target, event, handler });
+  }
+
+  public removeAll(): void {
+    for (const { target, event, handler } of this.listeners) {
+      target.removeEventListener(event, handler);
+    }
+    this.listeners.length = 0;
   }
 }
 
@@ -5425,33 +5436,44 @@ export class HealthSystem implements ISystem {
         });
       }
 
-      this.context.broker.publish(GameEvent.PLAYER_DAMAGED, {
-        amount: cmd.amount,
-        source: cmd.source
-      });
-      this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-        hp: health.current,
-        maxHp: health.max
-      });
-
-      if (health.current <= 0) {
-        this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
-      }
+      this.publishDamageEvents(
+        GameEvent.PLAYER_DAMAGED,
+        GameEvent.PLAYER_HEALTH_CHANGED,
+        GameEvent.PLAYER_DIED,
+        cmd.amount,
+        cmd.source,
+        health.current,
+        health.max
+      );
     } else {
       health.current = Math.max(0, health.current - cmd.amount);
 
-      this.context.broker.publish(GameEvent.WEAVER_DAMAGED, {
-        amount: cmd.amount,
-        source: cmd.source
-      });
-      this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
-        hp: health.current,
-        maxHp: health.max
-      });
+      this.publishDamageEvents(
+        GameEvent.WEAVER_DAMAGED,
+        GameEvent.WEAVER_HEALTH_CHANGED,
+        GameEvent.WEAVER_DIED,
+        cmd.amount,
+        cmd.source,
+        health.current,
+        health.max
+      );
+    }
+  }
 
-      if (health.current <= 0) {
-        this.context.broker.publish(GameEvent.WEAVER_DIED, undefined);
-      }
+  private publishDamageEvents(
+    damagedEvent: GameEvent,
+    healthChangedEvent: GameEvent,
+    diedEvent: GameEvent,
+    amount: number,
+    source: string,
+    currentHp: number,
+    maxHp: number
+  ): void {
+    this.context.broker.publish(damagedEvent, { amount, source });
+    this.context.broker.publish(healthChangedEvent, { hp: currentHp, maxHp });
+
+    if (currentHp <= 0) {
+      this.context.broker.publish(diedEvent, undefined);
     }
   }
 
