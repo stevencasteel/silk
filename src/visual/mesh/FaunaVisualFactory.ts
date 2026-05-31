@@ -39,7 +39,7 @@ export class FaunaVisualFactory {
     coreMat.metallic = 0.02;
 
     const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
-    const greenColor = { r: 0.1, g: 0.95, b: 0.15 };
+    const greenColor = { r: 0.0, g: 1.0, b: 0.05 };
 
     const redStyle = `rgb(${Math.floor(spikeColor.r * 255)}, ${Math.floor(spikeColor.g * 255)}, ${Math.floor(spikeColor.b * 255)})`;
     const greenStyle = `rgb(${Math.floor(greenColor.r * 255)}, ${Math.floor(greenColor.g * 255)}, ${Math.floor(greenColor.b * 255)})`;
