@@ -9,33 +9,25 @@ import {
   ProjectileComponent,
   TraversalStateComponent,
   HealthComponent,
-  CollisionResponseComponent,
   ParticleRequestComponent,
   InputIntentComponent,
   WallBugComponent
 } from "../../core/ecs/Components";
-
 import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
-import { HealthBugVisualFactory } from "../../visual/mesh/HealthBugVisualFactory";
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
+import { HealthBugPool } from "./HealthBugPool";
 import * as BABYLON from "@babylonjs/core";
-
-interface PooledBug {
-  entityId: number;
-  rootNode: BABYLON.TransformNode;
-  active: boolean;
-}
 
 export class HealthBugSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
   readonly initPhase = InitPhase.Gameplay;
 
+  private pool!: HealthBugPool;
   private spawnTimer = 0.0;
   private readonly spawnInterval = 1.5;
-  private bugPool: PooledBug[] = [];
   private readonly POOL_SIZE = 2;
 
   private laneBag: number[] = [];
@@ -52,21 +44,9 @@ export class HealthBugSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
-    for (let i = 0; i < this.POOL_SIZE; i++) {
-      const bugId = this.context.world.create();
-      
-      const rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(bugId, scene, "NORMAL");
-      rootNode.setEnabled(false);
-      rootNode.position.set(0, -999, 0);
-
-      this.context.visualRegistration.registerTransformNode(bugId, rootNode);
-
-      this.bugPool.push({
-        entityId: bugId,
-        rootNode,
-        active: false
-      });
-    }
+    this.pool = new HealthBugPool(this.context, scene, (bugId, otherId) => {
+      this.handlePlayerOverlap(bugId, otherId);
+    });
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
@@ -84,17 +64,14 @@ export class HealthBugSystem implements ISystem {
     if (!scene) return;
 
     this.spawnTimer += dt;
-    const activeCount = this.bugPool.filter((p) => p.active).length;
+    const activeCount = this.pool.getActiveBugs().filter((p) => p.active).length;
 
     if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
       this.spawnTimer = 0.0;
       this.spawnBugFromPool();
     }
 
-    // 1. Check collisions between Health Bugs
     this.checkHealthBugCollisions();
-
-    // 2. Update individual bugs and Wall Bug spike collisions
     this.updateBugs(dt);
     this.updateSeekingParticles(dt);
   }
@@ -102,15 +79,16 @@ export class HealthBugSystem implements ISystem {
   private checkHealthBugCollisions(): void {
     const bugStore = this.context.stores.get<HealthBugComponent>("healthBug");
     const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
-    
-    for (let i = 0; i < this.bugPool.length; i++) {
-      const pBugA = this.bugPool[i];
+    const activeBugs = this.pool.getActiveBugs();
+
+    for (let i = 0; i < activeBugs.length; i++) {
+      const pBugA = activeBugs[i];
       if (!pBugA.active) continue;
       const bugA = bugStore.get(pBugA.entityId);
       if (!bugA) continue;
 
-      for (let j = i + 1; j < this.bugPool.length; j++) {
-        const pBugB = this.bugPool[j];
+      for (let j = i + 1; j < activeBugs.length; j++) {
+        const pBugB = activeBugs[j];
         if (!pBugB.active) continue;
         const bugB = bugStore.get(pBugB.entityId);
         if (!bugB) continue;
@@ -118,7 +96,7 @@ export class HealthBugSystem implements ISystem {
         const dx = bugB.x - bugA.x;
         const dy = bugB.y - bugA.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const combinedRadius = 4.0; // radius 2.0 each
+        const combinedRadius = 4.0;
 
         if (dist < combinedRadius) {
           const isSpikedA = bugA.variant !== "NORMAL" && !bugA.spikesDisarmed;
@@ -180,8 +158,10 @@ export class HealthBugSystem implements ISystem {
     const playerInput = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
     const isPlayerTrapped = !!(playerTrav && playerTrav.isWebTrapped);
 
-    for (let i = 0; i < this.bugPool.length; i++) {
-      const pBug = this.bugPool[i];
+    const activeBugs = this.pool.getActiveBugs();
+
+    for (let i = 0; i < activeBugs.length; i++) {
+      const pBug = activeBugs[i];
       if (!pBug.active) continue;
 
       const bug = bugStore.get(pBug.entityId);
@@ -205,7 +185,7 @@ export class HealthBugSystem implements ISystem {
       }
 
       if (bug.y < cameraY - 32.0 || bug.y > cameraY + 36.0) {
-        this.recycleBug(pBug);
+        this.pool.release(pBug.entityId);
         continue;
       }
 
@@ -240,17 +220,16 @@ export class HealthBugSystem implements ISystem {
           bug.x = parentTrans.x + (bug.stickyOffsetX || 0);
           bug.y = parentTrans.y + (bug.stickyOffsetY || 0);
         } else {
-          this.recycleBug(pBug);
+          this.pool.release(pBug.entityId);
           continue;
         }
       } else if (bug.isStuckOnWall) {
         bug.y -= currentScrollSpeed * dt;
       }
 
-      // --- IN-BOUND PLAYER CLING / STEERING LOGIC ---
-      const isPlayerStickingToThis = 
-        playerTrav && 
-        playerTrav.state === "WALL_STICKING" && 
+      const isPlayerStickingToThis =
+        playerTrav &&
+        playerTrav.state === "WALL_STICKING" &&
         playerTrav.stickyEntityId === pBug.entityId;
 
       if (isPlayerStickingToThis && playerInput) {
@@ -258,7 +237,6 @@ export class HealthBugSystem implements ISystem {
         const pushSpeedY = 7.0;
 
         if (isPlayerTrapped) {
-          // Web-trapped steering: press left/right (away/towards) to direct
           if (playerInput.x !== 0) {
             bug.x = Math.max(-12.0, Math.min(12.0, bug.x + playerInput.x * pushSpeedX * dt));
           }
@@ -266,7 +244,6 @@ export class HealthBugSystem implements ISystem {
             bug.y += pushSpeedY * dt;
           }
         } else {
-          // Un-trapped steering: press towards to steer horizontally
           const isPushingTowards = playerInput.x === playerTrav.wallDir;
           if (isPushingTowards) {
             bug.x = Math.max(-12.0, Math.min(12.0, bug.x + playerInput.x * pushSpeedX * dt));
@@ -279,7 +256,6 @@ export class HealthBugSystem implements ISystem {
         bug.preInfluenceX = bug.x;
         bug.preInfluenceY = bug.y;
       }
-      // ----------------------------------------------
 
       if (!bug.isWebTrapped && !bug.isStuckOnWall && !bug.isStuckToBug) {
         switch (bug.state) {
@@ -359,7 +335,7 @@ export class HealthBugSystem implements ISystem {
           case "SPINNING": {
             bug.timer += dt;
             const currentAngle = (bug.timer * 25.0) % (Math.PI * 2.0);
-            
+
             const spinQuat = BABYLON.Quaternion.RotationYawPitchRoll(currentAngle, 0, 0);
             trans.qx = spinQuat.x;
             trans.qy = spinQuat.y;
@@ -403,7 +379,6 @@ export class HealthBugSystem implements ISystem {
         }
       }
 
-      // Check collision with Wall Bug spikes for any active state
       const wallBugStore = this.context.stores.get<WallBugComponent>("wallBug");
       if (wallBugStore) {
         let hitWallBugSpikes = false;
@@ -438,7 +413,6 @@ export class HealthBugSystem implements ISystem {
         }
       }
 
-      // Check collision with Boss (Weaver)
       const weaverTrans = transforms.get(this.context.refs.weaver);
       if (weaverTrans && (bug.state === "SHOVED" || bug.state === "PINBALL")) {
         const dx = bug.x - weaverTrans.x;
@@ -489,9 +463,6 @@ export class HealthBugSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
-    const pBug = this.bugPool.find((p) => !p.active);
-    if (!pBug) return;
-
     const cameraY = scene.activeCamera
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
@@ -503,93 +474,22 @@ export class HealthBugSystem implements ISystem {
       "NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"
     ];
     const chosenVariant = variants[Math.floor(Math.random() * variants.length)];
-
-    this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
-    pBug.rootNode.dispose();
-    
-    pBug.rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(pBug.entityId, scene, chosenVariant);
-    this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
-
-    pBug.rootNode.position.set(startX, startY, 1.5);
-    pBug.rootNode.setEnabled(true);
-
-    this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
-      x: startX,
-      y: startY,
-      z: 1.5,
-      qx: 0,
-      qy: 0,
-      qz: 0,
-      qw: 1,
-      prevX: startX,
-      prevY: startY,
-      prevZ: 1.5,
-      prevQx: 0,
-      prevQy: 0,
-      prevQz: 0,
-      prevQw: 1,
-      scaleX: 1.0,
-      scaleY: 1.0,
-      scaleZ: 1.0,
-      prevScaleX: 1.0,
-      prevScaleY: 1.0,
-      prevScaleZ: 1.0
-    });
-
     const calculatedPauseY = cameraY - 4.0 + Math.random() * 12.0;
 
-    this.context.stores.get<HealthBugComponent>("healthBug").add(pBug.entityId, {
-      state: "FLYING_UP",
-      variant: chosenVariant,
-      timer: 0.0,
-      pauseDuration: 3.0 + Math.random() * 3.0,
-      x: startX,
-      y: startY,
-      preInfluenceX: startX,
-      preInfluenceY: calculatedPauseY + 14.0,
-      preInfluenceState: "CONTINUING",
-      isWebTrapped: false,
-      isStuckOnWall: false,
-      isStuckToBug: false,
-      spikesDisarmed: false,
-      rotorAngle: 0.0,
-      pauseThresholdY: calculatedPauseY
-    });
-    this.lastSpawnedX = startX;
-
-    this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
-      isActive: true, // Always active so player can stick to it!
-      width: 4.0,
-      height: 4.0,
-      speed: 0.0
-    });
-
-    this.context.stores.get<KinematicVelocityComponent>("velocity").add(pBug.entityId, {
-      x: 0,
-      y: 4.5,
-      z: 0
-    });
-
-    this.context.stores.get<CollisionResponseComponent>("collisionResponse").add(pBug.entityId, {
-      layer: "HAZARD",
-      onOverlap: (otherId, ctx) => {
-        const sysCtx = ctx as SystemContext;
-        this.handlePlayerOverlap(pBug.entityId, otherId, sysCtx);
-      }
-    });
-
-    pBug.active = true;
+    const bugId = this.pool.acquire(startX, startY, calculatedPauseY, chosenVariant);
+    if (bugId !== -1) {
+      this.lastSpawnedX = startX;
+    }
   }
 
-  private handlePlayerOverlap(bugId: number, playerId: number, ctx: SystemContext): void {
-    const bug = ctx.stores.get<HealthBugComponent>("healthBug").get(bugId);
-    const pTrans = ctx.stores.get<TransformComponent>("transform").get(playerId);
-    const pTrav = ctx.stores.get<TraversalStateComponent>("traversal").get(playerId);
-    const pVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(playerId);
+  private handlePlayerOverlap(bugId: number, playerId: number): void {
+    const bug = this.context.stores.get<HealthBugComponent>("healthBug").get(bugId);
+    const pTrans = this.context.stores.get<TransformComponent>("transform").get(playerId);
+    const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(playerId);
+    const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(playerId);
 
     if (!bug || !pTrans || !pTrav || !pVel) return;
 
-    // Skip hazard overlap entirely if player is already sticking to it
     if (pTrav.state === "WALL_STICKING" && pTrav.stickyEntityId === bugId) {
       return;
     }
@@ -602,7 +502,6 @@ export class HealthBugSystem implements ISystem {
 
     const hitSpikes = bug.variant !== "NORMAL" && !bug.spikesDisarmed && !isWebShieldActive;
 
-    // STAGE 3 (Extreme / Overloaded): Tension / launchPower >= 0.80
     if (isLaunching && launchPower >= 0.80) {
       if (hitSpikes) {
         bug.state = "SPINNING";
@@ -613,15 +512,14 @@ export class HealthBugSystem implements ISystem {
         pVel.y = 8.0;
         pTrav.state = "AIRBORNE";
 
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.85, duration: 0.35 });
-        ctx.broker.publish(GameEvent.UI_SFX_ALARM, undefined);
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.85, duration: 0.35 });
+        this.context.broker.publish(GameEvent.UI_SFX_ALARM, undefined);
       } else {
         this.popBug(bugId);
       }
       return;
     }
 
-    // STAGE 2 (Active Fling): 0.555 <= Tension / launchPower < 0.80
     if (isLaunching && launchPower >= 0.555) {
       if (hitSpikes) {
         this.popBug(bugId);
@@ -630,20 +528,19 @@ export class HealthBugSystem implements ISystem {
         const shoveX = (bug.x > pTrans.x ? 1 : -1) * 25.0;
         const shoveY = 12.0;
 
-        const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+        const bugVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
         if (bugVel) {
           bugVel.x = shoveX;
           bugVel.y = shoveY;
         }
-        ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.65, duration: 0.3 });
-        ctx.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.65, duration: 0.3 });
+        this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
       }
       return;
     }
 
-    // STAGE 0 & 1 (Safe slide, slack release, or non-flinging overlaps): launchPower < 0.555
     if (hitSpikes) {
-      ctx.commands.dispatch({
+      this.context.commands.dispatch({
         type: "DAMAGE_REQUEST",
         targetId: playerId,
         amount: 1,
@@ -652,20 +549,19 @@ export class HealthBugSystem implements ISystem {
         knockbackY: 8.0
       });
     } else {
-      const input = ctx.stores.get<InputIntentComponent>("input").get(playerId);
-      const bugWallDir = pTrans.x > bug.x ? -1 : 1; // if player is to the right, wall/bug is to their left (-1)
+      const input = this.context.stores.get<InputIntentComponent>("input").get(playerId);
+      const bugWallDir = pTrans.x > bug.x ? -1 : 1;
       const pressingIn = input && input.x === bugWallDir;
 
       if (pressingIn) {
-        // Player is pressing towards the safe side of the bug -> Stick to it!
-        PlayerStateUtils.applyWallImpactSquash(ctx);
+        PlayerStateUtils.applyWallImpactSquash(this.context);
 
         pTrav.state = "WALL_STICKING";
         pTrav.wallDir = bugWallDir;
         pTrav.wallNormalX = -bugWallDir;
         pTrav.stickyEntityId = bugId;
-        
-        const halfW = 2.0; // Health Bug half width
+
+        const halfW = 2.0;
         pTrav.stickyWallX = bug.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
         pTrav.stickyWallYOffset = pTrans.y - bug.y;
 
@@ -673,15 +569,14 @@ export class HealthBugSystem implements ISystem {
         pVel.x = 0;
         pVel.y = -this.context.runtime.currentScrollSpeed;
 
-        ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+        this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
           x: pTrans.x,
           y: pTrans.y,
           wallNormalX: -bugWallDir
         });
       } else {
-        // Not pressing in -> Safe shove!
         bug.state = "SHOVED";
-        const bugVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+        const bugVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
         if (bugVel) {
           bugVel.x = (bug.x > pTrans.x ? 1 : -1) * 6.5;
           bugVel.y = 2.0;
@@ -705,7 +600,7 @@ export class HealthBugSystem implements ISystem {
           scene
         );
         pMesh.position.set(bugTrans.x + (Math.random() - 0.5) * 0.5, bugTrans.y + (Math.random() - 0.5) * 0.5, 0);
-        
+
         const pMat = new BABYLON.StandardMaterial(`heal_particle_mat_${i}`, scene);
         pMat.emissiveColor = new BABYLON.Color3(0.1, 0.95, 0.15);
         pMat.disableLighting = true;
@@ -732,10 +627,7 @@ export class HealthBugSystem implements ISystem {
     this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: bugTrans.x, y: bugTrans.y, isWall: false });
     this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
 
-    const poolBug = this.bugPool.find((p) => p.entityId === bugId);
-    if (poolBug) {
-      this.recycleBug(poolBug);
-    }
+    this.pool.release(bugId);
   }
 
   private updateSeekingParticles(dt: number): void {
@@ -785,7 +677,7 @@ export class HealthBugSystem implements ISystem {
     if (this.laneBag.length === 0) {
       this.refillLaneBag();
     }
-    
+
     let attemptIndex = -1;
     for (let i = this.laneBag.length - 1; i >= 0; i--) {
       const tempX = this.LANES[this.laneBag[i]];
@@ -822,29 +714,8 @@ export class HealthBugSystem implements ISystem {
     this.laneBag = indices;
   }
 
-  private recycleBug(pBug: PooledBug): void {
-    pBug.active = false;
-    pBug.rootNode.setEnabled(false);
-    pBug.rootNode.position.set(0, -999, 0);
-
-    this.context.stores.get<HealthBugComponent>("healthBug").remove(pBug.entityId);
-    this.context.stores.get<StickySurfaceComponent>("stickySurface").remove(pBug.entityId);
-    this.context.stores.get<KinematicVelocityComponent>("velocity").remove(pBug.entityId);
-    this.context.stores.get<CollisionResponseComponent>("collisionResponse").remove(pBug.entityId);
-
-    const trans = this.context.stores.get<TransformComponent>("transform").get(pBug.entityId);
-    if (trans) {
-      trans.x = 0;
-      trans.y = -999;
-      trans.prevX = 0;
-      trans.prevY = -999;
-    }
-  }
-
   private clearAll(): void {
-    for (let i = 0; i < this.bugPool.length; i++) {
-      this.recycleBug(this.bugPool[i]);
-    }
+    if (this.pool) this.pool.reset();
     this.spawnTimer = 0.0;
 
     this.activeHealParticles.forEach((p) => {
@@ -857,9 +728,6 @@ export class HealthBugSystem implements ISystem {
   public dispose(): void {
     this._tracker.clear();
     this.clearAll();
-    for (let i = 0; i < this.bugPool.length; i++) {
-      this.context.visualRegistration.unregisterTransformNode(this.bugPool[i].entityId);
-    }
-    this.bugPool = [];
+    if (this.pool) this.pool.dispose();
   }
 }
