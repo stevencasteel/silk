@@ -36,8 +36,6 @@ export class RenderSystem implements ISystem {
   }
 
   public async init(): Promise<void> {
-    ProceduralTextureGenerator.clearCache();
-
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
       status: "Loading environment textures and lights..."
     });
@@ -247,6 +245,9 @@ export class RenderSystem implements ISystem {
     );
 
     window.addEventListener("resize", this.handleResize);
+
+    // Force aspect ratio and scaling update immediately on system initialization
+    this.handleResize();
   }
 
   public update(dt: number): void {
@@ -276,5 +277,8 @@ export class RenderSystem implements ISystem {
     this.visualRegistry.clear();
     if (this.scene) this.scene.dispose();
     if (this.engine) this.engine.dispose();
+
+    // Clean up cache cleanly on teardown
+    ProceduralTextureGenerator.clearCache();
   }
 }
