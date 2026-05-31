@@ -16,6 +16,10 @@ export class Engine {
   private isManuallyPaused: boolean = false;
   private unsubscribes: (() => void)[] = [];
 
+  public get eventBroker(): IEventBroker {
+    return this.broker;
+  }
+
   constructor(
     _canvas: HTMLCanvasElement,
     broker: IEventBroker,
@@ -37,8 +41,17 @@ export class Engine {
 
   public async start(): Promise<void> {
     this.isPaused = true;
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "INITIALIZING SYSTEMS..." });
+
+    await this.systemManager.initAll((phase, systemName, progress) => {
+      const phaseNames = ["BOOTSTRAP", "WORLD", "GAMEPLAY", "UI"];
+      const progressPercent = Math.round(progress * 100);
+      this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+        status: `[${phaseNames[phase]}] ${systemName}... (${progressPercent}%)`
+      });
+    });
+
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY" });
-    await this.systemManager.initAll();
 
     this.initPauseHandlers();
     this.initGestureHandlers();

@@ -90,6 +90,7 @@ export const HudOverlay: React.FC = () => {
       wins: s.wins,
       losses: s.losses,
       bootStatus: s.bootStatus,
+      loadingProgress: s.loadingProgress,
       menuIndex: s.menuIndex,
       setMenuIndex: s.setMenuIndex,
       calibrationStep: s.calibrationStep,
@@ -109,6 +110,7 @@ export const HudOverlay: React.FC = () => {
     wins,
     losses,
     bootStatus,
+    loadingProgress,
     menuIndex,
     setMenuIndex,
     calibrationStep,
@@ -444,11 +446,17 @@ export const HudOverlay: React.FC = () => {
       {isBooting ? (
         <div className="overlay-root font-mono pointer-events-auto">
           <div className="overlay-modal max-w-sm w-full border border-zinc-800 bg-[#0a0c12]/95 p-8 flex flex-col items-center">
-            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-sm mb-4">
+            <h2 className="text-emerald-500 font-bold uppercase tracking-[0.25em] text-sm mb-4 animate-pulse">
               INITIALIZING...
             </h2>
             <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
-              <div className="h-full bg-emerald-500" style={{ width: "100%" }} />
+              <div 
+                className="h-full bg-emerald-500 transition-all duration-300 ease-out" 
+                style={{ 
+                  width: `${Math.round(loadingProgress * 100)}%`,
+                  boxShadow: loadingProgress > 0 ? "0 0 10px rgba(16, 185, 129, 0.5)" : "none"
+                }} 
+              />
             </div>
             <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
               {bootStatus}

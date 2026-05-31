@@ -5,8 +5,10 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SILK</title>
-    <!-- Preload prefiltered lighting environment to avoid staging pauses -->
+    <!-- Preload critical assets to improve loading performance -->
     <link rel="preload" href="https://assets.babylonjs.com/environments/environmentSpecular.env" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="./HavokPhysics.wasm" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="https://cdn.babylonjs.com/havok/HavokPhysics.wasm" as="fetch" crossorigin="anonymous" />
   </head>
   <body>
     <div id="root"></div>

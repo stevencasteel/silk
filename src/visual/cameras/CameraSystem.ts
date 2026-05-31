@@ -1,6 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
-import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -10,6 +10,7 @@ import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
+  readonly initPhase = InitPhase.World;
   private cameraNode: BABYLON.FreeCamera | null = null;
   private shakeIntensity = 0.0;
   private shakeDuration = 0.0;

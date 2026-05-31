@@ -29,6 +29,10 @@ export class RenderSystem implements ISystem {
   public async init(): Promise<void> {
     ProceduralTextureGenerator.clearCache();
 
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "LOADING RENDER ENGINE..."
+    });
+
     this.engine = new BABYLON.Engine(this.canvas, true, {
       preserveDrawingBuffer: true,
       stencil: true
@@ -55,6 +59,10 @@ export class RenderSystem implements ISystem {
       )
     );
     camera.fovMode = BABYLON.Camera.FOVMODE_HORIZONTAL_FIXED;
+
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "LOADING ENVIRONMENT TEXTURE..."
+    });
 
     const envTexture = BABYLON.CubeTexture.CreateFromPrefilteredData(
       "https://assets.babylonjs.com/environments/environmentSpecular.env",
@@ -172,6 +180,10 @@ export class RenderSystem implements ISystem {
     shadowGen.darkness = preset.RENDERER.SHADOW_DARKNESS;
 
     this.visualRegistry.setSceneAndShadows(this.scene, shadowGen);
+
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "GENERATING ARENA GEOMETRY..."
+    });
 
     const arenaGeo = new ArenaGeometry(this.scene);
     await arenaGeo.generateElevatorShaft();

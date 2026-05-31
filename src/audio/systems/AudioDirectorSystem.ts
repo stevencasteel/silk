@@ -1,6 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SubscriptionTracker, MultiEventListener } from "../../core/utils/EngineUtils";
-import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
 import { IAudioRegistry } from "../../contracts/IAudio";
@@ -12,6 +12,7 @@ import { AudioSynthesizerRegistry } from "../tone/AudioSynthesizerRegistry";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
+  readonly initPhase = InitPhase.Bootstrap;
   private audioRegistry: IAudioRegistry | null = null;
 
   private initialized: boolean = false;

@@ -27,6 +27,7 @@ export interface WeaverState {
 
 export interface OverlayState {
   bootStatus: string;
+  loadingProgress: number;
   traversalHint: string;
   traversalHintColor: string;
   traversalHintOpacity: number;
@@ -47,6 +48,7 @@ export interface OverlayState {
   setCalibrationStep: (step: number) => void;
 
   setBootStatus: (status: string) => void;
+  setLoadingProgress: (progress: number) => void;
   setTraversalHint: (text: string, color: string, opacity: number) => void;
   showOverlay: (title: string, color: string, subtitle: string) => void;
   hideOverlay: () => void;
@@ -84,6 +86,7 @@ const WEAVER_RESET = {
 
 const OVERLAY_RESET = {
   bootStatus: "READY",
+  loadingProgress: 0,
   traversalHint: "",
   traversalHintColor: "rgb(161, 161, 170)",
   traversalHintOpacity: 0,
@@ -146,6 +149,7 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   wins: 0,
   losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
+  setLoadingProgress: (progress) => set({ loadingProgress: progress }),
   setTraversalHint: (text, color, opacity) => set((state) => {
     if (
       state.traversalHint === text &&

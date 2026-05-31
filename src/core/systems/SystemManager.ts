@@ -20,16 +20,31 @@ export class SystemManager {
     this.systems.sort((a, b) => a.phase - b.phase);
   }
 
-  public async initAll(): Promise<void> {
+  public async initAll(onProgress?: (phase: InitPhase, systemName: string, progress: number) => void): Promise<void> {
     const sortedForInit = [...this.systems].sort((a, b) => {
       const phaseA = a.initPhase ?? InitPhase.Gameplay;
       const phaseB = b.initPhase ?? InitPhase.Gameplay;
       return phaseA - phaseB;
     });
 
+    const totalSystems = sortedForInit.length;
+    let completedSystems = 0;
+
     for (const system of sortedForInit) {
       if (isInitializable(system)) {
+        const phase = system.initPhase ?? InitPhase.Gameplay;
+        const systemName = this.systemNames.get(system) || system.constructor.name;
+        
+        if (onProgress) {
+          onProgress(phase, systemName, completedSystems / totalSystems);
+        }
+        
         await system.init();
+        completedSystems++;
+        
+        if (onProgress) {
+          onProgress(phase, systemName, completedSystems / totalSystems);
+        }
       }
     }
   }

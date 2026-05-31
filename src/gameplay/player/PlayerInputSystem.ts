@@ -1,11 +1,12 @@
 import { ISystem } from "../../contracts/ISystem";
-import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { InputIntentComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class PlayerInputSystem implements ISystem {
   readonly phase = SystemPhase.Input;
+  readonly initPhase = InitPhase.Bootstrap;
   private keysPressed: Record<string, boolean> = {};
 
   constructor(private context: SystemContext) {}

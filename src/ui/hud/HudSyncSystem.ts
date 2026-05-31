@@ -1,5 +1,5 @@
 import { ISystem, IUpdateable } from "../../contracts/ISystem";
-import { SystemPhase } from "../../contracts/SystemPhase";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent, GameEventMap } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -15,6 +15,7 @@ import {
 
 export class HudSyncSystem implements ISystem, IUpdateable {
   readonly phase = SystemPhase.RenderSync;
+  readonly initPhase = InitPhase.UI;
   private subscriptions: (() => void)[] = [];
   private currentState: string = "AIRBORNE";
   private broker: IEventBroker;
