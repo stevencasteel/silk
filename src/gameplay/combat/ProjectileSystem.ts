@@ -210,7 +210,7 @@ export class ProjectileSystem implements ISystem {
       pTrav.webMass = (pTrav.webMass || 1) + 1;
       pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
       pTrav.escapeProgress = Math.max(0, (pTrav.escapeProgress || 0) - 1);
-      pTrav.recoilTimer = 0.35;
+      
 
       const dx = pTrans.x - trans.x;
       const dy = pTrans.y - trans.y;
@@ -218,19 +218,23 @@ export class ProjectileSystem implements ISystem {
       const pushX = dx / dist;
       const pushY = dy / dist;
 
-      // Cumulative physical push
-      const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
-      const pushForce = 22.0;
-      if (pVel) {
-        pVel.x += pushX * pushForce;
-        pVel.y += pushY * pushForce + 2.0;
-      }
+      // Apply knockback impulse through standard command flow
+      const tuning = GAMEPLAY_TUNING.COMBAT;
+      const kbX = pushX * tuning.WEB_IMPACT_KNOCKBACK_X * 0.8;
+      const kbY = pushY * tuning.WEB_IMPACT_KNOCKBACK_Y * 0.8;
+      sysCtx.commands.dispatch({
+        type: "APPLY_IMPULSE",
+        entityId: otherId,
+        x: kbX,
+        y: kbY,
+        z: 0
+      });
 
       // Extend tether reel length on consecutive hits
       const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
       const tether = tetherStore ? tetherStore.get(otherId) : undefined;
       if (tether && tether.isAttached) {
-        const reelIncrease = 5.0;
+        const reelIncrease = GAMEPLAY_TUNING.COMBAT.WEB_IMPACT_SLACK_INCREASE * 0.6;
         const maxLengthLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
         tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + reelIncrease);
         tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + reelIncrease);
@@ -289,23 +293,27 @@ export class ProjectileSystem implements ISystem {
       pTrav.stickyEntityId = -1;
     }
 
-    // 2. Physics-based push: apply high-impulse velocity away from the projectile
-    const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
-    const pushForce = 28.0;
-    if (pVel) {
-      pVel.x = pushX * pushForce;
-      pVel.y = pushY * pushForce + 4.0;
-    }
+    // 2. Physics-based push: apply standard physical impulse via core command
+    const tuning = GAMEPLAY_TUNING.COMBAT;
+    const kbX = pushX * tuning.WEB_IMPACT_KNOCKBACK_X;
+    const kbY = pushY * tuning.WEB_IMPACT_KNOCKBACK_Y;
+    sysCtx.commands.dispatch({
+      type: "APPLY_IMPULSE",
+      entityId: otherId,
+      x: kbX,
+      y: kbY,
+      z: 0
+    });
 
     // 3. Make player's reel get longer (simulating unspooling/elongating)
     const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
     const tether = tetherStore ? tetherStore.get(otherId) : undefined;
     if (tether && tether.isAttached) {
-      const reelIncrease = 8.5;
+      const reelIncrease = tuning.WEB_IMPACT_SLACK_INCREASE;
       const maxLengthLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
       tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + reelIncrease);
       tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + reelIncrease);
-      tether.tension = Math.max(tether.tension, 1.25);
+      
     }
 
     // 4. Trap in web cocoon
@@ -316,7 +324,7 @@ export class ProjectileSystem implements ISystem {
       pTrav.escapeRequired = 5;
       pTrav.lastEscapeDirection = "";
       pTrav.hasFlingBonus = false;
-      pTrav.recoilTimer = 0.35;
+      
     }
 
     pComp.isTrappingPlayer = true;
