@@ -264,6 +264,12 @@ body,
   backdrop-filter: blur(12px) !important;
 }
 
+.backdrop-blur-active {
+  background: rgba(5, 5, 6, 0.50) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
 .overlay-modal {
   display: flex;
   flex-direction: column;

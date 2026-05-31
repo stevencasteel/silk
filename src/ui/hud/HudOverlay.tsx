@@ -528,7 +528,7 @@ export const HudOverlay: React.FC = () => {
   return (
     <>
       {showBootScreen ? (
-        <div className="overlay-root font-mono pointer-events-auto bg-[#050506]/98 flex flex-col justify-between items-center p-6 sm:p-8">
+        <div className="overlay-root backdrop-blur-active font-mono pointer-events-auto flex flex-col justify-between items-center p-6 sm:p-8">
           
           {/* Top Section: Description */}
           <div className="w-full max-w-sm flex flex-col items-center text-center mt-4">
