@@ -11,7 +11,7 @@ import {
 
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
-import { WallBugVisualFactory } from "../../visual/mesh/WallBugVisualFactory";
+import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledBug {
@@ -58,7 +58,7 @@ export class WallBugSystem implements ISystem {
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const bugId = this.context.world.create();
-      const bugRoot = WallBugVisualFactory.buildBugMeshHierarchy(
+      const bugRoot = FaunaVisualFactory.buildWallBug(
         bugId,
         scene,
         this.bugMaterial,

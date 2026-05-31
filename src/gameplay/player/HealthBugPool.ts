@@ -1,7 +1,7 @@
 import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
-import { HealthBugVisualFactory } from "../../visual/mesh/HealthBugVisualFactory";
+import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
 import {
   TransformComponent,
   HealthBugComponent,
@@ -32,7 +32,7 @@ export class HealthBugPool {
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const bugId = this.context.world.create();
 
-      const rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(bugId, this.scene, "NORMAL");
+      const rootNode = FaunaVisualFactory.buildHealthBug(bugId, this.scene, "NORMAL");
       rootNode.setEnabled(false);
       rootNode.position.set(0, -999, 0);
 
@@ -58,7 +58,7 @@ export class HealthBugPool {
     this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
     pBug.rootNode.dispose();
 
-    pBug.rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(pBug.entityId, this.scene, variant);
+    pBug.rootNode = FaunaVisualFactory.buildHealthBug(pBug.entityId, this.scene, variant);
     this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
 
     pBug.rootNode.position.set(startX, startY, 1.5);
