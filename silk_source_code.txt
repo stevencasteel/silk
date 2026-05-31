@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 2:37:05 AM
+ [SYSTEM] Generated: 5/31/2026, 2:40:24 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -160,9 +160,8 @@
 │   │   │   └── SilkMaterialPlugin.ts
 │   │   ├── mesh/
 │   │   │   ├── ArenaGeometry.ts
-│   │   │   ├── HealthBugVisualFactory.ts
+│   │   │   ├── FaunaVisualFactory.ts
 │   │   │   ├── PlayerSilkVisualFactory.ts
-│   │   │   ├── WallBugVisualFactory.ts
 │   │   │   └── WeaverVisualFactory.ts
 │   │   ├── scene/
 │   │   │   ├── ProceduralTextureGenerator.ts
@@ -7977,7 +7976,7 @@ export class WeaverShatterSystem implements ISystem {
 import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
-import { HealthBugVisualFactory } from "../../visual/mesh/HealthBugVisualFactory";
+import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
 import {
   TransformComponent,
   HealthBugComponent,
@@ -8008,7 +8007,7 @@ export class HealthBugPool {
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const bugId = this.context.world.create();
 
-      const rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(bugId, this.scene, "NORMAL");
+      const rootNode = FaunaVisualFactory.buildHealthBug(bugId, this.scene, "NORMAL");
       rootNode.setEnabled(false);
       rootNode.position.set(0, -999, 0);
 
@@ -8034,7 +8033,7 @@ export class HealthBugPool {
     this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
     pBug.rootNode.dispose();
 
-    pBug.rootNode = HealthBugVisualFactory.buildBugMeshHierarchy(pBug.entityId, this.scene, variant);
+    pBug.rootNode = FaunaVisualFactory.buildHealthBug(pBug.entityId, this.scene, variant);
     this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
 
     pBug.rootNode.position.set(startX, startY, 1.5);
@@ -9669,7 +9668,7 @@ import {
 
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
-import { WallBugVisualFactory } from "../../visual/mesh/WallBugVisualFactory";
+import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
 import * as BABYLON from "@babylonjs/core";
 
 interface PooledBug {
@@ -9716,7 +9715,7 @@ export class WallBugSystem implements ISystem {
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       const bugId = this.context.world.create();
-      const bugRoot = WallBugVisualFactory.buildBugMeshHierarchy(
+      const bugRoot = FaunaVisualFactory.buildWallBug(
         bugId,
         scene,
         this.bugMaterial,
@@ -16571,20 +16570,19 @@ export class ArenaGeometry {
 
 
 
-● ./src/visual/mesh/HealthBugVisualFactory.ts
+● ./src/visual/mesh/FaunaVisualFactory.ts
 ────────────────────────────────────────────────────
 import * as BABYLON from "@babylonjs/core";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 
-export class HealthBugVisualFactory {
-  public static buildBugMeshHierarchy(
+export class FaunaVisualFactory {
+  public static buildHealthBug(
     id: number,
     scene: BABYLON.Scene,
     variant: "NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT"
   ): BABYLON.TransformNode {
     const root = new BABYLON.TransformNode(`health_bug_root_${id}`, scene);
 
-    // 1. Bulbous Glass Outer Shell (Diameter 4.0)
     const glass = BABYLON.MeshBuilder.CreateSphere(
       `health_bug_glass_${id}`,
       { diameter: 4.0, segments: 16 },
@@ -16603,7 +16601,6 @@ export class HealthBugVisualFactory {
     glass.material = glassMat;
     glass.parent = root;
 
-    // 2. Inner Glowing Core with Sharp Split Color Grammar
     const core = BABYLON.MeshBuilder.CreateSphere(
       `health_bug_core_${id}`,
       { diameter: 2.5, segments: 12 },
@@ -16629,7 +16626,6 @@ export class HealthBugVisualFactory {
       const dynTex = new BABYLON.DynamicTexture(`health_bug_core_tex_${id}`, res, scene, true);
       const ctx = dynTex.getContext() as unknown as CanvasRenderingContext2D;
 
-      // Draw standard top-half Red, bottom-half Green texture split
       ctx.fillStyle = redStyle;
       ctx.fillRect(0, 0, res, res / 2);
       ctx.fillStyle = greenStyle;
@@ -16640,7 +16636,6 @@ export class HealthBugVisualFactory {
       coreMat.emissiveTexture = dynTex;
       coreMat.emissiveColor = new BABYLON.Color3(1.3, 1.3, 1.3);
 
-      // Set rotation strictly using Quaternion to ensure the pipeline respects the alignment
       if (variant === "SPIKED_TOP") {
         core.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, Math.PI);
       } else if (variant === "SPIKED_BOTTOM") {
@@ -16653,10 +16648,9 @@ export class HealthBugVisualFactory {
     }
     core.material = coreMat;
 
-    // 3. Rotor Fin Assembly
     const rotorRoot = new BABYLON.TransformNode(`health_bug_rotors_${id}`, scene);
-    rotorRoot.position.set(0, 2.2, 0);
     rotorRoot.parent = root;
+    rotorRoot.position.set(0, 2.2, 0);
 
     const stem = BABYLON.MeshBuilder.CreateCylinder(
       `rotor_stem_${id}`,
@@ -16688,7 +16682,6 @@ export class HealthBugVisualFactory {
     blade2.material = metalMat;
     blade2.parent = rotorRoot;
 
-    // 4. Large Obvious Spikes covering a full 180-degree semicircle (11 Spikes, zero gaps)
     if (variant !== "NORMAL") {
       const spikeMat = new BABYLON.StandardMaterial(`health_bug_spike_mat_${id}`, scene);
       spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
@@ -16699,7 +16692,6 @@ export class HealthBugVisualFactory {
 
       const spikeCount = 11;
       for (let s = 0; s < spikeCount; s++) {
-        // Evenly distribute from -PI/2 to +PI/2
         const theta = -Math.PI / 2 + (s / (spikeCount - 1)) * Math.PI;
 
         const spike = BABYLON.MeshBuilder.CreateCylinder(
@@ -16729,6 +16721,207 @@ export class HealthBugVisualFactory {
     }
 
     return root;
+  }
+
+  public static buildWallBug(
+    id: number,
+    scene: BABYLON.Scene,
+    bugMaterial: BABYLON.Material,
+    eyeMaterial: BABYLON.Material
+  ): BABYLON.TransformNode {
+    const bugRoot = new BABYLON.TransformNode(`wall_bug_root_${id}`, scene);
+
+    const capsule = BABYLON.MeshBuilder.CreateCapsule(
+      `wall_bug_capsule_${id}`,
+      { height: 7.2, radius: 0.58, subdivisions: 2 },
+      scene
+    );
+    capsule.material = bugMaterial;
+    capsule.parent = bugRoot;
+
+    const stripeMat = new BABYLON.StandardMaterial(`wallBugStripeMat_${id}`, scene);
+    const stripeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.BLUE_STRIPE;
+    stripeMat.emissiveColor = new BABYLON.Color3(stripeColor.r, stripeColor.g, stripeColor.b);
+    stripeMat.disableLighting = true;
+
+    for (let i = 0; i < 5; i++) {
+      const ring = BABYLON.MeshBuilder.CreateTorus(
+        `ring_${id}_${i}`,
+        { diameter: 1.22, thickness: 0.11, tessellation: 10 },
+        scene
+      );
+      ring.position.y = -2.6 + i * 1.3;
+      ring.rotation.x = Math.PI / 2;
+      ring.material = stripeMat;
+      ring.parent = bugRoot;
+    }
+
+    const eyeL = BABYLON.MeshBuilder.CreateSphere(`eyeL_${id}`, { diameter: 0.18 }, scene);
+    eyeL.position.set(-0.25, -3.1, -0.42);
+    eyeL.material = eyeMaterial;
+    eyeL.parent = bugRoot;
+
+    const eyeR = BABYLON.MeshBuilder.CreateSphere(`eyeR_${id}`, { diameter: 0.18 }, scene);
+    eyeR.position.set(0.25, -3.1, -0.42);
+    eyeR.material = eyeMaterial;
+    eyeR.parent = bugRoot;
+
+    const spikeMat = new BABYLON.StandardMaterial(`wallBugSpikeMat_${id}`, scene);
+    const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
+    spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
+    spikeMat.disableLighting = true;
+
+    const leftSpikes = new BABYLON.TransformNode("left_spikes", scene);
+    leftSpikes.parent = bugRoot;
+
+    const rightSpikes = new BABYLON.TransformNode("right_spikes", scene);
+    rightSpikes.parent = bugRoot;
+
+    for (let s = 0; s < 11; s++) {
+      const spikeY = -3.0 + s * 0.6;
+
+      const spikeL = BABYLON.MeshBuilder.CreateCylinder(
+        `spikeL_${id}_${s}`,
+        {
+          height: 1.1,
+          diameterTop: 0.0,
+          diameterBottom: 0.38,
+          tessellation: 6
+        },
+        scene
+      );
+      spikeL.position.set(-0.95, spikeY, 0);
+      spikeL.rotation.z = Math.PI / 2;
+      spikeL.material = spikeMat;
+      spikeL.parent = leftSpikes;
+
+      const spikeR = BABYLON.MeshBuilder.CreateCylinder(
+        `spikeR_${id}_${s}`,
+        {
+          height: 1.1,
+          diameterTop: 0.0,
+          diameterBottom: 0.38,
+          tessellation: 6
+        },
+        scene
+      );
+      spikeR.position.set(0.95, spikeY, 0);
+      spikeR.rotation.z = -Math.PI / 2;
+      spikeR.material = spikeMat;
+      spikeR.parent = rightSpikes;
+    }
+
+    const leftSafety = new BABYLON.TransformNode("left_safety", scene);
+    leftSafety.parent = bugRoot;
+
+    const rightSafety = new BABYLON.TransformNode("right_safety", scene);
+    rightSafety.parent = bugRoot;
+
+    const stripL = BABYLON.MeshBuilder.CreateBox(
+      `stripL_${id}`,
+      {
+        width: 0.12,
+        height: 6.2,
+        depth: 0.3
+      },
+      scene
+    );
+    stripL.position.set(-0.59, 0, 0);
+    stripL.material = stripeMat;
+    stripL.parent = leftSafety;
+
+    const stripR = BABYLON.MeshBuilder.CreateBox(
+      `stripR_${id}`,
+      {
+        width: 0.12,
+        height: 6.2,
+        depth: 0.3
+      },
+      scene
+    );
+    stripR.position.set(0.59, 0, 0);
+    stripR.material = stripeMat;
+    stripR.parent = rightSafety;
+
+    for (let leg = 0; leg < 4; leg++) {
+      const legY = -2.0 + leg * 1.35;
+
+      const jointL = new BABYLON.TransformNode(`leg_joint_left_${id}_${leg}`, scene);
+      jointL.position.set(-0.45, legY, 0);
+      jointL.parent = bugRoot;
+
+      const coxaL = BABYLON.MeshBuilder.CreateCylinder(
+        `coxaL_${id}_${leg}`,
+        { height: 0.7, diameterTop: 0.11, diameterBottom: 0.08, tessellation: 6 },
+        scene
+      );
+      coxaL.position.set(-0.35, 0, 0);
+      coxaL.rotation.z = Math.PI / 2;
+      coxaL.material = bugMaterial;
+      coxaL.parent = jointL;
+
+      const tibiaJointL = new BABYLON.TransformNode(`tibia_joint_left_${id}_${leg}`, scene);
+      tibiaJointL.position.set(-0.7, 0, 0);
+      tibiaJointL.rotation.z = Math.PI / 4;
+      tibiaJointL.parent = jointL;
+
+      const tibiaL = BABYLON.MeshBuilder.CreateCylinder(
+        `tibiaL_${id}_${leg}`,
+        { height: 0.6, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
+        scene
+      );
+      tibiaL.position.set(0, -0.3, 0);
+      tibiaL.material = bugMaterial;
+      tibiaL.parent = tibiaJointL;
+
+      const footL = BABYLON.MeshBuilder.CreateSphere(
+        `footL_${id}_${leg}`,
+        { diameterX: 0.14, diameterY: 0.18, diameterZ: 0.14 },
+        scene
+      );
+      footL.position.set(0, -0.6, 0);
+      footL.material = eyeMaterial;
+      footL.parent = tibiaJointL;
+
+      const jointR = new BABYLON.TransformNode(`leg_joint_right_${id}_${leg}`, scene);
+      jointR.position.set(0.45, legY, 0);
+      jointR.parent = bugRoot;
+
+      const coxaR = BABYLON.MeshBuilder.CreateCylinder(
+        `coxaR_${id}_${leg}`,
+        { height: 0.7, diameterTop: 0.11, diameterBottom: 0.08, tessellation: 6 },
+        scene
+      );
+      coxaR.position.set(0.35, 0, 0);
+      coxaR.rotation.z = -Math.PI / 2;
+      coxaR.material = bugMaterial;
+      coxaR.parent = jointR;
+
+      const tibiaJointR = new BABYLON.TransformNode(`tibia_joint_right_${id}_${leg}`, scene);
+      tibiaJointR.position.set(0.7, 0, 0);
+      tibiaJointR.rotation.z = -Math.PI / 4;
+      tibiaJointR.parent = jointR;
+
+      const tibiaR = BABYLON.MeshBuilder.CreateCylinder(
+        `tibiaR_${id}_${leg}`,
+        { height: 0.6, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
+        scene
+      );
+      tibiaR.position.set(0, -0.3, 0);
+      tibiaR.material = bugMaterial;
+      tibiaR.parent = tibiaJointR;
+
+      const footR = BABYLON.MeshBuilder.CreateSphere(
+        `footR_${id}_${leg}`,
+        { diameterX: 0.14, diameterY: 0.18, diameterZ: 0.14 },
+        scene
+      );
+      footR.position.set(0, -0.6, 0);
+      footR.material = eyeMaterial;
+      footR.parent = tibiaJointR;
+    }
+
+    return bugRoot;
   }
 }
 
@@ -16936,218 +17129,6 @@ export function decoratePlayerSilkVisual(
   pMesh.getChildMeshes().forEach((mesh) => {
     mesh.receiveShadows = true;
   });
-}
-
-
-
-● ./src/visual/mesh/WallBugVisualFactory.ts
-────────────────────────────────────────────────────
-import * as BABYLON from "@babylonjs/core";
-import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
-
-export class WallBugVisualFactory {
-  public static buildBugMeshHierarchy(
-    id: number,
-    scene: BABYLON.Scene,
-    bugMaterial: BABYLON.Material,
-    eyeMaterial: BABYLON.Material
-  ): BABYLON.TransformNode {
-    const bugRoot = new BABYLON.TransformNode(`wall_bug_root_${id}`, scene);
-
-    const capsule = BABYLON.MeshBuilder.CreateCapsule(
-      `wall_bug_capsule_${id}`,
-      { height: 7.2, radius: 0.58, subdivisions: 2 },
-      scene
-    );
-    capsule.material = bugMaterial;
-    capsule.parent = bugRoot;
-
-    const stripeMat = new BABYLON.StandardMaterial(`wallBugStripeMat_${id}`, scene);
-    const stripeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.BLUE_STRIPE;
-    stripeMat.emissiveColor = new BABYLON.Color3(stripeColor.r, stripeColor.g, stripeColor.b);
-    stripeMat.disableLighting = true;
-
-    for (let i = 0; i < 5; i++) {
-      const ring = BABYLON.MeshBuilder.CreateTorus(
-        `ring_${id}_${i}`,
-        { diameter: 1.22, thickness: 0.11, tessellation: 10 },
-        scene
-      );
-      ring.position.y = -2.6 + i * 1.3;
-      ring.rotation.x = Math.PI / 2;
-      ring.material = stripeMat;
-      ring.parent = bugRoot;
-    }
-
-    const eyeL = BABYLON.MeshBuilder.CreateSphere(`eyeL_${id}`, { diameter: 0.18 }, scene);
-    eyeL.position.set(-0.25, -3.1, -0.42);
-    eyeL.material = eyeMaterial;
-    eyeL.parent = bugRoot;
-
-    const eyeR = BABYLON.MeshBuilder.CreateSphere(`eyeR_${id}`, { diameter: 0.18 }, scene);
-    eyeR.position.set(0.25, -3.1, -0.42);
-    eyeR.material = eyeMaterial;
-    eyeR.parent = bugRoot;
-
-    const spikeMat = new BABYLON.StandardMaterial(`wallBugSpikeMat_${id}`, scene);
-    const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
-    spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
-    spikeMat.disableLighting = true;
-
-    const leftSpikes = new BABYLON.TransformNode("left_spikes", scene);
-    leftSpikes.parent = bugRoot;
-
-    const rightSpikes = new BABYLON.TransformNode("right_spikes", scene);
-    rightSpikes.parent = bugRoot;
-
-    // High Density Spikes: Fit 11 spikes tightly on each dangerous side
-    for (let s = 0; s < 11; s++) {
-      const spikeY = -3.0 + s * 0.6;
-
-      const spikeL = BABYLON.MeshBuilder.CreateCylinder(
-        `spikeL_${id}_${s}`,
-        {
-          height: 1.1,
-          diameterTop: 0.0,
-          diameterBottom: 0.38,
-          tessellation: 6
-        },
-        scene
-      );
-      spikeL.position.set(-0.95, spikeY, 0);
-      spikeL.rotation.z = Math.PI / 2;
-      spikeL.material = spikeMat;
-      spikeL.parent = leftSpikes;
-
-      const spikeR = BABYLON.MeshBuilder.CreateCylinder(
-        `spikeR_${id}_${s}`,
-        {
-          height: 1.1,
-          diameterTop: 0.0,
-          diameterBottom: 0.38,
-          tessellation: 6
-        },
-        scene
-      );
-      spikeR.position.set(0.95, spikeY, 0);
-      spikeR.rotation.z = -Math.PI / 2;
-      spikeR.material = spikeMat;
-      spikeR.parent = rightSpikes;
-    }
-
-    // Split Vertically down the middle design language: Blue safety indicator strips
-    const leftSafety = new BABYLON.TransformNode("left_safety", scene);
-    leftSafety.parent = bugRoot;
-
-    const rightSafety = new BABYLON.TransformNode("right_safety", scene);
-    rightSafety.parent = bugRoot;
-
-    const stripL = BABYLON.MeshBuilder.CreateBox(
-      `stripL_${id}`,
-      {
-        width: 0.12,
-        height: 6.2,
-        depth: 0.3
-      },
-      scene
-    );
-    stripL.position.set(-0.59, 0, 0);
-    stripL.material = stripeMat;
-    stripL.parent = leftSafety;
-
-    const stripR = BABYLON.MeshBuilder.CreateBox(
-      `stripR_${id}`,
-      {
-        width: 0.12,
-        height: 6.2,
-        depth: 0.3
-      },
-      scene
-    );
-    stripR.position.set(0.59, 0, 0);
-    stripR.material = stripeMat;
-    stripR.parent = rightSafety;
-
-    for (let leg = 0; leg < 4; leg++) {
-      const legY = -2.0 + leg * 1.35;
-
-      const jointL = new BABYLON.TransformNode(`leg_joint_left_${id}_${leg}`, scene);
-      jointL.position.set(-0.45, legY, 0);
-      jointL.parent = bugRoot;
-
-      const coxaL = BABYLON.MeshBuilder.CreateCylinder(
-        `coxaL_${id}_${leg}`,
-        { height: 0.7, diameterTop: 0.11, diameterBottom: 0.08, tessellation: 6 },
-        scene
-      );
-      coxaL.position.set(-0.35, 0, 0);
-      coxaL.rotation.z = Math.PI / 2;
-      coxaL.material = bugMaterial;
-      coxaL.parent = jointL;
-
-      const tibiaJointL = new BABYLON.TransformNode(`tibia_joint_left_${id}_${leg}`, scene);
-      tibiaJointL.position.set(-0.7, 0, 0);
-      tibiaJointL.rotation.z = Math.PI / 4;
-      tibiaJointL.parent = jointL;
-
-      const tibiaL = BABYLON.MeshBuilder.CreateCylinder(
-        `tibiaL_${id}_${leg}`,
-        { height: 0.6, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
-        scene
-      );
-      tibiaL.position.set(0, -0.3, 0);
-      tibiaL.material = bugMaterial;
-      tibiaL.parent = tibiaJointL;
-
-      const footL = BABYLON.MeshBuilder.CreateSphere(
-        `footL_${id}_${leg}`,
-        { diameterX: 0.14, diameterY: 0.18, diameterZ: 0.14 },
-        scene
-      );
-      footL.position.set(0, -0.6, 0);
-      footL.material = eyeMaterial;
-      footL.parent = tibiaJointL;
-
-      const jointR = new BABYLON.TransformNode(`leg_joint_right_${id}_${leg}`, scene);
-      jointR.position.set(0.45, legY, 0);
-      jointR.parent = bugRoot;
-
-      const coxaR = BABYLON.MeshBuilder.CreateCylinder(
-        `coxaR_${id}_${leg}`,
-        { height: 0.7, diameterTop: 0.11, diameterBottom: 0.08, tessellation: 6 },
-        scene
-      );
-      coxaR.position.set(0.35, 0, 0);
-      coxaR.rotation.z = -Math.PI / 2;
-      coxaR.material = bugMaterial;
-      coxaR.parent = jointR;
-
-      const tibiaJointR = new BABYLON.TransformNode(`tibia_joint_right_${id}_${leg}`, scene);
-      tibiaJointR.position.set(0.7, 0, 0);
-      tibiaJointR.rotation.z = -Math.PI / 4;
-      tibiaJointR.parent = jointR;
-
-      const tibiaR = BABYLON.MeshBuilder.CreateCylinder(
-        `tibiaR_${id}_${leg}`,
-        { height: 0.6, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
-        scene
-      );
-      tibiaR.position.set(0, -0.3, 0);
-      tibiaR.material = bugMaterial;
-      tibiaR.parent = tibiaJointR;
-
-      const footR = BABYLON.MeshBuilder.CreateSphere(
-        `footR_${id}_${leg}`,
-        { diameterX: 0.14, diameterY: 0.18, diameterZ: 0.14 },
-        scene
-      );
-      footR.position.set(0, -0.6, 0);
-      footR.material = eyeMaterial;
-      footR.parent = tibiaJointR;
-    }
-
-    return bugRoot;
-  }
 }
 
 
