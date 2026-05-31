@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 6:03:12 PM
+ [SYSTEM] Generated: 5/31/2026, 6:07:21 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -4888,7 +4888,10 @@ export class GameDirectorSystem implements ISystem {
     );
 
     this._tracker.add(
-      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, (payload) => {
+        if (payload && (payload.source === "PROJECTILE" || payload.source === "PROJECTILE_STACK")) {
+          return;
+        }
         const hs = this.context.stores
           .get<HitStopComponent>("hitStop")
           .get(this.context.refs.player);
@@ -4908,8 +4911,7 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
         if (!payload.isWall) {
-          this.context.runtime.hitLagTimer = 0.15;
-          this.context.runtime.hitLagScale = 0.15;
+          // Hitstop removed for web shot impacts
         }
       })
     );
@@ -12811,9 +12813,9 @@ body,
 }
 
 .backdrop-blur-active {
-  background: rgba(5, 5, 6, 0.75) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
+  background: rgba(5, 5, 6, 0.50) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
 }
 
 .overlay-modal {

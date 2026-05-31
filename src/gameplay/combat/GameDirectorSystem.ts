@@ -95,7 +95,10 @@ export class GameDirectorSystem implements ISystem {
     );
 
     this._tracker.add(
-      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, (payload) => {
+        if (payload && (payload.source === "PROJECTILE" || payload.source === "PROJECTILE_STACK")) {
+          return;
+        }
         const hs = this.context.stores
           .get<HitStopComponent>("hitStop")
           .get(this.context.refs.player);
@@ -115,8 +118,7 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
         if (!payload.isWall) {
-          this.context.runtime.hitLagTimer = 0.15;
-          this.context.runtime.hitLagScale = 0.15;
+          // Hitstop removed for web shot impacts
         }
       })
     );
