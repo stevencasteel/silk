@@ -312,6 +312,11 @@ export const HudOverlay: React.FC = () => {
     publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
     useOverlayStore.getState().setAwaitingGesture(false);
     useOverlayStore.getState().setBootStatus("READY");
+
+    const canvas = document.querySelector("canvas");
+    if (canvas) {
+      canvas.focus();
+    }
   }, [playConfirmSynth, publishEvent]);
 
   // Handle any key press to progress once fully loaded

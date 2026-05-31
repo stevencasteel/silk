@@ -92,7 +92,7 @@ export class Engine {
   }
 
   private update(dt: number): void {
-    if (this.isPaused) return;
+    if (this.isPaused || !this.gameStarted) return;
 
     if (this.runtime.hitLagTimer > 0) {
       this.runtime.hitLagTimer = Math.max(0, this.runtime.hitLagTimer - dt);
