@@ -25,8 +25,10 @@ export class WeaverActionSystem implements ISystem {
     if (!ai || !vel) return;
 
     // 1. Process movement intents
-    vel.x = ai.desiredVelocityX;
-    vel.y = ai.desiredVelocityY;
+    const accelRate = 12.0; // Responsive but physically weighted
+    const lerpFactor = 1.0 - Math.exp(-dt * accelRate);
+    vel.x += (ai.desiredVelocityX - vel.x) * lerpFactor;
+    vel.y += (ai.desiredVelocityY - vel.y) * lerpFactor;
 
     // 2. Process shooting intents
     if (

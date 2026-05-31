@@ -278,9 +278,11 @@ export class HealthBugSystem implements ISystem {
 
       if (!bug.isWebTrapped && !bug.isStuckOnWall && !bug.isStuckToBug) {
         switch (bug.state) {
-          case "FLYING_UP":
-            vel.x = 0;
-            vel.y = 4.5;
+          case "FLYING_UP": {
+            const targetVelY = 4.5;
+            vel.x += (0 - vel.x) * (1.0 - Math.exp(-dt * 8.0));
+            vel.y += (targetVelY - vel.y) * (1.0 - Math.exp(-dt * 8.0));
+            bug.x += vel.x * dt;
             bug.y += vel.y * dt;
 
             if (bug.y >= bug.pauseThresholdY) {
@@ -289,10 +291,13 @@ export class HealthBugSystem implements ISystem {
               bug.pauseDuration = 3.0 + Math.random() * 3.0;
             }
             break;
+          }
 
           case "PAUSED": {
-            vel.x = 0;
-            vel.y = 0;
+            vel.x += (0 - vel.x) * (1.0 - Math.exp(-dt * 12.0));
+            vel.y += (0 - vel.y) * (1.0 - Math.exp(-dt * 12.0));
+            bug.x += vel.x * dt;
+            bug.y += vel.y * dt;
             bug.timer += dt;
 
             if (bug.timer >= bug.pauseDuration) {
@@ -301,11 +306,14 @@ export class HealthBugSystem implements ISystem {
             break;
           }
 
-          case "CONTINUING":
-            vel.x = 0;
-            vel.y = 6.2;
+          case "CONTINUING": {
+            const targetVelY = 6.2;
+            vel.x += (0 - vel.x) * (1.0 - Math.exp(-dt * 8.0));
+            vel.y += (targetVelY - vel.y) * (1.0 - Math.exp(-dt * 8.0));
+            bug.x += vel.x * dt;
             bug.y += vel.y * dt;
             break;
+          }
 
           case "SHOVED":
             vel.x *= Math.pow(0.92, dt * 60.0);
@@ -371,15 +379,17 @@ export class HealthBugSystem implements ISystem {
             const speedScale = 4.0;
             const dx = bug.preInfluenceX - bug.x;
             const dy = bug.preInfluenceY - bug.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distance = Math.sqrt(dx * dx + dy * dy) || 1.0;
 
             if (distance < 0.25) {
               bug.x = bug.preInfluenceX;
               bug.y = bug.preInfluenceY;
               bug.state = bug.preInfluenceState;
             } else {
-              vel.x = (dx / distance) * speedScale;
-              vel.y = (dy / distance) * speedScale;
+              const targetVelX = (dx / distance) * speedScale;
+              const targetVelY = (dy / distance) * speedScale;
+              vel.x += (targetVelX - vel.x) * (1.0 - Math.exp(-dt * 6.0));
+              vel.y += (targetVelY - vel.y) * (1.0 - Math.exp(-dt * 6.0));
               bug.x += vel.x * dt;
               bug.y += vel.y * dt;
             }
