@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 2:32:36 AM
+ [SYSTEM] Generated: 5/31/2026, 2:37:05 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -34,8 +34,7 @@
 │   │   │   └── AudioDirectorSystem.ts
 │   │   └── tone/
 │   │       ├── AudioPresets.ts
-│   │       ├── SfxSynthesizerRegistry.ts
-│   │       └── TensionSynthesizer.ts
+│   │       └── AudioSynthesizerRegistry.ts
 │   ├── contracts/
 │   │   ├── IAudio.ts
 │   │   ├── ICore.ts
@@ -1425,18 +1424,16 @@ import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
-import { ITensionDrone, ISfxInstrument } from "../../contracts/IAudio";
+import { IAudioRegistry } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import { TensionSynthesizer } from "../tone/TensionSynthesizer";
-import { SfxSynthesizerRegistry } from "../tone/SfxSynthesizerRegistry";
+import { AudioSynthesizerRegistry } from "../tone/AudioSynthesizerRegistry";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-  private tensionSynth: ITensionDrone | null = null;
-  private sfxRegistry: ISfxInstrument | null = null;
+  private audioRegistry: IAudioRegistry | null = null;
 
   private initialized: boolean = false;
   private isBooting: boolean = false;
@@ -1469,11 +1466,11 @@ export class AudioDirectorSystem implements ISystem {
   public init(): void {
     this._tracker.add(
       this.broker.subscribe(GameEvent.UI_SFX_TICK, () => {
-        if (this.initialized && this.sfxRegistry && this.toneModule) {
+        if (this.initialized && this.audioRegistry && this.toneModule) {
           const nowMs = performance.now();
           if (nowMs - this.lastTickTime > 30) {
             this.lastTickTime = nowMs;
-            this.sfxRegistry.triggerTick("E6", "32n", this.toneModule.now());
+            this.audioRegistry.triggerTick("E6", "32n", this.toneModule.now());
           }
         }
       })
@@ -1481,11 +1478,11 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.UI_SFX_CONFIRM, () => {
-        if (this.initialized && this.sfxRegistry && this.toneModule) {
+        if (this.initialized && this.audioRegistry && this.toneModule) {
           const nowMs = performance.now();
           if (nowMs - this.lastConfirmTime > 50) {
             this.lastConfirmTime = nowMs;
-            this.sfxRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
+            this.audioRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
           }
         }
       })
@@ -1493,11 +1490,11 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.UI_SFX_ALARM, () => {
-        if (this.initialized && this.sfxRegistry && this.toneModule && Math.random() < 0.1) {
+        if (this.initialized && this.audioRegistry && this.toneModule && Math.random() < 0.1) {
           const nowMs = performance.now();
           if (nowMs - this.lastAlarmTime > 80) {
             this.lastAlarmTime = nowMs;
-            this.sfxRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
+            this.audioRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
           }
         }
       })
@@ -1505,15 +1502,15 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
-        if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.updateDronePitch(payload.tension);
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.updateDronePitch(payload.tension);
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
-        if (payload.state === "LAUNCHING" && this.initialized && this.sfxRegistry) {
+        if (payload.state === "LAUNCHING" && this.initialized && this.audioRegistry) {
           const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
           const pTrav = travStore.get(this.context.refs.player);
           if (pTrav) {
@@ -1521,13 +1518,13 @@ export class AudioDirectorSystem implements ISystem {
             const power = pTrav.launchPower;
 
             if (power >= 1.0) {
-              this.sfxRegistry.triggerImpact("A1", "4n");
-              this.sfxRegistry.triggerNoise("4n");
+              this.audioRegistry.triggerImpact("A1", "4n");
+              this.audioRegistry.triggerNoise("4n");
             } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-              this.sfxRegistry.triggerTick("G6", "16n");
-              this.sfxRegistry.triggerImpact("D4", "16n");
+              this.audioRegistry.triggerTick("G6", "16n");
+              this.audioRegistry.triggerImpact("D4", "16n");
             } else {
-              this.sfxRegistry.triggerImpact("C3", "16n");
+              this.audioRegistry.triggerImpact("C3", "16n");
             }
           }
         }
@@ -1536,8 +1533,8 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
-        if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.setLowHPStatus(payload.hp === 1);
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.setLowHPStatus(payload.hp === 1);
         }
       })
     );
@@ -1545,9 +1542,9 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         const presets = AUDIO_PRESETS.PLAYER;
-        if (this.initialized && this.sfxRegistry) {
-          this.sfxRegistry.triggerImpact(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
-          this.sfxRegistry.triggerNoise(presets.DAMAGED_DURATION);
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.triggerImpact(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
+          this.audioRegistry.triggerNoise(presets.DAMAGED_DURATION);
         }
         this.hitComboCount = 0;
       })
@@ -1561,7 +1558,7 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        if (this.initialized && this.sfxRegistry) {
+        if (this.initialized && this.audioRegistry) {
           const nowMs = performance.now();
           if (nowMs - this.lastHitTime < 1500) {
             this.hitComboCount++;
@@ -1576,39 +1573,39 @@ export class AudioDirectorSystem implements ISystem {
           const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
 
-          this.sfxRegistry.triggerImpact(freq, "16n");
+          this.audioRegistry.triggerImpact(freq, "16n");
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
-        if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.handleStateChange(payload.state, payload.audioParams);
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.handleStateChange(payload.state, payload.audioParams);
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
-        if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.fadeOutAndMute();
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.fadeOutAndMute();
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.fadeOutAndMute();
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.fadeOutAndMute();
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        if (this.initialized && this.tensionSynth) {
-          this.tensionSynth.resetToBaseline();
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.resetToBaseline();
         }
         this.hitComboCount = 0;
         this.lastHitTime = 0;
@@ -1617,22 +1614,22 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
-        if (this.initialized && this.tensionSynth && this.toneModule) {
+        if (this.initialized && this.audioRegistry && this.toneModule) {
           const rawCtx = this.toneModule.getContext().rawContext as unknown as AudioContext;
           if (payload.isPaused) {
-            this.tensionSynth.fadeOutAndMute();
+            this.audioRegistry.fadeOutAndMute();
             if (rawCtx && typeof rawCtx.suspend === "function") {
               rawCtx.suspend();
             }
           } else {
             if (rawCtx && typeof rawCtx.resume === "function") {
               rawCtx.resume().then(() => {
-                if (this.initialized && this.tensionSynth) {
-                  this.tensionSynth.resumeFromPause();
+                if (this.initialized && this.audioRegistry) {
+                  this.audioRegistry.resumeFromPause();
                 }
               });
             } else {
-              this.tensionSynth.resumeFromPause();
+              this.audioRegistry.resumeFromPause();
             }
           }
         }
@@ -1643,7 +1640,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         if (this.initialized) {
           this.triggerDeathSequence(AUDIO_PRESETS.WEAVER);
-          if (this.tensionSynth) this.tensionSynth.fadeOutAndMute();
+          if (this.audioRegistry) this.audioRegistry.fadeOutAndMute();
         }
       })
     );
@@ -1652,7 +1649,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         if (this.initialized) {
           this.triggerDeathSequence(AUDIO_PRESETS.PLAYER);
-          if (this.tensionSynth) this.tensionSynth.fadeOutAndMute();
+          if (this.audioRegistry) this.audioRegistry.fadeOutAndMute();
         }
       })
     );
@@ -1661,20 +1658,20 @@ export class AudioDirectorSystem implements ISystem {
   private triggerDeathSequence(
     presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER
   ): void {
-    if (!this.sfxRegistry) return;
+    if (!this.audioRegistry) return;
 
-    this.sfxRegistry.triggerImpact(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-    this.sfxRegistry.triggerImpact(
+    this.audioRegistry.triggerImpact(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
+    this.audioRegistry.triggerImpact(
       presets.DEATH_NOTE_2,
       presets.DEATH_NOTE_2_DURATION,
       presets.DEATH_NOTE_2_DELAY
     );
-    this.sfxRegistry.setNoiseDecay(presets.DEATH_NOISE_DECAY);
-    this.sfxRegistry.triggerNoise(presets.DEATH_NOTE_1_DURATION);
+    this.audioRegistry.setNoiseDecay(presets.DEATH_NOISE_DECAY);
+    this.audioRegistry.triggerNoise(presets.DEATH_NOTE_1_DURATION);
 
     setTimeout(() => {
-      if (this.sfxRegistry) {
-        this.sfxRegistry.setNoiseDecay(presets.NOISE_DECAY);
+      if (this.audioRegistry) {
+        this.audioRegistry.setNoiseDecay(presets.NOISE_DECAY);
       }
     }, presets.DEATH_NOISE_RESTORE_DELAY);
   }
@@ -1685,12 +1682,12 @@ export class AudioDirectorSystem implements ISystem {
       const playerTrans = transforms.get(this.context.refs.player);
       const weaverTrans = transforms.get(this.context.refs.weaver);
       if (playerTrans && weaverTrans) {
-        if (this.tensionSynth) {
-          this.tensionSynth.updatePositions(playerTrans.x, weaverTrans.x);
+        if (this.audioRegistry) {
+          this.audioRegistry.updatePositions(playerTrans.x, weaverTrans.x);
         }
-        if (this.sfxRegistry && this.toneModule) {
+        if (this.audioRegistry && this.toneModule) {
           const panVal = (Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0) * 0.45;
-          this.sfxRegistry.setSfxPan(panVal, this.toneModule.now());
+          this.audioRegistry.setSfxPan(panVal, this.toneModule.now());
         }
       }
     }
@@ -1717,14 +1714,10 @@ export class AudioDirectorSystem implements ISystem {
 
         Tone.getDestination().mute = false;
 
-        const rawSfx = new SfxSynthesizerRegistry();
-        rawSfx.initialize(Tone).then(() => {
-          this.sfxRegistry = rawSfx;
-          const rawDrone = new TensionSynthesizer();
-          rawDrone.initialize().then(() => {
-            this.tensionSynth = rawDrone;
-            this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
-          });
+        const registry = new AudioSynthesizerRegistry();
+        registry.initialize(Tone).then(() => {
+          this.audioRegistry = registry;
+          this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
         });
       });
     });
@@ -1733,8 +1726,7 @@ export class AudioDirectorSystem implements ISystem {
   public dispose(): void {
     this.removeGestureListeners();
     this._tracker.clear();
-    if (this.tensionSynth) this.tensionSynth.dispose();
-    if (this.sfxRegistry) this.sfxRegistry.dispose();
+    if (this.audioRegistry) this.audioRegistry.dispose();
   }
 }
 
@@ -1795,28 +1787,113 @@ export const AUDIO_PRESETS = {
 
 
 
-● ./src/audio/tone/SfxSynthesizerRegistry.ts
+● ./src/audio/tone/AudioSynthesizerRegistry.ts
 ────────────────────────────────────────────────────
-import { ISfxInstrument } from "../../contracts/IAudio";
-import type { MembraneSynth, NoiseSynth, Synth, Panner } from "tone";
+import { IAudioRegistry } from "../../contracts/IAudio";
+import { AUDIO_PRESETS } from "./AudioPresets";
+import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner, NoiseSynth } from "tone";
 
-export class SfxSynthesizerRegistry implements ISfxInstrument {
+export class AudioSynthesizerRegistry implements IAudioRegistry {
+  private fmOsc: FMOscillator | null = null;
+  private lowpassFilter: Filter | null = null;
+  private gainNode: Gain | null = null;
+  private lfo: LFO | null = null;
+  private lastTension = -999.0;
+
+  private playerPanner: Panner | null = null;
+  private weaverPanner: Panner | null = null;
+  private ratchetPanner: Panner | null = null;
+  private sfxPanner: Panner | null = null;
+
+  public ratchetSynth: Synth | null = null;
+  public heartbeatSynth: MembraneSynth | null = null;
+  public heartbeatLoop: Loop | null = null;
+
   public impactSynth: MembraneSynth | null = null;
   public noiseSynth: NoiseSynth | null = null;
   public tickSynth: Synth | null = null;
   public confirmSynth: Synth | null = null;
   public tensionAlarmSynth: Synth | null = null;
-  public sfxPanner: Panner | null = null;
 
+  private lastRatchetTime = 0;
+  private nextRatchetDelay = 0.25;
   private lastImpactTime = 0;
   private lastNoiseTime = 0;
   private lastTickTime = 0;
   private lastConfirmTime = 0;
   private lastAlarmTime = 0;
 
+  private ToneModule: typeof import("tone") | null = null;
+
   public async initialize(ToneRaw: unknown): Promise<void> {
     const Tone = ToneRaw as typeof import("tone");
+    this.ToneModule = Tone;
+
+    const presets = AUDIO_PRESETS.WEAVER;
+    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
+
+    Tone.getTransport().bpm.value = 130;
+    Tone.getTransport().start();
+
+    this.lowpassFilter = new Tone.Filter({
+      frequency: 200,
+      type: "lowpass",
+      Q: 1.5
+    }).toDestination();
+
+    this.playerPanner = new Tone.Panner(0).connect(this.lowpassFilter);
+    this.weaverPanner = new Tone.Panner(0).connect(this.lowpassFilter);
+    this.ratchetPanner = new Tone.Panner(0).toDestination();
     this.sfxPanner = new Tone.Panner(0).toDestination();
+
+    this.fmOsc = new Tone.FMOscillator({
+      frequency: presets.DRONE_BASE_FREQ,
+      type: "sawtooth",
+      modulationType: "sine",
+      harmonicity: presets.HARMONICITY_NORMAL,
+      modulationIndex: synthConfig.DRONE_MOD_INDEX_BASE,
+      workspace: undefined
+    } as unknown as ConstructorParameters<typeof FMOscillator>[0]);
+
+    this.gainNode = new Tone.Gain(0.0);
+    this.lfo = new Tone.LFO({
+      frequency: presets.LFO_NORMAL_HZ,
+      min: 150,
+      max: 280
+    });
+
+    this.fmOsc.connect(this.gainNode);
+    this.gainNode.connect(this.weaverPanner);
+    this.lfo.connect(this.lowpassFilter.frequency);
+
+    this.ratchetSynth = new Tone.Synth({
+      oscillator: { type: "triangle" },
+      envelope: {
+        attack: 0.001,
+        decay: 0.015,
+        sustain: 0,
+        release: 0.015
+      }
+    }).connect(this.ratchetPanner);
+    this.ratchetSynth.volume.value = synthConfig.RATCHET_VOLUME;
+
+    this.heartbeatSynth = new Tone.MembraneSynth({
+      oscillator: { type: "sine" },
+      envelope: {
+        attack: 0.001,
+        decay: 0.18,
+        sustain: 0,
+        release: 0.12
+      }
+    }).connect(this.lowpassFilter);
+    this.heartbeatSynth.volume.value = synthConfig.HEARTBEAT_VOLUME;
+
+    this.heartbeatLoop = new Tone.Loop((time) => {
+      if (this.heartbeatSynth) {
+        this.heartbeatSynth.triggerAttackRelease("A1", "8n", time);
+        this.heartbeatSynth.triggerAttackRelease("G1", "8n", time + 0.18);
+      }
+    }, synthConfig.HEARTBEAT_INTERVAL);
 
     this.impactSynth = new Tone.MembraneSynth({
       pitchDecay: 0.05,
@@ -1825,7 +1902,7 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
       envelope: {
         attack: 0.001,
         decay: 0.2,
-        sustain: 0.01,
+        sustain: 0,
         release: 0.4,
         attackCurve: "exponential"
       }
@@ -1874,6 +1951,142 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
       }
     }).toDestination();
     this.tensionAlarmSynth.volume.value = -18;
+
+    this.lfo.start();
+    this.fmOsc.start();
+  }
+
+  private getPanFromX(x: number): number {
+    const clampedX = Math.max(-15.0, Math.min(15.0, x));
+    return (clampedX / 15.0) * 0.45;
+  }
+
+  public updatePositions(playerX: number, weaverX: number): void {
+    if (this.playerPanner && this.weaverPanner && this.ratchetPanner && this.ToneModule) {
+      const now = this.ToneModule.now();
+      const panVal = this.getPanFromX(playerX);
+      this.playerPanner.pan.setTargetAtTime(panVal, now, 0.05);
+      this.ratchetPanner.pan.setTargetAtTime(panVal, now, 0.05);
+      this.weaverPanner.pan.setTargetAtTime(this.getPanFromX(weaverX), now, 0.05);
+    }
+  }
+
+  public updateDronePitch(tensionVal: number): void {
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.ToneModule) return;
+
+    const clampedTension = Math.max(0, Math.min(1.3, tensionVal));
+
+    if (clampedTension > this.lastTension && clampedTension > 0.05) {
+      const now = this.ToneModule.now();
+      if (now > this.lastRatchetTime + this.nextRatchetDelay) {
+        this.lastRatchetTime = now;
+        this.nextRatchetDelay = Math.max(0.04, 0.28 - clampedTension * 0.2);
+        const pitch = 150 + clampedTension * 320;
+        this.ratchetSynth?.triggerAttackRelease(pitch, "32n", now);
+      }
+    }
+
+    if (Math.abs(clampedTension - this.lastTension) < 0.005) {
+      return;
+    }
+    this.lastTension = clampedTension;
+
+    const now = this.ToneModule.now();
+    const presets = AUDIO_PRESETS.WEAVER;
+    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
+
+    const targetBaseFreq =
+      presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
+    const targetModulationIndex =
+      synthConfig.DRONE_MOD_INDEX_BASE +
+      Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
+    const targetGain =
+      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+        ? synthConfig.DRONE_MIN_GAIN +
+          Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
+        : 0.0;
+
+    this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
+    this.fmOsc.modulationIndex.setTargetAtTime(
+      targetModulationIndex,
+      now,
+      synthConfig.DRONE_PITCH_RAMP_TIME
+    );
+    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
+  }
+
+  public setLowHPStatus(active: boolean): void {
+    if (!this.lfo || !this.heartbeatLoop) return;
+
+    const targetMin = active ? 40 : 150;
+    const targetMax = active ? 150 : 280;
+
+    this.lfo.min = targetMin;
+    this.lfo.max = targetMax;
+
+    if (active) {
+      this.heartbeatLoop.start();
+    } else {
+      this.heartbeatLoop.stop();
+    }
+  }
+
+  public resumeFromPause(): void {
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.ToneModule) return;
+    const now = this.ToneModule.now();
+    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
+    const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
+    const targetGain =
+      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
+        : 0.0;
+    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
+  }
+
+  public handleStateChange(
+    _state: string,
+    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }
+  ): void {
+    if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.ToneModule) return;
+    const now = this.ToneModule.now();
+
+    if (audioParams) {
+      this.fmOsc.frequency.setTargetAtTime(audioParams.baseFreq, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(audioParams.lfoHz, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(audioParams.harmonicity, now, 0.5);
+    } else {
+      const presets = AUDIO_PRESETS.WEAVER;
+      this.fmOsc.frequency.setTargetAtTime(presets.DRONE_BASE_FREQ, now, 0.5);
+      this.lfo.frequency.setTargetAtTime(presets.LFO_NORMAL_HZ, now, 0.5);
+      this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_NORMAL, now, 0.5);
+    }
+  }
+
+  public fadeOutAndMute(): void {
+    if (!this.gainNode || !this.ToneModule) return;
+    const now = this.ToneModule.now();
+    
+    this.gainNode.gain.cancelScheduledValues(now);
+    this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
+    
+    if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
+    if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
+    
+    if (this.heartbeatLoop) this.heartbeatLoop.stop();
+    this.lastTension = 0.0;
+  }
+
+  public resetToBaseline(): void {
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.ToneModule)
+      return;
+    const now = this.ToneModule.now();
+    const presets = AUDIO_PRESETS.WEAVER;
+
+    this.gainNode.gain.setValueAtTime(0.0, now);
+    this.fmOsc.frequency.setValueAtTime(presets.DRONE_BASE_FREQ, now);
+    this.fmOsc.harmonicity.setValueAtTime(presets.HARMONICITY_NORMAL, now);
+    this.lfo.frequency.setValueAtTime(presets.LFO_NORMAL_HZ, now);
+    this.setLowHPStatus(false);
   }
 
   public triggerImpact(pitch: string | number, duration: string, time?: string | number): void {
@@ -1968,12 +2181,24 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
 
   public dispose(): void {
     try {
+      this.fmOsc?.stop();
+      this.fmOsc?.dispose();
+      this.lfo?.stop();
+      this.lfo?.dispose();
+      this.lowpassFilter?.dispose();
+      this.gainNode?.dispose();
+      this.playerPanner?.dispose();
+      this.weaverPanner?.dispose();
+      this.ratchetPanner?.dispose();
+      this.sfxPanner?.dispose();
+      this.ratchetSynth?.dispose();
+      this.heartbeatSynth?.dispose();
+      this.heartbeatLoop?.dispose();
       this.impactSynth?.dispose();
       this.noiseSynth?.dispose();
       this.tickSynth?.dispose();
       this.confirmSynth?.dispose();
       this.tensionAlarmSynth?.dispose();
-      this.sfxPanner?.dispose();
     } catch (e) {
       void e;
     }
@@ -1982,281 +2207,10 @@ export class SfxSynthesizerRegistry implements ISfxInstrument {
 
 
 
-● ./src/audio/tone/TensionSynthesizer.ts
-────────────────────────────────────────────────────
-import { ITensionDrone } from "../../contracts/IAudio";
-import { AUDIO_PRESETS } from "./AudioPresets";
-import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner } from "tone";
-
-export class TensionSynthesizer implements ITensionDrone {
-  private fmOsc: FMOscillator | null = null;
-  private lowpassFilter: Filter | null = null;
-  private gainNode: Gain | null = null;
-  private lfo: LFO | null = null;
-  private lastTension: number = -999.0;
-
-  private playerPanner: Panner | null = null;
-  private weaverPanner: Panner | null = null;
-  private ratchetPanner: Panner | null = null;
-
-  private ratchetSynth: Synth | null = null;
-  private heartbeatSynth: MembraneSynth | null = null;
-  private heartbeatLoop: Loop | null = null;
-
-  private lastRatchetTime: number = 0;
-  private nextRatchetDelay: number = 0.25;
-  private toneModule: typeof import("tone") | null = null;
-
-  public async initialize(): Promise<void> {
-    const Tone = await import("tone");
-    this.toneModule = Tone;
-
-    const presets = AUDIO_PRESETS.WEAVER;
-    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
-
-    Tone.getTransport().bpm.value = 130;
-    Tone.getTransport().start();
-
-    this.lowpassFilter = new Tone.Filter({
-      frequency: 200,
-      type: "lowpass",
-      Q: 1.5
-    }).toDestination();
-
-    this.playerPanner = new Tone.Panner(0).connect(this.lowpassFilter);
-    this.weaverPanner = new Tone.Panner(0).connect(this.lowpassFilter);
-    this.ratchetPanner = new Tone.Panner(0).toDestination(); // Bypasses lowpass to keep clicks crisp
-
-    this.fmOsc = new Tone.FMOscillator({
-      frequency: presets.DRONE_BASE_FREQ,
-      type: "sawtooth",
-      modulationType: "sine",
-      harmonicity: presets.HARMONICITY_NORMAL,
-      modulationIndex: synthConfig.DRONE_MOD_INDEX_BASE,
-      workspace: undefined
-    } as unknown as ConstructorParameters<typeof FMOscillator>[0]);
-
-    this.gainNode = new Tone.Gain(0.0);
-
-    this.lfo = new Tone.LFO({
-      frequency: presets.LFO_NORMAL_HZ,
-      min: 150,
-      max: 280
-    });
-
-    this.fmOsc.connect(this.gainNode);
-    this.gainNode.connect(this.weaverPanner);
-    this.lfo.connect(this.lowpassFilter.frequency);
-
-    this.ratchetSynth = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.015,
-        sustain: 0,
-        release: 0.015
-      }
-    }).connect(this.ratchetPanner);
-    this.ratchetSynth.volume.value = synthConfig.RATCHET_VOLUME;
-
-    this.heartbeatSynth = new Tone.MembraneSynth({
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.18,
-        sustain: 0,
-        release: 0.12
-      }
-    }).connect(this.lowpassFilter);
-    this.heartbeatSynth.volume.value = synthConfig.HEARTBEAT_VOLUME;
-
-    this.heartbeatLoop = new Tone.Loop((time) => {
-      if (this.heartbeatSynth) {
-        this.heartbeatSynth.triggerAttackRelease("A1", "8n", time);
-        this.heartbeatSynth.triggerAttackRelease("G1", "8n", time + 0.18);
-      }
-    }, synthConfig.HEARTBEAT_INTERVAL);
-
-    this.lfo.start();
-    this.fmOsc.start();
-  }
-
-  private getPanFromX(x: number): number {
-    const clampedX = Math.max(-15.0, Math.min(15.0, x));
-    return (clampedX / 15.0) * 0.45;
-  }
-
-  public updatePositions(playerX: number, weaverX: number): void {
-    if (this.playerPanner && this.weaverPanner && this.ratchetPanner && this.toneModule) {
-      const now = this.toneModule.now();
-      const panVal = this.getPanFromX(playerX);
-      this.playerPanner.pan.setTargetAtTime(panVal, now, 0.05);
-      this.ratchetPanner.pan.setTargetAtTime(panVal, now, 0.05);
-      this.weaverPanner.pan.setTargetAtTime(this.getPanFromX(weaverX), now, 0.05);
-    }
-  }
-
-  public updateDronePitch(tensionVal: number): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
-
-    const clampedTension = Math.max(0, Math.min(1.3, tensionVal));
-
-    if (clampedTension > this.lastTension && clampedTension > 0.05) {
-      const now = this.toneModule.now();
-      if (now > this.lastRatchetTime + this.nextRatchetDelay) {
-        this.lastRatchetTime = now;
-        this.nextRatchetDelay = Math.max(0.04, 0.28 - clampedTension * 0.2);
-        const pitch = 150 + clampedTension * 320;
-        this.ratchetSynth?.triggerAttackRelease(pitch, "32n", now);
-      }
-    }
-
-    if (Math.abs(clampedTension - this.lastTension) < 0.005) {
-      return;
-    }
-    this.lastTension = clampedTension;
-
-    const now = this.toneModule.now();
-    const presets = AUDIO_PRESETS.WEAVER;
-    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
-
-    const targetBaseFreq =
-      presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
-    const targetModulationIndex =
-      synthConfig.DRONE_MOD_INDEX_BASE +
-      Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
-    const targetGain =
-      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN +
-          Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
-        : 0.0;
-
-    this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
-    this.fmOsc.modulationIndex.setTargetAtTime(
-      targetModulationIndex,
-      now,
-      synthConfig.DRONE_PITCH_RAMP_TIME
-    );
-    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
-  }
-
-  public setLowHPStatus(active: boolean): void {
-    if (!this.lfo || !this.heartbeatLoop) return;
-
-    const targetMin = active ? 40 : 150;
-    const targetMax = active ? 150 : 280;
-
-    this.lfo.min = targetMin;
-    this.lfo.max = targetMax;
-
-    if (active) {
-      this.heartbeatLoop.start();
-    } else {
-      this.heartbeatLoop.stop();
-    }
-  }
-
-  public resumeFromPause(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
-    const now = this.toneModule.now();
-    const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
-    const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
-    const targetGain =
-      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
-        : 0.0;
-    this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
-  }
-
-  public handleStateChange(
-    _state: string,
-    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }
-  ): void {
-    if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
-    const now = this.toneModule.now();
-
-    if (audioParams) {
-      this.fmOsc.frequency.setTargetAtTime(audioParams.baseFreq, now, 0.5);
-      this.lfo.frequency.setTargetAtTime(audioParams.lfoHz, now, 0.5);
-      this.fmOsc.harmonicity.setTargetAtTime(audioParams.harmonicity, now, 0.5);
-    } else {
-      const presets = AUDIO_PRESETS.WEAVER;
-      this.fmOsc.frequency.setTargetAtTime(presets.DRONE_BASE_FREQ, now, 0.5);
-      this.lfo.frequency.setTargetAtTime(presets.LFO_NORMAL_HZ, now, 0.5);
-      this.fmOsc.harmonicity.setTargetAtTime(presets.HARMONICITY_NORMAL, now, 0.5);
-    }
-  }
-
-  public fadeOutAndMute(): void {
-    if (!this.gainNode || !this.toneModule) return;
-    const now = this.toneModule.now();
-    
-    // Aggressively cancel any pending ramps to ensure silence
-    this.gainNode.gain.cancelScheduledValues(now);
-    this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
-    
-    if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
-    if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
-    
-    if (this.heartbeatLoop) this.heartbeatLoop.stop();
-    this.lastTension = 0.0;
-  }
-
-  public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule)
-      return;
-    const now = this.toneModule.now();
-    const presets = AUDIO_PRESETS.WEAVER;
-
-    this.gainNode.gain.setValueAtTime(0.0, now);
-    this.fmOsc.frequency.setValueAtTime(presets.DRONE_BASE_FREQ, now);
-    this.fmOsc.harmonicity.setValueAtTime(presets.HARMONICITY_NORMAL, now);
-    this.lfo.frequency.setValueAtTime(presets.LFO_NORMAL_HZ, now);
-    this.setLowHPStatus(false);
-  }
-
-  public dispose(): void {
-    if (this.fmOsc) {
-      this.fmOsc.stop();
-      this.fmOsc.dispose();
-    }
-    if (this.lfo) {
-      this.lfo.stop();
-      this.lfo.dispose();
-    }
-    if (this.lowpassFilter) {
-      this.lowpassFilter.dispose();
-    }
-    if (this.gainNode) {
-      this.gainNode.dispose();
-    }
-    if (this.playerPanner) {
-      this.playerPanner.dispose();
-    }
-    if (this.weaverPanner) {
-      this.weaverPanner.dispose();
-    }
-    if (this.ratchetPanner) {
-      this.ratchetPanner.dispose();
-    }
-    if (this.ratchetSynth) {
-      this.ratchetSynth.dispose();
-    }
-    if (this.heartbeatSynth) {
-      this.heartbeatSynth.dispose();
-    }
-    if (this.heartbeatLoop) {
-      this.heartbeatLoop.dispose();
-    }
-  }
-}
-
-
-
 ● ./src/contracts/IAudio.ts
 ────────────────────────────────────────────────────
-export interface ITensionDrone {
-  initialize(): Promise<void>;
+export interface IAudioRegistry {
+  initialize(Tone: unknown): Promise<void>;
   updatePositions(playerX: number, weaverX: number): void;
   updateDronePitch(tensionVal: number): void;
   setLowHPStatus(active: boolean): void;
@@ -2267,11 +2221,7 @@ export interface ITensionDrone {
   ): void;
   fadeOutAndMute(): void;
   resetToBaseline(): void;
-  dispose(): void;
-}
 
-export interface ISfxInstrument {
-  initialize(Tone: unknown): Promise<void>;
   triggerImpact(pitch: string | number, duration: string, delay?: string | number): void;
   triggerNoise(duration: string, delay?: string | number): void;
   triggerTick(pitch: string, duration: string, time?: number): void;
@@ -2279,6 +2229,7 @@ export interface ISfxInstrument {
   triggerAlarm(pitch: string, duration: string, time?: number): void;
   setSfxPan(pan: number, time: number): void;
   setNoiseDecay(value: number): void;
+
   dispose(): void;
 }
 
