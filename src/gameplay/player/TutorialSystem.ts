@@ -58,7 +58,6 @@ export class TutorialSystem implements ISystem {
           this.step1Completed = true;
           this.calibrationStep = 2;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-          this.context.broker.publish(GameEvent.UI_SFX_DING, undefined);
         }
       }
     }
