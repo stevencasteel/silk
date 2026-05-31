@@ -47,17 +47,18 @@ export class Engine {
 
   public async start(): Promise<void> {
     this.isPaused = true;
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "INITIALIZING SYSTEMS..." });
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "Starting engine...", progress: 0, phase: 0 });
 
     await this.systemManager.initAll((phase, systemName, progress) => {
-      const phaseNames = ["BOOTSTRAP", "WORLD", "GAMEPLAY", "UI"];
-      const progressPercent = Math.round(progress * 100);
+      const readableName = systemName.replace(/System$/, '').replace(/([A-Z])/g, ' $1').trim();
       this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-        status: `[${phaseNames[phase]}] INITIALIZING ${systemName.replace(/System$/, '').toUpperCase()}... (${progressPercent}%)`
+        status: `Loading ${readableName}...`,
+        progress: progress,
+        phase: phase
       });
     });
 
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY" });
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY", progress: 1, phase: 4 });
 
     this.pauseHandler.init();
     this.initGestureHandlers();

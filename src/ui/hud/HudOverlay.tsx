@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Settings, Package, Layers } from "lucide-react";
+import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Package, Layers, Loader2 } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -56,10 +56,10 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
 };
 
 const LOADING_STEPS = [
-  { id: 0, label: "LOAD AUDIO & CONTROLS", sub: "Pre-warming Tone.js synthesizers & binding controls", icon: Cpu },
-  { id: 1, label: "INITIALIZE PHYSICS BOUNDS", sub: "Forming boundaries & invisible static bounds", icon: Settings },
-  { id: 2, label: "GENERATE ACTOR TEXTURES", sub: "Baking procedural heightmaps for Player & Weaver", icon: Package },
-  { id: 3, label: "COMPILE SCENE SHADERS", sub: "Compiling PBR materials & pre-warming render pipelines", icon: Layers }
+  { id: 0, label: "Core Engine", sub: "Loading base systems and physics", icon: Cpu },
+  { id: 1, label: "World Data", sub: "Initializing 3D arena and bounds", icon: Layers },
+  { id: 2, label: "Game Entities", sub: "Spawning player and boss", icon: Package },
+  { id: 3, label: "Render Pipeline", sub: "Compiling shaders and UI", icon: Loader2 }
 ];
 
 export const HudOverlay: React.FC = () => {
@@ -98,6 +98,7 @@ export const HudOverlay: React.FC = () => {
       awaitingGesture: s.awaitingGesture,
       wins: s.wins,
       losses: s.losses,
+      bootPhase: s.bootPhase,
       bootStatus: s.bootStatus,
       bootLogs: s.bootLogs,
       loadingProgress: s.loadingProgress,
@@ -119,6 +120,7 @@ export const HudOverlay: React.FC = () => {
     awaitingGesture,
     wins,
     losses,
+    bootPhase,
     bootStatus,
     loadingProgress,
     menuIndex,
@@ -456,16 +458,7 @@ export const HudOverlay: React.FC = () => {
     : "led-yellow led-spring-impact";
   const activeStep = CALIBRATION_STEPS[displayedStep];
 
-  const getLoadingStepIndex = () => {
-    const status = bootStatus.toUpperCase();
-    if (status.includes("BOOTSTRAP") || status.includes("LOADING RENDER")) return 0;
-    if (status.includes("PERSISTANCE") || status.includes("KINEMATICS") || status.includes("AUDIO") || status.includes("SYSTEMS")) return 1;
-    if (status.includes("WORLD") || status.includes("WEAVER") || status.includes("PLAYER")) return 2;
-    if (status.includes("ARENA") || status.includes("SHADER") || status.includes("WARM") || status.includes("UI") || status.includes("COMPILING")) return 3;
-    return 4;
-  };
-
-  const currentLoadingStep = getLoadingStepIndex();
+  const currentLoadingStep = Math.min(bootPhase, 3);
 
   return (
     <>
@@ -477,7 +470,7 @@ export const HudOverlay: React.FC = () => {
                }}>
             
             <h2 className="text-zinc-500 font-bold uppercase tracking-[0.25em] text-xs mb-8 text-center select-none">
-              INITIALIZING HARNESS
+              INITIALIZING GAME
             </h2>
 
             <div className="flex flex-col gap-6 mb-8">
@@ -496,9 +489,12 @@ export const HudOverlay: React.FC = () => {
                           : "bg-[#07080b] border-zinc-800 text-zinc-600"
                     }`}
                     style={isActive ? { boxShadow: "inset 2px 2px 5px rgba(0,0,0,0.5), 0 0 10px rgba(16,185,129,0.1)" } : {}}>
-                      <StepIcon size={16} className={isActive ? "animate-pulse" : ""} />
+                      <StepIcon size={16} className={isActive && step.id === 3 ? "animate-spin" : isActive ? "animate-pulse" : ""} />
                       {isActive && (
-                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0c0e12]" />
+                        <div className="absolute -top-1 -right-1 flex items-center justify-center w-3 h-3">
+                          <div className="absolute w-full h-full rounded-full bg-emerald-500 animate-ping opacity-75" />
+                          <div className="relative w-2 h-2 rounded-full bg-emerald-500 border border-[#0c0e12]" />
+                        </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -525,7 +521,7 @@ export const HudOverlay: React.FC = () => {
             </div>
             
             <div className="text-[7.5px] text-zinc-600 tracking-wider text-right mt-1.5 font-bold uppercase select-none">
-              CALIBRATING SYSTEM SENSORS: {Math.round(loadingProgress * 100)}%
+              LOADING PROCESS: {Math.round(loadingProgress * 100)}%
             </div>
           </div>
         </div>

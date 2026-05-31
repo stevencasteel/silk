@@ -41,7 +41,7 @@ export class HavokPhysicsSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (scene) {
       this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-        status: "LOADING PHYSICS ENGINE..."
+        status: "Loading physics engine..."
       });
       try {
         if (!HavokPhysicsSystem.havokInstance) {
@@ -55,7 +55,7 @@ export class HavokPhysicsSystem implements ISystem {
             );
           } catch {
             this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-              status: "PHYSICS LOCAL LOAD FAILED, TRYING CDN..."
+              status: "Falling back to backup physics engine..."
             });
             try {
               havokInstance = await withTimeout(

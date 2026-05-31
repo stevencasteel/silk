@@ -39,7 +39,7 @@ export class RenderSystem implements ISystem {
     ProceduralTextureGenerator.clearCache();
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "LOADING ENVIRONMENT TEXTURE & LIGHTS..."
+      status: "Loading environment textures and lights..."
     });
 
     const preset = POST_PROCESSING_PRESETS;
@@ -181,14 +181,14 @@ export class RenderSystem implements ISystem {
     this.visualRegistry.setSceneAndShadows(this.scene!, shadowGen);
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "GENERATING ARENA SHAFT GEOMETRY..."
+      status: "Building 3D arena geometry..."
     });
 
     const arenaGeo = new ArenaGeometry(this.scene!);
     await arenaGeo.generateElevatorShaft();
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "COMPILING SHADERS & PRE-WARMING PIPELINE..."
+      status: "Compiling materials and shaders (this may take a moment)..."
     });
 
     // Manually trigger a render frame synchronously. This forces the WebGL context

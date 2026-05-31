@@ -17,10 +17,11 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
     const unsubscribe = engine.eventBroker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
       overlay.setBootStatus(payload.status);
       overlay.addBootLog(payload.status);
-      const progressMatch = payload.status.match(/\((\d+)%\)/);
-      if (progressMatch) {
-        const progress = parseInt(progressMatch[1], 10) / 100;
-        overlay.setLoadingProgress(progress);
+      if (payload.progress !== undefined) {
+        overlay.setLoadingProgress(payload.progress);
+      }
+      if (payload.phase !== undefined) {
+        overlay.setBootPhase(payload.phase);
       }
     });
 

@@ -30,28 +30,16 @@ export class EntitySpawnerSystem implements ISystem {
     }
 
     this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "GENERATING WEAVER CARAPACE AND PBR TEXTURES..."
+      status: "Generating boss character...", phase: 1
     });
     await this.spawnWeaver();
 
     this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "GENERATING PLAYER COCOON SILK TEXTURES..."
+      status: "Generating player character...", phase: 1
     });
     await this.spawnPlayer();
 
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
-        if (payload.status === "READY") {
-          this.setEntitiesEnabled(false);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.GAME_STARTED, () => {
-        this.setEntitiesEnabled(true);
-      })
-    );
+    
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
@@ -60,22 +48,12 @@ export class EntitySpawnerSystem implements ISystem {
           this.spawnWeaver(),
           this.spawnPlayer()
         ]).then(() => {
-          this.setEntitiesEnabled(true);
         });
       })
     );
   }
 
-  private setEntitiesEnabled(enabled: boolean): void {
-    const weaverId = this.context.refs.weaver;
-    const playerId = this.context.refs.player;
-
-    const wNode = this.context.visualQuery.getTransformNode(weaverId);
-    const pNode = this.context.visualQuery.getTransformNode(playerId);
-
-    if (wNode) wNode.setEnabled(enabled);
-    if (pNode) pNode.setEnabled(enabled);
-  }
+  
 
   public async spawnWeaver(existingId?: EntityId): Promise<EntityId> {
     const scene = this.context.visualQuery.getScene();

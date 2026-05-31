@@ -34,7 +34,7 @@ export enum GameEvent {
 
 export interface GameEventMap {
   [GameEvent.GAME_INITIALIZED]: void;
-  [GameEvent.GAME_BOOT_PROGRESS]: { status: string };
+  [GameEvent.GAME_BOOT_PROGRESS]: { status: string; progress?: number; phase?: number };
   [GameEvent.GAME_STARTED]: void;
   [GameEvent.USER_GESTURE_REGISTERED]: void;
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };

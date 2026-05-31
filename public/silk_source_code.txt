@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 3:01:17 PM
+ [SYSTEM] Generated: 5/31/2026, 3:20:48 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1190,10 +1190,11 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
     const unsubscribe = engine.eventBroker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
       overlay.setBootStatus(payload.status);
       overlay.addBootLog(payload.status);
-      const progressMatch = payload.status.match(/\((\d+)%\)/);
-      if (progressMatch) {
-        const progress = parseInt(progressMatch[1], 10) / 100;
-        overlay.setLoadingProgress(progress);
+      if (payload.progress !== undefined) {
+        overlay.setLoadingProgress(payload.progress);
+      }
+      if (payload.phase !== undefined) {
+        overlay.setBootPhase(payload.phase);
       }
     });
 
@@ -2939,17 +2940,18 @@ export class Engine {
 
   public async start(): Promise<void> {
     this.isPaused = true;
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "INITIALIZING SYSTEMS..." });
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "Starting engine...", progress: 0, phase: 0 });
 
     await this.systemManager.initAll((phase, systemName, progress) => {
-      const phaseNames = ["BOOTSTRAP", "WORLD", "GAMEPLAY", "UI"];
-      const progressPercent = Math.round(progress * 100);
+      const readableName = systemName.replace(/System$/, '').replace(/([A-Z])/g, ' $1').trim();
       this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-        status: `[${phaseNames[phase]}] INITIALIZING ${systemName.replace(/System$/, '').toUpperCase()}... (${progressPercent}%)`
+        status: `Loading ${readableName}...`,
+        progress: progress,
+        phase: phase
       });
     });
 
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY" });
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY", progress: 1, phase: 4 });
 
     this.pauseHandler.init();
     this.initGestureHandlers();
@@ -3274,7 +3276,7 @@ export enum GameEvent {
 
 export interface GameEventMap {
   [GameEvent.GAME_INITIALIZED]: void;
-  [GameEvent.GAME_BOOT_PROGRESS]: { status: string };
+  [GameEvent.GAME_BOOT_PROGRESS]: { status: string; progress?: number; phase?: number };
   [GameEvent.GAME_STARTED]: void;
   [GameEvent.USER_GESTURE_REGISTERED]: void;
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
@@ -4409,28 +4411,16 @@ export class EntitySpawnerSystem implements ISystem {
     }
 
     this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "GENERATING WEAVER CARAPACE AND PBR TEXTURES..."
+      status: "Generating boss character...", phase: 1
     });
     await this.spawnWeaver();
 
     this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "GENERATING PLAYER COCOON SILK TEXTURES..."
+      status: "Generating player character...", phase: 1
     });
     await this.spawnPlayer();
 
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
-        if (payload.status === "READY") {
-          this.setEntitiesEnabled(false);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.GAME_STARTED, () => {
-        this.setEntitiesEnabled(true);
-      })
-    );
+    
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
@@ -4439,22 +4429,12 @@ export class EntitySpawnerSystem implements ISystem {
           this.spawnWeaver(),
           this.spawnPlayer()
         ]).then(() => {
-          this.setEntitiesEnabled(true);
         });
       })
     );
   }
 
-  private setEntitiesEnabled(enabled: boolean): void {
-    const weaverId = this.context.refs.weaver;
-    const playerId = this.context.refs.player;
-
-    const wNode = this.context.visualQuery.getTransformNode(weaverId);
-    const pNode = this.context.visualQuery.getTransformNode(playerId);
-
-    if (wNode) wNode.setEnabled(enabled);
-    if (pNode) pNode.setEnabled(enabled);
-  }
+  
 
   public async spawnWeaver(existingId?: EntityId): Promise<EntityId> {
     const scene = this.context.visualQuery.getScene();
@@ -13275,7 +13255,7 @@ export class HavokPhysicsSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (scene) {
       this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-        status: "LOADING PHYSICS ENGINE..."
+        status: "Loading physics engine..."
       });
       try {
         if (!HavokPhysicsSystem.havokInstance) {
@@ -13289,7 +13269,7 @@ export class HavokPhysicsSystem implements ISystem {
             );
           } catch {
             this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-              status: "PHYSICS LOCAL LOAD FAILED, TRYING CDN..."
+              status: "Falling back to backup physics engine..."
             });
             try {
               havokInstance = await withTimeout(
@@ -14155,7 +14135,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Settings, Package, Layers } from "lucide-react";
+import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Package, Layers, Loader2 } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -14210,10 +14190,10 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
 };
 
 const LOADING_STEPS = [
-  { id: 0, label: "LOAD AUDIO & CONTROLS", sub: "Pre-warming Tone.js synthesizers & binding controls", icon: Cpu },
-  { id: 1, label: "INITIALIZE PHYSICS BOUNDS", sub: "Forming boundaries & invisible static bounds", icon: Settings },
-  { id: 2, label: "GENERATE ACTOR TEXTURES", sub: "Baking procedural heightmaps for Player & Weaver", icon: Package },
-  { id: 3, label: "COMPILE SCENE SHADERS", sub: "Compiling PBR materials & pre-warming render pipelines", icon: Layers }
+  { id: 0, label: "Core Engine", sub: "Loading base systems and physics", icon: Cpu },
+  { id: 1, label: "World Data", sub: "Initializing 3D arena and bounds", icon: Layers },
+  { id: 2, label: "Game Entities", sub: "Spawning player and boss", icon: Package },
+  { id: 3, label: "Render Pipeline", sub: "Compiling shaders and UI", icon: Loader2 }
 ];
 
 export const HudOverlay: React.FC = () => {
@@ -14252,6 +14232,7 @@ export const HudOverlay: React.FC = () => {
       awaitingGesture: s.awaitingGesture,
       wins: s.wins,
       losses: s.losses,
+      bootPhase: s.bootPhase,
       bootStatus: s.bootStatus,
       bootLogs: s.bootLogs,
       loadingProgress: s.loadingProgress,
@@ -14273,6 +14254,7 @@ export const HudOverlay: React.FC = () => {
     awaitingGesture,
     wins,
     losses,
+    bootPhase,
     bootStatus,
     loadingProgress,
     menuIndex,
@@ -14610,16 +14592,7 @@ export const HudOverlay: React.FC = () => {
     : "led-yellow led-spring-impact";
   const activeStep = CALIBRATION_STEPS[displayedStep];
 
-  const getLoadingStepIndex = () => {
-    const status = bootStatus.toUpperCase();
-    if (status.includes("BOOTSTRAP") || status.includes("LOADING RENDER")) return 0;
-    if (status.includes("PERSISTANCE") || status.includes("KINEMATICS") || status.includes("AUDIO") || status.includes("SYSTEMS")) return 1;
-    if (status.includes("WORLD") || status.includes("WEAVER") || status.includes("PLAYER")) return 2;
-    if (status.includes("ARENA") || status.includes("SHADER") || status.includes("WARM") || status.includes("UI") || status.includes("COMPILING")) return 3;
-    return 4;
-  };
-
-  const currentLoadingStep = getLoadingStepIndex();
+  const currentLoadingStep = Math.min(bootPhase, 3);
 
   return (
     <>
@@ -14631,7 +14604,7 @@ export const HudOverlay: React.FC = () => {
                }}>
             
             <h2 className="text-zinc-500 font-bold uppercase tracking-[0.25em] text-xs mb-8 text-center select-none">
-              INITIALIZING HARNESS
+              INITIALIZING GAME
             </h2>
 
             <div className="flex flex-col gap-6 mb-8">
@@ -14650,9 +14623,12 @@ export const HudOverlay: React.FC = () => {
                           : "bg-[#07080b] border-zinc-800 text-zinc-600"
                     }`}
                     style={isActive ? { boxShadow: "inset 2px 2px 5px rgba(0,0,0,0.5), 0 0 10px rgba(16,185,129,0.1)" } : {}}>
-                      <StepIcon size={16} className={isActive ? "animate-pulse" : ""} />
+                      <StepIcon size={16} className={isActive && step.id === 3 ? "animate-spin" : isActive ? "animate-pulse" : ""} />
                       {isActive && (
-                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0c0e12]" />
+                        <div className="absolute -top-1 -right-1 flex items-center justify-center w-3 h-3">
+                          <div className="absolute w-full h-full rounded-full bg-emerald-500 animate-ping opacity-75" />
+                          <div className="relative w-2 h-2 rounded-full bg-emerald-500 border border-[#0c0e12]" />
+                        </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -14679,7 +14655,7 @@ export const HudOverlay: React.FC = () => {
             </div>
             
             <div className="text-[7.5px] text-zinc-600 tracking-wider text-right mt-1.5 font-bold uppercase select-none">
-              CALIBRATING SYSTEM SENSORS: {Math.round(loadingProgress * 100)}%
+              LOADING PROCESS: {Math.round(loadingProgress * 100)}%
             </div>
           </div>
         </div>
@@ -15510,6 +15486,7 @@ export interface WeaverState {
 export interface OverlayState {
   bootLogs: string[];
   bootStatus: string;
+  bootPhase: number;
   loadingProgress: number;
   traversalHint: string;
   traversalHintColor: string;
@@ -15531,6 +15508,7 @@ export interface OverlayState {
   setCalibrationStep: (step: number) => void;
 
   setBootStatus: (status: string) => void;
+  setBootPhase: (phase: number) => void;
   addBootLog: (log: string) => void;
   setLoadingProgress: (progress: number) => void;
   setTraversalHint: (text: string, color: string, opacity: number) => void;
@@ -15571,6 +15549,7 @@ const WEAVER_RESET = {
 const OVERLAY_RESET = {
   bootLogs: [],
   bootStatus: "READY",
+  bootPhase: 0,
   loadingProgress: 0,
   traversalHint: "",
   traversalHintColor: "rgb(161, 161, 170)",
@@ -15640,6 +15619,7 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   wins: 0,
   losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
+  setBootPhase: (phase) => set({ bootPhase: phase }),
   addBootLog: (log) => set((state) => ({ bootLogs: [...state.bootLogs, log] })),
   setLoadingProgress: (progress) => set({ loadingProgress: progress }),
   setTraversalHint: (text, color, opacity) =>
@@ -18151,7 +18131,7 @@ export class RenderSystem implements ISystem {
     ProceduralTextureGenerator.clearCache();
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "LOADING ENVIRONMENT TEXTURE & LIGHTS..."
+      status: "Loading environment textures and lights..."
     });
 
     const preset = POST_PROCESSING_PRESETS;
@@ -18289,24 +18269,37 @@ export class RenderSystem implements ISystem {
     shadowGen.filteringQuality = BABYLON.ShadowGenerator.QUALITY_MEDIUM;
     shadowGen.darkness = preset.RENDERER.SHADOW_DARKNESS;
 
-    // This now automatically registers shadows to already-spawned entities (Player/Weaver)
+    // This automatically registers shadows to already-spawned entities (Player/Weaver)
     this.visualRegistry.setSceneAndShadows(this.scene!, shadowGen);
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "GENERATING ARENA SHAFT GEOMETRY..."
+      status: "Building 3D arena geometry..."
     });
 
     const arenaGeo = new ArenaGeometry(this.scene!);
     await arenaGeo.generateElevatorShaft();
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "COMPILING SHADERS & PRE-WARMING PIPELINE..."
+      status: "Compiling materials and shaders (this may take a moment)..."
     });
-    await this.scene!.whenReadyAsync();
 
-    if (this.engine) {
+    // Manually trigger a render frame synchronously. This forces the WebGL context
+    // to compile materials and bind procedural textures immediately.
+    if (this.engine && this.scene) {
       this.engine.beginFrame();
-      this.scene!.render();
+      this.scene.render();
+      this.engine.endFrame();
+    }
+
+    // Race the ready check with a 1.2-second timeout to prevent loading locks on slower contexts
+    await Promise.race([
+      this.scene!.whenReadyAsync(),
+      new Promise<void>((resolve) => setTimeout(resolve, 1200))
+    ]);
+
+    if (this.engine && this.scene) {
+      this.engine.beginFrame();
+      this.scene.render();
       this.engine.endFrame();
     }
 
