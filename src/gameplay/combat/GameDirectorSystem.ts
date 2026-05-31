@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { HitStopComponent, HealthComponent, TetherComponent, ProjectileComponent, ParticleRequestComponent } from "../../core/ecs/Components";
+import { HitStopComponent, HealthComponent, TetherComponent, ParticleRequestComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
@@ -215,16 +215,11 @@ export class GameDirectorSystem implements ISystem {
 
   private cleanupGameEnd(): void {
     console.log("[GameDirectorSystem] Cleaning up game end state...");
-    // Clear all projectiles
-    const projectiles = this.context.stores.get<ProjectileComponent>("projectile");
-    for (const [entityId] of projectiles.entries()) {
-      this.context.world.clearEntityComponents(entityId);
-    }
 
     // Clear particle requests
     const particleRequests = this.context.stores.get<ParticleRequestComponent>("particleRequest");
     for (const [entityId] of particleRequests.entries()) {
-      this.context.world.clearEntityComponents(entityId);
+      this.context.world.destroy(entityId);
     }
 
     // Reset hit stops

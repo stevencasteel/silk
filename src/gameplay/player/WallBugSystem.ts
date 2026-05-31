@@ -86,6 +86,18 @@ export class WallBugSystem implements ISystem {
         this.lastSelectedLaneIndex = -1;
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.clearAllBugs();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
+        this.clearAllBugs();
+      })
+    );
   }
 
   public update(dt: number): void {

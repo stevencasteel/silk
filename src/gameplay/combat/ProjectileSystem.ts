@@ -62,6 +62,18 @@ export class ProjectileSystem implements ISystem {
         this.shotCounter = 0;
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.pool.reset();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
+        this.pool.reset();
+      })
+    );
   }
 
   private handleBoundaryHit(id: EntityId, side: "LEFT" | "RIGHT", currentX: number): void {

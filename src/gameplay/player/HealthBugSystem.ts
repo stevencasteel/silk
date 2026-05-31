@@ -57,6 +57,18 @@ export class HealthBugSystem implements ISystem {
         this.lastSpawnedX = -999.0;
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.clearAll();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
+        this.clearAll();
+      })
+    );
   }
 
   public update(dt: number): void {
