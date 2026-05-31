@@ -370,7 +370,10 @@ export class WeaverShatterSystem implements ISystem {
           const distSq = dx * dx + dy * dy;
           const pRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + 0.45;
           if (distSq < pRadius * pRadius) {
-            const dist = Math.sqrt(distSq) || 0.1;
+            const dist = Math.sqrt(distSq);
+            if (dist < 0.001) {
+              continue;
+            }
             const nx = dx / dist;
             const ny = dy / dist;
             d.mesh.position.x = playerNode.position.x + nx * pRadius;
@@ -399,7 +402,10 @@ export class WeaverShatterSystem implements ISystem {
           const minDist = r1 + r2;
 
           if (distSq < minDist * minDist) {
-            const dist = Math.sqrt(distSq) || 0.1;
+            const dist = Math.sqrt(distSq);
+            if (dist < 0.001) {
+              continue;
+            }
             const nx = dx / dist;
             const ny = dy / dist;
 

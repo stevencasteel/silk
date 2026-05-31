@@ -76,7 +76,7 @@ export class LegJointAnimationSystem implements ISystem {
       this.gaitTuck += (gaitTuckVal - this.gaitTuck) * blend;
     }
 
-    this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);
+    this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2.0);
   }
 
   public render(): void {

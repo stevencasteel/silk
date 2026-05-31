@@ -218,10 +218,15 @@ export class WeaverStrikingState implements IWeaverState {
         if (wTrans) {
           const dx = this.targetPos.x - wTrans.x;
           const dy = this.targetPos.y - wTrans.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-          const pullBackForce = 12.0;
-          aiComp.desiredVelocityX = -(dx / dist) * pullBackForce * progress;
-          aiComp.desiredVelocityY = -(dy / dist) * pullBackForce * progress;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 0.001) {
+            aiComp.desiredVelocityX = 0;
+            aiComp.desiredVelocityY = 0;
+          } else {
+            const pullBackForce = 12.0;
+            aiComp.desiredVelocityX = -(dx / dist) * pullBackForce * progress;
+            aiComp.desiredVelocityY = -(dy / dist) * pullBackForce * progress;
+          }
         }
       } else {
         aiComp.desiredVelocityX = 0;

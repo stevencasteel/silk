@@ -52,7 +52,7 @@ export class PlayerStateUtils {
         const tangentSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
         if (tangentSpeed > 0.01 && initialSpeed > tangentSpeed) {
           const restoreRatio = initialSpeed / tangentSpeed;
-          const clampRatio = Math.min(restoreRatio, 1.05);
+          const clampRatio = Math.min(restoreRatio, 1.0);
           vel.x *= clampRatio;
           vel.y *= clampRatio;
         }

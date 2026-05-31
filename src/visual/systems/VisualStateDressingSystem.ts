@@ -1,4 +1,4 @@
-import { ColorCache, solveSpringDamper, collectPBRMaterials } from "../../core/utils/EngineUtils";
+import { ColorCache, solveSpringDamper, solveScaleSpring, collectPBRMaterials } from "../../core/utils/EngineUtils";
 import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
@@ -54,26 +54,15 @@ export class VisualStateDressingSystem implements ISystem {
       wTrans.prevScaleY = wTrans.scaleY!;
       wTrans.prevScaleZ = wTrans.scaleZ!;
 
-      const displacementX = wTrans.scaleX! - cosmetic.targetScaleX;
-      const accelerationX =
-        -cosmetic.springStiffness * displacementX -
-        cosmetic.springDamping * (wTrans.scaleVelX ?? 0.0);
-      wTrans.scaleVelX = (wTrans.scaleVelX ?? 0.0) + accelerationX * dt;
-      wTrans.scaleX = wTrans.scaleX! + wTrans.scaleVelX * dt;
-
-      const displacementY = wTrans.scaleY! - cosmetic.targetScaleY;
-      const accelerationY =
-        -cosmetic.springStiffness * displacementY -
-        cosmetic.springDamping * (wTrans.scaleVelY ?? 0.0);
-      wTrans.scaleVelY = (wTrans.scaleVelY ?? 0.0) + accelerationY * dt;
-      wTrans.scaleY = wTrans.scaleY! + wTrans.scaleVelY * dt;
-
-      const displacementZ = wTrans.scaleZ! - cosmetic.targetScaleZ;
-      const accelerationZ =
-        -cosmetic.springStiffness * displacementZ -
-        cosmetic.springDamping * (wTrans.scaleVelZ ?? 0.0);
-      wTrans.scaleVelZ = (wTrans.scaleVelZ ?? 0.0) + accelerationZ * dt;
-      wTrans.scaleZ = wTrans.scaleZ! + wTrans.scaleVelZ * dt;
+      solveScaleSpring(
+        wTrans,
+        cosmetic.targetScaleX,
+        cosmetic.targetScaleY,
+        cosmetic.targetScaleZ,
+        dt,
+        cosmetic.springStiffness,
+        cosmetic.springDamping
+      );
 
       const currentRoll = cosmetic.currentRoll ?? 0;
       const rollVel = cosmetic.rollVel ?? 0;

@@ -47,9 +47,8 @@ export class CollisionResolutionSystem implements ISystem {
           let dy = hubTrans.y - hbTrans.y;
           let len = Math.sqrt(dx * dx + dy * dy);
           if (len < 0.001) {
-            const angle = Math.random() * Math.PI * 2.0;
-            dx = Math.cos(angle) * 0.001;
-            dy = Math.sin(angle) * 0.001;
+            dx = 0.001;
+            dy = 0.0;
             len = 0.001;
           }
 
