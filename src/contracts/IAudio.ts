@@ -1,5 +1,5 @@
-export interface ITensionDrone {
-  initialize(): Promise<void>;
+export interface IAudioRegistry {
+  initialize(Tone: unknown): Promise<void>;
   updatePositions(playerX: number, weaverX: number): void;
   updateDronePitch(tensionVal: number): void;
   setLowHPStatus(active: boolean): void;
@@ -10,11 +10,7 @@ export interface ITensionDrone {
   ): void;
   fadeOutAndMute(): void;
   resetToBaseline(): void;
-  dispose(): void;
-}
 
-export interface ISfxInstrument {
-  initialize(Tone: unknown): Promise<void>;
   triggerImpact(pitch: string | number, duration: string, delay?: string | number): void;
   triggerNoise(duration: string, delay?: string | number): void;
   triggerTick(pitch: string, duration: string, time?: number): void;
@@ -22,5 +18,6 @@ export interface ISfxInstrument {
   triggerAlarm(pitch: string, duration: string, time?: number): void;
   setSfxPan(pan: number, time: number): void;
   setNoiseDecay(value: number): void;
+
   dispose(): void;
 }

@@ -1,29 +1,42 @@
-import { ITensionDrone } from "../../contracts/IAudio";
+import { IAudioRegistry } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "./AudioPresets";
-import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner } from "tone";
+import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner, NoiseSynth } from "tone";
 
-export class TensionSynthesizer implements ITensionDrone {
+export class AudioSynthesizerRegistry implements IAudioRegistry {
   private fmOsc: FMOscillator | null = null;
   private lowpassFilter: Filter | null = null;
   private gainNode: Gain | null = null;
   private lfo: LFO | null = null;
-  private lastTension: number = -999.0;
+  private lastTension = -999.0;
 
   private playerPanner: Panner | null = null;
   private weaverPanner: Panner | null = null;
   private ratchetPanner: Panner | null = null;
+  private sfxPanner: Panner | null = null;
 
-  private ratchetSynth: Synth | null = null;
-  private heartbeatSynth: MembraneSynth | null = null;
-  private heartbeatLoop: Loop | null = null;
+  public ratchetSynth: Synth | null = null;
+  public heartbeatSynth: MembraneSynth | null = null;
+  public heartbeatLoop: Loop | null = null;
 
-  private lastRatchetTime: number = 0;
-  private nextRatchetDelay: number = 0.25;
-  private toneModule: typeof import("tone") | null = null;
+  public impactSynth: MembraneSynth | null = null;
+  public noiseSynth: NoiseSynth | null = null;
+  public tickSynth: Synth | null = null;
+  public confirmSynth: Synth | null = null;
+  public tensionAlarmSynth: Synth | null = null;
 
-  public async initialize(): Promise<void> {
-    const Tone = await import("tone");
-    this.toneModule = Tone;
+  private lastRatchetTime = 0;
+  private nextRatchetDelay = 0.25;
+  private lastImpactTime = 0;
+  private lastNoiseTime = 0;
+  private lastTickTime = 0;
+  private lastConfirmTime = 0;
+  private lastAlarmTime = 0;
+
+  private ToneModule: typeof import("tone") | null = null;
+
+  public async initialize(ToneRaw: unknown): Promise<void> {
+    const Tone = ToneRaw as typeof import("tone");
+    this.ToneModule = Tone;
 
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
@@ -39,7 +52,8 @@ export class TensionSynthesizer implements ITensionDrone {
 
     this.playerPanner = new Tone.Panner(0).connect(this.lowpassFilter);
     this.weaverPanner = new Tone.Panner(0).connect(this.lowpassFilter);
-    this.ratchetPanner = new Tone.Panner(0).toDestination(); // Bypasses lowpass to keep clicks crisp
+    this.ratchetPanner = new Tone.Panner(0).toDestination();
+    this.sfxPanner = new Tone.Panner(0).toDestination();
 
     this.fmOsc = new Tone.FMOscillator({
       frequency: presets.DRONE_BASE_FREQ,
@@ -51,7 +65,6 @@ export class TensionSynthesizer implements ITensionDrone {
     } as unknown as ConstructorParameters<typeof FMOscillator>[0]);
 
     this.gainNode = new Tone.Gain(0.0);
-
     this.lfo = new Tone.LFO({
       frequency: presets.LFO_NORMAL_HZ,
       min: 150,
@@ -91,6 +104,63 @@ export class TensionSynthesizer implements ITensionDrone {
       }
     }, synthConfig.HEARTBEAT_INTERVAL);
 
+    this.impactSynth = new Tone.MembraneSynth({
+      pitchDecay: 0.05,
+      octaves: 4,
+      oscillator: { type: "sine" },
+      envelope: {
+        attack: 0.001,
+        decay: 0.2,
+        sustain: 0,
+        release: 0.4,
+        attackCurve: "exponential"
+      }
+    }).connect(this.sfxPanner);
+
+    this.noiseSynth = new Tone.NoiseSynth({
+      noise: { type: "pink" },
+      envelope: {
+        attack: 0.001,
+        decay: 0.1,
+        sustain: 0,
+        release: 0.1
+      }
+    }).connect(this.sfxPanner);
+    this.noiseSynth.volume.value = -10;
+
+    this.tickSynth = new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: {
+        attack: 0.002,
+        decay: 0.03,
+        sustain: 0,
+        release: 0.03
+      }
+    }).toDestination();
+    this.tickSynth.volume.value = -14;
+
+    this.confirmSynth = new Tone.Synth({
+      oscillator: { type: "triangle" },
+      envelope: {
+        attack: 0.002,
+        decay: 0.12,
+        sustain: 0,
+        release: 0.08
+      }
+    }).toDestination();
+    this.confirmSynth.volume.value = -6;
+
+    this.tensionAlarmSynth = new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: {
+        attack: 0.01,
+        decay: 0.1,
+        sustain: 0,
+        release: 0.05
+      }
+    }).toDestination();
+    this.tensionAlarmSynth.volume.value = -18;
+
     this.lfo.start();
     this.fmOsc.start();
   }
@@ -101,8 +171,8 @@ export class TensionSynthesizer implements ITensionDrone {
   }
 
   public updatePositions(playerX: number, weaverX: number): void {
-    if (this.playerPanner && this.weaverPanner && this.ratchetPanner && this.toneModule) {
-      const now = this.toneModule.now();
+    if (this.playerPanner && this.weaverPanner && this.ratchetPanner && this.ToneModule) {
+      const now = this.ToneModule.now();
       const panVal = this.getPanFromX(playerX);
       this.playerPanner.pan.setTargetAtTime(panVal, now, 0.05);
       this.ratchetPanner.pan.setTargetAtTime(panVal, now, 0.05);
@@ -111,12 +181,12 @@ export class TensionSynthesizer implements ITensionDrone {
   }
 
   public updateDronePitch(tensionVal: number): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.ToneModule) return;
 
     const clampedTension = Math.max(0, Math.min(1.3, tensionVal));
 
     if (clampedTension > this.lastTension && clampedTension > 0.05) {
-      const now = this.toneModule.now();
+      const now = this.ToneModule.now();
       if (now > this.lastRatchetTime + this.nextRatchetDelay) {
         this.lastRatchetTime = now;
         this.nextRatchetDelay = Math.max(0.04, 0.28 - clampedTension * 0.2);
@@ -130,7 +200,7 @@ export class TensionSynthesizer implements ITensionDrone {
     }
     this.lastTension = clampedTension;
 
-    const now = this.toneModule.now();
+    const now = this.ToneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
@@ -171,8 +241,8 @@ export class TensionSynthesizer implements ITensionDrone {
   }
 
   public resumeFromPause(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.toneModule) return;
-    const now = this.toneModule.now();
+    if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.ToneModule) return;
+    const now = this.ToneModule.now();
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
     const targetGain =
@@ -186,8 +256,8 @@ export class TensionSynthesizer implements ITensionDrone {
     _state: string,
     audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number }
   ): void {
-    if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.toneModule) return;
-    const now = this.toneModule.now();
+    if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.ToneModule) return;
+    const now = this.ToneModule.now();
 
     if (audioParams) {
       this.fmOsc.frequency.setTargetAtTime(audioParams.baseFreq, now, 0.5);
@@ -202,10 +272,9 @@ export class TensionSynthesizer implements ITensionDrone {
   }
 
   public fadeOutAndMute(): void {
-    if (!this.gainNode || !this.toneModule) return;
-    const now = this.toneModule.now();
+    if (!this.gainNode || !this.ToneModule) return;
+    const now = this.ToneModule.now();
     
-    // Aggressively cancel any pending ramps to ensure silence
     this.gainNode.gain.cancelScheduledValues(now);
     this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
     
@@ -217,9 +286,9 @@ export class TensionSynthesizer implements ITensionDrone {
   }
 
   public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.toneModule)
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.ToneModule)
       return;
-    const now = this.toneModule.now();
+    const now = this.ToneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
 
     this.gainNode.gain.setValueAtTime(0.0, now);
@@ -229,38 +298,118 @@ export class TensionSynthesizer implements ITensionDrone {
     this.setLowHPStatus(false);
   }
 
+  public triggerImpact(pitch: string | number, duration: string, time?: string | number): void {
+    const now = performance.now();
+    if (now - this.lastImpactTime < 40) return;
+    this.lastImpactTime = now;
+
+    try {
+      if (this.impactSynth) {
+        this.impactSynth.triggerAttackRelease(pitch, duration, time);
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
+  public triggerNoise(duration: string, time?: string | number): void {
+    const now = performance.now();
+    if (now - this.lastNoiseTime < 40) return;
+    this.lastNoiseTime = now;
+
+    try {
+      if (this.noiseSynth) {
+        this.noiseSynth.triggerAttackRelease(duration, time);
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
+  public triggerTick(pitch: string, duration: string, time?: number): void {
+    const now = performance.now();
+    if (now - this.lastTickTime < 25) return;
+    this.lastTickTime = now;
+
+    try {
+      if (this.tickSynth) {
+        this.tickSynth.triggerAttackRelease(pitch, duration, time);
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
+  public triggerConfirm(pitch: string, duration: string, time?: number): void {
+    const now = performance.now();
+    if (now - this.lastConfirmTime < 40) return;
+    this.lastConfirmTime = now;
+
+    try {
+      if (this.confirmSynth) {
+        this.confirmSynth.triggerAttackRelease(pitch, duration, time);
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
+  public triggerAlarm(pitch: string, duration: string, time?: number): void {
+    const now = performance.now();
+    if (now - this.lastAlarmTime < 40) return;
+    this.lastAlarmTime = now;
+
+    try {
+      if (this.tensionAlarmSynth) {
+        this.tensionAlarmSynth.triggerAttackRelease(pitch, duration, time);
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
+  public setSfxPan(pan: number, time: number): void {
+    try {
+      if (this.sfxPanner) {
+        this.sfxPanner.pan.setTargetAtTime(pan, time, 0.05);
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
+  public setNoiseDecay(value: number): void {
+    try {
+      if (this.noiseSynth) {
+        this.noiseSynth.envelope.decay = value;
+      }
+    } catch (e) {
+      void e;
+    }
+  }
+
   public dispose(): void {
-    if (this.fmOsc) {
-      this.fmOsc.stop();
-      this.fmOsc.dispose();
-    }
-    if (this.lfo) {
-      this.lfo.stop();
-      this.lfo.dispose();
-    }
-    if (this.lowpassFilter) {
-      this.lowpassFilter.dispose();
-    }
-    if (this.gainNode) {
-      this.gainNode.dispose();
-    }
-    if (this.playerPanner) {
-      this.playerPanner.dispose();
-    }
-    if (this.weaverPanner) {
-      this.weaverPanner.dispose();
-    }
-    if (this.ratchetPanner) {
-      this.ratchetPanner.dispose();
-    }
-    if (this.ratchetSynth) {
-      this.ratchetSynth.dispose();
-    }
-    if (this.heartbeatSynth) {
-      this.heartbeatSynth.dispose();
-    }
-    if (this.heartbeatLoop) {
-      this.heartbeatLoop.dispose();
+    try {
+      this.fmOsc?.stop();
+      this.fmOsc?.dispose();
+      this.lfo?.stop();
+      this.lfo?.dispose();
+      this.lowpassFilter?.dispose();
+      this.gainNode?.dispose();
+      this.playerPanner?.dispose();
+      this.weaverPanner?.dispose();
+      this.ratchetPanner?.dispose();
+      this.sfxPanner?.dispose();
+      this.ratchetSynth?.dispose();
+      this.heartbeatSynth?.dispose();
+      this.heartbeatLoop?.dispose();
+      this.impactSynth?.dispose();
+      this.noiseSynth?.dispose();
+      this.tickSynth?.dispose();
+      this.confirmSynth?.dispose();
+      this.tensionAlarmSynth?.dispose();
+    } catch (e) {
+      void e;
     }
   }
 }
