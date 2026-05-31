@@ -3,38 +3,29 @@ import { SubscriptionTracker, MultiEventListener } from "../../core/utils/Engine
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
-import { IAudioRegistry } from "../../contracts/IAudio";
-import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, TraversalStateComponent, HealthComponent } from "../../core/ecs/Components";
-import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import { AudioSynthesizerRegistry } from "../tone/AudioSynthesizerRegistry";
-import { ProceduralSoundManager } from "../tone/ProceduralSoundManager";
-import { HealthBugSoundGenerator } from "../tone/HealthBugSoundGenerator";
-import { WeaverSFXGenerator } from "../tone/WeaverSFXGenerator";
+
+type ToneType = typeof import("tone");
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   readonly initPhase = InitPhase.Bootstrap;
 
-  private audioRegistry: IAudioRegistry | null = null;
-  private initialized: boolean = false;
-  private isBooting: boolean = false;
+  private initialized = false;
+  private isBooting = false;
   private broker: IEventBroker;
   private _tracker = new SubscriptionTracker();
   private gestureListener = new MultiEventListener();
 
-  private hitComboCount = 0;
-  private lastHitTime = 0;
-  private toneModule: typeof import("tone") | null = null;
+  private toneModule: ToneType | null = null;
 
-  private lastConfirmTime = 0;
+  private tickSynth: import("tone").Synth | null = null;
+  private confirmSynth: import("tone").Synth | null = null;
+  private heartbeatSynth: import("tone").MembraneSynth | null = null;
+  private heartbeatLoop: import("tone").Loop | null = null;
+
   private lastTickTime = 0;
-  private lastAlarmTime = 0;
-
-  private soundManager: ProceduralSoundManager | null = null;
-  private healthBugSoundGenerator: HealthBugSoundGenerator | null = null;
-  private weaverSfxGenerator: WeaverSFXGenerator | null = null;
+  private lastConfirmTime = 0;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -60,11 +51,11 @@ export class AudioDirectorSystem implements ISystem {
   public init(): void {
     this._tracker.add(
       this.broker.subscribe(GameEvent.UI_SFX_TICK, () => {
-        if (this.initialized && this.audioRegistry && this.toneModule) {
+        if (this.initialized && this.tickSynth && this.toneModule) {
           const nowMs = performance.now();
           if (nowMs - this.lastTickTime > 30) {
             this.lastTickTime = nowMs;
-            this.audioRegistry.triggerTick("E6", "32n", this.toneModule.now());
+            this.tickSynth.triggerAttackRelease("E6", "32n", this.toneModule.now());
           }
         }
       })
@@ -72,296 +63,75 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.UI_SFX_CONFIRM, () => {
-        if (this.initialized && this.audioRegistry && this.toneModule) {
+        if (this.initialized && this.confirmSynth && this.toneModule) {
           const nowMs = performance.now();
           if (nowMs - this.lastConfirmTime > 50) {
             this.lastConfirmTime = nowMs;
-            this.audioRegistry.triggerConfirm("C6", "16n", this.toneModule.now());
+            this.confirmSynth.triggerAttackRelease("C6", "16n", this.toneModule.now());
           }
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.UI_SFX_ALARM, () => {
-        if (this.initialized && this.audioRegistry && this.toneModule && Math.random() < 0.1) {
-          const nowMs = performance.now();
-          if (nowMs - this.lastAlarmTime > 80) {
-            this.lastAlarmTime = nowMs;
-            this.audioRegistry.triggerAlarm("F6", "32n", this.toneModule.now());
-          }
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.updateDronePitch(payload.tension);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
-        if (payload.state === "LAUNCHING" && this.initialized && this.audioRegistry) {
-          const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
-          const pTrav = travStore.get(this.context.refs.player);
-          if (pTrav) {
-            const reelConfig = GAMEPLAY_TUNING.REEL;
-            const power = pTrav.launchPower;
-            
-            this.audioRegistry.triggerFling(power);
-
-            if (power >= 1.0) {
-              this.audioRegistry.triggerImpact("A1", "4n");
-              this.audioRegistry.triggerNoise("4n");
-            } else if (power >= reelConfig.SWEET_SPOT_MIN && power <= reelConfig.SWEET_SPOT_MAX) {
-              this.audioRegistry.triggerTick("G6", "16n");
-              this.audioRegistry.triggerImpact("D4", "16n");
-            } else {
-              this.audioRegistry.triggerImpact("C3", "16n");
-            }
-          }
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.triggerWallStick();
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_HEALTH_CHANGED, (payload) => {
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.setLowHPStatus(payload.hp === 1);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const presets = AUDIO_PRESETS.PLAYER;
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.triggerImpact(presets.DAMAGED_NOTE, presets.DAMAGED_DURATION);
-          this.audioRegistry.triggerNoise(presets.DAMAGED_DURATION);
-        }
-        this.hitComboCount = 0;
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
-        this.hitComboCount = 0;
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        if (this.initialized && this.audioRegistry) {
-          const nowMs = performance.now();
-          if (nowMs - this.lastHitTime < 1500) {
-            this.hitComboCount++;
+        if (this.initialized && this.heartbeatLoop) {
+          const isLowHp = payload.hp === 1;
+          if (isLowHp) {
+            this.heartbeatLoop.start();
           } else {
-            this.hitComboCount = 0;
+            this.heartbeatLoop.stop();
           }
-          this.lastHitTime = nowMs;
-
-          const DORIAN_RATIOS = [1.0, 1.1225, 1.1892, 1.3348, 1.4983, 1.6818, 1.7818, 2.0];
-          const scaleIndex = this.hitComboCount % DORIAN_RATIOS.length;
-          const octave = Math.pow(2, Math.floor(this.hitComboCount / DORIAN_RATIOS.length));
-          const baseFreq = 164.81;
-          const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
-          this.audioRegistry.triggerImpact(freq, "16n");
-
-          const healthStore = this.context.stores.get<HealthComponent>("health");
-          const weaverHealth = healthStore?.get(this.context.refs.weaver);
-          const maxHp = weaverHealth ? weaverHealth.max : 100;
-          const currentHp = weaverHealth ? weaverHealth.current : 100;
-          const isBerserk = currentHp < maxHp * 0.5;
-
-          this.weaverSfxGenerator?.triggerDamaged(this.hitComboCount, isBerserk);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.handleStateChange(payload.state, payload.audioParams);
-          
-          const state = payload.state.toUpperCase();
-          const isBerserk = state.includes("BERSERK");
-
-          if (state.includes("STRIKING")) {
-            this.weaverSfxGenerator?.triggerStriking("PREP", isBerserk);
-          } else if (state.includes("SHOCKWAVE")) {
-            this.weaverSfxGenerator?.triggerShockwave("TELEGRAPH");
-          } else if (state.includes("DEFEATED")) {
-            this.weaverSfxGenerator?.triggerDefeated();
-          }
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.HEALTH_BUG_POP, (payload) => {
-        if (this.initialized && this.healthBugSoundGenerator) {
-          this.healthBugSoundGenerator.triggerPop(payload.variant);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.HEALTH_BUG_HEAL, () => {
-        if (this.initialized && this.healthBugSoundGenerator) {
-          this.healthBugSoundGenerator.triggerHeal();
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.HEALTH_BUG_PINBALL, () => {
-        if (this.initialized && this.healthBugSoundGenerator) {
-          this.healthBugSoundGenerator.triggerPinballBounce();
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.WEAVER_STRIKING_PHASE, (payload) => {
-        if (this.initialized && this.weaverSfxGenerator) {
-          this.weaverSfxGenerator.triggerStriking(payload.phase, payload.isBerserk);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.WEAVER_SHOCKWAVE_PHASE, (payload) => {
-        if (this.initialized && this.weaverSfxGenerator) {
-          this.weaverSfxGenerator.triggerShockwave(payload.phase);
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
-        if (payload.isRelease && this.initialized && this.weaverSfxGenerator) {
-          this.weaverSfxGenerator.triggerWebShot();
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_OVER, () => {
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.fadeOutAndMute();
-        }
+        this.stopHeartbeat();
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_WIN, () => {
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.fadeOutAndMute();
-        }
+        this.stopHeartbeat();
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_RESET, () => {
-        if (this.initialized && this.audioRegistry) {
-          this.audioRegistry.resetToBaseline();
-        }
-        this.hitComboCount = 0;
-        this.lastHitTime = 0;
+        this.stopHeartbeat();
+        this.lastTickTime = 0;
+        this.lastConfirmTime = 0;
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.GAME_PAUSED, (payload) => {
-        if (this.initialized && this.audioRegistry && this.toneModule) {
+        if (this.initialized && this.toneModule) {
           const rawCtx = this.toneModule.getContext().rawContext as unknown as AudioContext;
           if (payload.isPaused) {
-            this.audioRegistry.fadeOutAndMute();
+            this.stopHeartbeat();
             if (rawCtx && typeof rawCtx.suspend === "function") {
               rawCtx.suspend();
             }
           } else {
             if (rawCtx && typeof rawCtx.resume === "function") {
-              rawCtx.resume().then(() => {
-                if (this.initialized && this.audioRegistry) {
-                  this.audioRegistry.resumeFromPause();
-                }
-              });
-            } else {
-              this.audioRegistry.resumeFromPause();
+              rawCtx.resume();
             }
           }
         }
       })
     );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-        if (this.initialized) {
-          this.triggerDeathSequence(AUDIO_PRESETS.WEAVER);
-          if (this.audioRegistry) this.audioRegistry.fadeOutAndMute();
-        }
-      })
-    );
-
-    this._tracker.add(
-      this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-        if (this.initialized) {
-          this.triggerDeathSequence(AUDIO_PRESETS.PLAYER);
-          if (this.audioRegistry) this.audioRegistry.fadeOutAndMute();
-        }
-      })
-    );
   }
 
-  private triggerDeathSequence(
-    presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER
-  ): void {
-    if (!this.audioRegistry) return;
-    this.audioRegistry.triggerImpact(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
-    this.audioRegistry.triggerImpact(
-      presets.DEATH_NOTE_2,
-      presets.DEATH_NOTE_2_DURATION,
-      presets.DEATH_NOTE_2_DELAY
-    );
-    this.audioRegistry.setNoiseDecay(presets.DEATH_NOISE_DECAY);
-    this.audioRegistry.triggerNoise(presets.DEATH_NOTE_1_DURATION);
-
-    setTimeout(() => {
-      if (this.audioRegistry) {
-        this.audioRegistry.setNoiseDecay(presets.NOISE_DECAY);
-      }
-    }, presets.DEATH_NOISE_RESTORE_DELAY);
-  }
-
-  public update(): void {
-    if (this.initialized) {
-      const transforms = this.context.stores.get<TransformComponent>("transform");
-      const playerTrans = transforms.get(this.context.refs.player);
-      const weaverTrans = transforms.get(this.context.refs.weaver);
-
-      if (playerTrans && weaverTrans) {
-        if (this.audioRegistry) {
-          this.audioRegistry.updatePositions(playerTrans.x, weaverTrans.x);
-        }
-        if (this.audioRegistry && this.toneModule) {
-          const panVal = (Math.max(-15.0, Math.min(15.0, playerTrans.x)) / 15.0) * 0.45;
-          this.audioRegistry.setSfxPan(panVal, this.toneModule.now());
-        }
-      }
+  private stopHeartbeat(): void {
+    if (this.heartbeatLoop) {
+      this.heartbeatLoop.stop();
     }
   }
+
+  public update(): void {}
 
   private removeGestureListeners(): void {
     this.gestureListener.removeAll();
@@ -378,21 +148,35 @@ export class AudioDirectorSystem implements ISystem {
         this.isBooting = false;
         Tone.getDestination().mute = false;
 
-        const registry = new AudioSynthesizerRegistry();
-        registry.initialize(Tone).then(async () => {
-          this.audioRegistry = registry;
+        Tone.getTransport().bpm.value = 130;
+        Tone.getTransport().start();
 
-          this.soundManager = new ProceduralSoundManager();
-          await this.soundManager.initialize(Tone);
+        this.tickSynth = new Tone.Synth({
+          oscillator: { type: "square" },
+          envelope: { attack: 0.001, decay: 0.02, sustain: 0, release: 0.01 }
+        }).toDestination();
+        this.tickSynth.volume.value = -18;
 
-          this.healthBugSoundGenerator = new HealthBugSoundGenerator(this.soundManager);
-          await this.healthBugSoundGenerator.initialize(Tone);
+        this.confirmSynth = new Tone.Synth({
+          oscillator: { type: "square" },
+          envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 }
+        }).toDestination();
+        this.confirmSynth.volume.value = -12;
 
-          this.weaverSfxGenerator = new WeaverSFXGenerator(this.soundManager);
-          await this.weaverSfxGenerator.initialize(Tone);
+        this.heartbeatSynth = new Tone.MembraneSynth({
+          oscillator: { type: "sine" },
+          envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.12 }
+        }).toDestination();
+        this.heartbeatSynth.volume.value = -8;
 
-          this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
-        });
+        this.heartbeatLoop = new Tone.Loop((time) => {
+          if (this.heartbeatSynth) {
+            this.heartbeatSynth.triggerAttackRelease("A1", "8n", time);
+            this.heartbeatSynth.triggerAttackRelease("G1", "8n", time + 0.18);
+          }
+        }, "1.1s");
+
+        this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
       });
     });
   }
@@ -400,9 +184,10 @@ export class AudioDirectorSystem implements ISystem {
   public dispose(): void {
     this.removeGestureListeners();
     this._tracker.clear();
-    if (this.audioRegistry) this.audioRegistry.dispose();
-    this.healthBugSoundGenerator?.dispose();
-    this.weaverSfxGenerator?.dispose();
-    this.soundManager?.dispose();
+    this.stopHeartbeat();
+    this.tickSynth?.dispose();
+    this.confirmSynth?.dispose();
+    this.heartbeatSynth?.dispose();
+    this.heartbeatLoop?.dispose();
   }
 }

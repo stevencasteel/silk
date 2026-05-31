@@ -26,13 +26,7 @@ export enum GameEvent {
   UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED",
   WEAVER_BOUNCED = "WEAVER_BOUNCED",
   UI_SFX_TICK = "UI_SFX_TICK",
-  UI_SFX_CONFIRM = "UI_SFX_CONFIRM",
-  UI_SFX_ALARM = "UI_SFX_ALARM",
-  HEALTH_BUG_POP = "HEALTH_BUG_POP",
-  HEALTH_BUG_HEAL = "HEALTH_BUG_HEAL",
-  HEALTH_BUG_PINBALL = "HEALTH_BUG_PINBALL",
-  WEAVER_STRIKING_PHASE = "WEAVER_STRIKING_PHASE",
-  WEAVER_SHOCKWAVE_PHASE = "WEAVER_SHOCKWAVE_PHASE"
+  UI_SFX_CONFIRM = "UI_SFX_CONFIRM"
 }
 
 export interface GameEventMap {
@@ -73,10 +67,4 @@ export interface GameEventMap {
   [GameEvent.WEAVER_BOUNCED]: void;
   [GameEvent.UI_SFX_TICK]: void;
   [GameEvent.UI_SFX_CONFIRM]: void;
-  [GameEvent.UI_SFX_ALARM]: void;
-  [GameEvent.HEALTH_BUG_POP]: { variant: "NORMAL" | "SPIKED" | "PINBALL" | "SPINNING" };
-  [GameEvent.HEALTH_BUG_HEAL]: void;
-  [GameEvent.HEALTH_BUG_PINBALL]: void;
-  [GameEvent.WEAVER_STRIKING_PHASE]: { phase: "PREP" | "THRUST" | "RECOVER"; isBerserk: boolean };
-  [GameEvent.WEAVER_SHOCKWAVE_PHASE]: { phase: "TELEGRAPH" | "BLAST" | "RECOVER" };
 }

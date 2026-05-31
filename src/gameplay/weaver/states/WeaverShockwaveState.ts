@@ -151,7 +151,7 @@ export class WeaverShockwaveState implements IWeaverState {
         this.phase = "TELEGRAPH";
         this.timer = this.TELEGRAPH_DURATION;
         ai.hue = HASH_PREFIX + "eab308";
-        ctx.broker.publish(GameEvent.WEAVER_SHOCKWAVE_PHASE, { phase: "TELEGRAPH" });
+        
       }
     } else if (this.phase === "TELEGRAPH") {
       const pulse = Math.sin(this.timer * 45.0) * 0.15;
@@ -174,7 +174,7 @@ export class WeaverShockwaveState implements IWeaverState {
       if (this.timer <= 0) {
         this.phase = "BLAST";
         this.timer = this.BLAST_DURATION;
-        ctx.broker.publish(GameEvent.WEAVER_SHOCKWAVE_PHASE, { phase: "BLAST" });
+        
       }
     } else if (this.phase === "BLAST") {
       if (!this.hasBlastTriggered) {
@@ -254,7 +254,7 @@ export class WeaverShockwaveState implements IWeaverState {
       if (this.timer <= 0) {
         this.phase = "RECOVER";
         this.timer = this.RECOVER_DURATION;
-        ctx.broker.publish(GameEvent.WEAVER_SHOCKWAVE_PHASE, { phase: "RECOVER" });
+        
       }
     } else if (this.phase === "RECOVER") {
       cosmetic.targetScaleX = 0.94;

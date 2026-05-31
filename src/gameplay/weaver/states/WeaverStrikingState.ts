@@ -1,5 +1,5 @@
-import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
+import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import {
   WEAVER_AI_TUNING,
   VISUAL_JUICE_CONFIG,
@@ -13,8 +13,7 @@ import {
   WeaverAIComponent,
   ActorCosmeticComponent,
   KinematicVelocityComponent,
-  TetherComponent,
-  HealthComponent
+  TetherComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX, getDistance2D, getWeaverAbdomenTip } from "../../../core/utils/EngineUtils";
 
@@ -59,15 +58,6 @@ export class WeaverStrikingState implements IWeaverState {
       this.targetPos.x = 0;
       this.targetPos.y = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
     }
-
-    // Trigger striking phase sound
-    const healthStore = ctx.stores.get<HealthComponent>("health");
-    const health = healthStore?.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-    ctx.broker.publish(GameEvent.WEAVER_STRIKING_PHASE, {
-      phase: "PREP",
-      isBerserk
-    });
   }
 
   private startThrust(ctx: SystemContext): void {
@@ -98,15 +88,6 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.desiredVelocityX = this.thrustVelocity.x;
       aiComp.desiredVelocityY = this.thrustVelocity.y;
     }
-
-    // Trigger striking phase sound
-    const healthStore = ctx.stores.get<HealthComponent>("health");
-    const health = healthStore?.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-    ctx.broker.publish(GameEvent.WEAVER_STRIKING_PHASE, {
-      phase: "THRUST",
-      isBerserk
-    });
   }
 
   private startRecover(ctx: SystemContext): void {
@@ -124,14 +105,12 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.shakeDuration = 0.4;
     }
 
-    // STRIKE REEL-IN: Contract player thread by 25% after strike
     const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
     if (pTether) {
-      const minLimit = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
+      const minLimit = ARENA_CONFIG.TETHER.INITIAL_LENGTH;
       pTether.desiredLength = Math.max(minLimit, pTether.desiredLength * 0.75);
     }
 
-    // COMBAT WEB-SHOT: Immediately fire web projectile targeting the player
     const playerTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.player);
     const wTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.weaver);
     if (playerTrans && wTrans && aiComp) {
@@ -155,15 +134,6 @@ export class WeaverStrikingState implements IWeaverState {
       aiComp.shootTargetY = playerTrans.y;
       aiComp.shootIsRelease = true;
     }
-
-    // Trigger striking phase sound
-    const healthStore = ctx.stores.get<HealthComponent>("health");
-    const health = healthStore?.get(ctx.refs.weaver);
-    const isBerserk = health ? health.current < health.max * WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD : false;
-    ctx.broker.publish(GameEvent.WEAVER_STRIKING_PHASE, {
-      phase: "RECOVER",
-      isBerserk
-    });
   }
 
   public update(ctx: SystemContext, dt: number): WeaverStateType | null {
@@ -179,135 +149,134 @@ export class WeaverStrikingState implements IWeaverState {
       const speed = Math.sqrt(wVel.x * wVel.x + wVel.y * wVel.y);
       const rawAngle = Math.atan2(wVel.y, -wVel.x) + Math.PI / 2;
       const normalizedAngle = Math.atan2(Math.sin(rawAngle), Math.cos(rawAngle));
-      const maxRotation = Math.PI * 0.55; // Clamp to ~99 degrees to prevent going upside down
+      const maxRotation = Math.PI * 0.55;
 
       cosmetic.springStiffness = 120;
       cosmetic.springDamping = 22;
       cosmetic.rotationSpeed = WEAVER_AI_TUNING.ANIMATION.LERP_RATE;
 
-      if (this.currentPhase === "PREP") {
-        cosmetic.targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
-        cosmetic.targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
-        cosmetic.targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
-        const wobbleFreq = 12.0;
-        const wobbleAmp =
-          0.08 * Math.max(0.0, 1.0 - aiComp.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
-        cosmetic.wobbleAngle =
-          Math.sin(aiComp.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
-        cosmetic.rotationAngle = 0.0;
-        cosmetic.gaitAmplitude = 0.08; // High frequency visible shivering
-        cosmetic.gaitTuck = 0.65; // Legs coiled in tightly
-      } else if (this.currentPhase === "THRUST") {
-        const stretch = Math.min(
-          WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
-          (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
-            WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
-        );
-        cosmetic.targetScaleY = 1.0 + stretch;
-        cosmetic.targetScaleX = 1.0 - stretch * 0.5;
-        cosmetic.targetScaleZ = 1.0 - stretch * 0.5;
-        cosmetic.wobbleAngle = 0.0;
-        cosmetic.rotationAngle = Math.max(-maxRotation, Math.min(maxRotation, normalizedAngle));
-        cosmetic.gaitAmplitude = 0.18; // Wide aggressive lunging steps
-        cosmetic.gaitTuck = -0.5; // Legs reach outwards/reach for traction
-      } else if (this.currentPhase === "RECOVER") {
-        cosmetic.targetScaleY = 0.88;
-        cosmetic.targetScaleX = 1.06;
-        cosmetic.targetScaleZ = 1.06;
-        const breatheFreq = 3.0;
-        const breatheAmp = 0.03;
-        cosmetic.wobbleAngle = Math.sin(aiComp.timeInState * breatheFreq) * breatheAmp;
-        cosmetic.rotationAngle = 0.0;
-        cosmetic.gaitAmplitude = 0.09; // Slow heavy breathing steps
-        cosmetic.gaitFrequency = 3.0; // Exhausted frequency override (no traction lock)
-        cosmetic.gaitTuck = 0.3; // Loose relaxed pose
-      }
-    }
-
-    if (this.currentPhase === "PREP") {
-      const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
-      const step = Math.floor(this.phaseTimer * strobeHz);
-      aiComp.hue =
-        step % 2 === 0
-          ? HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
-          : HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
-
-      if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
-        aiComp.shakeRequested = true;
-        aiComp.shakeAmplitude = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP;
-        aiComp.shakeDuration = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR;
-      }
-
-      // Anticipation pull-back before thrusting
-      if (this.phaseTimer <= 0.18) {
-        const progress = (0.18 - this.phaseTimer) / 0.18;
-        const transforms = ctx.stores.get<TransformComponent>("transform");
-        const wTrans = transforms.get(ctx.refs.weaver);
-        if (wTrans) {
-          const dx = this.targetPos.x - wTrans.x;
-          const dy = this.targetPos.y - wTrans.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 0.001) {
-            aiComp.desiredVelocityX = 0;
-            aiComp.desiredVelocityY = 0;
-          } else {
-            const pullBackForce = 12.0;
-            aiComp.desiredVelocityX = -(dx / dist) * pullBackForce * progress;
-            aiComp.desiredVelocityY = -(dy / dist) * pullBackForce * progress;
+          if (this.currentPhase === "PREP") {
+            cosmetic.targetScaleY = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Y;
+            cosmetic.targetScaleX = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_X;
+            cosmetic.targetScaleZ = WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.PREP_Z;
+            const wobbleFreq = 12.0;
+            const wobbleAmp =
+              0.08 * Math.max(0.0, 1.0 - aiComp.timeInState / WEAVER_AI_TUNING.DASH.PREP_TIME);
+            cosmetic.wobbleAngle =
+              Math.sin(aiComp.timeInState * wobbleFreq) * Math.max(0.02, wobbleAmp);
+            cosmetic.rotationAngle = 0.0;
+            cosmetic.gaitAmplitude = 0.08;
+            cosmetic.gaitTuck = 0.65;
+          } else if (this.currentPhase === "THRUST") {
+            const stretch = Math.min(
+              WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX,
+              (speed / WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_SPEED_BASIS) *
+                WEAVER_AI_TUNING.DASH.SQUASH_STRETCH.STRETCH_MAX
+            );
+            cosmetic.targetScaleY = 1.0 + stretch;
+            cosmetic.targetScaleX = 1.0 - stretch * 0.5;
+            cosmetic.targetScaleZ = 1.0 - stretch * 0.5;
+            cosmetic.wobbleAngle = 0.0;
+            cosmetic.rotationAngle = Math.max(-maxRotation, Math.min(maxRotation, normalizedAngle));
+            cosmetic.gaitAmplitude = 0.18;
+            cosmetic.gaitTuck = -0.5;
+          } else if (this.currentPhase === "RECOVER") {
+            cosmetic.targetScaleY = 0.88;
+            cosmetic.targetScaleX = 1.06;
+            cosmetic.targetScaleZ = 1.06;
+            const breatheFreq = 3.0;
+            const breatheAmp = 0.03;
+            cosmetic.wobbleAngle = Math.sin(aiComp.timeInState * breatheFreq) * breatheAmp;
+            cosmetic.rotationAngle = 0.0;
+            cosmetic.gaitAmplitude = 0.09;
+            cosmetic.gaitFrequency = 3.0;
+            cosmetic.gaitTuck = 0.3;
           }
         }
-      } else {
-        aiComp.desiredVelocityX = 0;
-        aiComp.desiredVelocityY = 0;
-      }
 
-      if (this.phaseTimer <= 0) {
-        this.startThrust(ctx);
-      }
-    } else if (this.currentPhase === "THRUST") {
-      const traversalStore = ctx.stores.get<WeaverTraversalComponent>("weaverTraversal");
-      const trav = traversalStore.get(ctx.refs.weaver);
-      const isGraceOver =
-        this.phaseTimer <
-        WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME;
-      const hitWallOrGround = isGraceOver && trav ? trav.isWallClinging || trav.isGrounded : false;
+        if (this.currentPhase === "PREP") {
+          const strobeHz = WEAVER_AI_TUNING.DASH.STROBE_FREQ;
+          const step = Math.floor(this.phaseTimer * strobeHz);
+          aiComp.hue =
+            step % 2 === 0
+              ? HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_THRUST
+              : HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.DASH_PREP;
 
-      if (this.phaseTimer <= 0 || hitWallOrGround) {
-        if (hitWallOrGround) {
-          const transforms = ctx.stores.get<TransformComponent>("transform");
-          const wTrans = transforms.get(ctx.refs.weaver);
-          if (wTrans) {
-            ctx.broker.publish(GameEvent.WEAVER_WALL_HIT, {
-              x: wTrans.x,
-              y: wTrans.y,
-              wallNormalX: trav ? trav.wallNormalX : 0
-            });
-            if (wTrans.scaleVelX === undefined) wTrans.scaleVelX = 0;
-            if (wTrans.scaleVelY === undefined) wTrans.scaleVelY = 0;
-            if (wTrans.scaleVelZ === undefined) wTrans.scaleVelZ = 0;
-            if (trav && trav.isWallClinging) {
-              wTrans.scaleVelX += -3.5;
-              wTrans.scaleVelY += 2.5;
-              wTrans.scaleVelZ += 2.5;
-            } else if (trav && trav.isGrounded) {
-              wTrans.scaleVelY += -3.5;
-              wTrans.scaleVelX += 2.5;
-              wTrans.scaleVelZ += 2.5;
+          if (Math.random() < WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_FREQ) {
+            aiComp.shakeRequested = true;
+            aiComp.shakeAmplitude = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP;
+            aiComp.shakeDuration = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR;
+          }
+
+          if (this.phaseTimer <= 0.18) {
+            const progress = (0.18 - this.phaseTimer) / 0.18;
+            const transforms = ctx.stores.get<TransformComponent>("transform");
+            const wTrans = transforms.get(ctx.refs.weaver);
+            if (wTrans) {
+              const dx = this.targetPos.x - wTrans.x;
+              const dy = this.targetPos.y - wTrans.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 0.001) {
+                aiComp.desiredVelocityX = 0;
+                aiComp.desiredVelocityY = 0;
+              } else {
+                const pullBackForce = 12.0;
+                aiComp.desiredVelocityX = -(dx / dist) * pullBackForce * progress;
+                aiComp.desiredVelocityY = -(dy / dist) * pullBackForce * progress;
+              }
+            }
+          } else {
+            aiComp.desiredVelocityX = 0;
+            aiComp.desiredVelocityY = 0;
+          }
+
+          if (this.phaseTimer <= 0) {
+            this.startThrust(ctx);
+          }
+        } else if (this.currentPhase === "THRUST") {
+          const traversalStore = ctx.stores.get<WeaverTraversalComponent>("weaverTraversal");
+          const trav = traversalStore.get(ctx.refs.weaver);
+          const isGraceOver =
+            this.phaseTimer <
+            WEAVER_AI_TUNING.DASH.THRUST_TIME - WEAVER_AI_TUNING.DASH.COLLISION_GRACE_TIME;
+          const hitWallOrGround = isGraceOver && trav ? trav.isWallClinging || trav.isGrounded : false;
+
+          if (this.phaseTimer <= 0 || hitWallOrGround) {
+            if (hitWallOrGround) {
+              const transforms = ctx.stores.get<TransformComponent>("transform");
+              const wTrans = transforms.get(ctx.refs.weaver);
+              if (wTrans) {
+                ctx.broker.publish(GameEvent.WEAVER_WALL_HIT, {
+                  x: wTrans.x,
+                  y: wTrans.y,
+                  wallNormalX: trav ? trav.wallNormalX : 0
+                });
+                if (wTrans.scaleVelX === undefined) wTrans.scaleVelX = 0;
+                if (wTrans.scaleVelY === undefined) wTrans.scaleVelY = 0;
+                if (wTrans.scaleVelZ === undefined) wTrans.scaleVelZ = 0;
+                if (trav && trav.isWallClinging) {
+                  wTrans.scaleVelX += -3.5;
+                  wTrans.scaleVelY += 2.5;
+                  wTrans.scaleVelZ += 2.5;
+                } else if (trav && trav.isGrounded) {
+                  wTrans.scaleVelY += -3.5;
+                  wTrans.scaleVelX += 2.5;
+                  wTrans.scaleVelZ += 2.5;
+                }
+              }
+            }
+            this.startRecover(ctx);
+          }
+        } else if (this.currentPhase === "RECOVER") {
+          if (this.phaseTimer <= 0) {
+            this.strikeCount++;
+            if (this.strikeCount >= this.maxStrikes) {
+              return "ASCENDING";
+            } else {
+              this.startPrep(ctx);
             }
           }
         }
-        this.startRecover(ctx);
-      }
-    } else if (this.currentPhase === "RECOVER") {
-      if (this.phaseTimer <= 0) {
-        this.strikeCount++;
-        if (this.strikeCount >= this.maxStrikes) {
-          return "ASCENDING";
-        } else {
-          this.startPrep(ctx);
-        }
+        return null;
       }
     }
-    return null;
-  }
-}

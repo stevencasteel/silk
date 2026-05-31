@@ -181,9 +181,7 @@ export const HudOverlay: React.FC = () => {
     publishEvent(GameEvent.UI_SFX_CONFIRM, undefined);
   }, [publishEvent]);
 
-  const playTensionAlarm = useCallback(() => {
-    publishEvent(GameEvent.UI_SFX_ALARM, undefined);
-  }, [publishEvent]);
+
 
   const handleClearStats = useCallback(() => {
     window.dispatchEvent(new CustomEvent("silk-clear-stats"));
@@ -427,12 +425,7 @@ export const HudOverlay: React.FC = () => {
     };
   }, [overlayVisible, wins, losses, playTickSynth]);
 
-  useEffect(() => {
-    if (playerHp === 1 && !overlayVisible) {
-      const interval = setInterval(playTensionAlarm, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [playerHp, overlayVisible, playTensionAlarm]);
+
 
   const isBooting = bootStatus !== "READY" && !awaitingGesture;
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
