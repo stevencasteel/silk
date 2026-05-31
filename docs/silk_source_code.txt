@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 10:56:24 PM
+ [SYSTEM] Generated: 5/30/2026, 11:22:24 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -50,6 +50,7 @@
 │   │   │   └── CommandBus.ts
 │   │   ├── diagnostics/
 │   │   │   ├── DebugTelemetryOverlay.ts
+│   │   │   ├── IProfiler.ts
 │   │   │   └── Profiler.ts
 │   │   ├── ecs/
 │   │   │   ├── components/
@@ -68,17 +69,20 @@
 │   │   ├── engine/
 │   │   │   ├── ArenaConfig.ts
 │   │   │   ├── Engine.ts
+│   │   │   ├── PauseHandler.ts
 │   │   │   ├── RuntimeState.ts
 │   │   │   ├── SpatialPartitionService.ts
 │   │   │   └── SystemContext.ts
 │   │   ├── events/
 │   │   │   ├── EventBroker.ts
+│   │   │   ├── EventTrafficTracker.ts
 │   │   │   └── GameEvents.ts
 │   │   ├── loop/
 │   │   │   ├── GameLoop.ts
 │   │   │   ├── IScheduler.ts
 │   │   │   └── RafScheduler.ts
 │   │   ├── systems/
+│   │   │   ├── ISystemSortStrategy.ts
 │   │   │   ├── ProfilePersistenceSystem.ts
 │   │   │   └── SystemManager.ts
 │   │   ├── utils/
@@ -2284,8 +2288,11 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
 
 ● ./src/contracts/IAudio.ts
 ────────────────────────────────────────────────────
-export interface IAudioRegistry {
+export interface IAudioInitializer {
   initialize(Tone: unknown): Promise<void>;
+}
+
+export interface IAudioStateManager {
   updatePositions(playerX: number, weaverX: number): void;
   updateDronePitch(tensionVal: number): void;
   setLowHPStatus(active: boolean): void;
@@ -2296,7 +2303,9 @@ export interface IAudioRegistry {
   ): void;
   fadeOutAndMute(): void;
   resetToBaseline(): void;
+}
 
+export interface IAudioSfxTrigger {
   triggerImpact(pitch: string | number, duration: string, delay?: string | number): void;
   triggerNoise(duration: string, delay?: string | number): void;
   triggerTick(pitch: string, duration: string, time?: number): void;
@@ -2304,7 +2313,9 @@ export interface IAudioRegistry {
   triggerAlarm(pitch: string, duration: string, time?: number): void;
   setSfxPan(pan: number, time: number): void;
   setNoiseDecay(value: number): void;
+}
 
+export interface IAudioRegistry extends IAudioInitializer, IAudioStateManager, IAudioSfxTrigger {
   dispose(): void;
 }
 
@@ -2683,9 +2694,26 @@ export class DebugTelemetryOverlay implements ISystem {
 
 
 
+● ./src/core/diagnostics/IProfiler.ts
+────────────────────────────────────────────────────
+export interface IProfiler {
+  readonly isEnabled: boolean;
+  beginFrame(): void;
+  endFrame(): void;
+  recordSystem(name: string, duration: number): void;
+  getFps(): number;
+  getFrameTime(): number;
+  getSystemTimings(): Map<string, number>;
+  clearFrame(): void;
+}
+
+
+
 ● ./src/core/diagnostics/Profiler.ts
 ────────────────────────────────────────────────────
-export class Profiler {
+import { IProfiler } from "./IProfiler";
+
+export class Profiler implements IProfiler {
   public isEnabled = false;
   private systemTimings = new Map<string, number>();
   private frameStart = 0;
@@ -3092,6 +3120,8 @@ export interface HitboxComponent {
   targetLayer: "PLAYER" | "WEAVER" | "BOTH";
   knockbackX?: number;
   knockbackY?: number;
+  lastHitTime?: number;
+  hitCooldown?: number;
 }
 
 export interface HurtboxComponent {
@@ -3652,7 +3682,7 @@ export const VISUAL_JUICE_CONFIG = {
     }
   },
   WALL_BUG_COLORS: {
-    BLUE_STRIPE: { r: 0.05, g: 0.45, b: 0.85 },
+    BLUE_STRIPE: { r: 0.027, g: 0.431, b: 0.749 },
     SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 }
   },
   COCOON_COLORS: {
@@ -3703,15 +3733,16 @@ import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
 import { RuntimeState } from "./RuntimeState";
+import { PauseHandler } from "./PauseHandler";
 
 export class Engine {
   private loop: GameLoop;
   private systemManager: SystemManager;
   private broker: IEventBroker;
   private runtime: RuntimeState;
+  private pauseHandler: PauseHandler;
 
   public isPaused: boolean = true;
-  private isManuallyPaused: boolean = false;
   private unsubscribes: (() => void)[] = [];
   public _bootProgressUnsubscribe?: () => void;
 
@@ -3730,6 +3761,9 @@ export class Engine {
     this.broker = broker;
     this.systemManager = systemManager;
     this.runtime = runtime;
+    this.pauseHandler = new PauseHandler(broker, (paused) => {
+      this.isPaused = paused;
+    });
     this.loop = new GameLoop(
       (dt) => this.update(dt),
       (alpha) => this.render(alpha),
@@ -3752,7 +3786,7 @@ export class Engine {
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY" });
 
-    this.initPauseHandlers();
+    this.pauseHandler.init();
     this.initGestureHandlers();
 
     this.loop.start();
@@ -3760,7 +3794,7 @@ export class Engine {
 
   public stop(): void {
     this.loop.cleanup();
-    this.removePauseHandlers();
+    this.pauseHandler.dispose();
     this.systemManager.disposeAll();
     for (let i = 0; i < this.unsubscribes.length; i++) {
       this.unsubscribes[i]();
@@ -3769,32 +3803,67 @@ export class Engine {
   }
 
   public setPaused(paused: boolean): void {
-    if (this.isPaused === paused) return;
-    this.isPaused = paused;
-    this.broker.publish(GameEvent.GAME_PAUSED, { isPaused: this.isPaused });
+    this.pauseHandler.setPaused(paused);
   }
 
-  private initPauseHandlers(): void {
+  private initGestureHandlers(): void {
+    this.unsubscribes.push(
+      this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        this.pauseHandler.resumeFromGesture();
+      })
+    );
+  }
+
+  private update(dt: number): void {
+    if (this.isPaused) return;
+
+    if (this.runtime.hitLagTimer > 0) {
+      this.runtime.hitLagTimer = Math.max(0, this.runtime.hitLagTimer - dt);
+    }
+    const scaledDt = dt * this.runtime.activeTimeScale;
+
+    this.systemManager.updateAll(scaledDt);
+  }
+
+  private render(alpha: number): void {
+    this.systemManager.renderAll(alpha);
+  }
+}
+
+
+
+● ./src/core/engine/PauseHandler.ts
+────────────────────────────────────────────────────
+import { IEventBroker } from "../../contracts/ICore";
+import { GameEvent } from "../events/GameEvents";
+
+export class PauseHandler {
+  private isManuallyPaused: boolean = false;
+
+  constructor(private broker: IEventBroker, private onPausedChange: (paused: boolean) => void) {}
+
+  public init(): void {
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("blur", this.handleBlur);
     window.addEventListener("focus", this.handleFocus);
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
-  private removePauseHandlers(): void {
+  public dispose(): void {
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("blur", this.handleBlur);
     window.removeEventListener("focus", this.handleFocus);
-    document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
-  private initGestureHandlers(): void {
-    this.unsubscribes.push(
-      this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
-        this.setPaused(false);
-        this.isManuallyPaused = false;
-      })
-    );
+  public setPaused(paused: boolean): void {
+    this.onPausedChange(paused);
+    this.broker.publish(GameEvent.GAME_PAUSED, { isPaused: paused });
+  }
+
+  public resumeFromGesture(): void {
+    this.setPaused(false);
+    this.isManuallyPaused = false;
   }
 
   private handleKeyDown = (e: KeyboardEvent): void => {
@@ -3822,21 +3891,6 @@ export class Engine {
       this.setPaused(false);
     }
   };
-
-  private update(dt: number): void {
-    if (this.isPaused) return;
-
-    if (this.runtime.hitLagTimer > 0) {
-      this.runtime.hitLagTimer = Math.max(0, this.runtime.hitLagTimer - dt);
-    }
-    const scaledDt = dt * this.runtime.activeTimeScale;
-
-    this.systemManager.updateAll(scaledDt);
-  }
-
-  private render(alpha: number): void {
-    this.systemManager.renderAll(alpha);
-  }
 }
 
 
@@ -3950,10 +4004,11 @@ export class SystemContext {
 ────────────────────────────────────────────────────
 import { GameEvent, GameEventMap } from "./GameEvents";
 import { IEventBroker, EventCallback } from "../../contracts/ICore";
+import { EventTrafficTracker } from "./EventTrafficTracker";
 
 export class EventBroker implements IEventBroker {
   private listeners: { [K in GameEvent]?: Set<EventCallback<unknown>> } = {};
-  public traffic: Map<string, number> = new Map();
+  private trafficTracker: EventTrafficTracker = new EventTrafficTracker();
 
   public subscribe<K extends GameEvent>(event: K, cb: EventCallback<GameEventMap[K]>): () => void {
     if (!this.listeners[event]) {
@@ -3966,7 +4021,7 @@ export class EventBroker implements IEventBroker {
   }
 
   public publish<K extends GameEvent>(event: K, payload: GameEventMap[K]): void {
-    this.traffic.set(event, (this.traffic.get(event) || 0) + 1);
+    this.trafficTracker.record(event);
     const set = this.listeners[event];
     if (set) {
       set.forEach((cb) => {
@@ -3975,12 +4030,36 @@ export class EventBroker implements IEventBroker {
     }
   }
 
+  public getTraffic(): Map<string, number> {
+    return this.trafficTracker.getTraffic();
+  }
+
   public clearTraffic(): void {
-    this.traffic.clear();
+    this.trafficTracker.clear();
   }
 
   public clear(): void {
     this.listeners = {};
+    this.trafficTracker.clear();
+  }
+}
+
+
+
+● ./src/core/events/EventTrafficTracker.ts
+────────────────────────────────────────────────────
+export class EventTrafficTracker {
+  private traffic: Map<string, number> = new Map();
+
+  public record(event: string): void {
+    this.traffic.set(event, (this.traffic.get(event) || 0) + 1);
+  }
+
+  public getTraffic(): Map<string, number> {
+    return this.traffic;
+  }
+
+  public clear(): void {
     this.traffic.clear();
   }
 }
@@ -4189,6 +4268,32 @@ export class RafScheduler implements IScheduler {
 
 
 
+● ./src/core/systems/ISystemSortStrategy.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { InitPhase } from "../../contracts/SystemPhase";
+
+export interface ISystemSortStrategy {
+  sortByPhase(systems: ISystem[]): ISystem[];
+  sortByInitPhase(systems: ISystem[]): ISystem[];
+}
+
+export class DefaultSystemSortStrategy implements ISystemSortStrategy {
+  public sortByPhase(systems: ISystem[]): ISystem[] {
+    return [...systems].sort((a, b) => a.phase - b.phase);
+  }
+
+  public sortByInitPhase(systems: ISystem[]): ISystem[] {
+    return [...systems].sort((a, b) => {
+      const phaseA = a.initPhase ?? InitPhase.Gameplay;
+      const phaseB = b.initPhase ?? InitPhase.Gameplay;
+      return phaseA - phaseB;
+    });
+  }
+}
+
+
+
 ● ./src/core/systems/ProfilePersistenceSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
@@ -4293,29 +4398,29 @@ import {
   isRenderable,
   isDisposable
 } from "../../contracts/ISystem";
-import { Profiler } from "../diagnostics/Profiler";
+import { IProfiler } from "../diagnostics/IProfiler";
 import { InitPhase } from "../../contracts/SystemPhase";
+import { ISystemSortStrategy, DefaultSystemSortStrategy } from "./ISystemSortStrategy";
 
 export class SystemManager {
   private systems: ISystem[] = [];
   private systemNames: Map<ISystem, string> = new Map();
 
-  constructor(private profiler: Profiler) {}
+  constructor(
+    private profiler: IProfiler,
+    private sortStrategy: ISystemSortStrategy = new DefaultSystemSortStrategy()
+  ) {}
 
   public register(system: ISystem): void {
     this.systems.push(system);
     this.systemNames.set(system, system.constructor.name);
-    this.systems.sort((a, b) => a.phase - b.phase);
+    this.systems = this.sortStrategy.sortByPhase(this.systems);
   }
 
   public async initAll(
     onProgress?: (phase: InitPhase, systemName: string, progress: number) => void
   ): Promise<void> {
-    const sortedForInit = [...this.systems].sort((a, b) => {
-      const phaseA = a.initPhase ?? InitPhase.Gameplay;
-      const phaseB = b.initPhase ?? InitPhase.Gameplay;
-      return phaseA - phaseB;
-    });
+    const sortedForInit = this.sortStrategy.sortByInitPhase(this.systems);
 
     const totalSystems = sortedForInit.length;
     let completedSystems = 0;
@@ -6147,7 +6252,8 @@ export class ProjectileSystem implements ISystem {
         pComp.isStuck = true;
         pComp.isStuckOnWall = true;
 
-        projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
+        const PROJECTILE_WALL_OFFSET = 0.05;
+        projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - PROJECTILE_WALL_OFFSET);
         projTrans.prevX = projTrans.x;
 
         if (projVel) {
@@ -13965,15 +14071,15 @@ import {
   TraversalStateComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import * as BABYLON from "@babylonjs/core";
 
 export class CollisionResolutionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
+  private currentTime = 0.0;
 
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    void dt;
+    this.currentTime += dt;
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const responses = this.context.stores.get<CollisionResponseComponent>("collisionResponse");
 
@@ -13997,18 +14103,26 @@ export class CollisionResolutionSystem implements ISystem {
         const combinedRadius = hb.radius + hub.radius;
 
         if (dist < combinedRadius) {
+          const cooldown = hb.hitCooldown || 0.1;
+          
+          if (hb.lastHitTime !== undefined && this.currentTime - hb.lastHitTime < cooldown) {
+            continue;
+          }
+
           let dx = hubTrans.x - hbTrans.x;
           let dy = hubTrans.y - hbTrans.y;
           let len = Math.sqrt(dx * dx + dy * dy);
           if (len < 0.001) {
-            dx = 0.001;
-            dy = 0.0;
-            len = 0.001;
+            const angle = Math.random() * Math.PI * 2;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+            len = 1.0;
           }
 
           const response = responses.get(hubId);
           if (response && response.onHit) {
             response.onHit(hb.damage, "PLAYER_FLING", dx / len, dy / len, this.context);
+            hb.lastHitTime = this.currentTime;
           }
         }
       }
@@ -14020,15 +14134,39 @@ export class CollisionResolutionSystem implements ISystem {
 
       const response = responses.get(projId);
       if (response && response.layer === "PROJECTILE" && response.onOverlap) {
-        const mesh = this.context.visualQuery.getTransformNode(projId);
-        const pMesh = this.context.visualQuery.getTransformNode(this.context.refs.player);
+        const projTrans = transforms.get(projId);
+        const playerTrans = transforms.get(this.context.refs.player);
 
-        if (
-          mesh instanceof BABYLON.AbstractMesh &&
-          pMesh instanceof BABYLON.AbstractMesh &&
-          mesh.intersectsMesh(pMesh, false)
-        ) {
-          response.onOverlap(this.context.refs.player, this.context);
+        if (projTrans && playerTrans) {
+          const projectileRadius = 0.9;
+          const playerRadius = this.context.stores.get<HurtboxComponent>("hurtbox").get(this.context.refs.player)?.radius || 1.0;
+          const combinedRadius = projectileRadius + playerRadius;
+
+          const dist = getDistance2D(projTrans.x, projTrans.y, playerTrans.x, playerTrans.y);
+          
+          if (dist < combinedRadius) {
+            response.onOverlap(this.context.refs.player, this.context);
+          } else {
+            const dx = projTrans.x - projTrans.prevX;
+            const dy = projTrans.y - projTrans.prevY;
+            const movementDist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (movementDist > 0.01) {
+              const t = this.closestPointOnSegment(
+                projTrans.prevX, projTrans.prevY,
+                projTrans.x, projTrans.y,
+                playerTrans.x, playerTrans.y
+              );
+              
+              const closestX = projTrans.prevX + dx * t;
+              const closestY = projTrans.prevY + dy * t;
+              const closestDist = getDistance2D(closestX, closestY, playerTrans.x, playerTrans.y);
+              
+              if (closestDist < combinedRadius) {
+                response.onOverlap(this.context.refs.player, this.context);
+              }
+            }
+          }
         }
       }
     }
@@ -14059,6 +14197,21 @@ export class CollisionResolutionSystem implements ISystem {
         }
       }
     }
+  }
+
+  private closestPointOnSegment(
+    x1: number, y1: number,
+    x2: number, y2: number,
+    px: number, py: number
+  ): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    
+    if (lenSq < 0.0001) return 0;
+    
+    const t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    return Math.max(0, Math.min(1, t));
   }
 }
 
@@ -14111,6 +14264,10 @@ export class EnvironmentClampingSystem implements ISystem {
 
       if (hitRight || hitLeft) {
         const hitSide = hitRight ? "RIGHT" : "LEFT";
+        
+        trans.x = hitRight ? constraint.limitX : -constraint.limitX;
+        trans.prevX = trans.x;
+        
         if (constraint.onBoundaryHit) {
           constraint.onBoundaryHit(id, hitSide, trans.x);
         }
@@ -16310,6 +16467,7 @@ export class LightingSystem implements ISystem {
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
+  private fillLights: BABYLON.PointLight[] = [];
   private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0);
   private currentColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
@@ -16353,6 +16511,31 @@ export class LightingSystem implements ISystem {
     this.rimLight.intensity = 1.8;
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.3, 0.3, 0.3);
+
+    // Add fill lights distributed throughout the arena for uniform lighting
+    const fillLightPositions = [
+      new BABYLON.Vector3(-8, 20, -8),
+      new BABYLON.Vector3(8, 20, -8),
+      new BABYLON.Vector3(-8, 0, -8),
+      new BABYLON.Vector3(8, 0, -8),
+      new BABYLON.Vector3(-8, -20, -8),
+      new BABYLON.Vector3(8, -20, -8),
+      new BABYLON.Vector3(0, 30, -10),
+      new BABYLON.Vector3(0, -30, -10)
+    ];
+
+    for (let i = 0; i < fillLightPositions.length; i++) {
+      const fillLight = new BABYLON.PointLight(
+        `fillLight_${i}`,
+        fillLightPositions[i],
+        scene
+      );
+      fillLight.intensity = 0.6;
+      fillLight.range = 25.0;
+      fillLight.diffuse = new BABYLON.Color3(0.95, 0.97, 1.0);
+      fillLight.specular = new BABYLON.Color3(0.2, 0.2, 0.2);
+      this.fillLights.push(fillLight);
+    }
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
@@ -16433,6 +16616,10 @@ export class LightingSystem implements ISystem {
     if (this.weaverLight) this.weaverLight.dispose();
     if (this.weaverKeyLight) this.weaverKeyLight.dispose();
     if (this.rimLight) this.rimLight.dispose();
+    for (const fillLight of this.fillLights) {
+      fillLight.dispose();
+    }
+    this.fillLights = [];
   }
 }
 
@@ -17061,10 +17248,11 @@ export class ArenaGeometry {
     }
 
     const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
-    tickMat.albedoColor = new BABYLON.Color3(0.1, 0.13, 0.16);
+    tickMat.albedoColor = new BABYLON.Color3(0.027, 0.431, 0.749);
     tickMat.metallic = 0.3;
     tickMat.roughness = 0.4;
-    tickMat.emissiveColor = new BABYLON.Color3(0.5, 0.72, 0.94);
+    tickMat.emissiveColor = new BABYLON.Color3(0.0, 0.35, 0.65);
+    tickMat.emissiveIntensity = 0.5;
 
     const tickBase = BABYLON.MeshBuilder.CreateBox(
       "tickBase",
@@ -17138,7 +17326,7 @@ export class FaunaVisualFactory {
     coreMat.metallic = 0.02;
 
     const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
-    const greenColor = { r: 0.1, g: 0.95, b: 0.15 };
+    const greenColor = { r: 0.0, g: 1.0, b: 0.05 };
 
     const redStyle = `rgb(${Math.floor(spikeColor.r * 255)}, ${Math.floor(spikeColor.g * 255)}, ${Math.floor(spikeColor.b * 255)})`;
     const greenStyle = `rgb(${Math.floor(greenColor.r * 255)}, ${Math.floor(greenColor.g * 255)}, ${Math.floor(greenColor.b * 255)})`;
@@ -17365,6 +17553,22 @@ export class FaunaVisualFactory {
     stripL.material = stripeMat;
     stripL.parent = leftSafety;
 
+    // Add horizontal lines to left safety side
+    for (let h = 0; h < 6; h++) {
+      const hLineL = BABYLON.MeshBuilder.CreateBox(
+        `hLineL_${id}_${h}`,
+        {
+          width: 0.35,
+          height: 0.06,
+          depth: 0.32
+        },
+        scene
+      );
+      hLineL.position.set(-0.59, -2.5 + h * 1.0, 0);
+      hLineL.material = stripeMat;
+      hLineL.parent = leftSafety;
+    }
+
     const stripR = BABYLON.MeshBuilder.CreateBox(
       `stripR_${id}`,
       {
@@ -17377,6 +17581,22 @@ export class FaunaVisualFactory {
     stripR.position.set(0.59, 0, 0);
     stripR.material = stripeMat;
     stripR.parent = rightSafety;
+
+    // Add horizontal lines to right safety side
+    for (let h = 0; h < 6; h++) {
+      const hLineR = BABYLON.MeshBuilder.CreateBox(
+        `hLineR_${id}_${h}`,
+        {
+          width: 0.35,
+          height: 0.06,
+          depth: 0.32
+        },
+        scene
+      );
+      hLineR.position.set(0.59, -2.5 + h * 1.0, 0);
+      hLineR.material = stripeMat;
+      hLineR.parent = rightSafety;
+    }
 
     for (let leg = 0; leg < 4; leg++) {
       const legY = -2.0 + leg * 1.35;

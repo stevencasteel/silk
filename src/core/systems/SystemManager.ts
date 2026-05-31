@@ -5,29 +5,29 @@ import {
   isRenderable,
   isDisposable
 } from "../../contracts/ISystem";
-import { Profiler } from "../diagnostics/Profiler";
+import { IProfiler } from "../diagnostics/IProfiler";
 import { InitPhase } from "../../contracts/SystemPhase";
+import { ISystemSortStrategy, DefaultSystemSortStrategy } from "./ISystemSortStrategy";
 
 export class SystemManager {
   private systems: ISystem[] = [];
   private systemNames: Map<ISystem, string> = new Map();
 
-  constructor(private profiler: Profiler) {}
+  constructor(
+    private profiler: IProfiler,
+    private sortStrategy: ISystemSortStrategy = new DefaultSystemSortStrategy()
+  ) {}
 
   public register(system: ISystem): void {
     this.systems.push(system);
     this.systemNames.set(system, system.constructor.name);
-    this.systems.sort((a, b) => a.phase - b.phase);
+    this.systems = this.sortStrategy.sortByPhase(this.systems);
   }
 
   public async initAll(
     onProgress?: (phase: InitPhase, systemName: string, progress: number) => void
   ): Promise<void> {
-    const sortedForInit = [...this.systems].sort((a, b) => {
-      const phaseA = a.initPhase ?? InitPhase.Gameplay;
-      const phaseB = b.initPhase ?? InitPhase.Gameplay;
-      return phaseA - phaseB;
-    });
+    const sortedForInit = this.sortStrategy.sortByInitPhase(this.systems);
 
     const totalSystems = sortedForInit.length;
     let completedSystems = 0;

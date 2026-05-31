@@ -1,4 +1,6 @@
-export class Profiler {
+import { IProfiler } from "./IProfiler";
+
+export class Profiler implements IProfiler {
   public isEnabled = false;
   private systemTimings = new Map<string, number>();
   private frameStart = 0;

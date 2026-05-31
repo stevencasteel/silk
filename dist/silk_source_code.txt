@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 10:22:54 PM
+ [SYSTEM] Generated: 5/30/2026, 11:19:06 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -200,11 +200,25 @@ on:
     branches:
       - main
       - master
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -221,11 +235,17 @@ jobs:
       - name: Build Project
         run: npm run build
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: ./dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
 #      - name: Setup Butler
 #        uses: remarkablegames/setup-butler@v3
@@ -1100,12 +1120,15 @@ export default function App() {
         }
         engineInstance = engine;
 
-        const unsubscribe = engine.eventBroker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
-          if (payload.status === "READY") {
-            unsubscribe();
-            useOverlayStore.getState().setAwaitingGesture(true);
+        const unsubscribe = engine.eventBroker.subscribe(
+          GameEvent.GAME_BOOT_PROGRESS,
+          (payload) => {
+            if (payload.status === "READY") {
+              unsubscribe();
+              useOverlayStore.getState().setAwaitingGesture(true);
+            }
           }
-        });
+        );
 
         engineInstance.start();
       })
@@ -1174,7 +1197,9 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
     return engine;
   } catch (error) {
     console.error("Failed to bootstrap application:", error);
-    overlay.setBootStatus("BOOT FAILED: " + (error instanceof Error ? error.message : String(error)));
+    overlay.setBootStatus(
+      "BOOT FAILED: " + (error instanceof Error ? error.message : String(error))
+    );
     overlay.setLoadingProgress(0);
     throw error;
   }
@@ -1831,7 +1856,17 @@ export const AUDIO_PRESETS = {
 ────────────────────────────────────────────────────
 import { IAudioRegistry } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "./AudioPresets";
-import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner, NoiseSynth } from "tone";
+import type {
+  FMOscillator,
+  Filter,
+  Gain,
+  LFO,
+  Synth,
+  MembraneSynth,
+  Loop,
+  Panner,
+  NoiseSynth
+} from "tone";
 
 export class AudioSynthesizerRegistry implements IAudioRegistry {
   private fmOsc: FMOscillator | null = null;
@@ -2105,13 +2140,13 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public fadeOutAndMute(): void {
     if (!this.gainNode || !this.ToneModule) return;
     const now = this.ToneModule.now();
-    
+
     this.gainNode.gain.cancelScheduledValues(now);
     this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
-    
+
     if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
     if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
-    
+
     if (this.heartbeatLoop) this.heartbeatLoop.stop();
     this.lastTension = 0.0;
   }
@@ -3002,8 +3037,21 @@ export interface WeaverSweepComponent {
   direction: number;
 }
 
-export type HealthBugState = "FLYING_UP" | "PAUSED" | "CONTINUING" | "SHOVED" | "PINBALL" | "SPINNING" | "RECOVERING" | "DEAD";
-export type HealthBugVariant = "NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT";
+export type HealthBugState =
+  | "FLYING_UP"
+  | "PAUSED"
+  | "CONTINUING"
+  | "SHOVED"
+  | "PINBALL"
+  | "SPINNING"
+  | "RECOVERING"
+  | "DEAD";
+export type HealthBugVariant =
+  | "NORMAL"
+  | "SPIKED_TOP"
+  | "SPIKED_RIGHT"
+  | "SPIKED_BOTTOM"
+  | "SPIKED_LEFT";
 
 export interface HealthBugComponent {
   state: HealthBugState;
@@ -3044,6 +3092,8 @@ export interface HitboxComponent {
   targetLayer: "PLAYER" | "WEAVER" | "BOTH";
   knockbackX?: number;
   knockbackY?: number;
+  lastHitTime?: number;
+  hitCooldown?: number;
 }
 
 export interface HurtboxComponent {
@@ -3218,8 +3268,10 @@ export const CANONICAL_UNITS = {
     JUICE_PARTICLE: -18.0
   },
   TETHER_STRAIN: {
-    OVERLOAD_LIMIT: 0.80,
-    SNAP_LIMIT: 0.95
+    OVERLOAD_LIMIT: 0.8,
+    SNAP_LIMIT: 1.3,
+    DAMAGE_COOLDOWN_MS: 800,
+    TENSION_RESET_AFTER_DAMAGE: 0.62
   },
   SCROLL_MAPPING: {
     TOTAL_RANGE: 140.0,
@@ -3290,11 +3342,13 @@ export const GAMEPLAY_TUNING = {
     LAUNCH_GRAVITY_MULT: 0.22,
     SLERP_FACTOR: 0.22,
     DRAG_DAMPING: 0.99,
+    WALL_SLIDE_SPEED: 5.0,
+    INPUT_TOLERANCE: 0.1,
     SQUASH_STRETCH: {
       WALL_SLIDE_X: 0.75,
       WALL_SLIDE_Y: 1.15,
       WALL_SLIDE_Z: 1.0,
-      LAUNCH_POWER_MULT: 0.20,
+      LAUNCH_POWER_MULT: 0.2,
       AIRBORNE_STRETCH_MAX: 0.3,
       AIRBORNE_SPEED_BASIS: 30.0,
       SQUASH_LAND_X: 1.22,
@@ -3303,6 +3357,34 @@ export const GAMEPLAY_TUNING = {
       SQUASH_WALL_X: 0.72,
       SQUASH_WALL_Y: 1.22,
       LAND_VEL_THRESHOLD: -1.0
+    },
+    TENSION: {
+      TAUTNESS_THRESHOLD: 0.85,
+      DECAY_MULTIPLIER: 2.0,
+      MAX_ACHIEVABLE_TENSION: 1.3,
+      BUILD_IN_AIRBORNE: true,
+      BUILD_IN_LAUNCHING: true
+    },
+    FLING: {
+      MIN_MULTIPLIER: 0.35,
+      MAX_MULTIPLIER: 2.2,
+      RANGE_POWER: 1.5,
+      BONUS_MULTIPLIER: 1.15,
+      LOW_TENSION_NUDGE_DISTANCE: 0.35,
+      LOW_TENSION_NUDGE_SPEED: 5.5,
+      LOW_TENSION_MIN_VEL_Y: -3.0,
+      SAFE_LAUNCH_DURATION: 0.4
+    },
+    COSMETIC: {
+      OVERLOAD_SCALE_VEL_Y: 36.0,
+      OVERLOAD_SCALE_VEL_X: -18.0,
+      OVERLOAD_SCALE_VEL_Z: -18.0,
+      SWEET_SPOT_SCALE_VEL_Y: 22.0,
+      SWEET_SPOT_SCALE_VEL_X: -11.0,
+      SWEET_SPOT_SCALE_VEL_Z: -11.0,
+      HITSTOP_OVERLOAD: 0.1,
+      HITSTOP_SWEET_SPOT: 0.08,
+      HITSTOP_SWEET_SPOT_SCALE: 0.15
     }
   },
   COMBAT: {
@@ -3320,15 +3402,22 @@ export const GAMEPLAY_TUNING = {
     HITSTOP_WEAVER: 0.15,
     SPIKE_DAMAGE: 1,
     SPIKE_KNOCKBACK_X: 20.0,
-    SPIKE_KNOCKBACK_Y: 8.0
+    SPIKE_KNOCKBACK_Y: 8.0,
+    HAZARD_COLLISION_RADIUS_NORMAL: 2.4 as number,
+    HAZARD_COLLISION_RADIUS_SPIKED: 3.4 as number
   },
   REEL: {
     MIN_LENGTH: 5.4,
     MAX_LENGTH: 38.0,
     IN_SPEED: 10.0,
     OUT_SPEED: 14.0,
+    MANUAL_IN_SPEED: 16.0,
+    AUTO_SLACK_MARGIN: 0.5,
+    MIN_LENGTH_OFFSET: 0.5,
+    SPRING_STIFFNESS: 180.0,
+    SPRING_DAMPING: 15.0,
     SWEET_SPOT_MIN: 0.555,
-    SWEET_SPOT_MAX: 0.80
+    SWEET_SPOT_MAX: 0.8
   }
 } as const;
 
@@ -3426,11 +3515,37 @@ export const VISUAL_JUICE_CONFIG = {
     TENSION_VIB_FREQ: 0.025,
     TENSION_VIB_THRESHOLD: 0.7,
     TENSION_VIB_AMP: 0.35,
+    TENSION_VIB_HIGH_TENSION_MULT: 2.5,
+    TENSION_VIB_HIGH_TENSION_FREQ_MULT: 3.5,
     WAVINESS_FREQ: 0.005,
     WAVINESS_AMP: 0.12,
     WAVINESS_STRETCH: 2.5,
     BEZIER_DEPTH: 0.35,
-    MAX_SNAP_DURATION_SECONDS: 1.5
+    MAX_SNAP_DURATION_SECONDS: 1.5,
+    SAG_LOW_TENSION_MULT: 1.3,
+    SAG_SWEET_SPOT_MULT: 0.15,
+    SAG_REEL_IN_MIN: 0.15,
+    SAG_REEL_OUT_MULT: 0.4,
+    WAVE_LOW_TENSION_MULT: 1.8,
+    WAVE_SWEET_SPOT_MULT: 0.35,
+    WAVE_HIGH_TENSION_MULT: 0.1,
+    RADIUS_LOW_TENSION_MULT: 0.85,
+    RADIUS_SWEET_SPOT_MULT: 1.1,
+    RADIUS_PULSE_FREQ: 0.03,
+    RADIUS_PULSE_AMP: 0.015
+  },
+  TETHER_UI: {
+    COLOR_GREEN: { r: 34, g: 197, b: 94 },
+    COLOR_YELLOW: { r: 234, g: 179, b: 8 },
+    COLOR_RED: { r: 239, g: 68, b: 68 },
+    GLOW_GREEN: { r: 34, g: 197, b: 94, a: 0.45 },
+    GLOW_YELLOW: { r: 234, g: 179, b: 8, a: 0.75 },
+    GLOW_RED: { r: 239, g: 68, b: 68, a: 0.95 },
+    THRESHOLD_YELLOW: 0.427,
+    THRESHOLD_RED: 0.8,
+    PULSE_FREQ: 0.05,
+    PULSE_AMP: 0.1,
+    MIN_TENSION_FOR_EFFECTS: 0.05
   },
   PARTICLES: {
     DRAG: 0.92,
@@ -3539,7 +3654,7 @@ export const VISUAL_JUICE_CONFIG = {
     }
   },
   WALL_BUG_COLORS: {
-    BLUE_STRIPE: { r: 0.05, g: 0.45, b: 0.85 },
+    BLUE_STRIPE: { r: 0.027, g: 0.431, b: 0.749 },
     SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 }
   },
   COCOON_COLORS: {
@@ -4195,7 +4310,9 @@ export class SystemManager {
     this.systems.sort((a, b) => a.phase - b.phase);
   }
 
-  public async initAll(onProgress?: (phase: InitPhase, systemName: string, progress: number) => void): Promise<void> {
+  public async initAll(
+    onProgress?: (phase: InitPhase, systemName: string, progress: number) => void
+  ): Promise<void> {
     const sortedForInit = [...this.systems].sort((a, b) => {
       const phaseA = a.initPhase ?? InitPhase.Gameplay;
       const phaseB = b.initPhase ?? InitPhase.Gameplay;
@@ -4209,14 +4326,14 @@ export class SystemManager {
       if (isInitializable(system)) {
         const phase = system.initPhase ?? InitPhase.Gameplay;
         const systemName = this.systemNames.get(system) || system.constructor.name;
-        
+
         if (onProgress) {
           onProgress(phase, systemName, completedSystems / totalSystems);
         }
-        
+
         await system.init();
         completedSystems++;
-        
+
         if (onProgress) {
           onProgress(phase, systemName, completedSystems / totalSystems);
         }
@@ -4401,7 +4518,9 @@ export function solveSpringDamper(
     const c2 = (velocity - alpha * displacement) / omegaD;
 
     const nextValue = (c1 * cosTerm + c2 * sinTerm) * expTerm + target;
-    const nextVelocity = (c1 * (alpha * cosTerm - omegaD * sinTerm) + c2 * (alpha * sinTerm + omegaD * cosTerm)) * expTerm;
+    const nextVelocity =
+      (c1 * (alpha * cosTerm - omegaD * sinTerm) + c2 * (alpha * sinTerm + omegaD * cosTerm)) *
+      expTerm;
     return { value: nextValue, velocity: nextVelocity };
   } else if (zeta > 1.001) {
     const omegaD = omega * Math.sqrt(zeta * zeta - 1.0);
@@ -4609,7 +4728,6 @@ import {
   InputIntentComponent,
   WeaverAIComponent,
   TagComponent,
-  
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
@@ -4617,7 +4735,6 @@ import {
   HurtboxComponent,
   HitboxComponent,
   ActorCosmeticComponent,
-  
   CollisionResponseComponent,
   BoundaryConstraintComponent,
   CollisionStateComponent
@@ -5117,7 +5234,7 @@ export class CombatSystem implements ISystem {
     const tuning = GAMEPLAY_TUNING.COMBAT;
 
     if (pHb && pTrav) {
-      pHb.isActive = pTrav.state === "LAUNCHING" && pTrav.launchPower > 0.80;
+      pHb.isActive = pTrav.state === "LAUNCHING" && pTrav.launchPower > 0.8;
     }
     if (wHb && wAI) {
       wHb.isActive = wAI.state === "STRIKING" && wAI.isThrusting === true;
@@ -5187,20 +5304,14 @@ export class CombatSystem implements ISystem {
 
 ● ./src/gameplay/combat/GameDirectorSystem.ts
 ────────────────────────────────────────────────────
-import {
-  
-  ISystem } from "../../contracts/ISystem";
+import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  HitStopComponent, HealthComponent,
-  TetherComponent
-} from "../../core/ecs/Components";
+import { HitStopComponent, HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
-
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -5279,14 +5390,18 @@ export class GameDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
+        const hs = this.context.stores
+          .get<HitStopComponent>("hitStop")
+          .get(this.context.refs.player);
         if (hs) hs.timeRemaining = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.weaver);
+        const hs = this.context.stores
+          .get<HitStopComponent>("hitStop")
+          .get(this.context.refs.weaver);
         if (hs) hs.timeRemaining = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
       })
     );
@@ -5303,7 +5418,7 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
         this.context.runtime.hitLagTimer = 0.18;
-        this.context.runtime.hitLagScale = 0.20;
+        this.context.runtime.hitLagScale = 0.2;
       })
     );
 
@@ -5602,12 +5717,16 @@ export class ProjectilePool {
   ) {
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive");
     const noisePlugin = new SilkMaterialPlugin(this.projMatActive, { noise: true });
-    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePlugin;
+    (
+      this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+    )._noisePlugin = noisePlugin;
 
     this.projMatActiveRed = this.createBaseProjectileMaterial("projectileMatActiveRed");
     this.projMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
     const noisePluginRed = new SilkMaterialPlugin(this.projMatActiveRed, { noise: true });
-    (this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePluginRed;
+    (
+      this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+    )._noisePlugin = noisePluginRed;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck");
     this.projMatStuckRed = this.createBaseProjectileMaterial("projectileMatStuckRed");
@@ -5615,7 +5734,9 @@ export class ProjectilePool {
 
     this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped");
     const trappedNoise = new SilkMaterialPlugin(this.projMatTrapped, { noise: true });
-    (this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = trappedNoise;
+    (
+      this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+    )._noisePlugin = trappedNoise;
 
     if (this.scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
@@ -5656,7 +5777,12 @@ export class ProjectilePool {
 
       let body: BABYLON.PhysicsBody | null = null;
       if (this.scene.isPhysicsEnabled() && this.sharedShape) {
-        body = new BABYLON.PhysicsBody(sphere, BABYLON.PhysicsMotionType.ANIMATED, false, this.scene);
+        body = new BABYLON.PhysicsBody(
+          sphere,
+          BABYLON.PhysicsMotionType.ANIMATED,
+          false,
+          this.scene
+        );
         body.shape = this.sharedShape;
         body.setMassProperties({ mass: 1.0 });
         body.disablePreStep = false;
@@ -5767,7 +5893,7 @@ export class ProjectilePool {
     const mesh = this.meshesMap.get(projId);
 
     if (pComp && trans && vel && mesh) {
-      const isRed = (shotCounter % 3 === 2);
+      const isRed = shotCounter % 3 === 2;
       this.redStatusMap.set(projId, isRed);
 
       pComp.isActive = true;
@@ -5823,7 +5949,10 @@ export class ProjectilePool {
 
       const body = this.bodiesMap.get(projId);
       if (body) {
-        body.setTargetTransform(mesh.position, mesh.rotationQuaternion || BABYLON.Quaternion.Identity());
+        body.setTargetTransform(
+          mesh.position,
+          mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+        );
       }
     }
 
@@ -5883,7 +6012,9 @@ export class ProjectilePool {
     if (body) {
       body.setTargetTransform(
         mesh ? mesh.position : BABYLON.Vector3.Zero(),
-        mesh ? mesh.rotationQuaternion || BABYLON.Quaternion.Identity() : BABYLON.Quaternion.Identity()
+        mesh
+          ? mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          : BABYLON.Quaternion.Identity()
       );
     }
   }
@@ -6018,7 +6149,8 @@ export class ProjectileSystem implements ISystem {
         pComp.isStuck = true;
         pComp.isStuckOnWall = true;
 
-        projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
+        const PROJECTILE_WALL_OFFSET = 0.05;
+        projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - PROJECTILE_WALL_OFFSET);
         projTrans.prevX = projTrans.x;
 
         if (projVel) {
@@ -6053,7 +6185,9 @@ export class ProjectileSystem implements ISystem {
           mesh.scaling.set(0.24, 1.45, 1.45);
           mesh.position.x = projTrans.x;
           mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-          const stuckMat = mesh.getScene().getMaterialByName(pComp.isRed ? "projectileMatStuckRed" : "projectileMatStuck");
+          const stuckMat = mesh
+            .getScene()
+            .getMaterialByName(pComp.isRed ? "projectileMatStuckRed" : "projectileMatStuck");
           if (stuckMat) {
             mesh.material = stuckMat;
           }
@@ -6077,7 +6211,8 @@ export class ProjectileSystem implements ISystem {
     const pTrans = sysCtx.stores.get<TransformComponent>("transform").get(otherId);
     const pHealth = sysCtx.stores.get<HealthComponent>("health").get(otherId);
 
-    if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer || (pHealth && pHealth.current <= 0)) return;
+    if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer || (pHealth && pHealth.current <= 0))
+      return;
 
     const isLaunching = pTrav && pTrav.state === "LAUNCHING";
     const hasIframe = pIframe && pIframe.timeRemaining > 0;
@@ -6105,7 +6240,7 @@ export class ProjectileSystem implements ISystem {
         isWall: false
       });
 
-      if (launchPower > 0.80) {
+      if (launchPower > 0.8) {
         sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
           duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
@@ -6376,19 +6511,27 @@ export class ProjectileSystem implements ISystem {
 
     this.noiseTime += dt;
     if (this.pool.projMatActive) {
-      const noisePlugin = (this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
+      const noisePlugin = (
+        this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
     if (this.pool.projMatActiveRed) {
-      const noisePluginRed = (this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
+      const noisePluginRed = (
+        this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      )._noisePlugin;
       if (noisePluginRed) noisePluginRed.time = this.noiseTime;
     }
     if (this.pool.projMatTrapped) {
-      const noisePlugin = (this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
+      const noisePlugin = (
+        this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
     const isPatrolling = wAI ? wAI.state === "PATROLLING" : true;
 
@@ -6471,7 +6614,10 @@ export class ProjectileSystem implements ISystem {
               const hitLeft = trans.x < bugTrans.x;
               const hitRight = trans.x > bugTrans.x;
 
-              if ((bug.spikedSide === "LEFT" && hitLeft) || (bug.spikedSide === "RIGHT" && hitRight)) {
+              if (
+                (bug.spikedSide === "LEFT" && hitLeft) ||
+                (bug.spikedSide === "RIGHT" && hitRight)
+              ) {
                 bug.spikesDisarmed = true;
               }
 
@@ -6481,7 +6627,9 @@ export class ProjectileSystem implements ISystem {
               p.stickyOffsetX = hitLeft ? -halfW : halfW;
               p.stickyOffsetY = trans.y - bugTrans.y;
 
-              const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+              const vel = this.context.stores
+                .get<KinematicVelocityComponent>("velocity")
+                .get(projId);
               if (vel) {
                 vel.x = 0;
                 vel.y = 0;
@@ -6526,7 +6674,9 @@ export class ProjectileSystem implements ISystem {
 
       if (p.isTrappingPlayer) {
         const pTrans = transformStore.get(this.context.refs.player);
-        const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+        const pTrav = this.context.stores
+          .get<TraversalStateComponent>("traversal")
+          .get(this.context.refs.player);
 
         if (!pTrav || !pTrav.isWebTrapped || !pTrans) {
           this.pool.release(projId);
@@ -6544,7 +6694,9 @@ export class ProjectileSystem implements ISystem {
         let rVal: number, gVal: number, bVal: number;
 
         if (progressRatio >= 1.0) {
-          rVal = 0.0; gVal = 0.0; bVal = 0.0;
+          rVal = 0.0;
+          gVal = 0.0;
+          bVal = 0.0;
         } else if (progressRatio < 0.5) {
           const t = progressRatio / 0.5;
           rVal = start.r + (mid.r - start.r) * t;
@@ -6569,8 +6721,14 @@ export class ProjectileSystem implements ISystem {
         let targetScaleZ = 1.0 + addedSize;
 
         if (pTrav.state === "WALL_STICKING") {
-          trans.qx = 0; trans.qy = 0; trans.qz = 0; trans.qw = 1;
-          trans.prevQx = 0; trans.prevQy = 0; trans.prevQz = 0; trans.prevQw = 1;
+          trans.qx = 0;
+          trans.qy = 0;
+          trans.qz = 0;
+          trans.qw = 1;
+          trans.prevQx = 0;
+          trans.prevQy = 0;
+          trans.prevQz = 0;
+          trans.prevQw = 1;
 
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(0, 0, 0, 1);
@@ -6591,10 +6749,20 @@ export class ProjectileSystem implements ISystem {
             mesh.material = this.pool.projMatTrapped;
           }
         } else {
-          trans.x = pTrans.x; trans.y = pTrans.y; trans.z = pTrans.z;
-          trans.prevX = pTrans.prevX; trans.prevY = pTrans.prevY; trans.prevZ = pTrans.prevZ;
-          trans.qx = pTrans.qx; trans.qy = pTrans.qy; trans.qz = pTrans.qz; trans.qw = pTrans.qw;
-          trans.prevQx = pTrans.prevQx; trans.prevQy = pTrans.prevQy; trans.prevQz = pTrans.prevQz; trans.prevQw = pTrans.prevQw;
+          trans.x = pTrans.x;
+          trans.y = pTrans.y;
+          trans.z = pTrans.z;
+          trans.prevX = pTrans.prevX;
+          trans.prevY = pTrans.prevY;
+          trans.prevZ = pTrans.prevZ;
+          trans.qx = pTrans.qx;
+          trans.qy = pTrans.qy;
+          trans.qz = pTrans.qz;
+          trans.qw = pTrans.qw;
+          trans.prevQx = pTrans.prevQx;
+          trans.prevQy = pTrans.prevQy;
+          trans.prevQz = pTrans.prevQz;
+          trans.prevQw = pTrans.prevQw;
 
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(trans.qx, trans.qy, trans.qz, trans.qw);
@@ -6636,7 +6804,10 @@ export class ProjectileSystem implements ISystem {
         mesh.position.y = trans.y;
         const body = this.pool.getBody(projId);
         if (body) {
-          body.setTargetTransform(mesh.position, mesh.rotationQuaternion || BABYLON.Quaternion.Identity());
+          body.setTargetTransform(
+            mesh.position,
+            mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          );
         }
       } else if (p.isCharging) {
         if (!isPatrolling) {
@@ -6664,12 +6835,32 @@ export class ProjectileSystem implements ISystem {
         const wTrans = transformStore.get(this.context.refs.weaver);
         if (wTrans) {
           const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-          const tipWorld = getWeaverAbdomenTip(wTrans.x, wTrans.y, wTrans.z, wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw, radius, 1.0);
+          const tipWorld = getWeaverAbdomenTip(
+            wTrans.x,
+            wTrans.y,
+            wTrans.z,
+            wTrans.qx,
+            wTrans.qy,
+            wTrans.qz,
+            wTrans.qw,
+            radius,
+            1.0
+          );
 
-          trans.x = tipWorld.x; trans.y = tipWorld.y; trans.z = tipWorld.z;
-          trans.prevX = tipWorld.x; trans.prevY = tipWorld.y; trans.prevZ = tipWorld.z;
-          trans.qx = wTrans.qx; trans.qy = wTrans.qy; trans.qz = wTrans.qz; trans.qw = wTrans.qw;
-          trans.prevQx = wTrans.prevQx; trans.prevQy = wTrans.prevQy; trans.prevQz = wTrans.prevQz; trans.prevQw = wTrans.prevQw;
+          trans.x = tipWorld.x;
+          trans.y = tipWorld.y;
+          trans.z = tipWorld.z;
+          trans.prevX = tipWorld.x;
+          trans.prevY = tipWorld.y;
+          trans.prevZ = tipWorld.z;
+          trans.qx = wTrans.qx;
+          trans.qy = wTrans.qy;
+          trans.qz = wTrans.qz;
+          trans.qw = wTrans.qw;
+          trans.prevQx = wTrans.prevQx;
+          trans.prevQy = wTrans.prevQy;
+          trans.prevQz = wTrans.prevQz;
+          trans.prevQw = wTrans.prevQw;
 
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(trans.qx, trans.qy, trans.qz, trans.qw);
@@ -6681,8 +6872,12 @@ export class ProjectileSystem implements ISystem {
         const pulse = 1.0 + Math.sin(p.lifeTime * undulateSpeed) * (0.05 + undulateAmp);
         const currentBallScale = progress * pulse;
 
-        trans.prevScaleX = trans.scaleX; trans.prevScaleY = trans.scaleY; trans.prevScaleZ = trans.scaleZ;
-        trans.scaleX = currentBallScale; trans.scaleY = currentBallScale; trans.scaleZ = currentBallScale;
+        trans.prevScaleX = trans.scaleX;
+        trans.prevScaleY = trans.scaleY;
+        trans.prevScaleZ = trans.scaleZ;
+        trans.scaleX = currentBallScale;
+        trans.scaleY = currentBallScale;
+        trans.scaleZ = currentBallScale;
 
         mesh.position.set(trans.x, trans.y, trans.z);
         mesh.scaling.set(trans.scaleX, trans.scaleY, trans.scaleZ);
@@ -6694,9 +6889,14 @@ export class ProjectileSystem implements ISystem {
           body.setTargetTransform(this._scratchPos, this._scratchRot);
         }
       } else {
-        trans.prevScaleX = trans.scaleX; trans.prevScaleY = trans.scaleY; trans.prevScaleZ = trans.scaleZ;
+        trans.prevScaleX = trans.scaleX;
+        trans.prevScaleY = trans.scaleY;
+        trans.prevScaleZ = trans.scaleZ;
 
-        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId) || { x: 0, y: 0 };
+        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId) || {
+          x: 0,
+          y: 0
+        };
         const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
 
         if (speed > 0.1) {
@@ -6752,15 +6952,17 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 
-
 interface DualRumbleActuator {
   type: string;
-  playEffect: (type: "dual-rumble", params: {
-    startDelay: number;
-    duration: number;
-    strongMagnitude: number;
-    weakMagnitude: number;
-  }) => Promise<void>;
+  playEffect: (
+    type: "dual-rumble",
+    params: {
+      startDelay: number;
+      duration: number;
+      strongMagnitude: number;
+      weakMagnitude: number;
+    }
+  ) => Promise<void>;
 }
 
 export class HapticFeedbackSystem implements ISystem {
@@ -6776,7 +6978,7 @@ export class HapticFeedbackSystem implements ISystem {
         // Map camera shake amplitude to motor magnitude (cap at 1.0)
         const magnitude = Math.min(1.0, payload.amplitude * 0.6);
         const durationMs = payload.duration * 1000;
-        
+
         // High amplitude shakes use more strong motor, low amplitude uses more weak motor
         this.triggerRumble(durationMs, magnitude, magnitude * 0.8);
       })
@@ -6795,7 +6997,7 @@ export class HapticFeedbackSystem implements ISystem {
         this.triggerRumble(40, 0.0, 0.3);
       })
     );
-    
+
     // 4. Overloaded Tension Alarm warning
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.UI_SFX_ALARM, () => {
@@ -6806,22 +7008,26 @@ export class HapticFeedbackSystem implements ISystem {
 
   private triggerRumble(durationMs: number, strongMag: number, weakMag: number): void {
     if (typeof navigator === "undefined" || !navigator.getGamepads) return;
-    
+
     try {
       const gamepads = navigator.getGamepads();
       for (let i = 0; i < gamepads.length; i++) {
         const pad = gamepads[i];
         if (!pad) continue;
-        
+
         // Cast to any to access the standard but poorly-typed experimental vibration actuator
-        const actuator = (pad.vibrationActuator as unknown) as DualRumbleActuator | null;
+        const actuator = pad.vibrationActuator as unknown as DualRumbleActuator | null;
         if (actuator && actuator.type === "dual-rumble") {
-          actuator.playEffect("dual-rumble", {
-            startDelay: 0,
-            duration: durationMs,
-            strongMagnitude: Math.max(0, Math.min(1, strongMag)),
-            weakMagnitude: Math.max(0, Math.min(1, weakMag))
-          }).catch(() => { /* Ignore browser policy blocks / disconnections */ });
+          actuator
+            .playEffect("dual-rumble", {
+              startDelay: 0,
+              duration: durationMs,
+              strongMagnitude: Math.max(0, Math.min(1, strongMag)),
+              weakMagnitude: Math.max(0, Math.min(1, weakMag))
+            })
+            .catch(() => {
+              /* Ignore browser policy blocks / disconnections */
+            });
         }
       }
     } catch {
@@ -7394,29 +7600,29 @@ export class TetherVisualizerSystem implements ISystem {
 
       let vibAmp = 0;
       if (tension >= 0.95) {
-        vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * 2.5;
+        vibAmp = (tension - 1.0) * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP * VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_HIGH_TENSION_MULT;
       } else if (tension > VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) {
         vibAmp =
           (tension - VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_THRESHOLD) *
           VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_AMP;
       }
 
-      const vibOffset = Math.sin(vibPhase * (tension >= 0.95 ? 3.5 : 1.0)) * vibAmp;
+      const vibOffset = Math.sin(vibPhase * (tension >= 0.95 ? VISUAL_JUICE_CONFIG.TETHER_ROPE.TENSION_VIB_HIGH_TENSION_FREQ_MULT : 1.0)) * vibAmp;
 
       const midX = (this.scratchAnchor.x + this.scratchPlayer.x) * 0.5;
       const midY = (this.scratchAnchor.y + this.scratchPlayer.y) * 0.5;
 
       let MathSag = this.MAX_SAG * (1.0 - Math.min(1.0, tension)) + vibOffset;
       if (tension < 0.4) {
-        MathSag *= 1.3;
+        MathSag *= VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_LOW_TENSION_MULT;
       } else if (isSweetSpot) {
-        MathSag *= 0.15;
+        MathSag *= VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_SWEET_SPOT_MULT;
       }
 
       if (tether.reelVelocity < 0) {
-        MathSag *= Math.max(0.15, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
+        MathSag *= Math.max(VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_REEL_IN_MIN, 1.0 - Math.abs(tether.reelVelocity) / reelConfig.IN_SPEED);
       } else if (tether.reelVelocity > 0) {
-        MathSag *= 1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * 0.4;
+        MathSag *= 1.0 + (tether.reelVelocity / reelConfig.OUT_SPEED) * VISUAL_JUICE_CONFIG.TETHER_ROPE.SAG_REEL_OUT_MULT;
       }
 
       this.scratchCtrl.set(midX, midY - MathSag, VISUAL_JUICE_CONFIG.TETHER_ROPE.BEZIER_DEPTH);
@@ -7451,11 +7657,11 @@ export class TetherVisualizerSystem implements ISystem {
 
         let waveAmp = VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVINESS_AMP;
         if (tension < 0.4) {
-          waveAmp *= 1.8;
+          waveAmp *= VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVE_LOW_TENSION_MULT;
         } else if (isSweetSpot) {
-          waveAmp *= 0.35;
+          waveAmp *= VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVE_SWEET_SPOT_MULT;
         } else if (tension >= 0.95) {
-          waveAmp *= 0.1;
+          waveAmp *= VISUAL_JUICE_CONFIG.TETHER_ROPE.WAVE_HIGH_TENSION_MULT;
           pt.x += (Math.random() - 0.5) * 0.08;
           pt.y += (Math.random() - 0.5) * 0.08;
         }
@@ -7465,10 +7671,10 @@ export class TetherVisualizerSystem implements ISystem {
 
       let radius = this.BASE_RADIUS + Math.min(1.0, tension) * (this.MAX_RADIUS - this.BASE_RADIUS);
       if (tension < 0.4) {
-        radius *= 0.85;
+        radius *= VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_LOW_TENSION_MULT;
       } else if (isSweetSpot) {
-        const pulse = Math.sin(timeMs * 0.03) * 0.015;
-        radius = this.MAX_RADIUS * 1.1 + pulse;
+        const pulse = Math.sin(timeMs * VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_PULSE_FREQ) * VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_PULSE_AMP;
+        radius = this.MAX_RADIUS * VISUAL_JUICE_CONFIG.TETHER_ROPE.RADIUS_SWEET_SPOT_MULT + pulse;
       }
 
       this.tetherMesh = BABYLON.MeshBuilder.CreateTube("tetherTube", {
@@ -7478,8 +7684,6 @@ export class TetherVisualizerSystem implements ISystem {
         cap: BABYLON.Mesh.NO_CAP,
         instance: this.tetherMesh
       });
-
-      
     } else {
       this.tetherMesh.setEnabled(false);
 
@@ -8413,8 +8617,12 @@ export class HealthBugSystem implements ISystem {
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
 
-    const playerTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const playerInput = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    const playerTrav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const playerInput = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
     const isPlayerTrapped = !!(playerTrav && playerTrav.isWebTrapped);
 
     const activeBugs = this.pool.getActiveBugs();
@@ -8438,7 +8646,9 @@ export class HealthBugSystem implements ISystem {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       bug.rotorAngle = (bug.rotorAngle + Math.max(2.0, speed * 2.0) * dt) % (Math.PI * 2.0);
 
-      const rotorsNode = pBug.rootNode.getChildren().find((c) => c.name.startsWith("health_bug_rotors"));
+      const rotorsNode = pBug.rootNode
+        .getChildren()
+        .find((c) => c.name.startsWith("health_bug_rotors"));
       if (rotorsNode instanceof BABYLON.TransformNode) {
         rotorsNode.rotation.y = bug.rotorAngle;
       }
@@ -8729,9 +8939,8 @@ export class HealthBugSystem implements ISystem {
     const startY = cameraY - 26.0;
     const startX = this.getNextLane();
 
-    const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] = [
-      "NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"
-    ];
+    const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] =
+      ["NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"];
     const chosenVariant = variants[Math.floor(Math.random() * variants.length)];
     const calculatedPauseY = cameraY - 4.0 + Math.random() * 12.0;
 
@@ -8761,7 +8970,7 @@ export class HealthBugSystem implements ISystem {
 
     const hitSpikes = bug.variant !== "NORMAL" && !bug.spikesDisarmed && !isWebShieldActive;
 
-    if (isLaunching && launchPower >= 0.80) {
+    if (isLaunching && launchPower >= 0.8) {
       if (hitSpikes) {
         bug.state = "SPINNING";
         bug.timer = 0.0;
@@ -8771,7 +8980,10 @@ export class HealthBugSystem implements ISystem {
         pVel.y = 8.0;
         pTrav.state = "AIRBORNE";
 
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.85, duration: 0.35 });
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.85,
+          duration: 0.35
+        });
         this.context.broker.publish(GameEvent.UI_SFX_ALARM, undefined);
       } else {
         this.popBug(bugId);
@@ -8792,7 +9004,10 @@ export class HealthBugSystem implements ISystem {
           bugVel.x = shoveX;
           bugVel.y = shoveY;
         }
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.65, duration: 0.3 });
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.65,
+          duration: 0.3
+        });
         this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
       }
       return;
@@ -8858,7 +9073,11 @@ export class HealthBugSystem implements ISystem {
           { diameter: 0.16, segments: 4 },
           scene
         );
-        pMesh.position.set(bugTrans.x + (Math.random() - 0.5) * 0.5, bugTrans.y + (Math.random() - 0.5) * 0.5, 0);
+        pMesh.position.set(
+          bugTrans.x + (Math.random() - 0.5) * 0.5,
+          bugTrans.y + (Math.random() - 0.5) * 0.5,
+          0
+        );
 
         const pMat = new BABYLON.StandardMaterial(`heal_particle_mat_${i}`, scene);
         pMat.emissiveColor = new BABYLON.Color3(0.1, 0.95, 0.15);
@@ -8883,7 +9102,11 @@ export class HealthBugSystem implements ISystem {
       });
     }
 
-    this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: bugTrans.x, y: bugTrans.y, isWall: false });
+    this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+      x: bugTrans.x,
+      y: bugTrans.y,
+      isWall: false
+    });
     this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
 
     this.pool.release(bugId);
@@ -9009,13 +9232,19 @@ export interface IPlayerState {
 
 ● ./src/gameplay/player/PlayerAnimationSystem.ts
 ────────────────────────────────────────────────────
-import { solveScaleSpring, solveSpringDamper, solveSpringDamper as solveOffsetSpring } from "../../core/utils/EngineUtils";
+import {
+  solveScaleSpring,
+  solveSpringDamper,
+  solveSpringDamper as solveOffsetSpring
+} from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  TransformComponent, ActorCosmeticComponent,
-  KinematicVelocityComponent } from "../../core/ecs/Components";
+  TransformComponent,
+  ActorCosmeticComponent,
+  KinematicVelocityComponent
+} from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
@@ -9051,12 +9280,15 @@ export class PlayerAnimationSystem implements ISystem {
 
       const tColor = Math.min(1.0, (speed - 15.0) / 55.0);
       const rTarget = 1.0;
-      const gTarget = 0.15 + (0.85 * tColor);
-      const bTarget = 0.4 + (0.6 * tColor);
-      
-      cosmetic.emissiveR = (cosmetic.emissiveR ?? 0.1) + (rTarget - (cosmetic.emissiveR ?? 0.1)) * tColor;
-      cosmetic.emissiveG = (cosmetic.emissiveG ?? 0.0) + (gTarget - (cosmetic.emissiveG ?? 0.0)) * tColor;
-      cosmetic.emissiveB = (cosmetic.emissiveB ?? 0.2) + (bTarget - (cosmetic.emissiveB ?? 0.2)) * tColor;
+      const gTarget = 0.15 + 0.85 * tColor;
+      const bTarget = 0.4 + 0.6 * tColor;
+
+      cosmetic.emissiveR =
+        (cosmetic.emissiveR ?? 0.1) + (rTarget - (cosmetic.emissiveR ?? 0.1)) * tColor;
+      cosmetic.emissiveG =
+        (cosmetic.emissiveG ?? 0.0) + (gTarget - (cosmetic.emissiveG ?? 0.0)) * tColor;
+      cosmetic.emissiveB =
+        (cosmetic.emissiveB ?? 0.2) + (bTarget - (cosmetic.emissiveB ?? 0.2)) * tColor;
     }
 
     pTrans.prevScaleZ = pTrans.scaleZ!;
@@ -9077,21 +9309,14 @@ export class PlayerAnimationSystem implements ISystem {
 
     const currentOffset = cosmetic.visualOffsetY ?? 0;
     const offsetVel = cosmetic.visualOffsetVelocityY ?? 0;
-    const springResult = solveOffsetSpring(
-      currentOffset,
-      0,
-      offsetVel,
-      dt,
-      280.0,
-      18.0
-    );
+    const springResult = solveOffsetSpring(currentOffset, 0, offsetVel, dt, 280.0, 18.0);
     cosmetic.visualOffsetY = springResult.value;
     cosmetic.visualOffsetVelocityY = springResult.velocity;
 
     const currentRot = cosmetic.currentRotation ?? 0;
     const rotVel = cosmetic.rotationVel ?? 0;
-    
-    const velocityLean = speedX * -0.022; 
+
+    const velocityLean = speedX * -0.022;
     const targetRot = cosmetic.rotationAngle + velocityLean;
 
     let diff = targetRot - currentRot;
@@ -9196,9 +9421,7 @@ import { getWeaverStingerTip, getDistance2D } from "../../core/utils/EngineUtils
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  GameEvent
-} from "../../core/events/GameEvents";
+import { GameEvent } from "../../core/events/GameEvents";
 import {
   TetherComponent,
   KinematicTargetComponent,
@@ -9377,21 +9600,27 @@ export class PlayerKinematicsSystem implements ISystem {
     tether: TetherComponent,
     trav: TraversalStateComponent
   ): void {
-    const tautnessThreshold = 0.85;
+    const tensionConfig = GAMEPLAY_TUNING.PLAYER.TENSION;
     const currentTautness = tether.currentLength / Math.max(1.0, tether.maxLength);
     const isWallSticking = trav.state === "WALL_STICKING";
+    const isAirborne = trav.state === "AIRBORNE" && tensionConfig.BUILD_IN_AIRBORNE;
+    const isLaunching = trav.state === "LAUNCHING" && tensionConfig.BUILD_IN_LAUNCHING;
+    const shouldBuildTension = isWallSticking || isAirborne || isLaunching;
 
-    if (currentTautness >= tautnessThreshold && isWallSticking) {
-      const stretchAmount = (currentTautness - tautnessThreshold) / (1.0 - tautnessThreshold);
+    if (currentTautness >= tensionConfig.TAUTNESS_THRESHOLD && shouldBuildTension) {
+      const stretchAmount = (currentTautness - tensionConfig.TAUTNESS_THRESHOLD) / (1.0 - tensionConfig.TAUTNESS_THRESHOLD);
       const absoluteMin = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
       const absoluteMax = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
 
       const reelProgress = (tether.maxLength - absoluteMin) / (absoluteMax - absoluteMin);
-      const maxAchievableTension = Math.max(0.15, Math.min(1.3, reelProgress * 1.3));
+      const maxAchievableTension = Math.max(0.15, Math.min(tensionConfig.MAX_ACHIEVABLE_TENSION, reelProgress * tensionConfig.MAX_ACHIEVABLE_TENSION));
 
-      tether.tension = Math.max(0.0, Math.min(maxAchievableTension, stretchAmount * maxAchievableTension));
+      tether.tension = Math.max(
+        0.0,
+        Math.min(maxAchievableTension, stretchAmount * maxAchievableTension)
+      );
     } else {
-      const decayRate = GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE ? GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * 2.0 : 8.0;
+      const decayRate = GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * tensionConfig.DECAY_MULTIPLIER;
       tether.tension = Math.max(0.0, tether.tension - decayRate * dt);
     }
   }
@@ -9429,30 +9658,35 @@ export class TetherReelingSystem implements ISystem {
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWebTrapped = !!trav.isWebTrapped;
 
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
 
     const isPressingUp = input && input.y > 0;
 
     if (isPressingUp && !isWebTrapped && target) {
-      const manualInSpeed = 16.0;
       const minPossibleLength = Math.max(
         reelConfig.MIN_LENGTH,
-        Math.abs(target.x - tether.anchorX) + 0.5
+        Math.abs(target.x - tether.anchorX) + reelConfig.MIN_LENGTH_OFFSET
       );
 
-      tether.desiredLength = Math.max(minPossibleLength, tether.desiredLength - manualInSpeed * dt);
-      tether.maxLength = Math.max(minPossibleLength, tether.maxLength - manualInSpeed * dt);
-      tether.reelVelocity = -manualInSpeed;
+      tether.desiredLength = Math.max(minPossibleLength, tether.desiredLength - reelConfig.MANUAL_IN_SPEED * dt);
+      tether.maxLength = Math.max(minPossibleLength, tether.maxLength - reelConfig.MANUAL_IN_SPEED * dt);
+      tether.reelVelocity = -reelConfig.MANUAL_IN_SPEED;
     } else {
-      const AUTO_SLACK_MARGIN = 0.5;
       if (!isWebTrapped) {
         tether.desiredLength = Math.min(
           tether.desiredLength,
-          tether.currentLength + AUTO_SLACK_MARGIN
+          tether.currentLength + reelConfig.AUTO_SLACK_MARGIN
         );
       }
-      tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
+      tether.desiredLength = Math.max(
+        reelConfig.MIN_LENGTH,
+        Math.min(reelConfig.MAX_LENGTH, tether.desiredLength)
+      );
 
       if (Math.abs(tether.maxLength - tether.desiredLength) > 0.01) {
         const springResult = solveSpringDamper(
@@ -9460,8 +9694,8 @@ export class TetherReelingSystem implements ISystem {
           tether.desiredLength,
           tether.reelVelocity,
           dt,
-          180.0,
-          15.0
+          reelConfig.SPRING_STIFFNESS,
+          reelConfig.SPRING_DAMPING
         );
         tether.maxLength = springResult.value;
         tether.reelVelocity = springResult.velocity;
@@ -9526,14 +9760,14 @@ export class TetherStrainSystem implements ISystem {
     tStrain.strain = tether.tension;
 
     if (isOverloaded) {
-          // Unused overloadDelta removed for strict compilation
-          // Unused strainRatio removed for strict compilation
+      // Unused overloadDelta removed for strict compilation
+      // Unused strainRatio removed for strict compilation
 
       // Continuous shake is now handled directly by the CameraSystem via tension subscriptions.
 
       if (tether.tension >= this.SNAP_LIMIT) {
         const now = performance.now();
-        if (now - tStrain.lastDamageTime! > 800) {
+        if (now - tStrain.lastDamageTime! > CANONICAL_UNITS.TETHER_STRAIN.DAMAGE_COOLDOWN_MS) {
           tStrain.damageCount! += 1;
           tStrain.lastDamageTime = now;
 
@@ -9548,7 +9782,7 @@ export class TetherStrainSystem implements ISystem {
               amplitude: 0.95,
               duration: 0.45
             });
-            tether.tension = 0.62;
+            tether.tension = CANONICAL_UNITS.TETHER_STRAIN.TENSION_RESET_AFTER_DAMAGE;
           }
         }
       }
@@ -9737,7 +9971,7 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleX += impactFactor * 0.4;
             pTrans.scaleY -= impactFactor * 0.4;
             pTrans.scaleZ += impactFactor * 0.4;
-            
+
             pTrans.scaleVelX -= impactFactor * 40.0;
             pTrans.scaleVelY += impactFactor * 60.0;
             pTrans.scaleVelZ -= impactFactor * 40.0;
@@ -9748,7 +9982,8 @@ export class VerticalBoundarySystem implements ISystem {
             if (cosmetic) {
               const impactEnergy = vel.y;
               cosmetic.visualOffsetY = (cosmetic.visualOffsetY ?? 0.0) + impactEnergy * 0.05;
-              cosmetic.visualOffsetVelocityY = (cosmetic.visualOffsetVelocityY ?? 0.0) + impactEnergy * 0.45;
+              cosmetic.visualOffsetVelocityY =
+                (cosmetic.visualOffsetVelocityY ?? 0.0) + impactEnergy * 0.45;
             }
           }
         }
@@ -10140,7 +10375,7 @@ export class PlayerAirborneState implements IPlayerState {
     const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
-    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
+    const recoilFactor = trav.recoilTimer !== undefined && trav.recoilTimer > 0 ? 0.15 : 1.0;
 
     const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -10159,7 +10394,7 @@ export class PlayerAirborneState implements IPlayerState {
 
       const rotDx = tether.anchorX - target.x;
       const rotDy = tether.anchorY - target.y;
-      cosmetic.rotationAngle = (rotDx !== 0 || rotDy !== 0) ? -Math.atan2(rotDx, rotDy) : 0;
+      cosmetic.rotationAngle = rotDx !== 0 || rotDy !== 0 ? -Math.atan2(rotDx, rotDy) : 0;
       cosmetic.slerpFactor = tuning.SLERP_FACTOR;
 
       cosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;
@@ -10273,7 +10508,7 @@ export class PlayerLaunchingState implements IPlayerState {
     const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
-    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
+    const recoilFactor = trav.recoilTimer !== undefined && trav.recoilTimer > 0 ? 0.15 : 1.0;
 
     const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -10391,7 +10626,7 @@ export class PlayerStateHints {
     if (tension >= 0.95) {
       return { text: "MAX TENSION — LET GO NOW", color: "rgb(239, 68, 68)", opacity: 1 };
     }
-    if (tension >= 0.80) {
+    if (tension >= 0.8) {
       return { text: "RELEASE CLING TO LAUNCH", color: "rgb(245, 158, 11)", opacity: 1 };
     }
     if (tension > 0.02) {
@@ -10422,11 +10657,18 @@ import {
   InputIntentComponent,
   TraversalState
 } from "../../../core/ecs/Components";
-import { GAMEPLAY_TUNING, ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import {
+  GAMEPLAY_TUNING,
+  ARENA_CONFIG,
+  VISUAL_JUICE_CONFIG
+} from "../../../core/engine/ArenaConfig";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
-
+import {
+  LaunchTrailStrategy,
+  WallSparksStrategy,
+  WebSplatStrategy
+} from "../../juice/ParticleStrategies";
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -10481,7 +10723,7 @@ export class PlayerStateUtils {
     const launchedFromBug = trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1;
     if (launchedFromBug) {
       trav.lastStickyEntityId = trav.stickyEntityId;
-      trav.safeLaunchTimer = 0.4;
+      trav.safeLaunchTimer = GAMEPLAY_TUNING.PLAYER.FLING.SAFE_LAUNCH_DURATION;
     }
     trav.stickyEntityId = -1;
 
@@ -10490,14 +10732,14 @@ export class PlayerStateUtils {
       trav.state = "AIRBORNE";
       trav.launchPower = 0.05;
       trav.launchTimer = 0;
-      
-      const nudgeDistance = 0.35;
+
+      const nudgeDistance = GAMEPLAY_TUNING.PLAYER.FLING.LOW_TENSION_NUDGE_DISTANCE;
       target.x += trav.wallNormalX * nudgeDistance;
-      vel.x = trav.wallNormalX * 5.5;
-      vel.y = Math.max(vel.y, -3.0);
-      
+      vel.x = trav.wallNormalX * GAMEPLAY_TUNING.PLAYER.FLING.LOW_TENSION_NUDGE_SPEED;
+      vel.y = Math.max(vel.y, GAMEPLAY_TUNING.PLAYER.FLING.LOW_TENSION_MIN_VEL_Y);
+
       trav.wallDir = 0;
-      trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
+      trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, GAMEPLAY_TUNING.PLAYER.FLING.SAFE_LAUNCH_DURATION);
 
       const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -10521,14 +10763,14 @@ export class PlayerStateUtils {
     const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
     const minT = reelConfig.SWEET_SPOT_MIN;
-    const maxT = 1.3;
+    const maxT = GAMEPLAY_TUNING.PLAYER.TENSION.MAX_ACHIEVABLE_TENSION;
     const rangeFactor = Math.max(0, Math.min(1.0, (storedTension - minT) / (maxT - minT)));
-    
-    const minMult = 0.35;
-    const maxMult = 2.2;
-    const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, 1.5);
 
-    const bonusMultiplier = trav.hasFlingBonus ? 1.15 : 1.0;
+    const minMult = GAMEPLAY_TUNING.PLAYER.FLING.MIN_MULTIPLIER;
+    const maxMult = GAMEPLAY_TUNING.PLAYER.FLING.MAX_MULTIPLIER;
+    const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, GAMEPLAY_TUNING.PLAYER.FLING.RANGE_POWER);
+
+    const bonusMultiplier = trav.hasFlingBonus ? GAMEPLAY_TUNING.PLAYER.FLING.BONUS_MULTIPLIER : 1.0;
     const power = tuning.FLING_IMPULSE * speedMultiplier * bonusMultiplier;
     const powerScale = storedTension;
 
@@ -10544,19 +10786,20 @@ export class PlayerStateUtils {
 
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(ctx.refs.player);
+    const cosmeticConfig = GAMEPLAY_TUNING.PLAYER.COSMETIC;
     if (pTrans) {
       if (isOverload) {
-        pTrans.scaleVelY = 36.0;
-        pTrans.scaleVelX = -18.0;
-        pTrans.scaleVelZ = -18.0;
+        pTrans.scaleVelY = cosmeticConfig.OVERLOAD_SCALE_VEL_Y;
+        pTrans.scaleVelX = cosmeticConfig.OVERLOAD_SCALE_VEL_X;
+        pTrans.scaleVelZ = cosmeticConfig.OVERLOAD_SCALE_VEL_Z;
         const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
-        if (hs) hs.timeRemaining = 0.10;
+        if (hs) hs.timeRemaining = cosmeticConfig.HITSTOP_OVERLOAD;
       } else if (isSweetSpot) {
-        pTrans.scaleVelY = 22.0;
-        pTrans.scaleVelX = -11.0;
-        pTrans.scaleVelZ = -11.0;
-        ctx.runtime.hitLagTimer = 0.08;
-        ctx.runtime.hitLagScale = 0.15;
+        pTrans.scaleVelY = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Y;
+        pTrans.scaleVelX = cosmeticConfig.SWEET_SPOT_SCALE_VEL_X;
+        pTrans.scaleVelZ = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Z;
+        ctx.runtime.hitLagTimer = cosmeticConfig.HITSTOP_SWEET_SPOT;
+        ctx.runtime.hitLagScale = cosmeticConfig.HITSTOP_SWEET_SPOT_SCALE;
       } else {
         pTrans.scaleVelY = powerScale * 15.0;
         pTrans.scaleVelX = -powerScale * 7.5;
@@ -10642,7 +10885,7 @@ export class PlayerStateUtils {
       pTrans.scaleY = Math.min(2.0, squash.SQUASH_WALL_Y + impactFactor * 0.5);
       pTrans.scaleZ = 1.0;
 
-      pTrans.scaleVelX = 15.0 + impactFactor * 55.0; 
+      pTrans.scaleVelX = 15.0 + impactFactor * 55.0;
       pTrans.scaleVelY = -(15.0 + impactFactor * 55.0);
       pTrans.scaleZ = 1.0;
     }
@@ -10705,7 +10948,7 @@ export class PlayerStateUtils {
           const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
           const isPlayerTrapped = trav.isWebTrapped;
-          const isWebShieldActive = hBug ? (hBug.isWebTrapped || isPlayerTrapped) : isPlayerTrapped;
+          const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
           const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
 
           let spikesActive = false;
@@ -10776,7 +11019,8 @@ export class PlayerStateUtils {
             trav.wallNormalX = -bugWallDir;
             trav.wallNormalY = 0;
             trav.stickyEntityId = bugId;
-            trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+            trav.stickyWallX =
+              bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
 
             const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
             trav.stickyWallYOffset = clampedOffsetY;
@@ -10813,20 +11057,22 @@ export class PlayerStateUtils {
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
-      
+
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
       const hBug = hBugStore ? hBugStore.get(trav.stickyEntityId) : undefined;
 
       const isPlayerTrapped = trav.isWebTrapped;
-      const isWebShieldActive = hBug ? (hBug.isWebTrapped || isPlayerTrapped) : isPlayerTrapped;
+      const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
 
       let isSpikedOnClingSide = false;
       if (bug && !bug.spikesDisarmed) {
-        isSpikedOnClingSide = (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
-                             (trav.wallDir === 1 && bug.spikedSide === "LEFT");
+        isSpikedOnClingSide =
+          (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
+          (trav.wallDir === 1 && bug.spikedSide === "LEFT");
       } else if (hBug && !hBug.spikesDisarmed) {
-        isSpikedOnClingSide = (trav.wallDir === -1 && hBug.variant === "SPIKED_RIGHT") ||
-                             (trav.wallDir === 1 && hBug.variant === "SPIKED_LEFT");
+        isSpikedOnClingSide =
+          (trav.wallDir === -1 && hBug.variant === "SPIKED_RIGHT") ||
+          (trav.wallDir === 1 && hBug.variant === "SPIKED_LEFT");
       }
 
       const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
@@ -10908,15 +11154,13 @@ export class PlayerStateUtils {
         trav.isWebTrapped = false;
         trav.escapeProgress = 0;
         trav.lastEscapeDirection = "";
-        trav.safeLaunchTimer = 1.5;
+        trav.safeLaunchTimer = GAMEPLAY_TUNING.PLAYER.FLING.SAFE_LAUNCH_DURATION * 3.75;
 
         if (trav.state === "WALL_STICKING") {
           trav.hasFlingBonus = true;
         }
 
-        const pTrans = ctx.stores
-          .get<TransformComponent>("transform")
-          .get(ctx.refs.player);
+        const pTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.player);
         if (pTrans) {
           pTrans.scaleX = 1.4;
           pTrans.scaleY = 1.4;
@@ -11040,10 +11284,11 @@ export class PlayerWallStickingState implements IPlayerState {
       });
     }
 
-    const stillPressingIn = input.x === trav.wallDir;
+    const stillPressingIn = Math.abs(input.x - trav.wallDir) < GAMEPLAY_TUNING.PLAYER.INPUT_TOLERANCE;
     const webMass = trav.webMass || 1;
-    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
-    const controlFactor = (isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0) * recoilFactor;
+    const recoilFactor = trav.recoilTimer !== undefined && trav.recoilTimer > 0 ? 0.15 : 1.0;
+    const controlFactor =
+      (isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0) * recoilFactor;
 
     if (!stillPressingIn && !isTrapped) {
       PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
@@ -11071,9 +11316,9 @@ export class PlayerWallStickingState implements IPlayerState {
 
       let slideSpeed = 0.0;
       if (input.y > 0) {
-        slideSpeed = 5.0 * controlFactor;
+        slideSpeed = GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
       } else if (input.y < 0) {
-        slideSpeed = -5.0 * controlFactor;
+        slideSpeed = -GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
       }
       trav.stickyWallYOffset += slideSpeed * dt;
       trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
@@ -11140,8 +11385,7 @@ export interface IWeaverState {
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+import { WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class WeaverActionSystem implements ISystem {
@@ -11197,8 +11441,7 @@ export class WeaverActionSystem implements ISystem {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import {
-  WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
@@ -13505,7 +13748,11 @@ export class HavokPhysicsSystem implements ISystem {
   private havokPlugin: BABYLON.HavokPlugin | null = null;
   private static isInitialized = false;
 
-  private barriers: { body: BABYLON.PhysicsBody; shape: BABYLON.PhysicsShape; mesh: BABYLON.Mesh }[] = [];
+  private barriers: {
+    body: BABYLON.PhysicsBody;
+    shape: BABYLON.PhysicsShape;
+    mesh: BABYLON.Mesh;
+  }[] = [];
 
   private _scratchPos = new BABYLON.Vector3();
   private _scratchRot = new BABYLON.Quaternion();
@@ -13656,13 +13903,8 @@ export class HavokPhysicsSystem implements ISystem {
     });
   }
 
-  private setMeshTargetTransform(
-    entityId: number,
-    trans: TransformComponent | undefined
-  ): void {
-    const mesh = this.context.visualQuery.getTransformNode(
-      entityId
-    ) as BABYLON.AbstractMesh | null;
+  private setMeshTargetTransform(entityId: number, trans: TransformComponent | undefined): void {
+    const mesh = this.context.visualQuery.getTransformNode(entityId) as BABYLON.AbstractMesh | null;
     if (mesh && mesh.physicsBody && trans) {
       this._scratchPos.set(trans.x, trans.y, trans.z);
       this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
@@ -13725,15 +13967,16 @@ import {
   HealthBugComponent,
   TraversalStateComponent
 } from "../../core/ecs/Components";
-import * as BABYLON from "@babylonjs/core";
+import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class CollisionResolutionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
+  private currentTime = 0.0;
 
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    void dt;
+    this.currentTime += dt;
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const responses = this.context.stores.get<CollisionResponseComponent>("collisionResponse");
 
@@ -13757,18 +14000,26 @@ export class CollisionResolutionSystem implements ISystem {
         const combinedRadius = hb.radius + hub.radius;
 
         if (dist < combinedRadius) {
+          const cooldown = hb.hitCooldown || 0.1;
+          
+          if (hb.lastHitTime !== undefined && this.currentTime - hb.lastHitTime < cooldown) {
+            continue;
+          }
+
           let dx = hubTrans.x - hbTrans.x;
           let dy = hubTrans.y - hbTrans.y;
           let len = Math.sqrt(dx * dx + dy * dy);
           if (len < 0.001) {
-            dx = 0.001;
-            dy = 0.0;
-            len = 0.001;
+            const angle = Math.random() * Math.PI * 2;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+            len = 1.0;
           }
 
           const response = responses.get(hubId);
           if (response && response.onHit) {
             response.onHit(hb.damage, "PLAYER_FLING", dx / len, dy / len, this.context);
+            hb.lastHitTime = this.currentTime;
           }
         }
       }
@@ -13780,15 +14031,39 @@ export class CollisionResolutionSystem implements ISystem {
 
       const response = responses.get(projId);
       if (response && response.layer === "PROJECTILE" && response.onOverlap) {
-        const mesh = this.context.visualQuery.getTransformNode(projId);
-        const pMesh = this.context.visualQuery.getTransformNode(this.context.refs.player);
+        const projTrans = transforms.get(projId);
+        const playerTrans = transforms.get(this.context.refs.player);
 
-        if (
-          mesh instanceof BABYLON.AbstractMesh &&
-          pMesh instanceof BABYLON.AbstractMesh &&
-          mesh.intersectsMesh(pMesh, false)
-        ) {
-          response.onOverlap(this.context.refs.player, this.context);
+        if (projTrans && playerTrans) {
+          const projectileRadius = 0.9;
+          const playerRadius = this.context.stores.get<HurtboxComponent>("hurtbox").get(this.context.refs.player)?.radius || 1.0;
+          const combinedRadius = projectileRadius + playerRadius;
+
+          const dist = getDistance2D(projTrans.x, projTrans.y, playerTrans.x, playerTrans.y);
+          
+          if (dist < combinedRadius) {
+            response.onOverlap(this.context.refs.player, this.context);
+          } else {
+            const dx = projTrans.x - projTrans.prevX;
+            const dy = projTrans.y - projTrans.prevY;
+            const movementDist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (movementDist > 0.01) {
+              const t = this.closestPointOnSegment(
+                projTrans.prevX, projTrans.prevY,
+                projTrans.x, projTrans.y,
+                playerTrans.x, playerTrans.y
+              );
+              
+              const closestX = projTrans.prevX + dx * t;
+              const closestY = projTrans.prevY + dy * t;
+              const closestDist = getDistance2D(closestX, closestY, playerTrans.x, playerTrans.y);
+              
+              if (closestDist < combinedRadius) {
+                response.onOverlap(this.context.refs.player, this.context);
+              }
+            }
+          }
         }
       }
     }
@@ -13803,22 +14078,37 @@ export class CollisionResolutionSystem implements ISystem {
           if (pTrav && pTrav.lastStickyEntityId === resId) {
             continue;
           }
-          
+
           const dist = getDistance2D(playerTrans.x, playerTrans.y, hazardTrans.x, hazardTrans.y);
-          
-          let combinedRadius = 2.4;
+
+          let combinedRadius = GAMEPLAY_TUNING.COMBAT.HAZARD_COLLISION_RADIUS_NORMAL;
           const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
           const hBug = hBugStore ? hBugStore.get(resId) : undefined;
           if (hBug && hBug.variant !== "NORMAL" && !hBug.spikesDisarmed) {
-            combinedRadius = 3.4;
+            combinedRadius = GAMEPLAY_TUNING.COMBAT.HAZARD_COLLISION_RADIUS_SPIKED;
           }
-          
+
           if (dist < combinedRadius) {
             response.onOverlap(this.context.refs.player, this.context);
           }
         }
       }
     }
+  }
+
+  private closestPointOnSegment(
+    x1: number, y1: number,
+    x2: number, y2: number,
+    px: number, py: number
+  ): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    
+    if (lenSq < 0.0001) return 0;
+    
+    const t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    return Math.max(0, Math.min(1, t));
   }
 }
 
@@ -13871,6 +14161,10 @@ export class EnvironmentClampingSystem implements ISystem {
 
       if (hitRight || hitLeft) {
         const hitSide = hitRight ? "RIGHT" : "LEFT";
+        
+        trans.x = hitRight ? constraint.limitX : -constraint.limitX;
+        trans.prevX = trans.x;
+        
         if (constraint.onBoundaryHit) {
           constraint.onBoundaryHit(id, hitSide, trans.x);
         }
@@ -13895,7 +14189,10 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent, TransformComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+  HitStopComponent,
+  TransformComponent,
+  KinematicVelocityComponent
+} from "../../core/ecs/Components";
 
 export class KinematicIntegrationSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -14354,6 +14651,7 @@ import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert } from "lucide-rea
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameEvent } from "../../core/events/GameEvents";
+import { VISUAL_JUICE_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 interface CalibrationStepMeta {
   successTitle: string;
@@ -14558,33 +14856,34 @@ export const HudOverlay: React.FC = () => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
       const tension = detail.tension ?? 0;
-      const maxLength = detail.maxLength ?? 5.4;
+      const maxLength = detail.maxLength ?? GAMEPLAY_TUNING.REEL.MIN_LENGTH;
 
-      const maxReelLimit = 38.0;
-      const minReelLimit = 5.4;
+      const maxReelLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+      const minReelLimit = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
 
       // Filled width represents reeled-out tether progress (0% to 100%)
       const reelProgress = (maxLength - minReelLimit) / (maxReelLimit - minReelLimit);
       const barWidthPercent = Math.max(0.0, Math.min(100.0, reelProgress * 100.0));
 
-      // Color/Glow represents dynamic elastic tautness (Restored sweet-spot and red thresholds)
-      let color = "rgb(34, 197, 94)";
-      let glow = "rgba(34, 197, 94, 0.45)";
+      // Color/Glow based on reel progress to match visual stage markers
+      const uiConfig = VISUAL_JUICE_CONFIG.TETHER_UI;
+      let color = `rgb(${uiConfig.COLOR_GREEN.r}, ${uiConfig.COLOR_GREEN.g}, ${uiConfig.COLOR_GREEN.b})`;
+      let glow = `rgba(${uiConfig.GLOW_GREEN.r}, ${uiConfig.GLOW_GREEN.g}, ${uiConfig.GLOW_GREEN.b}, ${uiConfig.GLOW_GREEN.a})`;
 
-      if (tension >= 0.80) {
-        color = "rgb(239, 68, 68)";
-        glow = "rgba(239, 68, 68, 0.95)";
-      } else if (tension >= 0.555) {
-        color = "rgb(234, 179, 8)";
-        glow = "rgba(234, 179, 8, 0.75)";
+      if (reelProgress >= uiConfig.THRESHOLD_RED) {
+        color = `rgb(${uiConfig.COLOR_RED.r}, ${uiConfig.COLOR_RED.g}, ${uiConfig.COLOR_RED.b})`;
+        glow = `rgba(${uiConfig.GLOW_RED.r}, ${uiConfig.GLOW_RED.g}, ${uiConfig.GLOW_RED.b}, ${uiConfig.GLOW_RED.a})`;
+      } else if (reelProgress >= uiConfig.THRESHOLD_YELLOW) {
+        color = `rgb(${uiConfig.COLOR_YELLOW.r}, ${uiConfig.COLOR_YELLOW.g}, ${uiConfig.COLOR_YELLOW.b})`;
+        glow = `rgba(${uiConfig.GLOW_YELLOW.r}, ${uiConfig.GLOW_YELLOW.g}, ${uiConfig.GLOW_YELLOW.b}, ${uiConfig.GLOW_YELLOW.a})`;
       }
 
       if (tensionBarFillRef.current) {
         tensionBarFillRef.current.style.width = `${barWidthPercent.toFixed(1)}%`;
         tensionBarFillRef.current.style.background = color;
-        
-        if (tension > 0.05) {
-          const pulse = 1.0 + Math.sin(performance.now() * 0.05 * tension) * 0.1;
+
+        if (tension > uiConfig.MIN_TENSION_FOR_EFFECTS) {
+          const pulse = 1.0 + Math.sin(performance.now() * uiConfig.PULSE_FREQ * tension) * uiConfig.PULSE_AMP;
           tensionBarFillRef.current.style.boxShadow = `0 0 ${Math.floor(12 * tension * pulse)}px ${glow}`;
           tensionBarFillRef.current.style.transform = `scaleY(${pulse.toFixed(2)})`;
         } else {
@@ -14799,12 +15098,12 @@ export const HudOverlay: React.FC = () => {
               INITIALIZING...
             </h2>
             <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
-              <div 
-                className="h-full bg-emerald-500 transition-all duration-300 ease-out" 
-                style={{ 
+              <div
+                className="h-full bg-emerald-500 transition-all duration-300 ease-out"
+                style={{
                   width: `${Math.round(loadingProgress * 100)}%`,
                   boxShadow: loadingProgress > 0 ? "0 0 10px rgba(16, 185, 129, 0.5)" : "none"
-                }} 
+                }}
               />
             </div>
             <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
@@ -14815,10 +15114,15 @@ export const HudOverlay: React.FC = () => {
       ) : awaitingGesture ? (
         <div className="overlay-root font-mono backdrop-wipe-gesture pointer-events-auto">
           <div className="overlay-modal start-screen-modal victory-border max-w-md w-full p-8 flex flex-col items-center">
-                <p className="text-[11px] text-zinc-400 tracking-wide uppercase mb-6 leading-relaxed select-none max-w-sm text-center">
-                  A game about being tethered to something dangerous <u><i>with a mind of its own</i></u>, where the tension between you and the thing trying to kill you is literally your only weapon.
-                </p>
-                <button
+            <p className="text-[11px] text-zinc-400 tracking-wide uppercase mb-6 leading-relaxed select-none max-w-sm text-center">
+              A game about being tethered to something dangerous{" "}
+              <u>
+                <i>with a mind of its own</i>
+              </u>
+              , where the tension between you and the thing trying to kill you is literally your
+              only weapon.
+            </p>
+            <button
               onClick={() => {
                 playConfirmSynth();
                 useOverlayStore.getState().setAwaitingGesture(false);
@@ -15705,43 +16009,49 @@ const OVERLAY_RESET = {
 
 export const usePlayerStore = create<PlayerState>((set) => ({
   ...PLAYER_RESET,
-  setTetherDamage: (damage) => set((state) => {
-    if (state.tetherDamage === damage) return {};
-    return { tetherDamage: damage };
-  }),
-  setPlayerHp: (hp, maxHp) => set((state) => {
-    void maxHp;
-    if (state.playerHp === hp) return {};
-    return { playerHp: hp };
-  }),
-  setCurrentState: (state) => set((stateObj) => {
-    if (stateObj.currentState === state) return {};
-    return { currentState: state };
-  }),
-  setWebTrapped: (trapped, progress, required, webMass = 1) => set((state) => {
-    if (
-      state.isWebTrapped === trapped &&
-      state.escapeProgress === progress &&
-      state.escapeRequired === required &&
-      state.webMass === webMass
-    ) {
-      return {};
-    }
-    return { isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required, webMass };
-  }),
+  setTetherDamage: (damage) =>
+    set((state) => {
+      if (state.tetherDamage === damage) return {};
+      return { tetherDamage: damage };
+    }),
+  setPlayerHp: (hp, maxHp) =>
+    set((state) => {
+      void maxHp;
+      if (state.playerHp === hp) return {};
+      return { playerHp: hp };
+    }),
+  setCurrentState: (state) =>
+    set((stateObj) => {
+      if (stateObj.currentState === state) return {};
+      return { currentState: state };
+    }),
+  setWebTrapped: (trapped, progress, required, webMass = 1) =>
+    set((state) => {
+      if (
+        state.isWebTrapped === trapped &&
+        state.escapeProgress === progress &&
+        state.escapeRequired === required &&
+        state.webMass === webMass
+      ) {
+        return {};
+      }
+      return { isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required, webMass };
+    }),
   reset: () => set(PLAYER_RESET)
 }));
 
 export const useWeaverStore = create<WeaverState>((set) => ({
   ...WEAVER_RESET,
-  setWeaverHealth: (hp, maxHp) => set((state) => {
-    if (state.weaverHp === hp && state.weaverMaxHp === maxHp) return {};
-    return { weaverHp: hp, weaverMaxHp: maxHp };
-  }),
-  setWeaverState: (state, hue) => set((stateObj) => {
-    if (stateObj.weaverState === state && stateObj.weaverHue === hue) return {};
-    return { weaverState: state, weaverHue: hue };
-  }),
+  setWeaverHealth: (hp, maxHp) =>
+    set((state) => {
+      if (state.weaverHp === hp && state.weaverMaxHp === maxHp) return {};
+      return { weaverHp: hp, weaverMaxHp: maxHp };
+    }),
+  setWeaverState: (state, hue) =>
+    set((stateObj) => {
+      if (stateObj.weaverState === state && stateObj.weaverHue === hue) return {};
+      return { weaverState: state, weaverHue: hue };
+    }),
   reset: () => set(WEAVER_RESET)
 }));
 
@@ -15751,16 +16061,17 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
   setLoadingProgress: (progress) => set({ loadingProgress: progress }),
-  setTraversalHint: (text, color, opacity) => set((state) => {
-    if (
-      state.traversalHint === text &&
-      state.traversalHintColor === color &&
-      state.traversalHintOpacity === opacity
-    ) {
-      return {};
-    }
-    return { traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity };
-  }),
+  setTraversalHint: (text, color, opacity) =>
+    set((state) => {
+      if (
+        state.traversalHint === text &&
+        state.traversalHintColor === color &&
+        state.traversalHintOpacity === opacity
+      ) {
+        return {};
+      }
+      return { traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity };
+    }),
   showOverlay: (title, color, subtitle) =>
     set({
       overlayVisible: true,
@@ -15814,7 +16125,11 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, TraversalStateComponent, WeaverAIComponent } from "../../core/ecs/Components";
+import {
+  TransformComponent,
+  TraversalStateComponent,
+  WeaverAIComponent
+} from "../../core/ecs/Components";
 
 import * as BABYLON from "@babylonjs/core";
 
@@ -15878,7 +16193,7 @@ export class CameraSystem implements ISystem {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
-        const limit = 0.80;
+        const limit = 0.8;
         if (payload.tension >= limit) {
           this.continuousStrainRatio = (payload.tension - limit) / (1.0 - limit);
         } else {
@@ -15960,13 +16275,14 @@ export class CameraSystem implements ISystem {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
       const playerLocalY = playerTrans.y - baseY;
 
-      const isBossEngaging = wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
+      const isBossEngaging =
+        wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
       const lowerLimit = CAMERA_TUNING.LOWER_COMFORT_Y;
-      
+
       if (isBossEngaging && playerLocalY < lowerLimit) {
         const desiredScrollY = playerLocalY - lowerLimit;
         const maxScrollDelta = -Math.max(12.0, this.context.runtime.currentScrollSpeed) * dt;
-        
+
         this.cameraScrollY = Math.max(
           CAMERA_TUNING.MIN_SCROLL_Y,
           Math.max(this.cameraScrollY + maxScrollDelta, desiredScrollY)
@@ -15979,13 +16295,9 @@ export class CameraSystem implements ISystem {
             targetY = Math.min(6.0, (weaverLocalY - 10.0) * 0.3);
           }
         }
-        
+
         const panRecoveryFactor = 1.0 - Math.exp(-dt * 5.0);
-        this.cameraScrollY = BABYLON.Scalar.Lerp(
-          this.cameraScrollY,
-          targetY,
-          panRecoveryFactor
-        );
+        this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, targetY, panRecoveryFactor);
       }
     }
   }
@@ -16007,7 +16319,8 @@ export class CameraSystem implements ISystem {
         .get<WeaverAIComponent>("weaverAI")
         .get(this.context.refs.weaver);
 
-      const isBossEngaging = wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
+      const isBossEngaging =
+        wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
 
       if (isBossEngaging && trav && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
         targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;
@@ -16051,6 +16364,7 @@ export class LightingSystem implements ISystem {
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
+  private fillLights: BABYLON.PointLight[] = [];
   private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0);
   private currentColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
@@ -16094,6 +16408,31 @@ export class LightingSystem implements ISystem {
     this.rimLight.intensity = 1.8;
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.3, 0.3, 0.3);
+
+    // Add fill lights distributed throughout the arena for uniform lighting
+    const fillLightPositions = [
+      new BABYLON.Vector3(-8, 20, -8),
+      new BABYLON.Vector3(8, 20, -8),
+      new BABYLON.Vector3(-8, 0, -8),
+      new BABYLON.Vector3(8, 0, -8),
+      new BABYLON.Vector3(-8, -20, -8),
+      new BABYLON.Vector3(8, -20, -8),
+      new BABYLON.Vector3(0, 30, -10),
+      new BABYLON.Vector3(0, -30, -10)
+    ];
+
+    for (let i = 0; i < fillLightPositions.length; i++) {
+      const fillLight = new BABYLON.PointLight(
+        `fillLight_${i}`,
+        fillLightPositions[i],
+        scene
+      );
+      fillLight.intensity = 0.6;
+      fillLight.range = 25.0;
+      fillLight.diffuse = new BABYLON.Color3(0.95, 0.97, 1.0);
+      fillLight.specular = new BABYLON.Color3(0.2, 0.2, 0.2);
+      this.fillLights.push(fillLight);
+    }
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
@@ -16174,6 +16513,10 @@ export class LightingSystem implements ISystem {
     if (this.weaverLight) this.weaverLight.dispose();
     if (this.weaverKeyLight) this.weaverKeyLight.dispose();
     if (this.rimLight) this.rimLight.dispose();
+    for (const fillLight of this.fillLights) {
+      fillLight.dispose();
+    }
+    this.fillLights = [];
   }
 }
 
@@ -16181,7 +16524,14 @@ export class LightingSystem implements ISystem {
 
 ● ./src/visual/lighting/SilkMaterialPlugin.ts
 ────────────────────────────────────────────────────
-import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer, Color3, PBRMaterial } from "@babylonjs/core";
+import {
+  Material,
+  MaterialPluginBase,
+  ShaderLanguage,
+  UniformBuffer,
+  Color3,
+  PBRMaterial
+} from "@babylonjs/core";
 
 export class SilkMaterialPlugin extends MaterialPluginBase {
   public shearIntensity = 0.0;
@@ -16192,13 +16542,16 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
   public gradientActive = false;
   public noiseActive = false;
 
-  constructor(material: Material, options?: { shear?: boolean; gradient?: boolean; noise?: boolean }) {
+  constructor(
+    material: Material,
+    options?: { shear?: boolean; gradient?: boolean; noise?: boolean }
+  ) {
     super(material, "SilkMaterialEffects", 200, {
       SHEAR: false,
       ABDOMEN_GRADIENT: false,
       NOISE: false
     });
-    
+
     this.shearActive = options?.shear ?? false;
     this.gradientActive = options?.gradient ?? false;
     this.noiseActive = options?.noise ?? false;
@@ -16434,58 +16787,89 @@ export class ArenaGeometry {
     backdropPanelMaterial.roughness = 0.88;
     backdropPanelMaterial.albedoColor = new BABYLON.Color3(0.038, 0.043, 0.052);
 
+    const backdropPanelMaterial2 = new BABYLON.PBRMaterial("shaftBackdropPanelMat2", this.scene);
+    backdropPanelMaterial2.metallic = 0.08;
+    backdropPanelMaterial2.roughness = 0.82;
+    backdropPanelMaterial2.albedoColor = new BABYLON.Color3(0.045, 0.051, 0.062);
+
+    const backdropPanelMaterial3 = new BABYLON.PBRMaterial("shaftBackdropPanelMat3", this.scene);
+    backdropPanelMaterial3.metallic = 0.03;
+    backdropPanelMaterial3.roughness = 0.91;
+    backdropPanelMaterial3.albedoColor = new BABYLON.Color3(0.032, 0.037, 0.045);
+
+    const backdropPanelMaterial4 = new BABYLON.PBRMaterial("shaftBackdropPanelMat4", this.scene);
+    backdropPanelMaterial4.metallic = 0.06;
+    backdropPanelMaterial4.roughness = 0.86;
+    backdropPanelMaterial4.albedoColor = new BABYLON.Color3(0.041, 0.047, 0.057);
+
     const gashMaterial = new BABYLON.PBRMaterial("shaftGashMat", this.scene);
     gashMaterial.albedoColor = new BABYLON.Color3(0.007, 0.008, 0.011);
     gashMaterial.roughness = 1.0;
     gashMaterial.metallic = 0.0;
 
+    const crackMaterial = new BABYLON.PBRMaterial("shaftCrackMat", this.scene);
+    crackMaterial.albedoColor = new BABYLON.Color3(0.005, 0.006, 0.008);
+    crackMaterial.roughness = 0.95;
+    crackMaterial.metallic = 0.0;
+
+    const dentMaterial = new BABYLON.PBRMaterial("shaftDentMat", this.scene);
+    dentMaterial.albedoColor = new BABYLON.Color3(0.012, 0.014, 0.018);
+    dentMaterial.roughness = 0.92;
+    dentMaterial.metallic = 0.05;
+
     const texturesPromise = Promise.all([
-      textureGen.generatePBRTextures("concreteWall", this.scene, {
-        resolution: 512,
-        noiseScale: 10.0,
-        bumpStrength: 2.5,
-        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
-        roughnessMin: 0.75,
-        roughnessMax: 0.98,
-        metallic: 0.0
-      }).then((textures) => {
-        configurePBRTextures(wallMaterial, textures);
-        wallMaterial.enableSpecularAntiAliasing = true;
-        wallMaterial.forceIrradianceInFragment = true;
-      }),
+      textureGen
+        .generatePBRTextures("concreteWall", this.scene, {
+          resolution: 512,
+          noiseScale: 10.0,
+          bumpStrength: 2.5,
+          baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
+          roughnessMin: 0.75,
+          roughnessMax: 0.98,
+          metallic: 0.0
+        })
+        .then((textures) => {
+          configurePBRTextures(wallMaterial, textures);
+          wallMaterial.enableSpecularAntiAliasing = true;
+          wallMaterial.forceIrradianceInFragment = true;
+        }),
 
-      textureGen.generatePBRTextures("scrollingPanel", this.scene, {
-        resolution: 512,
-        noiseScale: 16.0,
-        bumpStrength: 1.8,
-        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
-        roughnessMin: 0.45,
-        roughnessMax: 0.75,
-        metallic: 0.2
-      }).then((textures) => {
-        configurePBRTextures(panelMaterial, textures);
-        panelMaterial.enableSpecularAntiAliasing = true;
-        panelMaterial.forceIrradianceInFragment = true;
-      }),
+      textureGen
+        .generatePBRTextures("scrollingPanel", this.scene, {
+          resolution: 512,
+          noiseScale: 16.0,
+          bumpStrength: 1.8,
+          baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
+          roughnessMin: 0.45,
+          roughnessMax: 0.75,
+          metallic: 0.2
+        })
+        .then((textures) => {
+          configurePBRTextures(panelMaterial, textures);
+          panelMaterial.enableSpecularAntiAliasing = true;
+          panelMaterial.forceIrradianceInFragment = true;
+        }),
 
-      textureGen.generatePBRTextures("shaftBackdropConcrete", this.scene, {
-        resolution: 1024,
-        noiseScale: 12.0,
-        bumpStrength: 3.1,
-        baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
-        roughnessMin: 0.82,
-        roughnessMax: 0.99,
-        metallic: 0.0,
-        ridgeStrength: 0.16,
-        ridgeScale: 0.34,
-        ridgeDirectionX: 0.65,
-        ridgeDirectionY: 1.0,
-        colorVariation: 0.2
-      }).then((textures) => {
-        configurePBRTextures(backdropMaterial, textures);
-        backdropMaterial.enableSpecularAntiAliasing = true;
-        backdropMaterial.forceIrradianceInFragment = true;
-      })
+      textureGen
+        .generatePBRTextures("shaftBackdropConcrete", this.scene, {
+          resolution: 1024,
+          noiseScale: 14.0,
+          bumpStrength: 4.2,
+          baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
+          roughnessMin: 0.78,
+          roughnessMax: 0.99,
+          metallic: 0.0,
+          ridgeStrength: 0.22,
+          ridgeScale: 0.42,
+          ridgeDirectionX: 0.72,
+          ridgeDirectionY: 1.0,
+          colorVariation: 0.28
+        })
+        .then((textures) => {
+          configurePBRTextures(backdropMaterial, textures);
+          backdropMaterial.enableSpecularAntiAliasing = true;
+          backdropMaterial.forceIrradianceInFragment = true;
+        })
     ]);
 
     await texturesPromise;
@@ -16568,6 +16952,33 @@ export class ArenaGeometry {
     backdropPanelBase.isVisible = false;
     backdropPanelBase.receiveShadows = true;
 
+    const backdropPanelBase2 = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase2",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase2.material = backdropPanelMaterial2;
+    backdropPanelBase2.isVisible = false;
+    backdropPanelBase2.receiveShadows = true;
+
+    const backdropPanelBase3 = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase3",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase3.material = backdropPanelMaterial3;
+    backdropPanelBase3.isVisible = false;
+    backdropPanelBase3.receiveShadows = true;
+
+    const backdropPanelBase4 = BABYLON.MeshBuilder.CreateBox(
+      "backdropPanelBase4",
+      { width: 1.0, height: 1.0, depth: 0.08 },
+      this.scene
+    );
+    backdropPanelBase4.material = backdropPanelMaterial4;
+    backdropPanelBase4.isVisible = false;
+    backdropPanelBase4.receiveShadows = true;
+
     const backdropGashBase = BABYLON.MeshBuilder.CreateBox(
       "backdropGashBase",
       { width: 1.0, height: 1.0, depth: 0.1 },
@@ -16576,6 +16987,24 @@ export class ArenaGeometry {
     backdropGashBase.material = gashMaterial;
     backdropGashBase.isVisible = false;
     backdropGashBase.receiveShadows = false;
+
+    const backdropCrackBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropCrackBase",
+      { width: 1.0, height: 1.0, depth: 0.06 },
+      this.scene
+    );
+    backdropCrackBase.material = crackMaterial;
+    backdropCrackBase.isVisible = false;
+    backdropCrackBase.receiveShadows = false;
+
+    const backdropDentBase = BABYLON.MeshBuilder.CreateBox(
+      "backdropDentBase",
+      { width: 1.0, height: 1.0, depth: 0.15 },
+      this.scene
+    );
+    backdropDentBase.material = dentMaterial;
+    backdropDentBase.isVisible = false;
+    backdropDentBase.receiveShadows = true;
 
     const backdropPanelCount = 28;
     const backdropPanelSpacing = wallHeight / backdropPanelCount;
@@ -16586,7 +17015,15 @@ export class ArenaGeometry {
       const panelHeight = backdropPanelSpacing * (0.62 + Math.abs(Math.cos(i * 0.93)) * 0.42);
       const panelDepth = 0.09 + Math.abs(Math.sin(i * 4.73)) * 0.07;
 
-      const backdropPanel = backdropPanelBase.createInstance(`backdropPanel_${i}`);
+      // Vary panel material for color variety
+      const materialVariant = i % 4;
+      let panelBase;
+      if (materialVariant === 0) panelBase = backdropPanelBase;
+      else if (materialVariant === 1) panelBase = backdropPanelBase2;
+      else if (materialVariant === 2) panelBase = backdropPanelBase3;
+      else panelBase = backdropPanelBase4;
+
+      const backdropPanel = panelBase.createInstance(`backdropPanel_${i}`);
       backdropPanel.position.set(bandOffset, panelY, backdropZ - 0.22);
       backdropPanel.scaling.set(panelWidth, panelHeight, panelDepth);
 
@@ -16611,16 +17048,52 @@ export class ArenaGeometry {
     for (let i = 0; i < gashCount; i++) {
       const scratchY = (i - gashCount / 2) * gashSpacing + wallHeight * 0.1;
       const scratchX = Math.sin(i * 3.83) * backdropWidth * 0.43;
-      const scratch = backdropGashBase.createInstance(`backdropGash_${i}`);
-      scratch.position.set(scratchX, scratchY, backdropZ - 0.31);
-      scratch.scaling.set(
-        0.06 + Math.abs(Math.sin(i * 1.41)) * 0.08,
-        0.75 + Math.abs(Math.cos(i * 2.37)) * 1.15,
-        0.14
-      );
-      scratch.rotation.z = Math.sin(i * 2.61) * 0.92;
+      
+      // Vary damage type based on index
+      const damageType = i % 3;
+      let damageMesh;
+      
+      if (damageType === 0) {
+        // Deep gash
+        damageMesh = backdropGashBase.createInstance(`backdropGash_${i}`);
+        damageMesh.position.set(scratchX, scratchY, backdropZ - 0.31);
+        damageMesh.scaling.set(
+          0.06 + Math.abs(Math.sin(i * 1.41)) * 0.08,
+          0.75 + Math.abs(Math.cos(i * 2.37)) * 1.15,
+          0.14
+        );
+        damageMesh.rotation.z = Math.sin(i * 2.61) * 0.92;
+      } else if (damageType === 1) {
+        // Thin crack
+        damageMesh = backdropCrackBase.createInstance(`backdropCrack_${i}`);
+        damageMesh.position.set(
+          scratchX + Math.cos(i * 1.9) * backdropWidth * 0.12,
+          scratchY + Math.sin(i * 2.3) * 0.5,
+          backdropZ - 0.28
+        );
+        damageMesh.scaling.set(
+          0.02 + Math.abs(Math.sin(i * 2.8)) * 0.03,
+          1.2 + Math.abs(Math.cos(i * 1.7)) * 0.8,
+          0.08
+        );
+        damageMesh.rotation.z = Math.sin(i * 3.1) * 1.4 + Math.cos(i * 1.5) * 0.5;
+      } else {
+        // Shallow dent
+        damageMesh = backdropDentBase.createInstance(`backdropDent_${i}`);
+        damageMesh.position.set(
+          scratchX - Math.sin(i * 2.1) * backdropWidth * 0.18,
+          scratchY + Math.cos(i * 1.8) * 0.4,
+          backdropZ - 0.26
+        );
+        damageMesh.scaling.set(
+          0.15 + Math.abs(Math.cos(i * 2.4)) * 0.12,
+          0.25 + Math.abs(Math.sin(i * 1.9)) * 0.2,
+          0.18
+        );
+        damageMesh.rotation.z = Math.cos(i * 2.7) * 0.6;
+      }
 
-      scratch.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
+      damageMesh.metadata = { type: "scrolling_backdrop_gash", index: i + 100, initialY: scratchY };
     }
 
     const panelCount = 20;
@@ -16672,10 +17145,11 @@ export class ArenaGeometry {
     }
 
     const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
-    tickMat.albedoColor = new BABYLON.Color3(0.1, 0.13, 0.16);
+    tickMat.albedoColor = new BABYLON.Color3(0.027, 0.431, 0.749);
     tickMat.metallic = 0.3;
     tickMat.roughness = 0.4;
-    tickMat.emissiveColor = new BABYLON.Color3(0.5, 0.72, 0.94);
+    tickMat.emissiveColor = new BABYLON.Color3(0.0, 0.35, 0.65);
+    tickMat.emissiveIntensity = 0.5;
 
     const tickBase = BABYLON.MeshBuilder.CreateBox(
       "tickBase",
@@ -16724,7 +17198,7 @@ export class FaunaVisualFactory {
       { diameter: 4.0, segments: 16 },
       scene
     );
-    
+
     const glassMat = new BABYLON.PBRMaterial(`health_bug_glass_mat_${id}`, scene);
     glassMat.metallic = 0.1;
     glassMat.roughness = 0.05;
@@ -16749,14 +17223,18 @@ export class FaunaVisualFactory {
     coreMat.metallic = 0.02;
 
     const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
-    const greenColor = { r: 0.1, g: 0.95, b: 0.15 };
+    const greenColor = { r: 0.0, g: 1.0, b: 0.05 };
 
     const redStyle = `rgb(${Math.floor(spikeColor.r * 255)}, ${Math.floor(spikeColor.g * 255)}, ${Math.floor(spikeColor.b * 255)})`;
     const greenStyle = `rgb(${Math.floor(greenColor.r * 255)}, ${Math.floor(greenColor.g * 255)}, ${Math.floor(greenColor.b * 255)})`;
 
     if (variant === "NORMAL") {
       coreMat.albedoColor = new BABYLON.Color3(greenColor.r, greenColor.g, greenColor.b);
-      coreMat.emissiveColor = new BABYLON.Color3(greenColor.r * 1.5, greenColor.g * 1.5, greenColor.b * 1.5);
+      coreMat.emissiveColor = new BABYLON.Color3(
+        greenColor.r * 1.5,
+        greenColor.g * 1.5,
+        greenColor.b * 1.5
+      );
     } else {
       const res = 128;
       const dynTex = new BABYLON.DynamicTexture(`health_bug_core_tex_${id}`, res, scene, true);
@@ -16794,7 +17272,7 @@ export class FaunaVisualFactory {
       scene
     );
     stem.position.set(0, -0.25, 0);
-    
+
     const metalMat = new BABYLON.PBRMaterial(`health_bug_metal_mat_${id}`, scene);
     metalMat.metallic = 0.95;
     metalMat.roughness = 0.15;
@@ -16972,6 +17450,22 @@ export class FaunaVisualFactory {
     stripL.material = stripeMat;
     stripL.parent = leftSafety;
 
+    // Add horizontal lines to left safety side
+    for (let h = 0; h < 6; h++) {
+      const hLineL = BABYLON.MeshBuilder.CreateBox(
+        `hLineL_${id}_${h}`,
+        {
+          width: 0.35,
+          height: 0.06,
+          depth: 0.32
+        },
+        scene
+      );
+      hLineL.position.set(-0.59, -2.5 + h * 1.0, 0);
+      hLineL.material = stripeMat;
+      hLineL.parent = leftSafety;
+    }
+
     const stripR = BABYLON.MeshBuilder.CreateBox(
       `stripR_${id}`,
       {
@@ -16984,6 +17478,22 @@ export class FaunaVisualFactory {
     stripR.position.set(0.59, 0, 0);
     stripR.material = stripeMat;
     stripR.parent = rightSafety;
+
+    // Add horizontal lines to right safety side
+    for (let h = 0; h < 6; h++) {
+      const hLineR = BABYLON.MeshBuilder.CreateBox(
+        `hLineR_${id}_${h}`,
+        {
+          width: 0.35,
+          height: 0.06,
+          depth: 0.32
+        },
+        scene
+      );
+      hLineR.position.set(0.59, -2.5 + h * 1.0, 0);
+      hLineR.material = stripeMat;
+      hLineR.parent = rightSafety;
+    }
 
     for (let leg = 0; leg < 4; leg++) {
       const legY = -2.0 + leg * 1.35;
@@ -17400,8 +17910,8 @@ export function createWeaverVisualMesh(
         if (y < 0) {
           const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
           if (r_sphere > 0.05) {
-                const r_cone = radius * (1.0 + y / radius);
-                const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
+            const r_cone = radius * (1.0 + y / radius);
+            const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
             positions[i] = x * scaleFactor;
             positions[i + 2] = z * scaleFactor;
           } else {
@@ -17482,7 +17992,10 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
   );
 
-  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, { shear: true, gradient: true });
+  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, {
+    shear: true,
+    gradient: true
+  });
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
@@ -17567,8 +18080,8 @@ export function decorateWeaverVisual(
         const normY = y / halfY;
         const r_sphere = Math.sqrt(Math.max(0, 1.0 - normY * normY));
         if (r_sphere > 0.05) {
-              const r_cone = 1.0 + normY;
-              const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
+          const r_cone = 1.0 + normY;
+          const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
           positions[i] = x * scaleFactor;
           positions[i + 2] = z * scaleFactor;
         } else {
@@ -17926,8 +18439,8 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
         const hBL = heightMap[yp * res + xm];
         const hBR = heightMap[yp * res + xp];
 
-        const dx = ((hTR + hBR) - (hTL + hBL)) * config.bumpStrength * 0.5;
-        const dy = ((hBL + hBR) - (hTL + hTR)) * config.bumpStrength * 0.5;
+        const dx = (hTR + hBR - (hTL + hBL)) * config.bumpStrength * 0.5;
+        const dy = (hBL + hBR - (hTL + hTR)) * config.bumpStrength * 0.5;
         const dz = 1.0;
 
         const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -18390,7 +18903,6 @@ export class EntityInterpolationSystem implements ISystem {
 
 ● ./src/visual/systems/LegJointAnimationSystem.ts
 ────────────────────────────────────────────────────
-
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -18943,7 +19455,12 @@ export class TransformHistorySystem implements ISystem {
 
 ● ./src/visual/systems/VisualStateDressingSystem.ts
 ────────────────────────────────────────────────────
-import { ColorCache, solveSpringDamper, solveScaleSpring, collectPBRMaterials } from "../../core/utils/EngineUtils";
+import {
+  ColorCache,
+  solveSpringDamper,
+  solveScaleSpring,
+  collectPBRMaterials
+} from "../../core/utils/EngineUtils";
 import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
@@ -19011,17 +19528,36 @@ export class VisualStateDressingSystem implements ISystem {
 
       const currentRoll = cosmetic.currentRoll ?? 0;
       const rollVel = cosmetic.rollVel ?? 0;
-      const rollSpring = solveSpringDamper(currentRoll, cosmetic.rotationAngle, rollVel, dt, cosmetic.springStiffness * 0.6, cosmetic.springDamping);
+      const rollSpring = solveSpringDamper(
+        currentRoll,
+        cosmetic.rotationAngle,
+        rollVel,
+        dt,
+        cosmetic.springStiffness * 0.6,
+        cosmetic.springDamping
+      );
       cosmetic.currentRoll = rollSpring.value;
       cosmetic.rollVel = rollSpring.velocity;
 
       const currentWobble = cosmetic.currentWobble ?? 0;
       const wobbleVel = cosmetic.wobbleVel ?? 0;
-      const wobbleSpring = solveSpringDamper(currentWobble, cosmetic.wobbleAngle ?? 0, wobbleVel, dt, cosmetic.springStiffness * 0.8, cosmetic.springDamping);
+      const wobbleSpring = solveSpringDamper(
+        currentWobble,
+        cosmetic.wobbleAngle ?? 0,
+        wobbleVel,
+        dt,
+        cosmetic.springStiffness * 0.8,
+        cosmetic.springDamping
+      );
       cosmetic.currentWobble = wobbleSpring.value;
       cosmetic.wobbleVel = wobbleSpring.velocity;
 
-      BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, cosmetic.currentWobble, this._weaverTargetQuat);
+      BABYLON.Quaternion.RotationYawPitchRollToRef(
+        0,
+        0,
+        cosmetic.currentWobble,
+        this._weaverTargetQuat
+      );
       const rollQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, cosmetic.currentRoll);
       this._weaverTargetQuat.multiplyInPlace(rollQuat);
 
@@ -19034,8 +19570,7 @@ export class VisualStateDressingSystem implements ISystem {
     this.updateAestheticDressing(dt);
   }
 
-  public render(): void {
-  }
+  public render(): void {}
 
   private updateAestheticDressing(dt: number): void {
     const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
@@ -19073,9 +19608,7 @@ export class VisualStateDressingSystem implements ISystem {
     }
 
     const wCosmetic = cosmetics.get(wId);
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
-      .get(wId);
+    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(wId);
 
     if (wCosmetic) {
       const wNode = this.context.visualQuery.getTransformNode(wId);
@@ -19119,8 +19652,9 @@ export class VisualStateDressingSystem implements ISystem {
           );
 
           if (wAI) {
-            const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: SilkMaterialPlugin })
-              ._shearPlugin;
+            const shearPlugin = (
+              pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: SilkMaterialPlugin }
+            )._shearPlugin;
             if (shearPlugin) {
               shearPlugin.shearIntensity = wAI.damageShearIntensity;
               shearPlugin.shearTime = wAI.damageShearTime;
