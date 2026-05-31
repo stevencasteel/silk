@@ -1,5 +1,5 @@
 ===========================================================================
-  STEVEN CASTEEL // BOX BATTLE CABINET ENGINE
+  STEVEN CASTEEL // PROJECT SILK ENGINE
   AI Terminal Execution & Development Guidelines
 ===========================================================================
 

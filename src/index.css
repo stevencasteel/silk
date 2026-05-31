@@ -393,7 +393,7 @@ body,
   font-family: monospace;
 }
 
-/* Box Battle Color Matching Numbers */
+/* Project Silk Color Matching Numbers */
 .gameover-stat-win {
   color: var(--signal-green) !important;
   text-shadow: 0 0 8px var(--signal-green-glow);
@@ -743,7 +743,7 @@ body,
   }
 }
 
-/* Box Battle Style Structural Overrides */
+/* Project Silk Style Structural Overrides */
 .gameover-divider {
   height: 1px;
   width: 60px;
@@ -806,7 +806,7 @@ body,
   text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
 }
 
-/* Box Battle style LED Damage Shaking/Decay animation */
+/* Project Silk style LED Damage Shaking/Decay animation */
 @keyframes led-shake-die-decay {
   0% {
     transform: translate(2px, 2px) scale(1.3) rotate(5deg);

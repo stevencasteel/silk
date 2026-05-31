@@ -23,7 +23,7 @@ function shouldInclude(filePath) {
     return false;
   }
 
-  const ignoredPaths = ['node_modules', '.git', 'dist', '.vscode', 'BOX_BATTLE_ARCHIVE'];
+  const ignoredPaths = ['node_modules', '.git', 'dist', '.vscode', 'SILK_ARCHIVE'];
   const segments = relPath.split('/');
   if (segments.some(segment => ignoredPaths.includes(segment))) return false;
   
@@ -81,7 +81,7 @@ function generateTree(dir, prefix = '') {
     const isLast = i === items.length - 1;
     const branch = isLast ? '└── ' : '├── ';
     
-    const skippedDirs = ['node_modules', 'dist', '.git', 'BOX_BATTLE_ARCHIVE'];
+    const skippedDirs = ['node_modules', 'dist', '.git', 'SILK_ARCHIVE'];
     if (item.isDir && skippedDirs.includes(item.name)) {
       output += `${prefix}${branch}${item.name}/ (contents skipped)\n`;
       continue;
