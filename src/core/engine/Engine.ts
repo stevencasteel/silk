@@ -45,25 +45,95 @@ export class Engine {
     );
   }
 
+  private verifySystemsReady(): boolean {
+    try {
+      if (!this.systemManager) return false;
+
+      const renderSystem = (this.systemManager as any).systems?.find(
+        (s: any) => s.constructor.name === "RenderSystem"
+      );
+      if (!renderSystem) return false;
+
+      const scene = (renderSystem as any).scene;
+      if (!scene) return false;
+
+      if (!scene.isReady()) {
+        return false;
+      }
+
+      if (!scene.activeCamera) {
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.warn("Pre-flight system check warning:", err);
+      return false;
+    }
+  }
+
   public async start(): Promise<void> {
-    this.isPaused = true;
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "Starting engine...", progress: 0, phase: 0 });
+    try {
+      this.isPaused = true;
+      this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "Starting engine...", progress: 0, phase: 0 });
 
-    await this.systemManager.initAll((phase, systemName, progress) => {
-      const readableName = systemName.replace(/System$/, '').replace(/([A-Z])/g, ' $1').trim();
-      this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-        status: `Loading ${readableName}...`,
-        progress: progress,
-        phase: phase
+      await this.systemManager.initAll((phase, systemName, progress) => {
+        const readableName = systemName.replace(/System$/, '').replace(/([A-Z])/g, ' $1').trim();
+        this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+          status: `Loading ${readableName}...`,
+          progress: progress * 0.9,
+          phase: phase
+        });
       });
-    });
 
-    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY", progress: 1, phase: 4 });
+      this.pauseHandler.init();
+      this.initGestureHandlers();
 
-    this.pauseHandler.init();
-    this.initGestureHandlers();
+      let verified = false;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        if (this.verifySystemsReady()) {
+          verified = true;
+          break;
+        }
+        this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+          status: `Verifying systems (Attempt ${attempt + 1}/10)...`,
+          progress: 0.9 + (attempt / 10) * 0.1,
+          phase: 3
+        });
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
 
-    this.loop.start();
+      if (!verified) {
+        console.warn("[Engine Pre-flight] Systems ready check timed out, proceeding with fallback.");
+      }
+
+      const renderSystem = (this.systemManager as any).systems?.find(
+        (s: any) => s.constructor.name === "RenderSystem"
+      );
+      if (renderSystem) {
+        const scene = (renderSystem as any).scene;
+        const engine = (renderSystem as any).engine;
+        if (scene && engine) {
+          for (let i = 0; i < 3; i++) {
+            engine.beginFrame();
+            scene.render();
+            engine.endFrame();
+          }
+        }
+      }
+
+      this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, { status: "READY", progress: 1, phase: 4 });
+
+      this.loop.start();
+    } catch (error) {
+      console.error("Critical error during engine startup:", error);
+      const errMsg = "BOOT FAILED: " + (error instanceof Error ? error.message : String(error));
+      this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+        status: errMsg,
+        progress: 0,
+        phase: 0
+      });
+    }
   }
 
   public stop(): void {
