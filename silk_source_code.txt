@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 2:40:24 AM
+ [SYSTEM] Generated: 5/31/2026, 2:51:32 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2355,28 +2355,26 @@ export interface IDisposable {
   dispose(): void;
 }
 
-export function isInitializable(system: unknown): system is IInitializable {
+function hasMethod(system: unknown, methodName: string): boolean {
   if (system === null || typeof system !== "object") return false;
   const candidate = system as Record<string, unknown>;
-  return typeof candidate.init === "function";
+  return typeof candidate[methodName] === "function";
+}
+
+export function isInitializable(system: unknown): system is IInitializable {
+  return hasMethod(system, "init");
 }
 
 export function isUpdateable(system: unknown): system is IUpdateable {
-  if (system === null || typeof system !== "object") return false;
-  const candidate = system as Record<string, unknown>;
-  return typeof candidate.update === "function";
+  return hasMethod(system, "update");
 }
 
 export function isRenderable(system: unknown): system is IRenderable {
-  if (system === null || typeof system !== "object") return false;
-  const candidate = system as Record<string, unknown>;
-  return typeof candidate.render === "function";
+  return hasMethod(system, "render");
 }
 
 export function isDisposable(system: unknown): system is IDisposable {
-  if (system === null || typeof system !== "object") return false;
-  const candidate = system as Record<string, unknown>;
-  return typeof candidate.dispose === "function";
+  return hasMethod(system, "dispose");
 }
 
 
@@ -4491,6 +4489,19 @@ export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON
   });
 }
 
+export function collectPBRMaterials(mesh: BABYLON.AbstractMesh): BABYLON.PBRMaterial[] {
+  const materials: BABYLON.PBRMaterial[] = [];
+  if (mesh.material instanceof BABYLON.PBRMaterial) {
+    materials.push(mesh.material);
+  }
+  mesh.getChildMeshes().forEach((child) => {
+    if (child.material instanceof BABYLON.PBRMaterial && !materials.includes(child.material)) {
+      materials.push(child.material);
+    }
+  });
+  return materials;
+}
+
 
 
 ● ./src/core/utils/EntityPool.ts
@@ -5862,7 +5873,7 @@ import {
   KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
-import { getWeaverAbdomenTip } from "../../core/utils/EngineUtils";
+import { getWeaverAbdomenTip, SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { ProjectilePool } from "./ProjectilePool";
 import * as BABYLON from "@babylonjs/core";
 
@@ -5870,10 +5881,9 @@ export class ProjectileSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
   private pool!: ProjectilePool;
 
-  private unsubShoot: (() => void) | null = null;
   private shotCounter = 0;
-  private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
+  private _tracker = new SubscriptionTracker();
 
   private _scratchPos = new BABYLON.Vector3();
   private _scratchRot = new BABYLON.Quaternion();
@@ -5891,15 +5901,19 @@ export class ProjectileSystem implements ISystem {
       (otherId, projId) => this.handleOverlap(otherId, projId)
     );
 
-    this.unsubShoot = this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
-      this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty, !!payload.isRelease);
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+        this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty, !!payload.isRelease);
+      })
+    );
 
-    this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-      this.pool.reset();
-      this.noiseTime = 0.0;
-      this.shotCounter = 0;
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.pool.reset();
+        this.noiseTime = 0.0;
+        this.shotCounter = 0;
+      })
+    );
   }
 
   private handleBoundaryHit(id: EntityId, side: "LEFT" | "RIGHT", currentX: number): void {
@@ -6632,8 +6646,7 @@ export class ProjectileSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsubShoot) this.unsubShoot();
-    if (this.unsubReset) this.unsubReset();
+    this._tracker.clear();
     if (this.pool) this.pool.dispose();
   }
 }
@@ -11092,15 +11105,14 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   private states = new Map<WeaverStateType, IWeaverState>();
   private activeState: IWeaverState | null = null;
-  private unsubDamage: (() => void) | null = null;
-  private unsubReset: (() => void) | null = null;
-  private unsubBounce: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
+  private _tracker = new SubscriptionTracker();
 
   constructor(private context: SystemContext) {}
 
@@ -11111,37 +11123,43 @@ export class WeaverBrainSystem implements ISystem {
   public init(): void {
     this.resetBrain();
 
-    this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-      this.resetBrain();
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.resetBrain();
+      })
+    );
 
-    this.unsubDamage = this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.context.stores
-        .get<WeaverAIComponent>("weaverAI")
-        .get(this.context.refs.weaver);
-      const health = this.context.stores
-        .get<HealthComponent>("health")
-        .get(this.context.refs.weaver);
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        const aiComp = this.context.stores
+          .get<WeaverAIComponent>("weaverAI")
+          .get(this.context.refs.weaver);
+        const health = this.context.stores
+          .get<HealthComponent>("health")
+          .get(this.context.refs.weaver);
 
-      if (aiComp && health) {
-        aiComp.damageShearIntensity = 1.0;
-        aiComp.damageShearTime = 0.0;
-        if (health.current <= 0) {
-          this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "PATROLLING" || aiComp.state === "SHOCKWAVE") {
-          this.pendingTransition = "STRIKING";
+        if (aiComp && health) {
+          aiComp.damageShearIntensity = 1.0;
+          aiComp.damageShearTime = 0.0;
+          if (health.current <= 0) {
+            this.pendingTransition = "DEFEATED";
+          } else if (aiComp.state === "PATROLLING" || aiComp.state === "SHOCKWAVE") {
+            this.pendingTransition = "STRIKING";
+          }
         }
-      }
-    });
+      })
+    );
 
-    this.unsubBounce = this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
-      const aiComp = this.context.stores
-        .get<WeaverAIComponent>("weaverAI")
-        .get(this.context.refs.weaver);
-      if (aiComp && aiComp.state === "PATROLLING") {
-        this.pendingTransition = "SHOCKWAVE";
-      }
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
+        const aiComp = this.context.stores
+          .get<WeaverAIComponent>("weaverAI")
+          .get(this.context.refs.weaver);
+        if (aiComp && aiComp.state === "PATROLLING") {
+          this.pendingTransition = "SHOCKWAVE";
+        }
+      })
+    );
   }
 
   private resetBrain(): void {
@@ -11246,9 +11264,7 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsubDamage) this.unsubDamage();
-    if (this.unsubReset) this.unsubReset();
-    if (this.unsubBounce) this.unsubBounce();
+    this._tracker.clear();
   }
 }
 
@@ -13537,6 +13553,20 @@ export class HavokPhysicsSystem implements ISystem {
     });
   }
 
+  private setMeshTargetTransform(
+    entityId: number,
+    trans: TransformComponent | undefined
+  ): void {
+    const mesh = this.context.visualQuery.getTransformNode(
+      entityId
+    ) as BABYLON.AbstractMesh | null;
+    if (mesh && mesh.physicsBody && trans) {
+      this._scratchPos.set(trans.x, trans.y, trans.z);
+      this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
+      mesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
+    }
+  }
+
   public update(): void {
     this.context.commands.flush();
     const transforms = this.context.stores.get<TransformComponent>("transform");
@@ -13556,23 +13586,8 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.z = wTarget.z;
     }
 
-    const pMesh = this.context.visualQuery.getTransformNode(
-      this.context.refs.player
-    ) as BABYLON.AbstractMesh | null;
-    if (pMesh && pMesh.physicsBody && pTrans) {
-      this._scratchPos.set(pTrans.x, pTrans.y, pTrans.z);
-      this._scratchRot.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
-      pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
-    }
-
-    const wMesh = this.context.visualQuery.getTransformNode(
-      this.context.refs.weaver
-    ) as BABYLON.AbstractMesh | null;
-    if (wMesh && wMesh.physicsBody && wTrans) {
-      this._scratchPos.set(wTrans.x, wTrans.y, wTrans.z);
-      this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-      wMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
-    }
+    this.setMeshTargetTransform(this.context.refs.player, pTrans);
+    this.setMeshTargetTransform(this.context.refs.weaver, wTrans);
   }
 
   public dispose(): void {
@@ -15905,7 +15920,7 @@ export class CameraSystem implements ISystem {
 
 ● ./src/visual/lighting/LightingSystem.ts
 ────────────────────────────────────────────────────
-import { ColorCache } from "../../core/utils/EngineUtils";
+import { ColorCache, SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -15916,7 +15931,7 @@ export class LightingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   readonly initPhase = InitPhase.World;
 
-  private unsub: (() => void) | null = null;
+  private _tracker = new SubscriptionTracker();
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
@@ -15964,17 +15979,23 @@ export class LightingSystem implements ISystem {
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
-    this.unsub = this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
-      this.setWeaverPhaseHue(payload.hue);
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
+        this.setWeaverPhaseHue(payload.hue);
+      })
+    );
 
-    this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-      this.triggerFlash();
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        this.triggerFlash();
+      })
+    );
 
-    this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-      this.triggerFlash();
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        this.triggerFlash();
+      })
+    );
   }
 
   public update(dt: number): void {
@@ -16033,7 +16054,7 @@ export class LightingSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsub) this.unsub();
+    this._tracker.clear();
     if (this.weaverLight) this.weaverLight.dispose();
     if (this.weaverKeyLight) this.weaverKeyLight.dispose();
     if (this.rimLight) this.rimLight.dispose();
@@ -18773,7 +18794,7 @@ export class TransformHistorySystem implements ISystem {
 
 ● ./src/visual/systems/VisualStateDressingSystem.ts
 ────────────────────────────────────────────────────
-import { ColorCache, solveSpringDamper } from "../../core/utils/EngineUtils";
+import { ColorCache, solveSpringDamper, collectPBRMaterials } from "../../core/utils/EngineUtils";
 import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
@@ -18887,18 +18908,7 @@ export class VisualStateDressingSystem implements ISystem {
     if (pCosmetic) {
       const pNode = this.context.visualQuery.getTransformNode(pId);
       if (pNode instanceof BABYLON.AbstractMesh) {
-        const pbrMaterials: BABYLON.PBRMaterial[] = [];
-        if (pNode.material instanceof BABYLON.PBRMaterial) {
-          pbrMaterials.push(pNode.material);
-        }
-        pNode.getChildMeshes().forEach((child) => {
-          if (
-            child.material instanceof BABYLON.PBRMaterial &&
-            !pbrMaterials.includes(child.material)
-          ) {
-            pbrMaterials.push(child.material);
-          }
-        });
+        const pbrMaterials = collectPBRMaterials(pNode);
 
         const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
         pbrMaterials.forEach((mat) => {
@@ -18932,18 +18942,7 @@ export class VisualStateDressingSystem implements ISystem {
     if (wCosmetic) {
       const wNode = this.context.visualQuery.getTransformNode(wId);
       if (wNode instanceof BABYLON.AbstractMesh) {
-        const pbrMaterials: BABYLON.PBRMaterial[] = [];
-        if (wNode.material instanceof BABYLON.PBRMaterial) {
-          pbrMaterials.push(wNode.material);
-        }
-        wNode.getChildMeshes().forEach((child) => {
-          if (
-            child.material instanceof BABYLON.PBRMaterial &&
-            !pbrMaterials.includes(child.material)
-          ) {
-            pbrMaterials.push(child.material);
-          }
-        });
+        const pbrMaterials = collectPBRMaterials(wNode);
 
         const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
         const pulse =
