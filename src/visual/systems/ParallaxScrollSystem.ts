@@ -11,15 +11,12 @@ import {
   HealthComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
-import { ArenaProfileService } from "../../core/engine/ArenaProfileService";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
 export class ParallaxScrollSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-
-  public static currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
 
   private currentScrollOffset = 0.0;
   private prevScrollOffset = 0.0;
@@ -48,8 +45,8 @@ export class ParallaxScrollSystem implements ISystem {
         this.currentScrollOffset = 0.0;
         this.prevScrollOffset = 0.0;
         this.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
-        ParallaxScrollSystem.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
-        ArenaProfileService.setAltitude(0);
+        this.context.runtime.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
+        this.context.runtime.altitude = 0;
       })
     );
   }
@@ -70,21 +67,20 @@ export class ParallaxScrollSystem implements ISystem {
       .get(this.context.refs.weaver);
 
     const targetScrollSpeed =
-      this.hitStopTimer > 0 ? 0.0 : ParallaxScrollSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+      this.hitStopTimer > 0 ? 0.0 : this.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
-    ParallaxScrollSystem.currentScrollSpeed = this.scrollSpeed;
+    this.context.runtime.currentScrollSpeed = this.scrollSpeed;
 
     this.prevScrollOffset = this.currentScrollOffset;
     this.currentScrollOffset += this.scrollSpeed * dt;
 
-    // Track traveled altitude scaling within our global profile service
     if (this.scrollSpeed > 0) {
-      ArenaProfileService.setAltitude(ArenaProfileService.getAltitude() + this.scrollSpeed * dt);
+      this.context.runtime.altitude += this.scrollSpeed * dt;
     }
   }
 
-  public static getDesiredScrollSpeed(
+  private getDesiredScrollSpeed(
     wAI: WeaverAIComponent | undefined,
     wHealth: HealthComponent | undefined,
     wVel: KinematicVelocityComponent | undefined
@@ -93,7 +89,7 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
-    const profile = ArenaProfileService.getActiveProfile();
+    const profile = this.context.runtime.activeProfile;
 
     if (wAI.state === "PATROLLING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;

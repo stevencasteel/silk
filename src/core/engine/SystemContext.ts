@@ -10,6 +10,7 @@ import {
   IVisualQuery,
   IVisualRegistration
 } from "../../contracts/IVisualRegistry";
+import { RuntimeState } from "./RuntimeState";
 
 export class SystemContext {
   public readonly visualQuery: IVisualQuery;
@@ -21,7 +22,8 @@ export class SystemContext {
     public readonly commands: ICommandBus,
     public readonly refs: IEntityRefs,
     public readonly visualRegistry: IVisualRegistry,
-    public readonly stores: IStoreContainer
+    public readonly stores: IStoreContainer,
+    public readonly runtime: RuntimeState
   ) {
     this.visualQuery = visualRegistry;
     this.visualRegistration = visualRegistry;

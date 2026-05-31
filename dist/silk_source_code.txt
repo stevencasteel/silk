@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 8:29:52 PM
+ [SYSTEM] Generated: 5/30/2026, 8:54:25 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -61,9 +61,8 @@
 │   │   │   └── StoreContainer.ts
 │   │   ├── engine/
 │   │   │   ├── ArenaConfig.ts
-│   │   │   ├── ArenaProfileService.ts
 │   │   │   ├── Engine.ts
-│   │   │   ├── EngineTime.ts
+│   │   │   ├── RuntimeState.ts
 │   │   │   ├── SpatialPartitionService.ts
 │   │   │   └── SystemContext.ts
 │   │   ├── events/
@@ -235,7 +234,7 @@ jobs:
 ● ./docs/AI_INSTRUCTIONS.txt
 ────────────────────────────────────────────────────
 ===========================================================================
-  STEVEN CASTEEL // BOX BATTLE CABINET ENGINE
+  STEVEN CASTEEL // PROJECT SILK ENGINE
   AI Terminal Execution & Development Guidelines
 ===========================================================================
 
@@ -683,7 +682,7 @@ function shouldInclude(filePath) {
     return false;
   }
 
-  const ignoredPaths = ['node_modules', '.git', 'dist', '.vscode', 'BOX_BATTLE_ARCHIVE'];
+  const ignoredPaths = ['node_modules', '.git', 'dist', '.vscode', 'SILK_ARCHIVE'];
   const segments = relPath.split('/');
   if (segments.some(segment => ignoredPaths.includes(segment))) return false;
   
@@ -741,7 +740,7 @@ function generateTree(dir, prefix = '') {
     const isLast = i === items.length - 1;
     const branch = isLast ? '└── ' : '├── ';
     
-    const skippedDirs = ['node_modules', 'dist', '.git', 'BOX_BATTLE_ARCHIVE'];
+    const skippedDirs = ['node_modules', 'dist', '.git', 'SILK_ARCHIVE'];
     if (item.isDir && skippedDirs.includes(item.name)) {
       output += `${prefix}${branch}${item.name}/ (contents skipped)\n`;
       continue;
@@ -1141,9 +1140,7 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
 
 ● ./src/app/compositionRoot.ts
 ────────────────────────────────────────────────────
-import {
-  
-  Engine } from "../core/engine/Engine";
+import { Engine } from "../core/engine/Engine";
 import { EventBroker } from "../core/events/EventBroker";
 import { SystemManager } from "../core/systems/SystemManager";
 import { CommandBus } from "../core/commands/CommandBus";
@@ -1152,6 +1149,7 @@ import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
 import { StoreContainer } from "../core/ecs/StoreContainer";
 import { SystemContext } from "../core/engine/SystemContext";
+import { RuntimeState } from "../core/engine/RuntimeState";
 import {
   HitStopComponent,
   CollisionResponseComponent,
@@ -1238,6 +1236,7 @@ export class CompositionRoot {
     const commands = new CommandBus();
     const profiler = new Profiler();
     const systemManager = new SystemManager(profiler);
+    const runtime = new RuntimeState();
 
     const world = new EcsWorld();
     const transforms = new ComponentStore<TransformComponent>();
@@ -1316,7 +1315,8 @@ export class CompositionRoot {
       commands,
       refs,
       visualRegistry,
-      storeContainer
+      storeContainer,
+      runtime
     );
 
     const renderSystem = new RenderSystem(canvas, visualRegistry, broker);
@@ -1414,7 +1414,7 @@ export class CompositionRoot {
     const clock = new PerformanceClock();
     const scheduler = new RafScheduler();
 
-    return new Engine(canvas, broker, systemManager, clock, scheduler);
+    return new Engine(canvas, broker, systemManager, clock, scheduler, runtime);
   }
 }
 
@@ -3586,42 +3586,6 @@ export const POST_PROCESSING_PRESETS = {
 
 
 
-● ./src/core/engine/ArenaProfileService.ts
-────────────────────────────────────────────────────
-import { ARENA_CONFIG } from "./ArenaConfig";
-
-export interface ArenaProfile {
-  scrollSpeed: number;
-  projectileSpeed: number;
-  reloadTime: number;
-  weaverSpeed: number;
-}
-
-export class ArenaProfileService {
-  private static currentAltitude = 0.0;
-
-  public static setAltitude(altitude: number): void {
-    this.currentAltitude = Math.max(0, altitude);
-  }
-
-  public static getAltitude(): number {
-    return this.currentAltitude;
-  }
-
-  public static getActiveProfile(): ArenaProfile {
-    const factor = Math.min(1.0, this.currentAltitude / 1000.0);
-
-    return {
-      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE + factor * 4.5,
-      projectileSpeed: 15.0 + factor * 8.0,
-      reloadTime: Math.max(1.2, 2.4 - factor * 0.8),
-      weaverSpeed: 4.5 + factor * 3.5
-    };
-  }
-}
-
-
-
 ● ./src/core/engine/Engine.ts
 ────────────────────────────────────────────────────
 import { GameLoop } from "../loop/GameLoop";
@@ -3630,12 +3594,13 @@ import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
-import { EngineTime } from "./EngineTime";
+import { RuntimeState } from "./RuntimeState";
 
 export class Engine {
   private loop: GameLoop;
   private systemManager: SystemManager;
   private broker: IEventBroker;
+  private runtime: RuntimeState;
 
   public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
@@ -3646,10 +3611,12 @@ export class Engine {
     broker: IEventBroker,
     systemManager: SystemManager,
     clock: IClock,
-    scheduler: IScheduler
+    scheduler: IScheduler,
+    runtime: RuntimeState
   ) {
     this.broker = broker;
     this.systemManager = systemManager;
+    this.runtime = runtime;
     this.loop = new GameLoop(
       (dt) => this.update(dt),
       (alpha) => this.render(alpha),
@@ -3737,8 +3704,10 @@ export class Engine {
   private update(dt: number): void {
     if (this.isPaused) return;
 
-    EngineTime.update(dt);
-    const scaledDt = dt * EngineTime.activeTimeScale;
+    if (this.runtime.hitLagTimer > 0) {
+      this.runtime.hitLagTimer = Math.max(0, this.runtime.hitLagTimer - dt);
+    }
+    const scaledDt = dt * this.runtime.activeTimeScale;
 
     this.systemManager.updateAll(scaledDt);
   }
@@ -3750,24 +3719,47 @@ export class Engine {
 
 
 
-● ./src/core/engine/EngineTime.ts
+● ./src/core/engine/RuntimeState.ts
 ────────────────────────────────────────────────────
-export class EngineTime {
-  public static timeScale = 1.0;
-  public static hitLagTimer = 0.0;
-  public static hitLagScale = 1.0;
+import { ARENA_CONFIG } from "./ArenaConfig";
 
-  public static get activeTimeScale(): number {
+export interface ArenaProfile {
+  scrollSpeed: number;
+  projectileSpeed: number;
+  reloadTime: number;
+  weaverSpeed: number;
+}
+
+export class RuntimeState {
+  public currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
+  public timeScale: number = 1.0;
+  public hitLagTimer: number = 0.0;
+  public hitLagScale: number = 1.0;
+  public altitude: number = 0.0;
+
+  public get activeTimeScale(): number {
     if (this.hitLagTimer > 0) {
       return this.timeScale * this.hitLagScale;
     }
     return this.timeScale;
   }
 
-  public static update(dt: number): void {
-    if (this.hitLagTimer > 0) {
-      this.hitLagTimer = Math.max(0, this.hitLagTimer - dt);
-    }
+  public get activeProfile(): ArenaProfile {
+    const factor = Math.min(1.0, this.altitude / 1000.0);
+    return {
+      scrollSpeed: ARENA_CONFIG.SCROLL_SPEED.BASE + factor * 4.5,
+      projectileSpeed: 15.0 + factor * 8.0,
+      reloadTime: Math.max(1.2, 2.4 - factor * 0.8),
+      weaverSpeed: 4.5 + factor * 3.5
+    };
+  }
+
+  public reset(): void {
+    this.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
+    this.timeScale = 1.0;
+    this.hitLagTimer = 0.0;
+    this.hitLagScale = 1.0;
+    this.altitude = 0.0;
   }
 }
 
@@ -3810,6 +3802,7 @@ import {
   IVisualQuery,
   IVisualRegistration
 } from "../../contracts/IVisualRegistry";
+import { RuntimeState } from "./RuntimeState";
 
 export class SystemContext {
   public readonly visualQuery: IVisualQuery;
@@ -3821,7 +3814,8 @@ export class SystemContext {
     public readonly commands: ICommandBus,
     public readonly refs: IEntityRefs,
     public readonly visualRegistry: IVisualRegistry,
-    public readonly stores: IStoreContainer
+    public readonly stores: IStoreContainer,
+    public readonly runtime: RuntimeState
   ) {
     this.visualQuery = visualRegistry;
     this.visualRegistration = visualRegistry;
@@ -5141,7 +5135,7 @@ import {
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
-import { EngineTime } from "../../core/engine/EngineTime";
+
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -5172,7 +5166,7 @@ export class GameDirectorSystem implements ISystem {
           this.activeCinematic = "PLAYER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.6;
-          EngineTime.timeScale = 0.2;
+          this.context.runtime.timeScale = 0.2;
 
           const tethers = this.context.stores.get<TetherComponent>("tether");
           const pTether = tethers.get(this.context.refs.player);
@@ -5197,7 +5191,7 @@ export class GameDirectorSystem implements ISystem {
           this.activeCinematic = "WEAVER_DEATH";
           this.cinematicTimer = 0.0;
           this.maxCinematicSimTime = 0.875;
-          EngineTime.timeScale = 0.25;
+          this.context.runtime.timeScale = 0.25;
 
           this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
             amplitude: 0.8,
@@ -5235,16 +5229,16 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
         if (!payload.isWall) {
-          EngineTime.hitLagTimer = 0.15;
-          EngineTime.hitLagScale = 0.15;
+          this.context.runtime.hitLagTimer = 0.15;
+          this.context.runtime.hitLagScale = 0.15;
         }
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
-        EngineTime.hitLagTimer = 0.18;
-        EngineTime.hitLagScale = 0.20;
+        this.context.runtime.hitLagTimer = 0.18;
+        this.context.runtime.hitLagScale = 0.20;
       })
     );
 
@@ -5252,8 +5246,8 @@ export class GameDirectorSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         const hsStore = this.context.stores.get<HitStopComponent>("hitStop");
         for (const [, hs] of hsStore.entries()) hs.timeRemaining = 0;
-        EngineTime.hitLagTimer = 0;
-        EngineTime.hitLagScale = 1.0;
+        this.context.runtime.hitLagTimer = 0;
+        this.context.runtime.hitLagScale = 1.0;
       })
     );
 
@@ -5306,7 +5300,7 @@ export class GameDirectorSystem implements ISystem {
       if (this.cinematicTimer >= this.maxCinematicSimTime) {
         const finishedCinematic = this.activeCinematic;
         this.activeCinematic = "NONE";
-        EngineTime.timeScale = 1.0;
+        this.context.runtime.timeScale = 1.0;
 
         if (finishedCinematic === "PLAYER_DEATH") {
           console.log(
@@ -5326,9 +5320,9 @@ export class GameDirectorSystem implements ISystem {
       if (this.adrenalineTimer > 0) {
         this.adrenalineTimer -= dt;
         const progress = Math.max(0, this.adrenalineTimer / this.ADRENALINE_SURGE_DURATION);
-        EngineTime.timeScale = 0.45 + (1.0 - progress) * 0.55;
+        this.context.runtime.timeScale = 0.45 + (1.0 - progress) * 0.55;
       } else {
-        EngineTime.timeScale = 1.0;
+        this.context.runtime.timeScale = 1.0;
       }
     }
   }
@@ -5339,7 +5333,7 @@ export class GameDirectorSystem implements ISystem {
     this.activeCinematic = "NONE";
     this.cinematicTimer = 0.0;
     this.adrenalineTimer = 0.0;
-    EngineTime.timeScale = 1.0;
+    this.context.runtime.timeScale = 1.0;
 
     this.spawner.spawnWeaver(this.context.refs.weaver);
     this.spawner.spawnPlayer(this.context.refs.player);
@@ -5489,7 +5483,7 @@ export class HealthSystem implements ISystem {
 
 ● ./src/gameplay/combat/ProjectileSystem.ts
 ────────────────────────────────────────────────────
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
 import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
 import { ISystem } from "../../contracts/ISystem";
@@ -6190,7 +6184,7 @@ export class ProjectileSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
 
     const isPatrolling = wAI ? wAI.state === "PATROLLING" : true;
 
@@ -8060,7 +8054,7 @@ import {
   InputIntentComponent,
   WallBugComponent
 } from "../../core/ecs/Components";
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+
 import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
@@ -8216,7 +8210,7 @@ export class HealthBugSystem implements ISystem {
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
 
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<HealthBugComponent>("healthBug");
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
@@ -8717,7 +8711,7 @@ export class HealthBugSystem implements ISystem {
 
         pTrans.x = pTrav.stickyWallX;
         pVel.x = 0;
-        pVel.y = -ParallaxScrollSystem.currentScrollSpeed;
+        pVel.y = -this.context.runtime.currentScrollSpeed;
 
         ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
           x: pTrans.x,
@@ -9695,7 +9689,7 @@ import {
   StickySurfaceComponent,
   ProjectileComponent
 } from "../../core/ecs/Components";
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { WallBugVisualFactory } from "../../visual/mesh/WallBugVisualFactory";
@@ -9790,7 +9784,7 @@ export class WallBugSystem implements ISystem {
     const cameraY = scene.activeCamera
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
 
@@ -10345,7 +10339,7 @@ import { GAMEPLAY_TUNING, ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../../cor
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
-import { EngineTime } from "../../../core/engine/EngineTime";
+
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -10474,8 +10468,8 @@ export class PlayerStateUtils {
         pTrans.scaleVelY = 22.0;
         pTrans.scaleVelX = -11.0;
         pTrans.scaleVelZ = -11.0;
-        EngineTime.hitLagTimer = 0.08;
-        EngineTime.hitLagScale = 0.15;
+        ctx.runtime.hitLagTimer = 0.08;
+        ctx.runtime.hitLagScale = 0.15;
       } else {
         pTrans.scaleVelY = powerScale * 15.0;
         pTrans.scaleVelX = -powerScale * 7.5;
@@ -10885,7 +10879,7 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
+
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { WallStickSparksStrategy } from "../../juice/ParticleStrategies";
 
@@ -10942,7 +10936,7 @@ export class PlayerWallStickingState implements IPlayerState {
         VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.MULT_B;
     }
 
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = ctx.runtime.currentScrollSpeed;
 
     const sparkReqId = ctx.world.create();
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
@@ -12853,7 +12847,7 @@ body,
   font-family: monospace;
 }
 
-/* Box Battle Color Matching Numbers */
+/* Project Silk Color Matching Numbers */
 .gameover-stat-win {
   color: var(--signal-green) !important;
   text-shadow: 0 0 8px var(--signal-green-glow);
@@ -13203,7 +13197,7 @@ body,
   }
 }
 
-/* Box Battle Style Structural Overrides */
+/* Project Silk Style Structural Overrides */
 .gameover-divider {
   height: 1px;
   width: 60px;
@@ -13266,7 +13260,7 @@ body,
   text-shadow: 0 0 8px rgba(234, 179, 8, 0.4) !important;
 }
 
-/* Box Battle style LED Damage Shaking/Decay animation */
+/* Project Silk style LED Damage Shaking/Decay animation */
 @keyframes led-shake-die-decay {
   0% {
     transform: translate(2px, 2px) scale(1.3) rotate(5deg);
@@ -15715,7 +15709,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent, WeaverAIComponent } from "../../core/ecs/Components";
-import { ParallaxScrollSystem } from "../systems/ParallaxScrollSystem";
+
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -15864,7 +15858,7 @@ export class CameraSystem implements ISystem {
       
       if (isBossEngaging && playerLocalY < lowerLimit) {
         const desiredScrollY = playerLocalY - lowerLimit;
-        const maxScrollDelta = -Math.max(12.0, ParallaxScrollSystem.currentScrollSpeed) * dt;
+        const maxScrollDelta = -Math.max(12.0, this.context.runtime.currentScrollSpeed) * dt;
         
         this.cameraScrollY = Math.max(
           CAMERA_TUNING.MIN_SCROLL_Y,
@@ -18342,7 +18336,7 @@ export class EntityInterpolationSystem implements ISystem {
 
 ● ./src/visual/systems/LegJointAnimationSystem.ts
 ────────────────────────────────────────────────────
-import { ParallaxScrollSystem } from "./ParallaxScrollSystem";
+
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -18392,7 +18386,7 @@ export class LegJointAnimationSystem implements ISystem {
 
       const velX = wVel ? wVel.x : 0.0;
       const velY = wVel ? wVel.y : 0.0;
-      const scrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+      const scrollSpeed = this.context.runtime.currentScrollSpeed;
 
       const relX = velX;
       const relY = velY + scrollSpeed;
@@ -18697,15 +18691,12 @@ import {
   HealthComponent,
   KinematicVelocityComponent
 } from "../../core/ecs/Components";
-import { ArenaProfileService } from "../../core/engine/ArenaProfileService";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import * as BABYLON from "@babylonjs/core";
 
 export class ParallaxScrollSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
-
-  public static currentScrollSpeed: number = ARENA_CONFIG.SCROLL_SPEED.BASE;
 
   private currentScrollOffset = 0.0;
   private prevScrollOffset = 0.0;
@@ -18734,8 +18725,8 @@ export class ParallaxScrollSystem implements ISystem {
         this.currentScrollOffset = 0.0;
         this.prevScrollOffset = 0.0;
         this.scrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
-        ParallaxScrollSystem.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
-        ArenaProfileService.setAltitude(0);
+        this.context.runtime.currentScrollSpeed = ARENA_CONFIG.SCROLL_SPEED.BASE;
+        this.context.runtime.altitude = 0;
       })
     );
   }
@@ -18756,21 +18747,20 @@ export class ParallaxScrollSystem implements ISystem {
       .get(this.context.refs.weaver);
 
     const targetScrollSpeed =
-      this.hitStopTimer > 0 ? 0.0 : ParallaxScrollSystem.getDesiredScrollSpeed(wAI, wHealth, wVel);
+      this.hitStopTimer > 0 ? 0.0 : this.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
-    ParallaxScrollSystem.currentScrollSpeed = this.scrollSpeed;
+    this.context.runtime.currentScrollSpeed = this.scrollSpeed;
 
     this.prevScrollOffset = this.currentScrollOffset;
     this.currentScrollOffset += this.scrollSpeed * dt;
 
-    // Track traveled altitude scaling within our global profile service
     if (this.scrollSpeed > 0) {
-      ArenaProfileService.setAltitude(ArenaProfileService.getAltitude() + this.scrollSpeed * dt);
+      this.context.runtime.altitude += this.scrollSpeed * dt;
     }
   }
 
-  public static getDesiredScrollSpeed(
+  private getDesiredScrollSpeed(
     wAI: WeaverAIComponent | undefined,
     wHealth: HealthComponent | undefined,
     wVel: KinematicVelocityComponent | undefined
@@ -18779,7 +18769,7 @@ export class ParallaxScrollSystem implements ISystem {
       return 0.0;
     }
 
-    const profile = ArenaProfileService.getActiveProfile();
+    const profile = this.context.runtime.activeProfile;
 
     if (wAI.state === "PATROLLING") {
       const isBerserk = wHealth.current < wHealth.max * 0.5;

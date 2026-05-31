@@ -5,7 +5,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { TransformComponent, TraversalStateComponent, WeaverAIComponent } from "../../core/ecs/Components";
-import { ParallaxScrollSystem } from "../systems/ParallaxScrollSystem";
+
 import * as BABYLON from "@babylonjs/core";
 
 export class CameraSystem implements ISystem {
@@ -154,7 +154,7 @@ export class CameraSystem implements ISystem {
       
       if (isBossEngaging && playerLocalY < lowerLimit) {
         const desiredScrollY = playerLocalY - lowerLimit;
-        const maxScrollDelta = -Math.max(12.0, ParallaxScrollSystem.currentScrollSpeed) * dt;
+        const maxScrollDelta = -Math.max(12.0, this.context.runtime.currentScrollSpeed) * dt;
         
         this.cameraScrollY = Math.max(
           CAMERA_TUNING.MIN_SCROLL_Y,

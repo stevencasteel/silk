@@ -15,7 +15,7 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
-import { ParallaxScrollSystem } from "../../../visual/systems/ParallaxScrollSystem";
+
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { WallStickSparksStrategy } from "../../juice/ParticleStrategies";
 
@@ -72,7 +72,7 @@ export class PlayerWallStickingState implements IPlayerState {
         VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_SLIDE.MULT_B;
     }
 
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = ctx.runtime.currentScrollSpeed;
 
     const sparkReqId = ctx.world.create();
     const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");

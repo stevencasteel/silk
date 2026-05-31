@@ -1,4 +1,4 @@
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
 import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
 import { ISystem } from "../../contracts/ISystem";
@@ -699,7 +699,7 @@ export class ProjectileSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
 
     const isPatrolling = wAI ? wAI.state === "PATROLLING" : true;
 

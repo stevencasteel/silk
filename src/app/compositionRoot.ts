@@ -1,6 +1,4 @@
-import {
-  
-  Engine } from "../core/engine/Engine";
+import { Engine } from "../core/engine/Engine";
 import { EventBroker } from "../core/events/EventBroker";
 import { SystemManager } from "../core/systems/SystemManager";
 import { CommandBus } from "../core/commands/CommandBus";
@@ -9,6 +7,7 @@ import { ComponentStore } from "../core/ecs/ComponentStore";
 import { EntityRefs } from "../core/ecs/EntityRefs";
 import { StoreContainer } from "../core/ecs/StoreContainer";
 import { SystemContext } from "../core/engine/SystemContext";
+import { RuntimeState } from "../core/engine/RuntimeState";
 import {
   HitStopComponent,
   CollisionResponseComponent,
@@ -95,6 +94,7 @@ export class CompositionRoot {
     const commands = new CommandBus();
     const profiler = new Profiler();
     const systemManager = new SystemManager(profiler);
+    const runtime = new RuntimeState();
 
     const world = new EcsWorld();
     const transforms = new ComponentStore<TransformComponent>();
@@ -173,7 +173,8 @@ export class CompositionRoot {
       commands,
       refs,
       visualRegistry,
-      storeContainer
+      storeContainer,
+      runtime
     );
 
     const renderSystem = new RenderSystem(canvas, visualRegistry, broker);
@@ -271,6 +272,6 @@ export class CompositionRoot {
     const clock = new PerformanceClock();
     const scheduler = new RafScheduler();
 
-    return new Engine(canvas, broker, systemManager, clock, scheduler);
+    return new Engine(canvas, broker, systemManager, clock, scheduler, runtime);
   }
 }

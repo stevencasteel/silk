@@ -19,7 +19,7 @@ import { GAMEPLAY_TUNING, ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../../cor
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
-import { EngineTime } from "../../../core/engine/EngineTime";
+
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -148,8 +148,8 @@ export class PlayerStateUtils {
         pTrans.scaleVelY = 22.0;
         pTrans.scaleVelX = -11.0;
         pTrans.scaleVelZ = -11.0;
-        EngineTime.hitLagTimer = 0.08;
-        EngineTime.hitLagScale = 0.15;
+        ctx.runtime.hitLagTimer = 0.08;
+        ctx.runtime.hitLagScale = 0.15;
       } else {
         pTrans.scaleVelY = powerScale * 15.0;
         pTrans.scaleVelX = -powerScale * 7.5;

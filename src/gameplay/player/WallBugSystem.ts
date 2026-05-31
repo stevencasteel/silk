@@ -8,7 +8,7 @@ import {
   StickySurfaceComponent,
   ProjectileComponent
 } from "../../core/ecs/Components";
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { WallBugVisualFactory } from "../../visual/mesh/WallBugVisualFactory";
@@ -103,7 +103,7 @@ export class WallBugSystem implements ISystem {
     const cameraY = scene.activeCamera
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
     const transformStore = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
 

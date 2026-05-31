@@ -4,12 +4,13 @@ import { SystemManager } from "../systems/SystemManager";
 import { IClock } from "../clock/IClock";
 import { IScheduler } from "../loop/IScheduler";
 import { GameEvent } from "../events/GameEvents";
-import { EngineTime } from "./EngineTime";
+import { RuntimeState } from "./RuntimeState";
 
 export class Engine {
   private loop: GameLoop;
   private systemManager: SystemManager;
   private broker: IEventBroker;
+  private runtime: RuntimeState;
 
   public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
@@ -20,10 +21,12 @@ export class Engine {
     broker: IEventBroker,
     systemManager: SystemManager,
     clock: IClock,
-    scheduler: IScheduler
+    scheduler: IScheduler,
+    runtime: RuntimeState
   ) {
     this.broker = broker;
     this.systemManager = systemManager;
+    this.runtime = runtime;
     this.loop = new GameLoop(
       (dt) => this.update(dt),
       (alpha) => this.render(alpha),
@@ -111,8 +114,10 @@ export class Engine {
   private update(dt: number): void {
     if (this.isPaused) return;
 
-    EngineTime.update(dt);
-    const scaledDt = dt * EngineTime.activeTimeScale;
+    if (this.runtime.hitLagTimer > 0) {
+      this.runtime.hitLagTimer = Math.max(0, this.runtime.hitLagTimer - dt);
+    }
+    const scaledDt = dt * this.runtime.activeTimeScale;
 
     this.systemManager.updateAll(scaledDt);
   }

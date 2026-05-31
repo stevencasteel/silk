@@ -14,7 +14,7 @@ import {
   InputIntentComponent,
   WallBugComponent
 } from "../../core/ecs/Components";
-import { ParallaxScrollSystem } from "../../visual/systems/ParallaxScrollSystem";
+
 import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
@@ -170,7 +170,7 @@ export class HealthBugSystem implements ISystem {
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
 
-    const currentScrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+    const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const bugStore = this.context.stores.get<HealthBugComponent>("healthBug");
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
@@ -671,7 +671,7 @@ export class HealthBugSystem implements ISystem {
 
         pTrans.x = pTrav.stickyWallX;
         pVel.x = 0;
-        pVel.y = -ParallaxScrollSystem.currentScrollSpeed;
+        pVel.y = -this.context.runtime.currentScrollSpeed;
 
         ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
           x: pTrans.x,

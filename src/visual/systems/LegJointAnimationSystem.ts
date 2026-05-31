@@ -1,4 +1,4 @@
-import { ParallaxScrollSystem } from "./ParallaxScrollSystem";
+
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -48,7 +48,7 @@ export class LegJointAnimationSystem implements ISystem {
 
       const velX = wVel ? wVel.x : 0.0;
       const velY = wVel ? wVel.y : 0.0;
-      const scrollSpeed = ParallaxScrollSystem.currentScrollSpeed;
+      const scrollSpeed = this.context.runtime.currentScrollSpeed;
 
       const relX = velX;
       const relY = velY + scrollSpeed;
