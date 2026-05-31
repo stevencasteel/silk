@@ -79,6 +79,7 @@ import { ProjectileSystem } from "../gameplay/combat/ProjectileSystem";
 import { JuiceSystem } from "../gameplay/juice/JuiceSystem";
 import { WeaverShatterSystem } from "../gameplay/juice/WeaverShatterSystem";
 import { HapticFeedbackSystem } from "../gameplay/juice/HapticFeedbackSystem";
+import { AudioSystem } from "../gameplay/juice/AudioSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
 import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
 import { PerformanceClock } from "../core/clock/PerformanceClock";
@@ -174,6 +175,7 @@ export class CompositionRoot {
     const juiceSystem = new JuiceSystem(context);
     const shatterSystem = new WeaverShatterSystem(context);
     const hapticSystem = new HapticFeedbackSystem(context);
+    const audioSystem = new AudioSystem(context);
 
     const physicsSystem = new HavokPhysicsSystem(context);
     const kinematicIntegrationSystem = new KinematicIntegrationSystem(context);
@@ -251,6 +253,7 @@ export class CompositionRoot {
     systemManager.register(juiceSystem);
     systemManager.register(shatterSystem);
     systemManager.register(hapticSystem);
+    systemManager.register(audioSystem);
     systemManager.register(gameDirector);
     systemManager.register(lightingSystem);
     systemManager.register(hudSystem);

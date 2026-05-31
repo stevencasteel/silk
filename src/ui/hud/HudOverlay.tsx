@@ -119,6 +119,11 @@ export const HudOverlay: React.FC = () => {
   } = overlayState;
 
   const [staggerPhase, setStaggerPhase] = useState<number>(0);
+  useEffect(() => {
+    if (staggerPhase === 3 && overlayVisible) {
+      publishEvent(GameEvent.UI_SFX_REVEAL, undefined);
+    }
+  }, [staggerPhase, overlayVisible, publishEvent]);
   const [tickerWins, setTickerWins] = useState<number>(0);
   const [tickerLosses, setTickerLosses] = useState<number>(0);
 
@@ -989,8 +994,18 @@ export const HudOverlay: React.FC = () => {
 
               {staggerPhase >= 3 && (
                 <>
-                  <div className="gameover-divider" />
-                  <div className="gameover-btn-container w-full">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.25 }}
+                    className="gameover-divider"
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className="gameover-btn-container w-full"
+                  >
                     <button
                       onClick={handleRetryClick}
                       onMouseEnter={() => {
@@ -1054,7 +1069,7 @@ export const HudOverlay: React.FC = () => {
                         </span>
                       )}
                     </button>
-                  </div>
+                  </motion.div>
                 </>
               )}
             </motion.div>

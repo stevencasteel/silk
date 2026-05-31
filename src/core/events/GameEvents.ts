@@ -26,7 +26,8 @@ export enum GameEvent {
   UI_CALIBRATION_STEP_CHANGED = "UI_CALIBRATION_STEP_CHANGED",
   WEAVER_BOUNCED = "WEAVER_BOUNCED",
   UI_SFX_TICK = "UI_SFX_TICK",
-  UI_SFX_CONFIRM = "UI_SFX_CONFIRM"
+  UI_SFX_CONFIRM = "UI_SFX_CONFIRM",
+  UI_SFX_REVEAL = "UI_SFX_REVEAL"
 }
 
 export interface GameEventMap {
@@ -66,4 +67,5 @@ export interface GameEventMap {
   [GameEvent.WEAVER_BOUNCED]: void;
   [GameEvent.UI_SFX_TICK]: void;
   [GameEvent.UI_SFX_CONFIRM]: void;
+  [GameEvent.UI_SFX_REVEAL]: void;
 }
