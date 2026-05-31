@@ -42,7 +42,6 @@ export interface GameEventMap {
   [GameEvent.WEAVER_STATE_CHANGE]: {
     state: string;
     hue: string;
-    audioParams?: { baseFreq: number; lfoHz: number; harmonicity: number };
   };
   [GameEvent.WEAVER_DAMAGED]: { amount: number; source: string };
   [GameEvent.WEAVER_HEALTH_CHANGED]: { hp: number; maxHp: number };

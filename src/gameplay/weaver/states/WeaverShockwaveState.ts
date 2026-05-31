@@ -26,7 +26,6 @@ export class WeaverShockwaveState implements IWeaverState {
   public readonly type: WeaverStateType = "SHOCKWAVE";
   public readonly name = "SHOCKWAVE COUNTER";
   public readonly hue = HASH_PREFIX + "eab308";
-  public readonly audioParams = { baseFreq: 75, lfoHz: 8.0, harmonicity: 2.0 };
 
   private phase: "DELAY" | "TELEGRAPH" | "BLAST" | "RECOVER" = "DELAY";
   private timer = 0.0;

@@ -92,19 +92,9 @@ export class WeaverBrainSystem implements ISystem {
     if (isBerserk && this.activeState?.type !== "DEFEATED") {
       finalName = `${name} (BERSERK)`;
     }
-    const baseParams = this.activeState?.audioParams;
-    let audioParams = baseParams;
-    if (isBerserk && baseParams && this.activeState?.type === "PATROLLING") {
-      audioParams = {
-        baseFreq: 110,
-        lfoHz: 4.0,
-        harmonicity: 2.5
-      };
-    }
     this.context.broker.publish(GameEvent.WEAVER_STATE_CHANGE, {
       state: finalName,
-      hue: hue,
-      audioParams
+      hue: hue
     });
   }
 

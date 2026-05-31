@@ -42,7 +42,6 @@ import { EnvironmentClampingSystem } from "../physics/systems/EnvironmentClampin
 import { VisualRegistry } from "../visual/scene/VisualRegistry";
 import { CameraSystem } from "../visual/cameras/CameraSystem";
 import { LightingSystem } from "../visual/lighting/LightingSystem";
-import { AudioDirectorSystem } from "../audio/systems/AudioDirectorSystem";
 import { HudSyncSystem } from "../ui/hud/HudSyncSystem";
 import { ProfilePersistenceSystem } from "../core/systems/ProfilePersistenceSystem";
 import { EntitySpawnerSystem } from "../gameplay/EntitySpawnerSystem";
@@ -175,7 +174,6 @@ export class CompositionRoot {
     const juiceSystem = new JuiceSystem(context);
     const shatterSystem = new WeaverShatterSystem(context);
     const hapticSystem = new HapticFeedbackSystem(context);
-    const audioSystem = new AudioDirectorSystem(context);
 
     const physicsSystem = new HavokPhysicsSystem(context);
     const kinematicIntegrationSystem = new KinematicIntegrationSystem(context);
@@ -254,7 +252,6 @@ export class CompositionRoot {
     systemManager.register(shatterSystem);
     systemManager.register(hapticSystem);
     systemManager.register(gameDirector);
-    systemManager.register(audioSystem);
     systemManager.register(lightingSystem);
     systemManager.register(hudSystem);
     systemManager.register(persistenceSystem);

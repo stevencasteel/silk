@@ -23,7 +23,7 @@ export class HavokPhysicsSystem implements ISystem {
   readonly phase = SystemPhase.PhysicsStep;
   readonly initPhase = InitPhase.Bootstrap;
   private havokPlugin: BABYLON.HavokPlugin | null = null;
-  private static isInitialized = false;
+  private static havokInstance: unknown = null;
 
   private barriers: {
     body: BABYLON.PhysicsBody;
@@ -44,37 +44,35 @@ export class HavokPhysicsSystem implements ISystem {
         status: "LOADING PHYSICS ENGINE..."
       });
       try {
-        const HAVOK_TIMEOUT_MS = 15000;
-        let havokInstance;
-        try {
-          havokInstance = await withTimeout(
-            HavokPhysics({ locateFile: () => "./HavokPhysics.wasm" }),
-            HAVOK_TIMEOUT_MS,
-            "Local HavokPhysics.wasm timed out"
-          );
-        } catch {
-          this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-            status: "PHYSICS LOCAL LOAD FAILED, TRYING CDN..."
-          });
+        if (!HavokPhysicsSystem.havokInstance) {
+          const HAVOK_TIMEOUT_MS = 3000;
+          let havokInstance;
           try {
             havokInstance = await withTimeout(
-              HavokPhysics({
-                locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
-              }),
+              HavokPhysics({ locateFile: () => "/HavokPhysics.wasm" }),
               HAVOK_TIMEOUT_MS,
-              "CDN HavokPhysics.wasm timed out"
+              "Local HavokPhysics.wasm timed out"
             );
           } catch {
-            throw new Error("HavokPhysics failed to load from both local and CDN sources");
+            this.context.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+              status: "PHYSICS LOCAL LOAD FAILED, TRYING CDN..."
+            });
+            try {
+              havokInstance = await withTimeout(
+                HavokPhysics({
+                  locateFile: () => "https://cdn.babylonjs.com/havok/HavokPhysics.wasm"
+                }),
+                HAVOK_TIMEOUT_MS,
+                "CDN HavokPhysics.wasm timed out"
+              );
+            } catch {
+              throw new Error("HavokPhysics failed to load from both local and CDN sources");
+            }
           }
+          HavokPhysicsSystem.havokInstance = havokInstance;
         }
 
-        if (HavokPhysicsSystem.isInitialized) {
-          return;
-        }
-        HavokPhysicsSystem.isInitialized = true;
-
-        this.havokPlugin = new BABYLON.HavokPlugin(true, havokInstance);
+        this.havokPlugin = new BABYLON.HavokPlugin(true, HavokPhysicsSystem.havokInstance as never);
         scene.enablePhysics(
           new BABYLON.Vector3(0, CANONICAL_UNITS.GRAVITY.PHYSICAL_EARTH, 0),
           this.havokPlugin
@@ -223,6 +221,5 @@ export class HavokPhysicsSystem implements ISystem {
       this.havokPlugin.dispose();
       this.havokPlugin = null;
     }
-    HavokPhysicsSystem.isInitialized = false;
   }
 }

@@ -17,7 +17,6 @@ export class WeaverAscendingState implements IWeaverState {
   public readonly type: WeaverStateType = "ASCENDING";
   public readonly name = "ASCENDING TO CEILING";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.RETURNING;
-  public readonly audioParams = { baseFreq: 55, lfoHz: 0.2, harmonicity: 1.5 };
 
   public enter(ctx: SystemContext): void {
     void ctx;

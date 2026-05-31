@@ -472,6 +472,7 @@ export const HudOverlay: React.FC = () => {
             <button
               onClick={() => {
                 playConfirmSynth();
+                publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
                 useOverlayStore.getState().setAwaitingGesture(false);
                 useOverlayStore.getState().setBootStatus("READY");
               }}
