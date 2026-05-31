@@ -154,8 +154,12 @@ export class HealthBugSystem implements ISystem {
     const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
     const velStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
 
-    const playerTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
-    const playerInput = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
+    const playerTrav = this.context.stores
+      .get<TraversalStateComponent>("traversal")
+      .get(this.context.refs.player);
+    const playerInput = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
     const isPlayerTrapped = !!(playerTrav && playerTrav.isWebTrapped);
 
     const activeBugs = this.pool.getActiveBugs();
@@ -179,7 +183,9 @@ export class HealthBugSystem implements ISystem {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       bug.rotorAngle = (bug.rotorAngle + Math.max(2.0, speed * 2.0) * dt) % (Math.PI * 2.0);
 
-      const rotorsNode = pBug.rootNode.getChildren().find((c) => c.name.startsWith("health_bug_rotors"));
+      const rotorsNode = pBug.rootNode
+        .getChildren()
+        .find((c) => c.name.startsWith("health_bug_rotors"));
       if (rotorsNode instanceof BABYLON.TransformNode) {
         rotorsNode.rotation.y = bug.rotorAngle;
       }
@@ -470,9 +476,8 @@ export class HealthBugSystem implements ISystem {
     const startY = cameraY - 26.0;
     const startX = this.getNextLane();
 
-    const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] = [
-      "NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"
-    ];
+    const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] =
+      ["NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"];
     const chosenVariant = variants[Math.floor(Math.random() * variants.length)];
     const calculatedPauseY = cameraY - 4.0 + Math.random() * 12.0;
 
@@ -502,7 +507,7 @@ export class HealthBugSystem implements ISystem {
 
     const hitSpikes = bug.variant !== "NORMAL" && !bug.spikesDisarmed && !isWebShieldActive;
 
-    if (isLaunching && launchPower >= 0.80) {
+    if (isLaunching && launchPower >= 0.8) {
       if (hitSpikes) {
         bug.state = "SPINNING";
         bug.timer = 0.0;
@@ -512,7 +517,10 @@ export class HealthBugSystem implements ISystem {
         pVel.y = 8.0;
         pTrav.state = "AIRBORNE";
 
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.85, duration: 0.35 });
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.85,
+          duration: 0.35
+        });
         this.context.broker.publish(GameEvent.UI_SFX_ALARM, undefined);
       } else {
         this.popBug(bugId);
@@ -533,7 +541,10 @@ export class HealthBugSystem implements ISystem {
           bugVel.x = shoveX;
           bugVel.y = shoveY;
         }
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, { amplitude: 0.65, duration: 0.3 });
+        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: 0.65,
+          duration: 0.3
+        });
         this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
       }
       return;
@@ -599,7 +610,11 @@ export class HealthBugSystem implements ISystem {
           { diameter: 0.16, segments: 4 },
           scene
         );
-        pMesh.position.set(bugTrans.x + (Math.random() - 0.5) * 0.5, bugTrans.y + (Math.random() - 0.5) * 0.5, 0);
+        pMesh.position.set(
+          bugTrans.x + (Math.random() - 0.5) * 0.5,
+          bugTrans.y + (Math.random() - 0.5) * 0.5,
+          0
+        );
 
         const pMat = new BABYLON.StandardMaterial(`heal_particle_mat_${i}`, scene);
         pMat.emissiveColor = new BABYLON.Color3(0.1, 0.95, 0.15);
@@ -624,7 +639,11 @@ export class HealthBugSystem implements ISystem {
       });
     }
 
-    this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, { x: bugTrans.x, y: bugTrans.y, isWall: false });
+    this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+      x: bugTrans.x,
+      y: bugTrans.y,
+      isWall: false
+    });
     this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
 
     this.pool.release(bugId);

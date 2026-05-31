@@ -26,8 +26,12 @@ export class TetherReelingSystem implements ISystem {
     const reelConfig = GAMEPLAY_TUNING.REEL;
     const isWebTrapped = !!trav.isWebTrapped;
 
-    const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
-    const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
+    const input = this.context.stores
+      .get<InputIntentComponent>("input")
+      .get(this.context.refs.player);
+    const target = this.context.stores
+      .get<KinematicTargetComponent>("target")
+      .get(this.context.refs.player);
 
     const isPressingUp = input && input.y > 0;
 
@@ -49,7 +53,10 @@ export class TetherReelingSystem implements ISystem {
           tether.currentLength + AUTO_SLACK_MARGIN
         );
       }
-      tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
+      tether.desiredLength = Math.max(
+        reelConfig.MIN_LENGTH,
+        Math.min(reelConfig.MAX_LENGTH, tether.desiredLength)
+      );
 
       if (Math.abs(tether.maxLength - tether.desiredLength) > 0.01) {
         const springResult = solveSpringDamper(

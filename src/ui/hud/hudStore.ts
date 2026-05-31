@@ -104,43 +104,49 @@ const OVERLAY_RESET = {
 
 export const usePlayerStore = create<PlayerState>((set) => ({
   ...PLAYER_RESET,
-  setTetherDamage: (damage) => set((state) => {
-    if (state.tetherDamage === damage) return {};
-    return { tetherDamage: damage };
-  }),
-  setPlayerHp: (hp, maxHp) => set((state) => {
-    void maxHp;
-    if (state.playerHp === hp) return {};
-    return { playerHp: hp };
-  }),
-  setCurrentState: (state) => set((stateObj) => {
-    if (stateObj.currentState === state) return {};
-    return { currentState: state };
-  }),
-  setWebTrapped: (trapped, progress, required, webMass = 1) => set((state) => {
-    if (
-      state.isWebTrapped === trapped &&
-      state.escapeProgress === progress &&
-      state.escapeRequired === required &&
-      state.webMass === webMass
-    ) {
-      return {};
-    }
-    return { isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required, webMass };
-  }),
+  setTetherDamage: (damage) =>
+    set((state) => {
+      if (state.tetherDamage === damage) return {};
+      return { tetherDamage: damage };
+    }),
+  setPlayerHp: (hp, maxHp) =>
+    set((state) => {
+      void maxHp;
+      if (state.playerHp === hp) return {};
+      return { playerHp: hp };
+    }),
+  setCurrentState: (state) =>
+    set((stateObj) => {
+      if (stateObj.currentState === state) return {};
+      return { currentState: state };
+    }),
+  setWebTrapped: (trapped, progress, required, webMass = 1) =>
+    set((state) => {
+      if (
+        state.isWebTrapped === trapped &&
+        state.escapeProgress === progress &&
+        state.escapeRequired === required &&
+        state.webMass === webMass
+      ) {
+        return {};
+      }
+      return { isWebTrapped: trapped, escapeProgress: progress, escapeRequired: required, webMass };
+    }),
   reset: () => set(PLAYER_RESET)
 }));
 
 export const useWeaverStore = create<WeaverState>((set) => ({
   ...WEAVER_RESET,
-  setWeaverHealth: (hp, maxHp) => set((state) => {
-    if (state.weaverHp === hp && state.weaverMaxHp === maxHp) return {};
-    return { weaverHp: hp, weaverMaxHp: maxHp };
-  }),
-  setWeaverState: (state, hue) => set((stateObj) => {
-    if (stateObj.weaverState === state && stateObj.weaverHue === hue) return {};
-    return { weaverState: state, weaverHue: hue };
-  }),
+  setWeaverHealth: (hp, maxHp) =>
+    set((state) => {
+      if (state.weaverHp === hp && state.weaverMaxHp === maxHp) return {};
+      return { weaverHp: hp, weaverMaxHp: maxHp };
+    }),
+  setWeaverState: (state, hue) =>
+    set((stateObj) => {
+      if (stateObj.weaverState === state && stateObj.weaverHue === hue) return {};
+      return { weaverState: state, weaverHue: hue };
+    }),
   reset: () => set(WEAVER_RESET)
 }));
 
@@ -150,16 +156,17 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   losses: 0,
   setBootStatus: (status) => set({ bootStatus: status }),
   setLoadingProgress: (progress) => set({ loadingProgress: progress }),
-  setTraversalHint: (text, color, opacity) => set((state) => {
-    if (
-      state.traversalHint === text &&
-      state.traversalHintColor === color &&
-      state.traversalHintOpacity === opacity
-    ) {
-      return {};
-    }
-    return { traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity };
-  }),
+  setTraversalHint: (text, color, opacity) =>
+    set((state) => {
+      if (
+        state.traversalHint === text &&
+        state.traversalHintColor === color &&
+        state.traversalHintOpacity === opacity
+      ) {
+        return {};
+      }
+      return { traversalHint: text, traversalHintColor: color, traversalHintOpacity: opacity };
+    }),
   showOverlay: (title, color, subtitle) =>
     set({
       overlayVisible: true,

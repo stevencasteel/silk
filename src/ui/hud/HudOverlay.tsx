@@ -222,7 +222,7 @@ export const HudOverlay: React.FC = () => {
       let color = "rgb(34, 197, 94)";
       let glow = "rgba(34, 197, 94, 0.45)";
 
-      if (tension >= 0.80) {
+      if (tension >= 0.8) {
         color = "rgb(239, 68, 68)";
         glow = "rgba(239, 68, 68, 0.95)";
       } else if (tension >= 0.555) {
@@ -233,7 +233,7 @@ export const HudOverlay: React.FC = () => {
       if (tensionBarFillRef.current) {
         tensionBarFillRef.current.style.width = `${barWidthPercent.toFixed(1)}%`;
         tensionBarFillRef.current.style.background = color;
-        
+
         if (tension > 0.05) {
           const pulse = 1.0 + Math.sin(performance.now() * 0.05 * tension) * 0.1;
           tensionBarFillRef.current.style.boxShadow = `0 0 ${Math.floor(12 * tension * pulse)}px ${glow}`;
@@ -450,12 +450,12 @@ export const HudOverlay: React.FC = () => {
               INITIALIZING...
             </h2>
             <div className="w-full bg-black border border-zinc-800 h-1.5 mb-6 overflow-hidden rounded">
-              <div 
-                className="h-full bg-emerald-500 transition-all duration-300 ease-out" 
-                style={{ 
+              <div
+                className="h-full bg-emerald-500 transition-all duration-300 ease-out"
+                style={{
                   width: `${Math.round(loadingProgress * 100)}%`,
                   boxShadow: loadingProgress > 0 ? "0 0 10px rgba(16, 185, 129, 0.5)" : "none"
-                }} 
+                }}
               />
             </div>
             <pre className="text-zinc-400 text-[9px] uppercase tracking-wider text-left leading-relaxed w-full whitespace-pre-wrap select-none">
@@ -466,10 +466,15 @@ export const HudOverlay: React.FC = () => {
       ) : awaitingGesture ? (
         <div className="overlay-root font-mono backdrop-wipe-gesture pointer-events-auto">
           <div className="overlay-modal start-screen-modal victory-border max-w-md w-full p-8 flex flex-col items-center">
-                <p className="text-[11px] text-zinc-400 tracking-wide uppercase mb-6 leading-relaxed select-none max-w-sm text-center">
-                  A game about being tethered to something dangerous <u><i>with a mind of its own</i></u>, where the tension between you and the thing trying to kill you is literally your only weapon.
-                </p>
-                <button
+            <p className="text-[11px] text-zinc-400 tracking-wide uppercase mb-6 leading-relaxed select-none max-w-sm text-center">
+              A game about being tethered to something dangerous{" "}
+              <u>
+                <i>with a mind of its own</i>
+              </u>
+              , where the tension between you and the thing trying to kill you is literally your
+              only weapon.
+            </p>
+            <button
               onClick={() => {
                 playConfirmSynth();
                 useOverlayStore.getState().setAwaitingGesture(false);

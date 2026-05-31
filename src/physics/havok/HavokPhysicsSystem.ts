@@ -25,7 +25,11 @@ export class HavokPhysicsSystem implements ISystem {
   private havokPlugin: BABYLON.HavokPlugin | null = null;
   private static isInitialized = false;
 
-  private barriers: { body: BABYLON.PhysicsBody; shape: BABYLON.PhysicsShape; mesh: BABYLON.Mesh }[] = [];
+  private barriers: {
+    body: BABYLON.PhysicsBody;
+    shape: BABYLON.PhysicsShape;
+    mesh: BABYLON.Mesh;
+  }[] = [];
 
   private _scratchPos = new BABYLON.Vector3();
   private _scratchRot = new BABYLON.Quaternion();
@@ -176,13 +180,8 @@ export class HavokPhysicsSystem implements ISystem {
     });
   }
 
-  private setMeshTargetTransform(
-    entityId: number,
-    trans: TransformComponent | undefined
-  ): void {
-    const mesh = this.context.visualQuery.getTransformNode(
-      entityId
-    ) as BABYLON.AbstractMesh | null;
+  private setMeshTargetTransform(entityId: number, trans: TransformComponent | undefined): void {
+    const mesh = this.context.visualQuery.getTransformNode(entityId) as BABYLON.AbstractMesh | null;
     if (mesh && mesh.physicsBody && trans) {
       this._scratchPos.set(trans.x, trans.y, trans.z);
       this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);

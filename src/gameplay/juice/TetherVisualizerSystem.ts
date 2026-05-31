@@ -265,8 +265,6 @@ export class TetherVisualizerSystem implements ISystem {
         cap: BABYLON.Mesh.NO_CAP,
         instance: this.tetherMesh
       });
-
-      
     } else {
       this.tetherMesh.setEnabled(false);
 

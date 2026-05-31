@@ -113,7 +113,9 @@ export function solveSpringDamper(
     const c2 = (velocity - alpha * displacement) / omegaD;
 
     const nextValue = (c1 * cosTerm + c2 * sinTerm) * expTerm + target;
-    const nextVelocity = (c1 * (alpha * cosTerm - omegaD * sinTerm) + c2 * (alpha * sinTerm + omegaD * cosTerm)) * expTerm;
+    const nextVelocity =
+      (c1 * (alpha * cosTerm - omegaD * sinTerm) + c2 * (alpha * sinTerm + omegaD * cosTerm)) *
+      expTerm;
     return { value: nextValue, velocity: nextVelocity };
   } else if (zeta > 1.001) {
     const omegaD = omega * Math.sqrt(zeta * zeta - 1.0);

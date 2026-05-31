@@ -1,6 +1,16 @@
 import { IAudioRegistry } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "./AudioPresets";
-import type { FMOscillator, Filter, Gain, LFO, Synth, MembraneSynth, Loop, Panner, NoiseSynth } from "tone";
+import type {
+  FMOscillator,
+  Filter,
+  Gain,
+  LFO,
+  Synth,
+  MembraneSynth,
+  Loop,
+  Panner,
+  NoiseSynth
+} from "tone";
 
 export class AudioSynthesizerRegistry implements IAudioRegistry {
   private fmOsc: FMOscillator | null = null;
@@ -274,13 +284,13 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public fadeOutAndMute(): void {
     if (!this.gainNode || !this.ToneModule) return;
     const now = this.ToneModule.now();
-    
+
     this.gainNode.gain.cancelScheduledValues(now);
     this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
-    
+
     if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
     if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
-    
+
     if (this.heartbeatLoop) this.heartbeatLoop.stop();
     this.lastTension = 0.0;
   }

@@ -110,7 +110,9 @@ export class ProjectileSystem implements ISystem {
           mesh.scaling.set(0.24, 1.45, 1.45);
           mesh.position.x = projTrans.x;
           mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-          const stuckMat = mesh.getScene().getMaterialByName(pComp.isRed ? "projectileMatStuckRed" : "projectileMatStuck");
+          const stuckMat = mesh
+            .getScene()
+            .getMaterialByName(pComp.isRed ? "projectileMatStuckRed" : "projectileMatStuck");
           if (stuckMat) {
             mesh.material = stuckMat;
           }
@@ -134,7 +136,8 @@ export class ProjectileSystem implements ISystem {
     const pTrans = sysCtx.stores.get<TransformComponent>("transform").get(otherId);
     const pHealth = sysCtx.stores.get<HealthComponent>("health").get(otherId);
 
-    if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer || (pHealth && pHealth.current <= 0)) return;
+    if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer || (pHealth && pHealth.current <= 0))
+      return;
 
     const isLaunching = pTrav && pTrav.state === "LAUNCHING";
     const hasIframe = pIframe && pIframe.timeRemaining > 0;
@@ -162,7 +165,7 @@ export class ProjectileSystem implements ISystem {
         isWall: false
       });
 
-      if (launchPower > 0.80) {
+      if (launchPower > 0.8) {
         sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
           amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.5,
           duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.2,
@@ -433,19 +436,27 @@ export class ProjectileSystem implements ISystem {
 
     this.noiseTime += dt;
     if (this.pool.projMatActive) {
-      const noisePlugin = (this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
+      const noisePlugin = (
+        this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
     if (this.pool.projMatActiveRed) {
-      const noisePluginRed = (this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
+      const noisePluginRed = (
+        this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      )._noisePlugin;
       if (noisePluginRed) noisePluginRed.time = this.noiseTime;
     }
     if (this.pool.projMatTrapped) {
-      const noisePlugin = (this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
+      const noisePlugin = (
+        this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
 
-    const wAI = this.context.stores.get<WeaverAIComponent>("weaverAI").get(this.context.refs.weaver);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(this.context.refs.weaver);
     const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
     const isPatrolling = wAI ? wAI.state === "PATROLLING" : true;
 
@@ -528,7 +539,10 @@ export class ProjectileSystem implements ISystem {
               const hitLeft = trans.x < bugTrans.x;
               const hitRight = trans.x > bugTrans.x;
 
-              if ((bug.spikedSide === "LEFT" && hitLeft) || (bug.spikedSide === "RIGHT" && hitRight)) {
+              if (
+                (bug.spikedSide === "LEFT" && hitLeft) ||
+                (bug.spikedSide === "RIGHT" && hitRight)
+              ) {
                 bug.spikesDisarmed = true;
               }
 
@@ -538,7 +552,9 @@ export class ProjectileSystem implements ISystem {
               p.stickyOffsetX = hitLeft ? -halfW : halfW;
               p.stickyOffsetY = trans.y - bugTrans.y;
 
-              const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+              const vel = this.context.stores
+                .get<KinematicVelocityComponent>("velocity")
+                .get(projId);
               if (vel) {
                 vel.x = 0;
                 vel.y = 0;
@@ -583,7 +599,9 @@ export class ProjectileSystem implements ISystem {
 
       if (p.isTrappingPlayer) {
         const pTrans = transformStore.get(this.context.refs.player);
-        const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+        const pTrav = this.context.stores
+          .get<TraversalStateComponent>("traversal")
+          .get(this.context.refs.player);
 
         if (!pTrav || !pTrav.isWebTrapped || !pTrans) {
           this.pool.release(projId);
@@ -601,7 +619,9 @@ export class ProjectileSystem implements ISystem {
         let rVal: number, gVal: number, bVal: number;
 
         if (progressRatio >= 1.0) {
-          rVal = 0.0; gVal = 0.0; bVal = 0.0;
+          rVal = 0.0;
+          gVal = 0.0;
+          bVal = 0.0;
         } else if (progressRatio < 0.5) {
           const t = progressRatio / 0.5;
           rVal = start.r + (mid.r - start.r) * t;
@@ -626,8 +646,14 @@ export class ProjectileSystem implements ISystem {
         let targetScaleZ = 1.0 + addedSize;
 
         if (pTrav.state === "WALL_STICKING") {
-          trans.qx = 0; trans.qy = 0; trans.qz = 0; trans.qw = 1;
-          trans.prevQx = 0; trans.prevQy = 0; trans.prevQz = 0; trans.prevQw = 1;
+          trans.qx = 0;
+          trans.qy = 0;
+          trans.qz = 0;
+          trans.qw = 1;
+          trans.prevQx = 0;
+          trans.prevQy = 0;
+          trans.prevQz = 0;
+          trans.prevQw = 1;
 
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(0, 0, 0, 1);
@@ -648,10 +674,20 @@ export class ProjectileSystem implements ISystem {
             mesh.material = this.pool.projMatTrapped;
           }
         } else {
-          trans.x = pTrans.x; trans.y = pTrans.y; trans.z = pTrans.z;
-          trans.prevX = pTrans.prevX; trans.prevY = pTrans.prevY; trans.prevZ = pTrans.prevZ;
-          trans.qx = pTrans.qx; trans.qy = pTrans.qy; trans.qz = pTrans.qz; trans.qw = pTrans.qw;
-          trans.prevQx = pTrans.prevQx; trans.prevQy = pTrans.prevQy; trans.prevQz = pTrans.prevQz; trans.prevQw = pTrans.prevQw;
+          trans.x = pTrans.x;
+          trans.y = pTrans.y;
+          trans.z = pTrans.z;
+          trans.prevX = pTrans.prevX;
+          trans.prevY = pTrans.prevY;
+          trans.prevZ = pTrans.prevZ;
+          trans.qx = pTrans.qx;
+          trans.qy = pTrans.qy;
+          trans.qz = pTrans.qz;
+          trans.qw = pTrans.qw;
+          trans.prevQx = pTrans.prevQx;
+          trans.prevQy = pTrans.prevQy;
+          trans.prevQz = pTrans.prevQz;
+          trans.prevQw = pTrans.prevQw;
 
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(trans.qx, trans.qy, trans.qz, trans.qw);
@@ -693,7 +729,10 @@ export class ProjectileSystem implements ISystem {
         mesh.position.y = trans.y;
         const body = this.pool.getBody(projId);
         if (body) {
-          body.setTargetTransform(mesh.position, mesh.rotationQuaternion || BABYLON.Quaternion.Identity());
+          body.setTargetTransform(
+            mesh.position,
+            mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          );
         }
       } else if (p.isCharging) {
         if (!isPatrolling) {
@@ -721,12 +760,32 @@ export class ProjectileSystem implements ISystem {
         const wTrans = transformStore.get(this.context.refs.weaver);
         if (wTrans) {
           const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-          const tipWorld = getWeaverAbdomenTip(wTrans.x, wTrans.y, wTrans.z, wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw, radius, 1.0);
+          const tipWorld = getWeaverAbdomenTip(
+            wTrans.x,
+            wTrans.y,
+            wTrans.z,
+            wTrans.qx,
+            wTrans.qy,
+            wTrans.qz,
+            wTrans.qw,
+            radius,
+            1.0
+          );
 
-          trans.x = tipWorld.x; trans.y = tipWorld.y; trans.z = tipWorld.z;
-          trans.prevX = tipWorld.x; trans.prevY = tipWorld.y; trans.prevZ = tipWorld.z;
-          trans.qx = wTrans.qx; trans.qy = wTrans.qy; trans.qz = wTrans.qz; trans.qw = wTrans.qw;
-          trans.prevQx = wTrans.prevQx; trans.prevQy = wTrans.prevQy; trans.prevQz = wTrans.prevQz; trans.prevQw = wTrans.prevQw;
+          trans.x = tipWorld.x;
+          trans.y = tipWorld.y;
+          trans.z = tipWorld.z;
+          trans.prevX = tipWorld.x;
+          trans.prevY = tipWorld.y;
+          trans.prevZ = tipWorld.z;
+          trans.qx = wTrans.qx;
+          trans.qy = wTrans.qy;
+          trans.qz = wTrans.qz;
+          trans.qw = wTrans.qw;
+          trans.prevQx = wTrans.prevQx;
+          trans.prevQy = wTrans.prevQy;
+          trans.prevQz = wTrans.prevQz;
+          trans.prevQw = wTrans.prevQw;
 
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(trans.qx, trans.qy, trans.qz, trans.qw);
@@ -738,8 +797,12 @@ export class ProjectileSystem implements ISystem {
         const pulse = 1.0 + Math.sin(p.lifeTime * undulateSpeed) * (0.05 + undulateAmp);
         const currentBallScale = progress * pulse;
 
-        trans.prevScaleX = trans.scaleX; trans.prevScaleY = trans.scaleY; trans.prevScaleZ = trans.scaleZ;
-        trans.scaleX = currentBallScale; trans.scaleY = currentBallScale; trans.scaleZ = currentBallScale;
+        trans.prevScaleX = trans.scaleX;
+        trans.prevScaleY = trans.scaleY;
+        trans.prevScaleZ = trans.scaleZ;
+        trans.scaleX = currentBallScale;
+        trans.scaleY = currentBallScale;
+        trans.scaleZ = currentBallScale;
 
         mesh.position.set(trans.x, trans.y, trans.z);
         mesh.scaling.set(trans.scaleX, trans.scaleY, trans.scaleZ);
@@ -751,9 +814,14 @@ export class ProjectileSystem implements ISystem {
           body.setTargetTransform(this._scratchPos, this._scratchRot);
         }
       } else {
-        trans.prevScaleX = trans.scaleX; trans.prevScaleY = trans.scaleY; trans.prevScaleZ = trans.scaleZ;
+        trans.prevScaleX = trans.scaleX;
+        trans.prevScaleY = trans.scaleY;
+        trans.prevScaleZ = trans.scaleZ;
 
-        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId) || { x: 0, y: 0 };
+        const vel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(projId) || {
+          x: 0,
+          y: 0
+        };
         const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
 
         if (speed > 0.1) {

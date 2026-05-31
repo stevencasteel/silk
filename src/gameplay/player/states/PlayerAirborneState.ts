@@ -37,7 +37,7 @@ export class PlayerAirborneState implements IPlayerState {
     const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
-    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
+    const recoilFactor = trav.recoilTimer !== undefined && trav.recoilTimer > 0 ? 0.15 : 1.0;
 
     const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -56,7 +56,7 @@ export class PlayerAirborneState implements IPlayerState {
 
       const rotDx = tether.anchorX - target.x;
       const rotDy = tether.anchorY - target.y;
-      cosmetic.rotationAngle = (rotDx !== 0 || rotDy !== 0) ? -Math.atan2(rotDx, rotDy) : 0;
+      cosmetic.rotationAngle = rotDx !== 0 || rotDy !== 0 ? -Math.atan2(rotDx, rotDy) : 0;
       cosmetic.slerpFactor = tuning.SLERP_FACTOR;
 
       cosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;

@@ -39,7 +39,7 @@ export class PlayerLaunchingState implements IPlayerState {
     const isTrapped = !!trav.isWebTrapped;
     const webMass = trav.webMass || 1;
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
-    const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
+    const recoilFactor = trav.recoilTimer !== undefined && trav.recoilTimer > 0 ? 0.15 : 1.0;
 
     const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;

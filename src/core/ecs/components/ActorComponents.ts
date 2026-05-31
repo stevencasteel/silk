@@ -101,8 +101,21 @@ export interface WeaverSweepComponent {
   direction: number;
 }
 
-export type HealthBugState = "FLYING_UP" | "PAUSED" | "CONTINUING" | "SHOVED" | "PINBALL" | "SPINNING" | "RECOVERING" | "DEAD";
-export type HealthBugVariant = "NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT";
+export type HealthBugState =
+  | "FLYING_UP"
+  | "PAUSED"
+  | "CONTINUING"
+  | "SHOVED"
+  | "PINBALL"
+  | "SPINNING"
+  | "RECOVERING"
+  | "DEAD";
+export type HealthBugVariant =
+  | "NORMAL"
+  | "SPIKED_TOP"
+  | "SPIKED_RIGHT"
+  | "SPIKED_BOTTOM"
+  | "SPIKED_LEFT";
 
 export interface HealthBugComponent {
   state: HealthBugState;

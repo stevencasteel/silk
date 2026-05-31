@@ -2,7 +2,10 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent, TransformComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+  HitStopComponent,
+  TransformComponent,
+  KinematicVelocityComponent
+} from "../../core/ecs/Components";
 
 export class KinematicIntegrationSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;

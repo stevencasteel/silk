@@ -121,8 +121,8 @@ export function createWeaverVisualMesh(
         if (y < 0) {
           const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
           if (r_sphere > 0.05) {
-                const r_cone = radius * (1.0 + y / radius);
-                const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
+            const r_cone = radius * (1.0 + y / radius);
+            const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
             positions[i] = x * scaleFactor;
             positions[i + 2] = z * scaleFactor;
           } else {
@@ -203,7 +203,10 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
   );
 
-  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, { shear: true, gradient: true });
+  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, {
+    shear: true,
+    gradient: true
+  });
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
@@ -288,8 +291,8 @@ export function decorateWeaverVisual(
         const normY = y / halfY;
         const r_sphere = Math.sqrt(Math.max(0, 1.0 - normY * normY));
         if (r_sphere > 0.05) {
-              const r_cone = 1.0 + normY;
-              const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
+          const r_cone = 1.0 + normY;
+          const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
           positions[i] = x * scaleFactor;
           positions[i + 2] = z * scaleFactor;
         } else {

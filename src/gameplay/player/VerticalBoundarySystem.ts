@@ -87,7 +87,7 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleX += impactFactor * 0.4;
             pTrans.scaleY -= impactFactor * 0.4;
             pTrans.scaleZ += impactFactor * 0.4;
-            
+
             pTrans.scaleVelX -= impactFactor * 40.0;
             pTrans.scaleVelY += impactFactor * 60.0;
             pTrans.scaleVelZ -= impactFactor * 40.0;
@@ -98,7 +98,8 @@ export class VerticalBoundarySystem implements ISystem {
             if (cosmetic) {
               const impactEnergy = vel.y;
               cosmetic.visualOffsetY = (cosmetic.visualOffsetY ?? 0.0) + impactEnergy * 0.05;
-              cosmetic.visualOffsetVelocityY = (cosmetic.visualOffsetVelocityY ?? 0.0) + impactEnergy * 0.45;
+              cosmetic.visualOffsetVelocityY =
+                (cosmetic.visualOffsetVelocityY ?? 0.0) + impactEnergy * 0.45;
             }
           }
         }

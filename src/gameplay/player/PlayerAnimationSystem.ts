@@ -1,10 +1,16 @@
-import { solveScaleSpring, solveSpringDamper, solveSpringDamper as solveOffsetSpring } from "../../core/utils/EngineUtils";
+import {
+  solveScaleSpring,
+  solveSpringDamper,
+  solveSpringDamper as solveOffsetSpring
+} from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  TransformComponent, ActorCosmeticComponent,
-  KinematicVelocityComponent } from "../../core/ecs/Components";
+  TransformComponent,
+  ActorCosmeticComponent,
+  KinematicVelocityComponent
+} from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
 export class PlayerAnimationSystem implements ISystem {
@@ -40,12 +46,15 @@ export class PlayerAnimationSystem implements ISystem {
 
       const tColor = Math.min(1.0, (speed - 15.0) / 55.0);
       const rTarget = 1.0;
-      const gTarget = 0.15 + (0.85 * tColor);
-      const bTarget = 0.4 + (0.6 * tColor);
-      
-      cosmetic.emissiveR = (cosmetic.emissiveR ?? 0.1) + (rTarget - (cosmetic.emissiveR ?? 0.1)) * tColor;
-      cosmetic.emissiveG = (cosmetic.emissiveG ?? 0.0) + (gTarget - (cosmetic.emissiveG ?? 0.0)) * tColor;
-      cosmetic.emissiveB = (cosmetic.emissiveB ?? 0.2) + (bTarget - (cosmetic.emissiveB ?? 0.2)) * tColor;
+      const gTarget = 0.15 + 0.85 * tColor;
+      const bTarget = 0.4 + 0.6 * tColor;
+
+      cosmetic.emissiveR =
+        (cosmetic.emissiveR ?? 0.1) + (rTarget - (cosmetic.emissiveR ?? 0.1)) * tColor;
+      cosmetic.emissiveG =
+        (cosmetic.emissiveG ?? 0.0) + (gTarget - (cosmetic.emissiveG ?? 0.0)) * tColor;
+      cosmetic.emissiveB =
+        (cosmetic.emissiveB ?? 0.2) + (bTarget - (cosmetic.emissiveB ?? 0.2)) * tColor;
     }
 
     pTrans.prevScaleZ = pTrans.scaleZ!;
@@ -66,21 +75,14 @@ export class PlayerAnimationSystem implements ISystem {
 
     const currentOffset = cosmetic.visualOffsetY ?? 0;
     const offsetVel = cosmetic.visualOffsetVelocityY ?? 0;
-    const springResult = solveOffsetSpring(
-      currentOffset,
-      0,
-      offsetVel,
-      dt,
-      280.0,
-      18.0
-    );
+    const springResult = solveOffsetSpring(currentOffset, 0, offsetVel, dt, 280.0, 18.0);
     cosmetic.visualOffsetY = springResult.value;
     cosmetic.visualOffsetVelocityY = springResult.velocity;
 
     const currentRot = cosmetic.currentRotation ?? 0;
     const rotVel = cosmetic.rotationVel ?? 0;
-    
-    const velocityLean = speedX * -0.022; 
+
+    const velocityLean = speedX * -0.022;
     const targetRot = cosmetic.rotationAngle + velocityLean;
 
     let diff = targetRot - currentRot;

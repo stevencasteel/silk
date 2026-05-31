@@ -11,7 +11,7 @@ export class PlayerStateHints {
     if (tension >= 0.95) {
       return { text: "MAX TENSION — LET GO NOW", color: "rgb(239, 68, 68)", opacity: 1 };
     }
-    if (tension >= 0.80) {
+    if (tension >= 0.8) {
       return { text: "RELEASE CLING TO LAUNCH", color: "rgb(245, 158, 11)", opacity: 1 };
     }
     if (tension > 0.02) {

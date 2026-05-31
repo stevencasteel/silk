@@ -1,7 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import {
-  WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
+import { WeaverAIComponent, HealthComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";

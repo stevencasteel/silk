@@ -14,7 +14,7 @@ export class FaunaVisualFactory {
       { diameter: 4.0, segments: 16 },
       scene
     );
-    
+
     const glassMat = new BABYLON.PBRMaterial(`health_bug_glass_mat_${id}`, scene);
     glassMat.metallic = 0.1;
     glassMat.roughness = 0.05;
@@ -46,7 +46,11 @@ export class FaunaVisualFactory {
 
     if (variant === "NORMAL") {
       coreMat.albedoColor = new BABYLON.Color3(greenColor.r, greenColor.g, greenColor.b);
-      coreMat.emissiveColor = new BABYLON.Color3(greenColor.r * 1.5, greenColor.g * 1.5, greenColor.b * 1.5);
+      coreMat.emissiveColor = new BABYLON.Color3(
+        greenColor.r * 1.5,
+        greenColor.g * 1.5,
+        greenColor.b * 1.5
+      );
     } else {
       const res = 128;
       const dynTex = new BABYLON.DynamicTexture(`health_bug_core_tex_${id}`, res, scene, true);
@@ -84,7 +88,7 @@ export class FaunaVisualFactory {
       scene
     );
     stem.position.set(0, -0.25, 0);
-    
+
     const metalMat = new BABYLON.PBRMaterial(`health_bug_metal_mat_${id}`, scene);
     metalMat.metallic = 0.95;
     metalMat.roughness = 0.15;

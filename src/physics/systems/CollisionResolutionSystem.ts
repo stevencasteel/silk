@@ -89,16 +89,16 @@ export class CollisionResolutionSystem implements ISystem {
           if (pTrav && pTrav.lastStickyEntityId === resId) {
             continue;
           }
-          
+
           const dist = getDistance2D(playerTrans.x, playerTrans.y, hazardTrans.x, hazardTrans.y);
-          
+
           let combinedRadius = 2.4;
           const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
           const hBug = hBugStore ? hBugStore.get(resId) : undefined;
           if (hBug && hBug.variant !== "NORMAL" && !hBug.spikesDisarmed) {
             combinedRadius = 3.4;
           }
-          
+
           if (dist < combinedRadius) {
             response.onOverlap(this.context.refs.player, this.context);
           }

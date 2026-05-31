@@ -47,8 +47,8 @@ export class TetherStrainSystem implements ISystem {
     tStrain.strain = tether.tension;
 
     if (isOverloaded) {
-          // Unused overloadDelta removed for strict compilation
-          // Unused strainRatio removed for strict compilation
+      // Unused overloadDelta removed for strict compilation
+      // Unused strainRatio removed for strict compilation
 
       // Continuous shake is now handled directly by the CameraSystem via tension subscriptions.
 

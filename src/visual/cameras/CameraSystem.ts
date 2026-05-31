@@ -4,7 +4,11 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { POST_PROCESSING_PRESETS, CAMERA_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, TraversalStateComponent, WeaverAIComponent } from "../../core/ecs/Components";
+import {
+  TransformComponent,
+  TraversalStateComponent,
+  WeaverAIComponent
+} from "../../core/ecs/Components";
 
 import * as BABYLON from "@babylonjs/core";
 
@@ -68,7 +72,7 @@ export class CameraSystem implements ISystem {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
-        const limit = 0.80;
+        const limit = 0.8;
         if (payload.tension >= limit) {
           this.continuousStrainRatio = (payload.tension - limit) / (1.0 - limit);
         } else {
@@ -150,13 +154,14 @@ export class CameraSystem implements ISystem {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
       const playerLocalY = playerTrans.y - baseY;
 
-      const isBossEngaging = wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
+      const isBossEngaging =
+        wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
       const lowerLimit = CAMERA_TUNING.LOWER_COMFORT_Y;
-      
+
       if (isBossEngaging && playerLocalY < lowerLimit) {
         const desiredScrollY = playerLocalY - lowerLimit;
         const maxScrollDelta = -Math.max(12.0, this.context.runtime.currentScrollSpeed) * dt;
-        
+
         this.cameraScrollY = Math.max(
           CAMERA_TUNING.MIN_SCROLL_Y,
           Math.max(this.cameraScrollY + maxScrollDelta, desiredScrollY)
@@ -169,13 +174,9 @@ export class CameraSystem implements ISystem {
             targetY = Math.min(6.0, (weaverLocalY - 10.0) * 0.3);
           }
         }
-        
+
         const panRecoveryFactor = 1.0 - Math.exp(-dt * 5.0);
-        this.cameraScrollY = BABYLON.Scalar.Lerp(
-          this.cameraScrollY,
-          targetY,
-          panRecoveryFactor
-        );
+        this.cameraScrollY = BABYLON.Scalar.Lerp(this.cameraScrollY, targetY, panRecoveryFactor);
       }
     }
   }
@@ -197,7 +198,8 @@ export class CameraSystem implements ISystem {
         .get<WeaverAIComponent>("weaverAI")
         .get(this.context.refs.weaver);
 
-      const isBossEngaging = wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
+      const isBossEngaging =
+        wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
 
       if (isBossEngaging && trav && playerLocalY < CAMERA_TUNING.LOWER_COMFORT_Y) {
         targetScrollY = this.cameraScrollY + (playerLocalY - CAMERA_TUNING.LOWER_COMFORT_Y) * alpha;

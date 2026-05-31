@@ -1,4 +1,11 @@
-import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer, Color3, PBRMaterial } from "@babylonjs/core";
+import {
+  Material,
+  MaterialPluginBase,
+  ShaderLanguage,
+  UniformBuffer,
+  Color3,
+  PBRMaterial
+} from "@babylonjs/core";
 
 export class SilkMaterialPlugin extends MaterialPluginBase {
   public shearIntensity = 0.0;
@@ -9,13 +16,16 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
   public gradientActive = false;
   public noiseActive = false;
 
-  constructor(material: Material, options?: { shear?: boolean; gradient?: boolean; noise?: boolean }) {
+  constructor(
+    material: Material,
+    options?: { shear?: boolean; gradient?: boolean; noise?: boolean }
+  ) {
     super(material, "SilkMaterialEffects", 200, {
       SHEAR: false,
       ABDOMEN_GRADIENT: false,
       NOISE: false
     });
-    
+
     this.shearActive = options?.shear ?? false;
     this.gradientActive = options?.gradient ?? false;
     this.noiseActive = options?.noise ?? false;

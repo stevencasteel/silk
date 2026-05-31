@@ -15,6 +15,7 @@ export class Engine {
   public isPaused: boolean = true;
   private isManuallyPaused: boolean = false;
   private unsubscribes: (() => void)[] = [];
+  public _bootProgressUnsubscribe?: () => void;
 
   public get eventBroker(): IEventBroker {
     return this.broker;
@@ -86,7 +87,7 @@ export class Engine {
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("blur", this.handleBlur);
     window.removeEventListener("focus", this.handleFocus);
-    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
   private initGestureHandlers(): void {

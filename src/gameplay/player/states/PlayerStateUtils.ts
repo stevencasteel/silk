@@ -15,11 +15,18 @@ import {
   InputIntentComponent,
   TraversalState
 } from "../../../core/ecs/Components";
-import { GAMEPLAY_TUNING, ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
+import {
+  GAMEPLAY_TUNING,
+  ARENA_CONFIG,
+  VISUAL_JUICE_CONFIG
+} from "../../../core/engine/ArenaConfig";
 import { getDistance2D } from "../../../core/utils/EngineUtils";
 import { GameEvent } from "../../../core/events/GameEvents";
-import { LaunchTrailStrategy, WallSparksStrategy, WebSplatStrategy } from "../../juice/ParticleStrategies";
-
+import {
+  LaunchTrailStrategy,
+  WallSparksStrategy,
+  WebSplatStrategy
+} from "../../juice/ParticleStrategies";
 
 export class PlayerStateUtils {
   public static enforcePendulumConstraint(
@@ -83,12 +90,12 @@ export class PlayerStateUtils {
       trav.state = "AIRBORNE";
       trav.launchPower = 0.05;
       trav.launchTimer = 0;
-      
+
       const nudgeDistance = 0.35;
       target.x += trav.wallNormalX * nudgeDistance;
       vel.x = trav.wallNormalX * 5.5;
       vel.y = Math.max(vel.y, -3.0);
-      
+
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
 
@@ -116,7 +123,7 @@ export class PlayerStateUtils {
     const minT = reelConfig.SWEET_SPOT_MIN;
     const maxT = 1.3;
     const rangeFactor = Math.max(0, Math.min(1.0, (storedTension - minT) / (maxT - minT)));
-    
+
     const minMult = 0.35;
     const maxMult = 2.2;
     const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, 1.5);
@@ -143,7 +150,7 @@ export class PlayerStateUtils {
         pTrans.scaleVelX = -18.0;
         pTrans.scaleVelZ = -18.0;
         const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
-        if (hs) hs.timeRemaining = 0.10;
+        if (hs) hs.timeRemaining = 0.1;
       } else if (isSweetSpot) {
         pTrans.scaleVelY = 22.0;
         pTrans.scaleVelX = -11.0;
@@ -235,7 +242,7 @@ export class PlayerStateUtils {
       pTrans.scaleY = Math.min(2.0, squash.SQUASH_WALL_Y + impactFactor * 0.5);
       pTrans.scaleZ = 1.0;
 
-      pTrans.scaleVelX = 15.0 + impactFactor * 55.0; 
+      pTrans.scaleVelX = 15.0 + impactFactor * 55.0;
       pTrans.scaleVelY = -(15.0 + impactFactor * 55.0);
       pTrans.scaleZ = 1.0;
     }
@@ -298,7 +305,7 @@ export class PlayerStateUtils {
           const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
           const isPlayerTrapped = trav.isWebTrapped;
-          const isWebShieldActive = hBug ? (hBug.isWebTrapped || isPlayerTrapped) : isPlayerTrapped;
+          const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
           const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
 
           let spikesActive = false;
@@ -369,7 +376,8 @@ export class PlayerStateUtils {
             trav.wallNormalX = -bugWallDir;
             trav.wallNormalY = 0;
             trav.stickyEntityId = bugId;
-            trav.stickyWallX = bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+            trav.stickyWallX =
+              bugTrans.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
 
             const clampedOffsetY = Math.max(-halfH, Math.min(halfH, nextY - bugTrans.y));
             trav.stickyWallYOffset = clampedOffsetY;
@@ -406,20 +414,22 @@ export class PlayerStateUtils {
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
-      
+
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
       const hBug = hBugStore ? hBugStore.get(trav.stickyEntityId) : undefined;
 
       const isPlayerTrapped = trav.isWebTrapped;
-      const isWebShieldActive = hBug ? (hBug.isWebTrapped || isPlayerTrapped) : isPlayerTrapped;
+      const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
 
       let isSpikedOnClingSide = false;
       if (bug && !bug.spikesDisarmed) {
-        isSpikedOnClingSide = (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
-                             (trav.wallDir === 1 && bug.spikedSide === "LEFT");
+        isSpikedOnClingSide =
+          (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
+          (trav.wallDir === 1 && bug.spikedSide === "LEFT");
       } else if (hBug && !hBug.spikesDisarmed) {
-        isSpikedOnClingSide = (trav.wallDir === -1 && hBug.variant === "SPIKED_RIGHT") ||
-                             (trav.wallDir === 1 && hBug.variant === "SPIKED_LEFT");
+        isSpikedOnClingSide =
+          (trav.wallDir === -1 && hBug.variant === "SPIKED_RIGHT") ||
+          (trav.wallDir === 1 && hBug.variant === "SPIKED_LEFT");
       }
 
       const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
@@ -507,9 +517,7 @@ export class PlayerStateUtils {
           trav.hasFlingBonus = true;
         }
 
-        const pTrans = ctx.stores
-          .get<TransformComponent>("transform")
-          .get(ctx.refs.player);
+        const pTrans = ctx.stores.get<TransformComponent>("transform").get(ctx.refs.player);
         if (pTrans) {
           pTrans.scaleX = 1.4;
           pTrans.scaleY = 1.4;

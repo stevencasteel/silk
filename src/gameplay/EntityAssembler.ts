@@ -10,7 +10,6 @@ import {
   InputIntentComponent,
   WeaverAIComponent,
   TagComponent,
-  
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
@@ -18,7 +17,6 @@ import {
   HurtboxComponent,
   HitboxComponent,
   ActorCosmeticComponent,
-  
   CollisionResponseComponent,
   BoundaryConstraintComponent,
   CollisionStateComponent

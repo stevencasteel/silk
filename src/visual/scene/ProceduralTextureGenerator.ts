@@ -134,8 +134,8 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
         const hBL = heightMap[yp * res + xm];
         const hBR = heightMap[yp * res + xp];
 
-        const dx = ((hTR + hBR) - (hTL + hBL)) * config.bumpStrength * 0.5;
-        const dy = ((hBL + hBR) - (hTL + hTR)) * config.bumpStrength * 0.5;
+        const dx = (hTR + hBR - (hTL + hBL)) * config.bumpStrength * 0.5;
+        const dy = (hBL + hBR - (hTL + hTR)) * config.bumpStrength * 0.5;
         const dz = 1.0;
 
         const len = Math.sqrt(dx * dx + dy * dy + dz * dz);

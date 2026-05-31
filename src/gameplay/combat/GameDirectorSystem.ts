@@ -1,17 +1,11 @@
-import {
-  
-  ISystem } from "../../contracts/ISystem";
+import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  HitStopComponent, HealthComponent,
-  TetherComponent
-} from "../../core/ecs/Components";
+import { HitStopComponent, HealthComponent, TetherComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
-
 
 export class GameDirectorSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
@@ -90,14 +84,18 @@ export class GameDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
-        const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
+        const hs = this.context.stores
+          .get<HitStopComponent>("hitStop")
+          .get(this.context.refs.player);
         if (hs) hs.timeRemaining = GAMEPLAY_TUNING.COMBAT.HITSTOP_PLAYER;
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-        const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.weaver);
+        const hs = this.context.stores
+          .get<HitStopComponent>("hitStop")
+          .get(this.context.refs.weaver);
         if (hs) hs.timeRemaining = GAMEPLAY_TUNING.COMBAT.HITSTOP_WEAVER;
       })
     );
@@ -114,7 +112,7 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
         this.context.runtime.hitLagTimer = 0.18;
-        this.context.runtime.hitLagScale = 0.20;
+        this.context.runtime.hitLagScale = 0.2;
       })
     );
 

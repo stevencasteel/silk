@@ -2,9 +2,7 @@ import { getWeaverStingerTip, getDistance2D } from "../../core/utils/EngineUtils
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  GameEvent
-} from "../../core/events/GameEvents";
+import { GameEvent } from "../../core/events/GameEvents";
 import {
   TetherComponent,
   KinematicTargetComponent,
@@ -195,9 +193,14 @@ export class PlayerKinematicsSystem implements ISystem {
       const reelProgress = (tether.maxLength - absoluteMin) / (absoluteMax - absoluteMin);
       const maxAchievableTension = Math.max(0.15, Math.min(1.3, reelProgress * 1.3));
 
-      tether.tension = Math.max(0.0, Math.min(maxAchievableTension, stretchAmount * maxAchievableTension));
+      tether.tension = Math.max(
+        0.0,
+        Math.min(maxAchievableTension, stretchAmount * maxAchievableTension)
+      );
     } else {
-      const decayRate = GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE ? GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * 2.0 : 8.0;
+      const decayRate = GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE
+        ? GAMEPLAY_TUNING.PLAYER.TENSION_DECAY_RATE * 2.0
+        : 8.0;
       tether.tension = Math.max(0.0, tether.tension - decayRate * dt);
     }
   }

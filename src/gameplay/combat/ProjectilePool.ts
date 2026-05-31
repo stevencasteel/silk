@@ -41,12 +41,16 @@ export class ProjectilePool {
   ) {
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive");
     const noisePlugin = new SilkMaterialPlugin(this.projMatActive, { noise: true });
-    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePlugin;
+    (
+      this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+    )._noisePlugin = noisePlugin;
 
     this.projMatActiveRed = this.createBaseProjectileMaterial("projectileMatActiveRed");
     this.projMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
     const noisePluginRed = new SilkMaterialPlugin(this.projMatActiveRed, { noise: true });
-    (this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePluginRed;
+    (
+      this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+    )._noisePlugin = noisePluginRed;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck");
     this.projMatStuckRed = this.createBaseProjectileMaterial("projectileMatStuckRed");
@@ -54,7 +58,9 @@ export class ProjectilePool {
 
     this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped");
     const trappedNoise = new SilkMaterialPlugin(this.projMatTrapped, { noise: true });
-    (this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = trappedNoise;
+    (
+      this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+    )._noisePlugin = trappedNoise;
 
     if (this.scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
@@ -95,7 +101,12 @@ export class ProjectilePool {
 
       let body: BABYLON.PhysicsBody | null = null;
       if (this.scene.isPhysicsEnabled() && this.sharedShape) {
-        body = new BABYLON.PhysicsBody(sphere, BABYLON.PhysicsMotionType.ANIMATED, false, this.scene);
+        body = new BABYLON.PhysicsBody(
+          sphere,
+          BABYLON.PhysicsMotionType.ANIMATED,
+          false,
+          this.scene
+        );
         body.shape = this.sharedShape;
         body.setMassProperties({ mass: 1.0 });
         body.disablePreStep = false;
@@ -206,7 +217,7 @@ export class ProjectilePool {
     const mesh = this.meshesMap.get(projId);
 
     if (pComp && trans && vel && mesh) {
-      const isRed = (shotCounter % 3 === 2);
+      const isRed = shotCounter % 3 === 2;
       this.redStatusMap.set(projId, isRed);
 
       pComp.isActive = true;
@@ -262,7 +273,10 @@ export class ProjectilePool {
 
       const body = this.bodiesMap.get(projId);
       if (body) {
-        body.setTargetTransform(mesh.position, mesh.rotationQuaternion || BABYLON.Quaternion.Identity());
+        body.setTargetTransform(
+          mesh.position,
+          mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+        );
       }
     }
 
@@ -322,7 +336,9 @@ export class ProjectilePool {
     if (body) {
       body.setTargetTransform(
         mesh ? mesh.position : BABYLON.Vector3.Zero(),
-        mesh ? mesh.rotationQuaternion || BABYLON.Quaternion.Identity() : BABYLON.Quaternion.Identity()
+        mesh
+          ? mesh.rotationQuaternion || BABYLON.Quaternion.Identity()
+          : BABYLON.Quaternion.Identity()
       );
     }
   }

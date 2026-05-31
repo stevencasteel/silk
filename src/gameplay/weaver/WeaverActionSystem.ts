@@ -1,8 +1,7 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import {
-  WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+import { WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class WeaverActionSystem implements ISystem {

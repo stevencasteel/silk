@@ -11,7 +11,7 @@ export const CANONICAL_UNITS = {
     JUICE_PARTICLE: -18.0
   },
   TETHER_STRAIN: {
-    OVERLOAD_LIMIT: 0.80,
+    OVERLOAD_LIMIT: 0.8,
     SNAP_LIMIT: 0.95
   },
   SCROLL_MAPPING: {
@@ -87,7 +87,7 @@ export const GAMEPLAY_TUNING = {
       WALL_SLIDE_X: 0.75,
       WALL_SLIDE_Y: 1.15,
       WALL_SLIDE_Z: 1.0,
-      LAUNCH_POWER_MULT: 0.20,
+      LAUNCH_POWER_MULT: 0.2,
       AIRBORNE_STRETCH_MAX: 0.3,
       AIRBORNE_SPEED_BASIS: 30.0,
       SQUASH_LAND_X: 1.22,
@@ -121,7 +121,7 @@ export const GAMEPLAY_TUNING = {
     IN_SPEED: 10.0,
     OUT_SPEED: 14.0,
     SWEET_SPOT_MIN: 0.555,
-    SWEET_SPOT_MAX: 0.80
+    SWEET_SPOT_MAX: 0.8
   }
 } as const;
 

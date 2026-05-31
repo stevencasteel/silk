@@ -40,52 +40,58 @@ export class ArenaGeometry {
     gashMaterial.metallic = 0.0;
 
     const texturesPromise = Promise.all([
-      textureGen.generatePBRTextures("concreteWall", this.scene, {
-        resolution: 512,
-        noiseScale: 10.0,
-        bumpStrength: 2.5,
-        baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
-        roughnessMin: 0.75,
-        roughnessMax: 0.98,
-        metallic: 0.0
-      }).then((textures) => {
-        configurePBRTextures(wallMaterial, textures);
-        wallMaterial.enableSpecularAntiAliasing = true;
-        wallMaterial.forceIrradianceInFragment = true;
-      }),
+      textureGen
+        .generatePBRTextures("concreteWall", this.scene, {
+          resolution: 512,
+          noiseScale: 10.0,
+          bumpStrength: 2.5,
+          baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
+          roughnessMin: 0.75,
+          roughnessMax: 0.98,
+          metallic: 0.0
+        })
+        .then((textures) => {
+          configurePBRTextures(wallMaterial, textures);
+          wallMaterial.enableSpecularAntiAliasing = true;
+          wallMaterial.forceIrradianceInFragment = true;
+        }),
 
-      textureGen.generatePBRTextures("scrollingPanel", this.scene, {
-        resolution: 512,
-        noiseScale: 16.0,
-        bumpStrength: 1.8,
-        baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
-        roughnessMin: 0.45,
-        roughnessMax: 0.75,
-        metallic: 0.2
-      }).then((textures) => {
-        configurePBRTextures(panelMaterial, textures);
-        panelMaterial.enableSpecularAntiAliasing = true;
-        panelMaterial.forceIrradianceInFragment = true;
-      }),
+      textureGen
+        .generatePBRTextures("scrollingPanel", this.scene, {
+          resolution: 512,
+          noiseScale: 16.0,
+          bumpStrength: 1.8,
+          baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
+          roughnessMin: 0.45,
+          roughnessMax: 0.75,
+          metallic: 0.2
+        })
+        .then((textures) => {
+          configurePBRTextures(panelMaterial, textures);
+          panelMaterial.enableSpecularAntiAliasing = true;
+          panelMaterial.forceIrradianceInFragment = true;
+        }),
 
-      textureGen.generatePBRTextures("shaftBackdropConcrete", this.scene, {
-        resolution: 1024,
-        noiseScale: 12.0,
-        bumpStrength: 3.1,
-        baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
-        roughnessMin: 0.82,
-        roughnessMax: 0.99,
-        metallic: 0.0,
-        ridgeStrength: 0.16,
-        ridgeScale: 0.34,
-        ridgeDirectionX: 0.65,
-        ridgeDirectionY: 1.0,
-        colorVariation: 0.2
-      }).then((textures) => {
-        configurePBRTextures(backdropMaterial, textures);
-        backdropMaterial.enableSpecularAntiAliasing = true;
-        backdropMaterial.forceIrradianceInFragment = true;
-      })
+      textureGen
+        .generatePBRTextures("shaftBackdropConcrete", this.scene, {
+          resolution: 1024,
+          noiseScale: 12.0,
+          bumpStrength: 3.1,
+          baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),
+          roughnessMin: 0.82,
+          roughnessMax: 0.99,
+          metallic: 0.0,
+          ridgeStrength: 0.16,
+          ridgeScale: 0.34,
+          ridgeDirectionX: 0.65,
+          ridgeDirectionY: 1.0,
+          colorVariation: 0.2
+        })
+        .then((textures) => {
+          configurePBRTextures(backdropMaterial, textures);
+          backdropMaterial.enableSpecularAntiAliasing = true;
+          backdropMaterial.forceIrradianceInFragment = true;
+        })
     ]);
 
     await texturesPromise;

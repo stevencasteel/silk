@@ -25,28 +25,28 @@ export default function App() {
         }
         engineInstance = engine;
 
-        // Subscribe to boot completion to show gesture screen
-        const unsubscribe = engine.eventBroker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
-          if (payload.status === "READY") {
-            unsubscribe();
-            useOverlayStore.getState().setAwaitingGesture(true);
+        const unsubscribe = engine.eventBroker.subscribe(
+          GameEvent.GAME_BOOT_PROGRESS,
+          (payload) => {
+            if (payload.status === "READY") {
+              unsubscribe();
+              useOverlayStore.getState().setAwaitingGesture(true);
+            }
           }
-        });
+        );
 
         engineInstance.start();
       })
       .catch((error) => {
         console.error("Failed to initialize game:", error);
-        // Keep the error message visible in the overlay
       });
 
     return () => {
       cancelled = true;
       if (engineInstance) {
         engineInstance.stop();
-        // Clean up boot progress subscription
-        if ((engineInstance as any)._bootProgressUnsubscribe) {
-          (engineInstance as any)._bootProgressUnsubscribe();
+        if (engineInstance._bootProgressUnsubscribe) {
+          engineInstance._bootProgressUnsubscribe();
         }
       }
     };
