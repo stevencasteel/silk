@@ -7,7 +7,6 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
 import {
   TransformComponent,
-  ActorCosmeticComponent,
   KinematicVelocityComponent,
   ProjectileComponent,
   WeaverAIComponent,
@@ -18,10 +17,9 @@ import {
   WallBugComponent,
   HealthBugComponent,
   HealthComponent,
-  TetherComponent,
-  KinematicTargetComponent
+  TetherComponent
 } from "../../core/ecs/Components";
-import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
+import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { getWeaverAbdomenTip, SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { ProjectilePool } from "./ProjectilePool";
 import * as BABYLON from "@babylonjs/core";
@@ -157,6 +155,7 @@ export class ProjectileSystem implements ISystem {
     const hasIframe = pIframe && pIframe.timeRemaining > 0;
     const launchPower = pTrav ? pTrav.launchPower || 0 : 0;
 
+    // Fling/launch deflection check
     if (isLaunching && launchPower >= 0.555) {
       const dx = trans.x - pTrans.x;
       const dy = trans.y - pTrans.y;
@@ -202,176 +201,160 @@ export class ProjectileSystem implements ISystem {
           duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 0.6
         });
       }
-    } else {
-      const alreadyTrapped = pTrav && pTrav.isWebTrapped;
-
-      if (!hasIframe) {
-        const dx = pTrans.x - trans.x;
-        const dy = pTrans.y - trans.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-        const pushX = dx / dist;
-        const pushY = dy / dist;
-
-        const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
-        const tether = tetherStore ? tetherStore.get(otherId) : undefined;
-        if (tether && tether.isAttached) {
-          const anchorDx = pTrans.x - tether.anchorX;
-          const anchorDy = pTrans.y - tether.anchorY;
-          const anchorDist = Math.sqrt(anchorDx * anchorDx + anchorDy * anchorDy) || 1.0;
-          const anchorDirX = anchorDx / anchorDist;
-          const anchorDirY = anchorDy / anchorDist;
-
-          const projection = pushX * anchorDirX + pushY * anchorDirY;
-          const baseUnreel = 2.0;
-          const dynamicUnreel = projection > 0 ? projection * 8.0 : 0.0;
-          const totalUnreel = baseUnreel + dynamicUnreel;
-          const maxLengthLimit = 38.0;
-
-          // Only unreel the desired target, letting maxLength spring outward organically
-          tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + totalUnreel);
-          
-          // Spike visual tension instantly to set off line shivers
-          tether.tension = Math.max(tether.tension, 1.15);
-        }
-
-        const kickbackSpeed = 22.0;
-        const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
-        if (pVel) {
-          pVel.x += pushX * kickbackSpeed;
-          pVel.y += pushY * kickbackSpeed;
-        }
-
-        if (pTrav) {
-          pTrav.recoilTimer = 0.35;
-          pTrav.recoilVelocityY = pushY * 34.0;
-        }
-
-        // Deform player along incoming impact normal vector (directional squash and stretch)
-        const squashAmount = 0.38;
-        const stretchAmount = 0.32;
-        pTrans.scaleX = 1.0 - Math.abs(pushX) * squashAmount + Math.abs(pushY) * stretchAmount;
-        pTrans.scaleY = 1.0 - Math.abs(pushY) * squashAmount + Math.abs(pushX) * stretchAmount;
-        pTrans.scaleZ = 1.0 - squashAmount * 0.15;
-
-        pTrans.scaleVelX = -pushX * 36.0;
-        pTrans.scaleVelY = -pushY * 36.0;
-        pTrans.scaleVelZ = 12.0;
-
-        // Visual spring dip inside capsule body
-        const cosmeticStore = sysCtx.stores.get<ActorCosmeticComponent>("cosmetic");
-        const cosmetic = cosmeticStore ? cosmeticStore.get(otherId) : undefined;
-        if (cosmetic) {
-          cosmetic.visualOffsetY = (cosmetic.visualOffsetY ?? 0.0) + pushY * 2.2;
-          cosmetic.visualOffsetVelocityY = (cosmetic.visualOffsetVelocityY ?? 0.0) + pushY * 24.0;
-        }
-
-
-
-        // Direction-aligned camera jolt along impact axis
-        sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.6,
-          duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.3,
-          dirX: pushX,
-          dirY: pushY
-        });
-      }
-
-      if (alreadyTrapped && pTrav) {
-        pTrav.webMass = (pTrav.webMass || 1) + 1;
-        pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
-
-        const pStore = sysCtx.stores.get<ProjectileComponent>("projectile");
-        const transformStore = sysCtx.stores.get<TransformComponent>("transform");
-        for (const pid of this.pool.getEntities()) {
-          const activeProj = pStore.get(pid);
-          if (activeProj && activeProj.isActive && activeProj.isTrappingPlayer) {
-            const activeTrans = transformStore.get(pid);
-            if (activeTrans) {
-              activeTrans.scaleVelX = (activeTrans.scaleVelX || 0) + 10.0;
-              activeTrans.scaleVelY = (activeTrans.scaleVelY || 0) - 15.0;
-              activeTrans.scaleVelZ = (activeTrans.scaleVelZ || 0) + 10.0;
-            }
-            break;
-          }
-        }
-
-        const reqId = sysCtx.world.create();
-        const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
-        if (reqStore) {
-          reqStore.add(reqId, {
-            strategy: WEB_SPLAT_STRATEGY,
-            x: trans.x,
-            y: trans.y,
-            z: trans.z
-          });
-        }
-
-        sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-          x: trans.x,
-          y: trans.y,
-          isWall: false
-        });
-        sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 0.8,
-          duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-        });
-
-        if (!hasIframe) {
-          sysCtx.commands.dispatch({
-            type: "DAMAGE_REQUEST",
-            targetId: otherId,
-            amount: 1,
-            source: "PROJECTILE"
-          });
-        }
-
-        this.pool.release(projId);
-        return;
-      }
-
-      if (!hasIframe) {
-        if (pTrav) {
-          pTrav.isWebTrapped = true;
-          pTrav.webMass = 1;
-          pTrav.escapeProgress = 0;
-          pTrav.escapeRequired = 5;
-          pTrav.lastEscapeDirection = "";
-          pTrav.hasFlingBonus = false;
-        }
-
-        pComp.isTrappingPlayer = true;
-
-        if (pComp.isRed) {
-          sysCtx.commands.dispatch({
-            type: "DAMAGE_REQUEST",
-            targetId: otherId,
-            amount: 1,
-            source: "PROJECTILE"
-          });
-        }
-
-        const reqId = sysCtx.world.create();
-        const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
-        if (reqStore) {
-          reqStore.add(reqId, {
-            strategy: WEB_SPLAT_STRATEGY,
-            x: trans.x,
-            y: trans.y,
-            z: trans.z
-          });
-        }
-
-        sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
-          x: trans.x,
-          y: trans.y,
-          isWall: false
-        });
-        sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP,
-          duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR
-        });
-      }
+      return;
     }
+
+    // ALREADY TRAPPED CASE
+    const alreadyTrapped = pTrav && pTrav.isWebTrapped;
+    if (alreadyTrapped && pTrav) {
+      pTrav.webMass = (pTrav.webMass || 1) + 1;
+      pTrav.escapeRequired = 5 + (pTrav.webMass - 1) * 3;
+      pTrav.escapeProgress = Math.max(0, (pTrav.escapeProgress || 0) - 1);
+      pTrav.recoilTimer = 0.35;
+
+      const dx = pTrans.x - trans.x;
+      const dy = pTrans.y - trans.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+      const pushX = dx / dist;
+      const pushY = dy / dist;
+
+      // Cumulative physical push
+      const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
+      const pushForce = 22.0;
+      if (pVel) {
+        pVel.x += pushX * pushForce;
+        pVel.y += pushY * pushForce + 2.0;
+      }
+
+      // Extend tether reel length on consecutive hits
+      const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
+      const tether = tetherStore ? tetherStore.get(otherId) : undefined;
+      if (tether && tether.isAttached) {
+        const reelIncrease = 5.0;
+        const maxLengthLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+        tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + reelIncrease);
+        tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + reelIncrease);
+      }
+
+      if (!hasIframe) {
+        sysCtx.commands.dispatch({
+          type: "DAMAGE_REQUEST",
+          targetId: otherId,
+          amount: 1,
+          source: "PROJECTILE_STACK"
+        });
+      }
+
+      const reqId = sysCtx.world.create();
+      const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+      if (reqStore) {
+        reqStore.add(reqId, {
+          strategy: WEB_SPLAT_STRATEGY,
+          x: trans.x,
+          y: trans.y,
+          z: trans.z
+        });
+      }
+
+      sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+        x: trans.x,
+        y: trans.y,
+        isWall: false
+      });
+
+      sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.3,
+        duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.1,
+        dirX: pushX,
+        dirY: pushY
+      });
+
+      this.pool.release(projId);
+      return;
+    }
+
+    // FRESH TRAP CASE (First web impact)
+    const dx = pTrans.x - trans.x;
+    const dy = pTrans.y - trans.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+    const pushX = dx / dist;
+    const pushY = dy / dist;
+
+    // 1. Force state transition to AIRBORNE to handle physics-based push cleanly
+    if (pTrav) {
+      pTrav.state = "AIRBORNE";
+      pTrav.wallDir = 0;
+      pTrav.wallNormalX = 0;
+      pTrav.wallNormalY = 0;
+      pTrav.stickyEntityId = -1;
+    }
+
+    // 2. Physics-based push: apply high-impulse velocity away from the projectile
+    const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
+    const pushForce = 28.0;
+    if (pVel) {
+      pVel.x = pushX * pushForce;
+      pVel.y = pushY * pushForce + 4.0;
+    }
+
+    // 3. Make player's reel get longer (simulating unspooling/elongating)
+    const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
+    const tether = tetherStore ? tetherStore.get(otherId) : undefined;
+    if (tether && tether.isAttached) {
+      const reelIncrease = 8.5;
+      const maxLengthLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+      tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + reelIncrease);
+      tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + reelIncrease);
+      tether.tension = Math.max(tether.tension, 1.25);
+    }
+
+    // 4. Trap in web cocoon
+    if (pTrav) {
+      pTrav.isWebTrapped = true;
+      pTrav.webMass = 1;
+      pTrav.escapeProgress = 0;
+      pTrav.escapeRequired = 5;
+      pTrav.lastEscapeDirection = "";
+      pTrav.hasFlingBonus = false;
+      pTrav.recoilTimer = 0.35;
+    }
+
+    pComp.isTrappingPlayer = true;
+
+    // 5. Apply damage & i-frame logic
+    if (!hasIframe) {
+      sysCtx.commands.dispatch({
+        type: "DAMAGE_REQUEST",
+        targetId: otherId,
+        amount: 1,
+        source: "PROJECTILE"
+      });
+    }
+
+    // 6. Visual juice and effects
+    const reqId = sysCtx.world.create();
+    const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      reqStore.add(reqId, {
+        strategy: WEB_SPLAT_STRATEGY,
+        x: trans.x,
+        y: trans.y,
+        z: trans.z
+      });
+    }
+
+    sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+      x: trans.x,
+      y: trans.y,
+      isWall: false
+    });
+
+    sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+      amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.8,
+      duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.4,
+      dirX: pushX,
+      dirY: pushY
+    });
   }
 
   private spawnProjectile(

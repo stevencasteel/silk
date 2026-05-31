@@ -93,7 +93,8 @@ export class PlayerAirborneState implements IPlayerState {
       return bugStateResult;
     }
 
-    if (wallDir !== 0) {
+    const inRecoil = trav.recoilTimer !== undefined && trav.recoilTimer > 0;
+    if (wallDir !== 0 && !inRecoil) {
       const pressingIn = input.x === wallDir;
       if (pressingIn || isTrapped) {
         PlayerStateUtils.applyWallImpactSquash(ctx);
@@ -117,6 +118,13 @@ export class PlayerAirborneState implements IPlayerState {
         }
         return null;
       }
+    } else if (wallDir !== 0 && inRecoil) {
+      target.x = wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+      target.y = nextY;
+      if (Math.sign(vel.x) === wallDir) {
+        vel.x *= -0.2;
+      }
+      return null;
     }
 
     target.x = nextX;
