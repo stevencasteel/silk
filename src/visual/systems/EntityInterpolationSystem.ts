@@ -1,6 +1,6 @@
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { TransformComponent } from "../../core/ecs/Components";
+import { TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 import * as BABYLON from "@babylonjs/core";
 
@@ -22,13 +22,24 @@ export class EntityInterpolationSystem implements ISystem {
       const deltaY = curr.y - curr.prevY;
       const distSq = deltaX * deltaX + deltaY * deltaY;
 
+      let interpolatedY = curr.prevY + deltaY * alpha;
+      let finalY = curr.y;
+      if (id === this.context.refs.player) {
+        const cosmeticStore = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+        const cosmetic = cosmeticStore.get(id);
+        if (cosmetic && cosmetic.visualOffsetY !== undefined) {
+          interpolatedY += cosmetic.visualOffsetY;
+          finalY += cosmetic.visualOffsetY;
+        }
+      }
+
       if (distSq > 400.0) {
         node.position.x = curr.x;
-        node.position.y = curr.y;
+        node.position.y = finalY;
         node.position.z = curr.z;
       } else {
         node.position.x = curr.prevX + deltaX * alpha;
-        node.position.y = curr.prevY + deltaY * alpha;
+        node.position.y = interpolatedY;
         node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
       }
 

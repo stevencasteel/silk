@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 8:08:31 PM
+ [SYSTEM] Generated: 5/30/2026, 8:29:52 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2979,6 +2979,8 @@ export interface PlayerCosmeticComponent {
   slerpFactor: number;
   rotationVel?: number;
   currentRotation?: number;
+  visualOffsetY?: number;
+  visualOffsetVelocityY?: number;
 }
 
 export interface WeaverCosmeticComponent {
@@ -4807,7 +4809,9 @@ export class EntityAssembler {
       springStiffness: 220,
       springDamping: 14,
       rotationAngle: 0.0,
-      slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR
+      slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR,
+      visualOffsetY: 0.0,
+      visualOffsetVelocityY: 0.0
     });
 
     context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(playerId, {
@@ -8924,7 +8928,7 @@ export interface IPlayerState {
 
 ● ./src/gameplay/player/PlayerAnimationSystem.ts
 ────────────────────────────────────────────────────
-import { solveScaleSpring, solveSpringDamper } from "../../core/utils/EngineUtils";
+import { solveScaleSpring, solveSpringDamper, solveSpringDamper as solveOffsetSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -8989,6 +8993,20 @@ export class PlayerAnimationSystem implements ISystem {
     pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
+
+    // Solve vertical landing spring-mass-damper offset
+    const currentOffset = cosmetic.visualOffsetY ?? 0;
+    const offsetVel = cosmetic.visualOffsetVelocityY ?? 0;
+    const springResult = solveOffsetSpring(
+      currentOffset,
+      0,
+      offsetVel,
+      dt,
+      280.0,
+      18.0
+    );
+    cosmetic.visualOffsetY = springResult.value;
+    cosmetic.visualOffsetVelocityY = springResult.velocity;
 
     const currentRot = cosmetic.currentRotation ?? 0;
     const rotVel = cosmetic.rotationVel ?? 0;
@@ -9312,6 +9330,7 @@ import {
   KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { solveSpringDamper } from "../../core/utils/EngineUtils";
 
 export class TetherReelingSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -9354,22 +9373,19 @@ export class TetherReelingSystem implements ISystem {
       }
       tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
 
-      if (tether.maxLength > tether.desiredLength) {
-        const resistance = Math.max(0.1, 1.0 - tether.tension);
-        const easeSpeed = reelConfig.IN_SPEED * resistance;
-        const maxDelta = easeSpeed * dt;
-        if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
-          tether.maxLength = tether.desiredLength;
-        } else {
-          tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
-        }
-        tether.reelVelocity = -easeSpeed;
-      } else if (tether.maxLength < tether.desiredLength) {
-        const rate = 16.0;
-        const lerpFactor = 1.0 - Math.exp(-dt * rate);
-        tether.maxLength += (tether.desiredLength - tether.maxLength) * lerpFactor;
-        tether.reelVelocity = (tether.desiredLength - tether.maxLength) * rate;
+      if (Math.abs(tether.maxLength - tether.desiredLength) > 0.01) {
+        const springResult = solveSpringDamper(
+          tether.maxLength,
+          tether.desiredLength,
+          tether.reelVelocity,
+          dt,
+          180.0,
+          15.0
+        );
+        tether.maxLength = springResult.value;
+        tether.reelVelocity = springResult.velocity;
       } else {
+        tether.maxLength = tether.desiredLength;
         tether.reelVelocity = 0;
       }
     }
@@ -9385,7 +9401,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TetherComponent, HealthComponent, TetherStrainComponent } from "../../core/ecs/Components";
-import { CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 
 export class TetherStrainSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
@@ -9429,15 +9445,10 @@ export class TetherStrainSystem implements ISystem {
     tStrain.strain = tether.tension;
 
     if (isOverloaded) {
-      const overloadDelta = tether.tension - this.OVERLOAD_THRESHOLD;
-      const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
+          // Unused overloadDelta removed for strict compilation
+          // Unused strainRatio removed for strict compilation
 
-      if (Math.random() < strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE) {
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.12 + strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE,
-          duration: 0.08
-        });
-      }
+      // Continuous shake is now handled directly by the CameraSystem via tension subscriptions.
 
       if (tether.tension >= this.SNAP_LIMIT) {
         const now = performance.now();
@@ -9564,6 +9575,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import {
   KinematicTargetComponent,
   TransformComponent,
+  PlayerCosmeticComponent,
   KinematicVelocityComponent,
   TraversalStateComponent,
   ParticleRequestComponent
@@ -9648,6 +9660,15 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleVelX -= impactFactor * 40.0;
             pTrans.scaleVelY += impactFactor * 60.0;
             pTrans.scaleVelZ -= impactFactor * 40.0;
+
+            // Apply landing kinetic offset to cosmetic component
+            const cosmeticStore = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+            const cosmetic = cosmeticStore.get(this.context.refs.player);
+            if (cosmetic) {
+              const impactEnergy = vel.y;
+              cosmetic.visualOffsetY = (cosmetic.visualOffsetY ?? 0.0) + impactEnergy * 0.05;
+              cosmetic.visualOffsetVelocityY = (cosmetic.visualOffsetVelocityY ?? 0.0) + impactEnergy * 0.45;
+            }
           }
         }
         target.y = minY;
@@ -12102,7 +12123,6 @@ export class WeaverShockwaveState implements IWeaverState {
                 const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
                 if (pTether) {
                   const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 5.4
-                  pTether.maxLength = initialLength;
                   pTether.desiredLength = initialLength;
                 }
               }
@@ -12264,7 +12284,6 @@ export class WeaverStrikingState implements IWeaverState {
     const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
     if (pTether) {
       const minLimit = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
-      pTether.maxLength = Math.max(minLimit, pTether.maxLength * 0.75);
       pTether.desiredLength = Math.max(minLimit, pTether.desiredLength * 0.75);
     }
 
@@ -12364,6 +12383,24 @@ export class WeaverStrikingState implements IWeaverState {
         aiComp.shakeRequested = true;
         aiComp.shakeAmplitude = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP;
         aiComp.shakeDuration = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR;
+      }
+
+      // Anticipation pull-back before thrusting
+      if (this.phaseTimer <= 0.18) {
+        const progress = (0.18 - this.phaseTimer) / 0.18;
+        const transforms = ctx.stores.get<TransformComponent>("transform");
+        const wTrans = transforms.get(ctx.refs.weaver);
+        if (wTrans) {
+          const dx = this.targetPos.x - wTrans.x;
+          const dy = this.targetPos.y - wTrans.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+          const pullBackForce = 12.0;
+          aiComp.desiredVelocityX = -(dx / dist) * pullBackForce * progress;
+          aiComp.desiredVelocityY = -(dy / dist) * pullBackForce * progress;
+        }
+      } else {
+        aiComp.desiredVelocityX = 0;
+        aiComp.desiredVelocityY = 0;
       }
 
       if (this.phaseTimer <= 0) {
@@ -15694,6 +15731,7 @@ export class CameraSystem implements ISystem {
   private cameraTarget = new BABYLON.Vector3();
 
   private cameraScrollY = 0.0;
+  private continuousStrainRatio = 0.0;
 
   private _shakeOffsetX = 0.0;
   private _shakeOffsetY = 0.0;
@@ -15736,6 +15774,17 @@ export class CameraSystem implements ISystem {
         this.cameraScrollY = 0.0;
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
+        const limit = 0.80;
+        if (payload.tension >= limit) {
+          this.continuousStrainRatio = (payload.tension - limit) / (1.0 - limit);
+        } else {
+          this.continuousStrainRatio = 0.0;
+        }
+      })
+    );
   }
 
   private noise(t: number): number {
@@ -15744,6 +15793,15 @@ export class CameraSystem implements ISystem {
 
   public update(dt: number): void {
     this.noiseTime += dt * 45.0;
+
+    let strainOffsetX = 0.0;
+    let strainOffsetY = 0.0;
+    if (this.continuousStrainRatio > 0.0) {
+      const frequencyMultiplier = 2.5;
+      const scale = this.continuousStrainRatio * 0.22;
+      strainOffsetX = this.noise(this.noiseTime * frequencyMultiplier) * scale;
+      strainOffsetY = this.noise((this.noiseTime + 100.0) * frequencyMultiplier) * scale;
+    }
 
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
@@ -15763,12 +15821,12 @@ export class CameraSystem implements ISystem {
         const parallel = (noiseValX * dx + noiseValY * dy) * 0.85;
         const perpendicular = (-noiseValX * dy + noiseValY * dx) * 0.15;
 
-        this._shakeOffsetX = parallel * dx - perpendicular * dy;
-        this._shakeOffsetY = parallel * dy + perpendicular * dx;
+        this._shakeOffsetX = parallel * dx - perpendicular * dy + strainOffsetX;
+        this._shakeOffsetY = parallel * dy + perpendicular * dx + strainOffsetY;
         this._shakeOffsetZ = noiseValZ;
       } else {
-        this._shakeOffsetX = noiseValX;
-        this._shakeOffsetY = noiseValY;
+        this._shakeOffsetX = noiseValX + strainOffsetX;
+        this._shakeOffsetY = noiseValY + strainOffsetY;
         this._shakeOffsetZ = noiseValZ;
       }
 
@@ -15777,13 +15835,13 @@ export class CameraSystem implements ISystem {
         this.shakeDuration = 0;
         this.shakeDirX = 0;
         this.shakeDirY = 0;
-        this._shakeOffsetX = 0;
-        this._shakeOffsetY = 0;
+        this._shakeOffsetX = strainOffsetX;
+        this._shakeOffsetY = strainOffsetY;
         this._shakeOffsetZ = 0;
       }
     } else {
-      this._shakeOffsetX = 0;
-      this._shakeOffsetY = 0;
+      this._shakeOffsetX = strainOffsetX;
+      this._shakeOffsetY = strainOffsetY;
       this._shakeOffsetZ = 0;
     }
 
@@ -18207,7 +18265,7 @@ export class VisualRegistry implements IVisualRegistry {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { TransformComponent } from "../../core/ecs/Components";
+import { TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 import * as BABYLON from "@babylonjs/core";
 
@@ -18229,13 +18287,24 @@ export class EntityInterpolationSystem implements ISystem {
       const deltaY = curr.y - curr.prevY;
       const distSq = deltaX * deltaX + deltaY * deltaY;
 
+      let interpolatedY = curr.prevY + deltaY * alpha;
+      let finalY = curr.y;
+      if (id === this.context.refs.player) {
+        const cosmeticStore = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+        const cosmetic = cosmeticStore.get(id);
+        if (cosmetic && cosmetic.visualOffsetY !== undefined) {
+          interpolatedY += cosmetic.visualOffsetY;
+          finalY += cosmetic.visualOffsetY;
+        }
+      }
+
       if (distSq > 400.0) {
         node.position.x = curr.x;
-        node.position.y = curr.y;
+        node.position.y = finalY;
         node.position.z = curr.z;
       } else {
         node.position.x = curr.prevX + deltaX * alpha;
-        node.position.y = curr.prevY + deltaY * alpha;
+        node.position.y = interpolatedY;
         node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
       }
 

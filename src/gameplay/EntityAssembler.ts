@@ -269,7 +269,9 @@ export class EntityAssembler {
       springStiffness: 220,
       springDamping: 14,
       rotationAngle: 0.0,
-      slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR
+      slerpFactor: GAMEPLAY_TUNING.PLAYER.SLERP_FACTOR,
+      visualOffsetY: 0.0,
+      visualOffsetVelocityY: 0.0
     });
 
     context.stores.get<BoundaryConstraintComponent>("boundaryConstraint").add(playerId, {

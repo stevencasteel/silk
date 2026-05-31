@@ -21,6 +21,7 @@ export class CameraSystem implements ISystem {
   private cameraTarget = new BABYLON.Vector3();
 
   private cameraScrollY = 0.0;
+  private continuousStrainRatio = 0.0;
 
   private _shakeOffsetX = 0.0;
   private _shakeOffsetY = 0.0;
@@ -63,6 +64,17 @@ export class CameraSystem implements ISystem {
         this.cameraScrollY = 0.0;
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, (payload) => {
+        const limit = 0.80;
+        if (payload.tension >= limit) {
+          this.continuousStrainRatio = (payload.tension - limit) / (1.0 - limit);
+        } else {
+          this.continuousStrainRatio = 0.0;
+        }
+      })
+    );
   }
 
   private noise(t: number): number {
@@ -71,6 +83,15 @@ export class CameraSystem implements ISystem {
 
   public update(dt: number): void {
     this.noiseTime += dt * 45.0;
+
+    let strainOffsetX = 0.0;
+    let strainOffsetY = 0.0;
+    if (this.continuousStrainRatio > 0.0) {
+      const frequencyMultiplier = 2.5;
+      const scale = this.continuousStrainRatio * 0.22;
+      strainOffsetX = this.noise(this.noiseTime * frequencyMultiplier) * scale;
+      strainOffsetY = this.noise((this.noiseTime + 100.0) * frequencyMultiplier) * scale;
+    }
 
     if (this.shakeTimer > 0) {
       this.shakeTimer -= dt;
@@ -90,12 +111,12 @@ export class CameraSystem implements ISystem {
         const parallel = (noiseValX * dx + noiseValY * dy) * 0.85;
         const perpendicular = (-noiseValX * dy + noiseValY * dx) * 0.15;
 
-        this._shakeOffsetX = parallel * dx - perpendicular * dy;
-        this._shakeOffsetY = parallel * dy + perpendicular * dx;
+        this._shakeOffsetX = parallel * dx - perpendicular * dy + strainOffsetX;
+        this._shakeOffsetY = parallel * dy + perpendicular * dx + strainOffsetY;
         this._shakeOffsetZ = noiseValZ;
       } else {
-        this._shakeOffsetX = noiseValX;
-        this._shakeOffsetY = noiseValY;
+        this._shakeOffsetX = noiseValX + strainOffsetX;
+        this._shakeOffsetY = noiseValY + strainOffsetY;
         this._shakeOffsetZ = noiseValZ;
       }
 
@@ -104,13 +125,13 @@ export class CameraSystem implements ISystem {
         this.shakeDuration = 0;
         this.shakeDirX = 0;
         this.shakeDirY = 0;
-        this._shakeOffsetX = 0;
-        this._shakeOffsetY = 0;
+        this._shakeOffsetX = strainOffsetX;
+        this._shakeOffsetY = strainOffsetY;
         this._shakeOffsetZ = 0;
       }
     } else {
-      this._shakeOffsetX = 0;
-      this._shakeOffsetY = 0;
+      this._shakeOffsetX = strainOffsetX;
+      this._shakeOffsetY = strainOffsetY;
       this._shakeOffsetZ = 0;
     }
 

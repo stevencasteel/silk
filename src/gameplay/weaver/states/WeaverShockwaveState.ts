@@ -225,7 +225,6 @@ export class WeaverShockwaveState implements IWeaverState {
                 const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
                 if (pTether) {
                   const initialLength = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 5.4
-                  pTether.maxLength = initialLength;
                   pTether.desiredLength = initialLength;
                 }
               }

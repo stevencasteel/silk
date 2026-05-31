@@ -3,7 +3,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import { TetherComponent, HealthComponent, TetherStrainComponent } from "../../core/ecs/Components";
-import { CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
 
 export class TetherStrainSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
@@ -47,15 +47,10 @@ export class TetherStrainSystem implements ISystem {
     tStrain.strain = tether.tension;
 
     if (isOverloaded) {
-      const overloadDelta = tether.tension - this.OVERLOAD_THRESHOLD;
-      const strainRatio = overloadDelta / (this.SNAP_LIMIT - this.OVERLOAD_THRESHOLD);
+          // Unused overloadDelta removed for strict compilation
+          // Unused strainRatio removed for strict compilation
 
-      if (Math.random() < strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE) {
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.12 + strainRatio * GAMEPLAY_TUNING.PLAYER.STRAIN_RUMBLE_SCALE,
-          duration: 0.08
-        });
-      }
+      // Continuous shake is now handled directly by the CameraSystem via tension subscriptions.
 
       if (tether.tension >= this.SNAP_LIMIT) {
         const now = performance.now();

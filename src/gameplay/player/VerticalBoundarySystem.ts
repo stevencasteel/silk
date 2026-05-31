@@ -6,6 +6,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import {
   KinematicTargetComponent,
   TransformComponent,
+  PlayerCosmeticComponent,
   KinematicVelocityComponent,
   TraversalStateComponent,
   ParticleRequestComponent
@@ -90,6 +91,15 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleVelX -= impactFactor * 40.0;
             pTrans.scaleVelY += impactFactor * 60.0;
             pTrans.scaleVelZ -= impactFactor * 40.0;
+
+            // Apply landing kinetic offset to cosmetic component
+            const cosmeticStore = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+            const cosmetic = cosmeticStore.get(this.context.refs.player);
+            if (cosmetic) {
+              const impactEnergy = vel.y;
+              cosmetic.visualOffsetY = (cosmetic.visualOffsetY ?? 0.0) + impactEnergy * 0.05;
+              cosmetic.visualOffsetVelocityY = (cosmetic.visualOffsetVelocityY ?? 0.0) + impactEnergy * 0.45;
+            }
           }
         }
         target.y = minY;

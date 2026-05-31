@@ -8,6 +8,7 @@ import {
   KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { solveSpringDamper } from "../../core/utils/EngineUtils";
 
 export class TetherReelingSystem implements ISystem {
   readonly phase = SystemPhase.Kinematics;
@@ -50,22 +51,19 @@ export class TetherReelingSystem implements ISystem {
       }
       tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
 
-      if (tether.maxLength > tether.desiredLength) {
-        const resistance = Math.max(0.1, 1.0 - tether.tension);
-        const easeSpeed = reelConfig.IN_SPEED * resistance;
-        const maxDelta = easeSpeed * dt;
-        if (Math.abs(tether.maxLength - tether.desiredLength) <= maxDelta) {
-          tether.maxLength = tether.desiredLength;
-        } else {
-          tether.maxLength += Math.sign(tether.desiredLength - tether.maxLength) * maxDelta;
-        }
-        tether.reelVelocity = -easeSpeed;
-      } else if (tether.maxLength < tether.desiredLength) {
-        const rate = 16.0;
-        const lerpFactor = 1.0 - Math.exp(-dt * rate);
-        tether.maxLength += (tether.desiredLength - tether.maxLength) * lerpFactor;
-        tether.reelVelocity = (tether.desiredLength - tether.maxLength) * rate;
+      if (Math.abs(tether.maxLength - tether.desiredLength) > 0.01) {
+        const springResult = solveSpringDamper(
+          tether.maxLength,
+          tether.desiredLength,
+          tether.reelVelocity,
+          dt,
+          180.0,
+          15.0
+        );
+        tether.maxLength = springResult.value;
+        tether.reelVelocity = springResult.velocity;
       } else {
+        tether.maxLength = tether.desiredLength;
         tether.reelVelocity = 0;
       }
     }

@@ -1,4 +1,4 @@
-import { solveScaleSpring, solveSpringDamper } from "../../core/utils/EngineUtils";
+import { solveScaleSpring, solveSpringDamper, solveSpringDamper as solveOffsetSpring } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
@@ -63,6 +63,20 @@ export class PlayerAnimationSystem implements ISystem {
     pTrans.scaleX = Math.max(0.1, pTrans.scaleX!);
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
+
+    // Solve vertical landing spring-mass-damper offset
+    const currentOffset = cosmetic.visualOffsetY ?? 0;
+    const offsetVel = cosmetic.visualOffsetVelocityY ?? 0;
+    const springResult = solveOffsetSpring(
+      currentOffset,
+      0,
+      offsetVel,
+      dt,
+      280.0,
+      18.0
+    );
+    cosmetic.visualOffsetY = springResult.value;
+    cosmetic.visualOffsetVelocityY = springResult.velocity;
 
     const currentRot = cosmetic.currentRotation ?? 0;
     const rotVel = cosmetic.rotationVel ?? 0;

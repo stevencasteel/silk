@@ -221,6 +221,8 @@ export interface PlayerCosmeticComponent {
   slerpFactor: number;
   rotationVel?: number;
   currentRotation?: number;
+  visualOffsetY?: number;
+  visualOffsetVelocityY?: number;
 }
 
 export interface WeaverCosmeticComponent {

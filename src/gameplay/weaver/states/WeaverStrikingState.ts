@@ -109,7 +109,6 @@ export class WeaverStrikingState implements IWeaverState {
     const pTether = ctx.stores.get<TetherComponent>("tether").get(ctx.refs.player);
     if (pTether) {
       const minLimit = ARENA_CONFIG.TETHER.INITIAL_LENGTH; // 12.0
-      pTether.maxLength = Math.max(minLimit, pTether.maxLength * 0.75);
       pTether.desiredLength = Math.max(minLimit, pTether.desiredLength * 0.75);
     }
 
@@ -209,6 +208,24 @@ export class WeaverStrikingState implements IWeaverState {
         aiComp.shakeRequested = true;
         aiComp.shakeAmplitude = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_AMP;
         aiComp.shakeDuration = WEAVER_AI_TUNING.DASH.CAMERA_SHAKE_PREP_DUR;
+      }
+
+      // Anticipation pull-back before thrusting
+      if (this.phaseTimer <= 0.18) {
+        const progress = (0.18 - this.phaseTimer) / 0.18;
+        const transforms = ctx.stores.get<TransformComponent>("transform");
+        const wTrans = transforms.get(ctx.refs.weaver);
+        if (wTrans) {
+          const dx = this.targetPos.x - wTrans.x;
+          const dy = this.targetPos.y - wTrans.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+          const pullBackForce = 12.0;
+          aiComp.desiredVelocityX = -(dx / dist) * pullBackForce * progress;
+          aiComp.desiredVelocityY = -(dy / dist) * pullBackForce * progress;
+        }
+      } else {
+        aiComp.desiredVelocityX = 0;
+        aiComp.desiredVelocityY = 0;
       }
 
       if (this.phaseTimer <= 0) {
