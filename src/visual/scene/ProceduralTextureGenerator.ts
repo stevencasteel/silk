@@ -13,8 +13,16 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
   >();
 
   constructor() {
+    const permutation = new Uint8Array(256);
     for (let i = 0; i < 256; i++) {
-      this.p[i] = Math.floor(Math.sin(i) * 10000) & 255;
+      permutation[i] = i;
+    }
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [permutation[i], permutation[j]] = [permutation[j], permutation[i]];
+    }
+    for (let i = 0; i < 256; i++) {
+      this.p[i] = permutation[i];
     }
   }
 
@@ -121,13 +129,13 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
         const ym = (y - 1 + res) % res;
         const yp = (y + 1) % res;
 
-        const hL = heightMap[y * res + xm];
-        const hR = heightMap[y * res + xp];
-        const hDown = heightMap[ym * res + x];
-        const hUp = heightMap[yp * res + x];
+        const hTL = heightMap[ym * res + xm];
+        const hTR = heightMap[ym * res + xp];
+        const hBL = heightMap[yp * res + xm];
+        const hBR = heightMap[yp * res + xp];
 
-        const dx = (hL - hR) * config.bumpStrength;
-        const dy = (hDown - hUp) * config.bumpStrength;
+        const dx = ((hTR + hBR) - (hTL + hBL)) * config.bumpStrength * 0.5;
+        const dy = ((hBL + hBR) - (hTL + hTR)) * config.bumpStrength * 0.5;
         const dz = 1.0;
 
         const len = Math.sqrt(dx * dx + dy * dy + dz * dz);

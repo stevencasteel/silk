@@ -60,7 +60,7 @@ export class FaunaVisualFactory {
 
       coreMat.albedoTexture = dynTex;
       coreMat.emissiveTexture = dynTex;
-      coreMat.emissiveColor = new BABYLON.Color3(1.3, 1.3, 1.3);
+      coreMat.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
       if (variant === "SPIKED_TOP") {
         core.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, Math.PI);
@@ -109,9 +109,11 @@ export class FaunaVisualFactory {
     blade2.parent = rotorRoot;
 
     if (variant !== "NORMAL") {
-      const spikeMat = new BABYLON.StandardMaterial(`health_bug_spike_mat_${id}`, scene);
+      const spikeMat = new BABYLON.PBRMaterial(`health_bug_spike_mat_${id}`, scene);
+      spikeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
       spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
-      spikeMat.disableLighting = true;
+      spikeMat.metallic = 0.0;
+      spikeMat.roughness = 1.0;
 
       const spikeContainer = new BABYLON.TransformNode(`spikes_container_${id}`, scene);
       spikeContainer.parent = root;
@@ -165,10 +167,12 @@ export class FaunaVisualFactory {
     capsule.material = bugMaterial;
     capsule.parent = bugRoot;
 
-    const stripeMat = new BABYLON.StandardMaterial(`wallBugStripeMat_${id}`, scene);
+    const stripeMat = new BABYLON.PBRMaterial(`wallBugStripeMat_${id}`, scene);
     const stripeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.BLUE_STRIPE;
+    stripeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
     stripeMat.emissiveColor = new BABYLON.Color3(stripeColor.r, stripeColor.g, stripeColor.b);
-    stripeMat.disableLighting = true;
+    stripeMat.metallic = 0.0;
+    stripeMat.roughness = 1.0;
 
     for (let i = 0; i < 5; i++) {
       const ring = BABYLON.MeshBuilder.CreateTorus(
@@ -192,10 +196,12 @@ export class FaunaVisualFactory {
     eyeR.material = eyeMaterial;
     eyeR.parent = bugRoot;
 
-    const spikeMat = new BABYLON.StandardMaterial(`wallBugSpikeMat_${id}`, scene);
+    const spikeMat = new BABYLON.PBRMaterial(`wallBugSpikeMat_${id}`, scene);
     const spikeColor = VISUAL_JUICE_CONFIG.WALL_BUG_COLORS.SPIKE_RED;
+    spikeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
     spikeMat.emissiveColor = new BABYLON.Color3(spikeColor.r, spikeColor.g, spikeColor.b);
-    spikeMat.disableLighting = true;
+    spikeMat.metallic = 0.0;
+    spikeMat.roughness = 1.0;
 
     const leftSpikes = new BABYLON.TransformNode("left_spikes", scene);
     leftSpikes.parent = bugRoot;

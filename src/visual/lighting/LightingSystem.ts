@@ -33,7 +33,7 @@ export class LightingSystem implements ISystem {
     this.weaverLight.intensity = 2.0;
     this.weaverLight.range = 18.0;
     this.weaverLight.diffuse = this.currentColor;
-    this.weaverLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
+    this.weaverLight.specular = new BABYLON.Color3(0.3, 0.3, 0.3);
 
     this.weaverKeyLight = new BABYLON.SpotLight(
       "weaverCarapaceKeyLight",
@@ -46,7 +46,7 @@ export class LightingSystem implements ISystem {
     this.weaverKeyLight.intensity = 3.0;
     this.weaverKeyLight.range = 28.0;
     this.weaverKeyLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
-    this.weaverKeyLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
+    this.weaverKeyLight.specular = new BABYLON.Color3(0.4, 0.4, 0.4);
 
     this.rimLight = new BABYLON.DirectionalLight(
       "rimLight",
@@ -55,7 +55,7 @@ export class LightingSystem implements ISystem {
     );
     this.rimLight.intensity = 1.8;
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
-    this.rimLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
+    this.rimLight.specular = new BABYLON.Color3(0.3, 0.3, 0.3);
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {

@@ -158,14 +158,22 @@ export class VisualStateDressingSystem implements ISystem {
 
         pbrMaterials.forEach((pbrMat) => {
           let matColor = cachedColor;
+          let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
 
-          if (isYellowTelegraph) {
+          if (pbrMat.name === "weaverEyeMat") {
+            if (isYellowTelegraph) {
+              matColor = ColorCache.getColor("#dffe00");
+              scale = 1.0;
+            } else {
+              matColor = new BABYLON.Color3(1.0, 0.0, 0.0);
+              scale = 1.0;
+            }
+          } else if (isYellowTelegraph) {
             if (pbrMat.name === "carapaceMat" || pbrMat.name === "legMat") {
               matColor = ColorCache.getColor("#121212");
             }
           }
 
-          let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
           if (pbrMat.name === "legMat") {
             scale *= 0.24;
           }

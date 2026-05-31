@@ -204,8 +204,6 @@ export function decorateWeaverVisual(
   );
 
   const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, { shear: true, gradient: true });
-  const abdomenPlugin = shellMat._shearPlugin;
-  (shellMat as BABYLON.PBRMaterial & { _abdomenPlugin?: SilkMaterialPlugin })._abdomenPlugin = abdomenPlugin;
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
@@ -246,18 +244,28 @@ export function decorateWeaverVisual(
     colorVariation: 0.12
   });
 
-  const footMat = createWeaverMaterial(
-    "footMat",
-    scene,
-    new BABYLON.Color3(0.12, 0.0, 0.22),
-    0.95,
-    0.08,
-    false
-  );
+  const footMat = createWeaverMaterial("footMat", scene, imperialPurple, 0.98, 0.06, true);
 
-  const eyeMat = new BABYLON.StandardMaterial("weaverEyeMat", scene);
-  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.5);
-  eyeMat.disableLighting = true;
+  applyProceduralTextures(textureGen, "carapaceShell", scene, footMat, {
+    resolution: 512,
+    noiseScale: 18.0,
+    bumpStrength: 1.65,
+    baseColor: imperialPurple,
+    roughnessMin: 0.05,
+    roughnessMax: 0.15,
+    metallic: 0.98,
+    ridgeStrength: 0.13,
+    ridgeScale: 0.54,
+    ridgeDirectionX: 0.25,
+    ridgeDirectionY: 1.0,
+    colorVariation: 0.16
+  });
+
+  const eyeMat = new BABYLON.PBRMaterial("weaverEyeMat", scene);
+  eyeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+  eyeMat.emissiveColor = new BABYLON.Color3(1.0, 0.0, 0.0);
+  eyeMat.metallic = 0.0;
+  eyeMat.roughness = 1.0;
 
   const abdomen = BABYLON.MeshBuilder.CreateSphere(
     "weaver_abdomen",

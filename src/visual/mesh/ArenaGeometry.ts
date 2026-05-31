@@ -275,8 +275,7 @@ export class ArenaGeometry {
     tickMat.albedoColor = new BABYLON.Color3(0.1, 0.13, 0.16);
     tickMat.metallic = 0.3;
     tickMat.roughness = 0.4;
-    tickMat.emissiveColor = new BABYLON.Color3(0.45, 0.65, 0.85);
-    tickMat.emissiveIntensity = 1.1;
+    tickMat.emissiveColor = new BABYLON.Color3(0.5, 0.72, 0.94);
 
     const tickBase = BABYLON.MeshBuilder.CreateBox(
       "tickBase",
