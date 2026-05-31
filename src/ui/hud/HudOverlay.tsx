@@ -319,12 +319,14 @@ export const HudOverlay: React.FC = () => {
     }
   }, [playConfirmSynth, publishEvent]);
 
-  // Handle any key press to progress once fully loaded
+  // Handle specific keys to progress once fully loaded
   useEffect(() => {
     if (bootStatus === "READY" && awaitingGesture) {
       const handleStartOnKey = (e: KeyboardEvent) => {
-        e.preventDefault();
-        handleProceed();
+        if (e.key === " " || e.key === "Enter" || e.code === "Space" || e.code === "Enter") {
+          e.preventDefault();
+          handleProceed();
+        }
       };
       window.addEventListener("keydown", handleStartOnKey);
       return () => window.removeEventListener("keydown", handleStartOnKey);
@@ -530,6 +532,29 @@ export const HudOverlay: React.FC = () => {
                 A game about being tethered to something dangerous{" "}
                 <span className="font-bold italic" style={{ color: "var(--signal-green)" }}>with a mind of its own</span>, where the tension between you and the thing trying to kill you is literally your only weapon.
               </p>
+            </div>
+            
+            <div className="mt-4 p-4 rounded-xl border border-white/[0.03] bg-[#07080b]/50 backdrop-blur-sm flex flex-col items-center justify-center w-full select-none">
+              <div className="flex items-center justify-center gap-3">
+                <motion.span
+                  animate={isLeftPressed ? { scale: 0.85 } : { scale: 1 }}
+                  className={`keycap-box-large ${isLeftPressed ? "keycap-used" : ""}`}
+                >
+                  {useWasd ? "A" : "◀"}
+                </motion.span>
+                <motion.span
+                  animate={isUpPressed ? { scale: 0.85 } : { scale: 1 }}
+                  className={`keycap-box-large ${isUpPressed ? "keycap-used" : ""}`}
+                >
+                  {useWasd ? "W" : "▲"}
+                </motion.span>
+                <motion.span
+                  animate={isRightPressed ? { scale: 0.85 } : { scale: 1 }}
+                  className={`keycap-box-large ${isRightPressed ? "keycap-used" : ""}`}
+                >
+                  {useWasd ? "D" : "▶"}
+                </motion.span>
+              </div>
             </div>
           </div>
 
