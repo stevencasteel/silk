@@ -28,6 +28,18 @@ export class GameDirectorSystem implements ISystem {
   ) {}
 
   public init(): void {
+    const win = window as unknown as {
+      silkSetWallBugsAllowed?: (enabled: boolean) => void;
+      silkSetHealthBugsAllowed?: (enabled: boolean) => void;
+    };
+    win.silkSetWallBugsAllowed = (enabled: boolean) => {
+      this.context.runtime.wallBugsSpawningAllowed = enabled;
+      console.log("[silk] Wall bugs spawning allowed: " + enabled);
+    };
+    win.silkSetHealthBugsAllowed = (enabled: boolean) => {
+      this.context.runtime.healthBugsSpawningAllowed = enabled;
+      console.log("[silk] Health bugs spawning allowed: " + enabled);
+    };
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         console.log("[GameDirectorSystem] PLAYER_DIED event received!");

@@ -6,10 +6,11 @@ import {
   TransformComponent,
   WallBugComponent,
   StickySurfaceComponent,
-  ProjectileComponent
+  ProjectileComponent,
+  HealthComponent
 } from "../../core/ecs/Components";
 
-import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
+import { POST_PROCESSING_PRESETS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
 import * as BABYLON from "@babylonjs/core";
@@ -104,12 +105,19 @@ export class WallBugSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
-    this.spawnTimer += dt;
-    const activeCount = this.bugPool.filter((p) => p.active).length;
+    const healthStore = this.context.stores.get<HealthComponent>("health");
+    const wHealth = healthStore.get(this.context.refs.weaver);
+    const isSpawningEnabled = this.context.runtime.wallBugsSpawningAllowed && wHealth &&
+      (wHealth.current / wHealth.max) <= GAMEPLAY_TUNING.SPAWN_THRESHOLDS.WALL_BUG_HEALTH_RATIO;
 
-    if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
-      this.spawnTimer = 0.0;
-      this.spawnBugFromPool();
+    if (isSpawningEnabled) {
+      this.spawnTimer += dt;
+      const activeCount = this.bugPool.filter((p) => p.active).length;
+
+      if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
+        this.spawnTimer = 0.0;
+        this.spawnBugFromPool();
+      }
     }
 
     const cameraY = scene.activeCamera

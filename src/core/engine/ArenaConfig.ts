@@ -74,6 +74,10 @@ export const ARENA_CONFIG = {
 } as const;
 
 export const GAMEPLAY_TUNING = {
+  SPAWN_THRESHOLDS: {
+    WALL_BUG_HEALTH_RATIO: 0.80,
+    HEALTH_BUG_HEALTH_RATIO: 0.60
+  },
   PLAYER: {
     MAX_INTEGRITY: 5,
     TENSION_DECAY_RATE: 4.0,

@@ -13,7 +13,7 @@ import {
   InputIntentComponent,
   WallBugComponent
 } from "../../core/ecs/Components";
-import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { POST_PROCESSING_PRESETS, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
@@ -75,12 +75,19 @@ export class HealthBugSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
-    this.spawnTimer += dt;
-    const activeCount = this.pool.getActiveBugs().filter((p) => p.active).length;
+    const healthStore = this.context.stores.get<HealthComponent>("health");
+    const wHealth = healthStore.get(this.context.refs.weaver);
+    const isSpawningEnabled = this.context.runtime.healthBugsSpawningAllowed && wHealth &&
+      (wHealth.current / wHealth.max) <= GAMEPLAY_TUNING.SPAWN_THRESHOLDS.HEALTH_BUG_HEALTH_RATIO;
 
-    if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
-      this.spawnTimer = 0.0;
-      this.spawnBugFromPool();
+    if (isSpawningEnabled) {
+      this.spawnTimer += dt;
+      const activeCount = this.pool.getActiveBugs().filter((p) => p.active).length;
+
+      if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
+        this.spawnTimer = 0.0;
+        this.spawnBugFromPool();
+      }
     }
 
     this.checkHealthBugCollisions();
