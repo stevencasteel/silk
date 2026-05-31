@@ -232,6 +232,10 @@ export interface WeaverCosmeticComponent {
   springDamping: number;
   wobbleAngle: number;
   rotationAngle: number;
+  currentWobble?: number;
+  wobbleVel?: number;
+  currentRoll?: number;
+  rollVel?: number;
   rotationSpeed: number;
   gaitAmplitude: number;
   gaitFrequency: number;

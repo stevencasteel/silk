@@ -1,4 +1,4 @@
-import { ColorCache } from "../../core/utils/EngineUtils";
+import { ColorCache, solveSpringDamper } from "../../core/utils/EngineUtils";
 import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
@@ -28,7 +28,6 @@ export class VisualStateDressingSystem implements ISystem {
   private visualClock = 0.0;
 
   private readonly _weaverTargetQuat = new BABYLON.Quaternion();
-  private readonly _weaverCurrentQuat = new BABYLON.Quaternion();
 
   constructor(private context: SystemContext) {}
 
@@ -80,33 +79,28 @@ export class VisualStateDressingSystem implements ISystem {
       wTrans.scaleVelZ = (wTrans.scaleVelZ ?? 0.0) + accelerationZ * dt;
       wTrans.scaleZ = wTrans.scaleZ! + wTrans.scaleVelZ * dt;
 
-      this._weaverTargetQuat.set(0, 0, 0, 1);
-      if (cosmetic.rotationAngle !== 0) {
-        BABYLON.Quaternion.RotationAxisToRef(
-          BABYLON.Axis.Z,
-          cosmetic.rotationAngle,
-          this._weaverTargetQuat
-        );
-      } else if (cosmetic.wobbleAngle !== 0) {
-        BABYLON.Quaternion.RotationYawPitchRollToRef(
-          0,
-          0,
-          cosmetic.wobbleAngle,
-          this._weaverTargetQuat
-        );
-      }
+            const currentRoll = cosmetic.currentRoll ?? 0;
+      const rollVel = cosmetic.rollVel ?? 0;
+      // Slightly lower stiffness for rotation to emphasize weight
+      const rollSpring = solveSpringDamper(currentRoll, cosmetic.rotationAngle, rollVel, dt, cosmetic.springStiffness * 0.6, cosmetic.springDamping);
+      cosmetic.currentRoll = rollSpring.value;
+      cosmetic.rollVel = rollSpring.velocity;
 
-      this._weaverCurrentQuat.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-      BABYLON.Quaternion.SlerpToRef(
-        this._weaverCurrentQuat,
-        this._weaverTargetQuat,
-        cosmetic.rotationSpeed * dt,
-        this._weaverCurrentQuat
-      );
-      wTrans.qx = this._weaverCurrentQuat.x;
-      wTrans.qy = this._weaverCurrentQuat.y;
-      wTrans.qz = this._weaverCurrentQuat.z;
-      wTrans.qw = this._weaverCurrentQuat.w;
+      const currentWobble = cosmetic.currentWobble ?? 0;
+      const wobbleVel = cosmetic.wobbleVel ?? 0;
+      const wobbleSpring = solveSpringDamper(currentWobble, cosmetic.wobbleAngle, wobbleVel, dt, cosmetic.springStiffness * 0.8, cosmetic.springDamping);
+      cosmetic.currentWobble = wobbleSpring.value;
+      cosmetic.wobbleVel = wobbleSpring.velocity;
+
+      // Combine sprung wobble and roll
+      BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, cosmetic.currentWobble, this._weaverTargetQuat);
+      const rollQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, cosmetic.currentRoll);
+      this._weaverTargetQuat.multiplyInPlace(rollQuat);
+
+      wTrans.qx = this._weaverTargetQuat.x;
+      wTrans.qy = this._weaverTargetQuat.y;
+      wTrans.qz = this._weaverTargetQuat.z;
+      wTrans.qw = this._weaverTargetQuat.w;
     }
   }
 
