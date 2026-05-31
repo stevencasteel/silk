@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 9:50:59 AM
+ [SYSTEM] Generated: 5/31/2026, 10:26:17 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -37,7 +37,7 @@
 │   │       ├── AudioSynthesizerRegistry.ts
 │   │       ├── HealthBugSoundGenerator.ts
 │   │       ├── ProceduralSoundManager.ts
-│   │       └── WeaverVocalSoundGenerator.ts
+│   │       └── WeaverSFXGenerator.ts
 │   ├── contracts/
 │   │   ├── IAudio.ts
 │   │   ├── ICore.ts
@@ -1497,21 +1497,20 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IAudioRegistry } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, TraversalStateComponent, HealthComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { AudioSynthesizerRegistry } from "../tone/AudioSynthesizerRegistry";
 import { ProceduralSoundManager } from "../tone/ProceduralSoundManager";
 import { HealthBugSoundGenerator } from "../tone/HealthBugSoundGenerator";
-import { WeaverVocalSoundGenerator } from "../tone/WeaverVocalSoundGenerator";
+import { WeaverSFXGenerator } from "../tone/WeaverSFXGenerator";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   readonly initPhase = InitPhase.Bootstrap;
-  private audioRegistry: IAudioRegistry | null = null;
 
+  private audioRegistry: IAudioRegistry | null = null;
   private initialized: boolean = false;
   private isBooting: boolean = false;
-
   private broker: IEventBroker;
   private _tracker = new SubscriptionTracker();
   private gestureListener = new MultiEventListener();
@@ -1519,13 +1518,14 @@ export class AudioDirectorSystem implements ISystem {
   private hitComboCount = 0;
   private lastHitTime = 0;
   private toneModule: typeof import("tone") | null = null;
+
   private lastConfirmTime = 0;
   private lastTickTime = 0;
   private lastAlarmTime = 0;
 
   private soundManager: ProceduralSoundManager | null = null;
   private healthBugSoundGenerator: HealthBugSoundGenerator | null = null;
-  private weaverVocalSoundGenerator: WeaverVocalSoundGenerator | null = null;
+  private weaverSfxGenerator: WeaverSFXGenerator | null = null;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -1601,6 +1601,8 @@ export class AudioDirectorSystem implements ISystem {
           if (pTrav) {
             const reelConfig = GAMEPLAY_TUNING.REEL;
             const power = pTrav.launchPower;
+            
+            this.audioRegistry.triggerFling(power);
 
             if (power >= 1.0) {
               this.audioRegistry.triggerImpact("A1", "4n");
@@ -1612,6 +1614,14 @@ export class AudioDirectorSystem implements ISystem {
               this.audioRegistry.triggerImpact("C3", "16n");
             }
           }
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.triggerWallStick();
         }
       })
     );
@@ -1657,17 +1667,15 @@ export class AudioDirectorSystem implements ISystem {
           const octave = Math.pow(2, Math.floor(this.hitComboCount / DORIAN_RATIOS.length));
           const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
-
           this.audioRegistry.triggerImpact(freq, "16n");
 
-          // Use new weaver vocal system
-          const healthStore = this.context.stores.get("health");
+          const healthStore = this.context.stores.get<HealthComponent>("health");
           const weaverHealth = healthStore?.get(this.context.refs.weaver);
-          const maxHp = weaverHealth ? (weaverHealth as any).max : 100;
-          const currentHp = weaverHealth ? (weaverHealth as any).current : 100;
+          const maxHp = weaverHealth ? weaverHealth.max : 100;
+          const currentHp = weaverHealth ? weaverHealth.current : 100;
           const isBerserk = currentHp < maxHp * 0.5;
 
-          this.weaverVocalSoundGenerator?.triggerDamaged(this.hitComboCount, isBerserk);
+          this.weaverSfxGenerator?.triggerDamaged(this.hitComboCount, isBerserk);
         }
       })
     );
@@ -1676,21 +1684,16 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         if (this.initialized && this.audioRegistry) {
           this.audioRegistry.handleStateChange(payload.state, payload.audioParams);
-
-          // Use new weaver vocal system based on state
+          
           const state = payload.state.toUpperCase();
           const isBerserk = state.includes("BERSERK");
 
-          if (state.includes("PATROLLING")) {
-            this.weaverVocalSoundGenerator?.triggerPatrolling(isBerserk);
-          } else if (state.includes("STRIKING")) {
-            this.weaverVocalSoundGenerator?.triggerStriking("PREP", isBerserk);
+          if (state.includes("STRIKING")) {
+            this.weaverSfxGenerator?.triggerStriking("PREP", isBerserk);
           } else if (state.includes("SHOCKWAVE")) {
-            this.weaverVocalSoundGenerator?.triggerShockwave("TELEGRAPH");
-          } else if (state.includes("ASCENDING")) {
-            this.weaverVocalSoundGenerator?.triggerAscending();
+            this.weaverSfxGenerator?.triggerShockwave("TELEGRAPH");
           } else if (state.includes("DEFEATED")) {
-            this.weaverVocalSoundGenerator?.triggerDefeated();
+            this.weaverSfxGenerator?.triggerDefeated();
           }
         }
       })
@@ -1722,16 +1725,24 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_STRIKING_PHASE, (payload) => {
-        if (this.initialized && this.weaverVocalSoundGenerator) {
-          this.weaverVocalSoundGenerator.triggerStriking(payload.phase, payload.isBerserk);
+        if (this.initialized && this.weaverSfxGenerator) {
+          this.weaverSfxGenerator.triggerStriking(payload.phase, payload.isBerserk);
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_SHOCKWAVE_PHASE, (payload) => {
-        if (this.initialized && this.weaverVocalSoundGenerator) {
-          this.weaverVocalSoundGenerator.triggerShockwave(payload.phase);
+        if (this.initialized && this.weaverSfxGenerator) {
+          this.weaverSfxGenerator.triggerShockwave(payload.phase);
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+        if (payload.isRelease && this.initialized && this.weaverSfxGenerator) {
+          this.weaverSfxGenerator.triggerWebShot();
         }
       })
     );
@@ -1809,7 +1820,6 @@ export class AudioDirectorSystem implements ISystem {
     presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER
   ): void {
     if (!this.audioRegistry) return;
-
     this.audioRegistry.triggerImpact(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
     this.audioRegistry.triggerImpact(
       presets.DEATH_NOTE_2,
@@ -1831,6 +1841,7 @@ export class AudioDirectorSystem implements ISystem {
       const transforms = this.context.stores.get<TransformComponent>("transform");
       const playerTrans = transforms.get(this.context.refs.player);
       const weaverTrans = transforms.get(this.context.refs.weaver);
+
       if (playerTrans && weaverTrans) {
         if (this.audioRegistry) {
           this.audioRegistry.updatePositions(playerTrans.x, weaverTrans.x);
@@ -1850,27 +1861,26 @@ export class AudioDirectorSystem implements ISystem {
   private bootAudioEngine(): void {
     if (this.initialized || this.isBooting) return;
     this.isBooting = true;
+
     import("tone").then((Tone) => {
       this.toneModule = Tone;
       Tone.start().then(() => {
         this.initialized = true;
         this.isBooting = false;
-
         Tone.getDestination().mute = false;
 
         const registry = new AudioSynthesizerRegistry();
         registry.initialize(Tone).then(async () => {
           this.audioRegistry = registry;
 
-          // Initialize new procedural sound system
           this.soundManager = new ProceduralSoundManager();
           await this.soundManager.initialize(Tone);
 
           this.healthBugSoundGenerator = new HealthBugSoundGenerator(this.soundManager);
           await this.healthBugSoundGenerator.initialize(Tone);
 
-          this.weaverVocalSoundGenerator = new WeaverVocalSoundGenerator(this.soundManager);
-          await this.weaverVocalSoundGenerator.initialize(Tone);
+          this.weaverSfxGenerator = new WeaverSFXGenerator(this.soundManager);
+          await this.weaverSfxGenerator.initialize(Tone);
 
           this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
         });
@@ -1883,7 +1893,7 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.clear();
     if (this.audioRegistry) this.audioRegistry.dispose();
     this.healthBugSoundGenerator?.dispose();
-    this.weaverVocalSoundGenerator?.dispose();
+    this.weaverSfxGenerator?.dispose();
     this.soundManager?.dispose();
   }
 }
@@ -1958,7 +1968,8 @@ import type {
   MembraneSynth,
   Loop,
   Panner,
-  NoiseSynth
+  NoiseSynth,
+  BitCrusher
 } from "tone";
 
 export class AudioSynthesizerRegistry implements IAudioRegistry {
@@ -1976,6 +1987,15 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public ratchetSynth: Synth | null = null;
   public heartbeatSynth: MembraneSynth | null = null;
   public heartbeatLoop: Loop | null = null;
+
+  private tensionArpSynth: Synth | null = null;
+  private tensionArpLoop: Loop | null = null;
+  private tensionBitCrusher: BitCrusher | null = null;
+  private currentTensionStage: "SLACK" | "TAUT" | "OVERLOAD" = "SLACK";
+
+  private flingSynth: Synth | null = null;
+  private wallThudSynth: MembraneSynth | null = null;
+  private wallNoiseSynth: NoiseSynth | null = null;
 
   public impactSynth: MembraneSynth | null = null;
   public noiseSynth: NoiseSynth | null = null;
@@ -1996,7 +2016,6 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public async initialize(ToneRaw: unknown): Promise<void> {
     const Tone = ToneRaw as typeof import("tone");
     this.ToneModule = Tone;
-
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
@@ -2035,24 +2054,14 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
     this.lfo.connect(this.lowpassFilter.frequency);
 
     this.ratchetSynth = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.015,
-        sustain: 0,
-        release: 0.015
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.02, sustain: 0, release: 0.01 }
     }).connect(this.ratchetPanner);
     this.ratchetSynth.volume.value = synthConfig.RATCHET_VOLUME;
 
     this.heartbeatSynth = new Tone.MembraneSynth({
       oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.18,
-        sustain: 0,
-        release: 0.12
-      }
+      envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.12 }
     }).connect(this.lowpassFilter);
     this.heartbeatSynth.volume.value = synthConfig.HEARTBEAT_VOLUME;
 
@@ -2063,62 +2072,80 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       }
     }, synthConfig.HEARTBEAT_INTERVAL);
 
+    this.tensionBitCrusher = new Tone.BitCrusher(4).connect(this.ratchetPanner);
+    this.tensionArpSynth = new Tone.Synth({
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 }
+    }).connect(this.tensionBitCrusher);
+    this.tensionArpSynth.volume.value = -18;
+
+    let arpIndex = 0;
+    this.tensionArpLoop = new Tone.Loop((time) => {
+      if (!this.tensionArpSynth) return;
+      if (this.currentTensionStage === "TAUT") {
+        const notes = ["C4", "E4", "G4", "C5"];
+        this.tensionArpSynth.triggerAttackRelease(notes[arpIndex % 4], "16n", time, 0.6);
+        arpIndex++;
+      } else if (this.currentTensionStage === "OVERLOAD") {
+        const notes = ["C5", "Eb5", "Gb5", "A5"];
+        this.tensionArpSynth.triggerAttackRelease(notes[arpIndex % 4], "32n", time, 0.8);
+        arpIndex++;
+      } else {
+        arpIndex = 0;
+      }
+    }, "16n");
+    this.tensionArpLoop.start();
+
+    this.flingSynth = new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+    }).connect(this.sfxPanner);
+    this.flingSynth.volume.value = -8;
+
+    this.wallThudSynth = new Tone.MembraneSynth({
+      pitchDecay: 0.01,
+      octaves: 2,
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 }
+    }).connect(this.sfxPanner);
+    this.wallThudSynth.volume.value = -10;
+
+    this.wallNoiseSynth = new Tone.NoiseSynth({
+      noise: { type: "white" },
+      envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.02 }
+    }).connect(this.sfxPanner);
+    this.wallNoiseSynth.volume.value = -15;
+
     this.impactSynth = new Tone.MembraneSynth({
       pitchDecay: 0.05,
       octaves: 4,
       oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.2,
-        sustain: 0,
-        release: 0.4,
-        attackCurve: "exponential"
-      }
+      envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.4, attackCurve: "exponential" }
     }).connect(this.sfxPanner);
 
     this.noiseSynth = new Tone.NoiseSynth({
       noise: { type: "pink" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.1,
-        sustain: 0,
-        release: 0.1
-      }
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
     }).connect(this.sfxPanner);
     this.noiseSynth.volume.value = -10;
 
     this.tickSynth = new Tone.Synth({
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.002,
-        decay: 0.03,
-        sustain: 0,
-        release: 0.03
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.02, sustain: 0, release: 0.01 }
     }).toDestination();
-    this.tickSynth.volume.value = -14;
+    this.tickSynth.volume.value = -18;
 
     this.confirmSynth = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: {
-        attack: 0.002,
-        decay: 0.12,
-        sustain: 0,
-        release: 0.08
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 }
     }).toDestination();
-    this.confirmSynth.volume.value = -6;
+    this.confirmSynth.volume.value = -12;
 
     this.tensionAlarmSynth = new Tone.Synth({
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.01,
-        decay: 0.1,
-        sustain: 0,
-        release: 0.05
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 }
     }).toDestination();
-    this.tensionAlarmSynth.volume.value = -18;
+    this.tensionAlarmSynth.volume.value = -14;
 
     this.lfo.start();
     this.fmOsc.start();
@@ -2141,8 +2168,19 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
 
   public updateDronePitch(tensionVal: number): void {
     if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.ToneModule) return;
-
     const clampedTension = Math.max(0, Math.min(1.3, tensionVal));
+
+    if (clampedTension >= 0.8) {
+      this.currentTensionStage = "OVERLOAD";
+      // BitCrusher bits is read-only in Tone.js; tension conveyed via playbackRate
+      if (this.tensionArpLoop) this.tensionArpLoop.playbackRate = 2;
+    } else if (clampedTension >= 0.4) {
+      this.currentTensionStage = "TAUT";
+      // BitCrusher bits is read-only in Tone.js; tension conveyed via playbackRate
+      if (this.tensionArpLoop) this.tensionArpLoop.playbackRate = 1;
+    } else {
+      this.currentTensionStage = "SLACK";
+    }
 
     if (clampedTension > this.lastTension && clampedTension > 0.05) {
       const now = this.ToneModule.now();
@@ -2154,44 +2192,30 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       }
     }
 
-    if (Math.abs(clampedTension - this.lastTension) < 0.005) {
-      return;
-    }
+    if (Math.abs(clampedTension - this.lastTension) < 0.005) return;
     this.lastTension = clampedTension;
 
     const now = this.ToneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
-    const targetBaseFreq =
-      presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
-    const targetModulationIndex =
-      synthConfig.DRONE_MOD_INDEX_BASE +
-      Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
-    const targetGain =
-      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN +
-          Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
-        : 0.0;
+    const targetBaseFreq = presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
+    const targetModulationIndex = synthConfig.DRONE_MOD_INDEX_BASE + Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+      ? synthConfig.DRONE_MIN_GAIN + Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
+      : 0.0;
 
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
-    this.fmOsc.modulationIndex.setTargetAtTime(
-      targetModulationIndex,
-      now,
-      synthConfig.DRONE_PITCH_RAMP_TIME
-    );
+    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, synthConfig.DRONE_PITCH_RAMP_TIME);
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
   public setLowHPStatus(active: boolean): void {
     if (!this.lfo || !this.heartbeatLoop) return;
-
     const targetMin = active ? 40 : 150;
     const targetMax = active ? 150 : 280;
-
     this.lfo.min = targetMin;
     this.lfo.max = targetMax;
-
     if (active) {
       this.heartbeatLoop.start();
     } else {
@@ -2204,10 +2228,9 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
     const now = this.ToneModule.now();
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
-    const targetGain =
-      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
-        : 0.0;
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
+      : 0.0;
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
@@ -2217,7 +2240,6 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   ): void {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.ToneModule) return;
     const now = this.ToneModule.now();
-
     if (audioParams) {
       this.fmOsc.frequency.setTargetAtTime(audioParams.baseFreq, now, 0.5);
       this.lfo.frequency.setTargetAtTime(audioParams.lfoHz, now, 0.5);
@@ -2233,98 +2255,96 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public fadeOutAndMute(): void {
     if (!this.gainNode || !this.ToneModule) return;
     const now = this.ToneModule.now();
-
     this.gainNode.gain.cancelScheduledValues(now);
     this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
-
     if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
     if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
-
     if (this.heartbeatLoop) this.heartbeatLoop.stop();
     this.lastTension = 0.0;
   }
 
   public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.ToneModule)
-      return;
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.ToneModule) return;
     const now = this.ToneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
-
     this.gainNode.gain.setValueAtTime(0.0, now);
     this.fmOsc.frequency.setValueAtTime(presets.DRONE_BASE_FREQ, now);
     this.fmOsc.harmonicity.setValueAtTime(presets.HARMONICITY_NORMAL, now);
     this.lfo.frequency.setValueAtTime(presets.LFO_NORMAL_HZ, now);
     this.setLowHPStatus(false);
+    this.currentTensionStage = "SLACK";
   }
 
   public triggerImpact(pitch: string | number, duration: string, time?: string | number): void {
     const now = performance.now();
     if (now - this.lastImpactTime < 40) return;
     this.lastImpactTime = now;
-
     try {
       if (this.impactSynth) {
         this.impactSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerNoise(duration: string, time?: string | number): void {
     const now = performance.now();
     if (now - this.lastNoiseTime < 40) return;
     this.lastNoiseTime = now;
-
     try {
       if (this.noiseSynth) {
         this.noiseSynth.triggerAttackRelease(duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerTick(pitch: string, duration: string, time?: number): void {
     const now = performance.now();
     if (now - this.lastTickTime < 25) return;
     this.lastTickTime = now;
-
     try {
       if (this.tickSynth) {
         this.tickSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerConfirm(pitch: string, duration: string, time?: number): void {
     const now = performance.now();
     if (now - this.lastConfirmTime < 40) return;
     this.lastConfirmTime = now;
-
     try {
       if (this.confirmSynth) {
         this.confirmSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerAlarm(pitch: string, duration: string, time?: number): void {
     const now = performance.now();
     if (now - this.lastAlarmTime < 40) return;
     this.lastAlarmTime = now;
-
     try {
       if (this.tensionAlarmSynth) {
         this.tensionAlarmSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
+  }
+
+  public triggerFling(power: number): void {
+    if (!this.ToneModule || !this.flingSynth) return;
+    const now = this.ToneModule.now();
+    const baseFreq = 440 + (power * 880);
+    const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2];
+    notes.forEach((freq, i) => {
+      this.flingSynth?.triggerAttackRelease(freq, "32n", now + i * 0.04, 0.8);
+    });
+  }
+
+  public triggerWallStick(): void {
+    if (!this.ToneModule || !this.wallThudSynth || !this.wallNoiseSynth) return;
+    const now = this.ToneModule.now();
+    this.wallThudSynth.triggerAttackRelease("C2", "16n", now, 0.9);
+    this.wallNoiseSynth.triggerAttackRelease("32n", now, 0.7);
   }
 
   public setSfxPan(pan: number, time: number): void {
@@ -2332,9 +2352,7 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       if (this.sfxPanner) {
         this.sfxPanner.pan.setTargetAtTime(pan, time, 0.05);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public setNoiseDecay(value: number): void {
@@ -2342,9 +2360,7 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       if (this.noiseSynth) {
         this.noiseSynth.envelope.decay = value;
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public dispose(): void {
@@ -2362,14 +2378,18 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       this.ratchetSynth?.dispose();
       this.heartbeatSynth?.dispose();
       this.heartbeatLoop?.dispose();
+      this.tensionArpSynth?.dispose();
+      this.tensionArpLoop?.dispose();
+      this.tensionBitCrusher?.dispose();
+      this.flingSynth?.dispose();
+      this.wallThudSynth?.dispose();
+      this.wallNoiseSynth?.dispose();
       this.impactSynth?.dispose();
       this.noiseSynth?.dispose();
       this.tickSynth?.dispose();
       this.confirmSynth?.dispose();
       this.tensionAlarmSynth?.dispose();
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 }
 
@@ -2377,32 +2397,21 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
 
 ● ./src/audio/tone/HealthBugSoundGenerator.ts
 ────────────────────────────────────────────────────
-import type {
-  Synth,
-  NoiseSynth,
-  PolySynth,
-  AMSynth,
-  Gain
-} from "tone";
+import type { Synth, NoiseSynth, Gain, Filter, Chorus } from "tone";
 import { ProceduralSoundManager } from "./ProceduralSoundManager";
 
 export class HealthBugSoundGenerator {
   private soundManager: ProceduralSoundManager;
   private ToneModule: typeof import("tone") | null = null;
 
-  // Layered synths for health bug sounds
-  private popSynth: PolySynth | null = null;
-  private shimmerSynth: Synth | null = null;
-  private crunchSynth: NoiseSynth | null = null;
-  private healSynth: AMSynth | null = null;
-
-  private popGain: Gain | null = null;
-  private shimmerGain: Gain | null = null;
-  private crunchGain: Gain | null = null;
-  private healGain: Gain | null = null;
-
-  private lastPopTime = 0;
-  private popCooldown = 50; // ms
+  private popSynth: Synth | null = null;
+  private healSynth: Synth | null = null;
+  private bounceSynth: Synth | null = null;
+  private impactNoise: NoiseSynth | null = null;
+  
+  private chorus: Chorus | null = null;
+  private lowPassFilter: Filter | null = null;
+  private masterGain: Gain | null = null;
 
   constructor(soundManager: ProceduralSoundManager) {
     this.soundManager = soundManager;
@@ -2413,219 +2422,104 @@ export class HealthBugSoundGenerator {
     this.ToneModule = Tone;
 
     const bus = this.soundManager.getHealthBugBus();
-    const reverb = this.soundManager.getReverb();
-    const delay = this.soundManager.getDelay();
-
     if (!bus) return;
 
-    // Layer 1: Pop synth - bright, percussive pop
-    this.popSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.08,
-        sustain: 0,
-        release: 0.05
-      }
-    }).connect(bus);
-    this.popSynth.volume.value = -8;
+    this.masterGain = new Tone.Gain(0.8).connect(bus);
+    
+    this.chorus = new Tone.Chorus(4, 2.5, 0.5).connect(this.masterGain);
+    this.chorus.start();
+    
+    this.lowPassFilter = new Tone.Filter(2000, "lowpass").connect(this.masterGain);
 
-    // Layer 2: Shimmer synth - harmonic overtones
-    this.shimmerSynth = new Tone.Synth({
+    this.popSynth = new Tone.Synth({
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 }
+    }).connect(this.lowPassFilter);
+    this.popSynth.volume.value = -12;
+
+    this.healSynth = new Tone.Synth({
       oscillator: { type: "triangle" },
-      envelope: {
-        attack: 0.002,
-        decay: 0.15,
-        sustain: 0,
-        release: 0.1
-      }
-    }).connect(bus);
-    this.shimmerSynth.volume.value = -12;
-
-    // Layer 3: Crunch synth - noise burst for impact
-    this.crunchSynth = new Tone.NoiseSynth({
-      noise: { type: "white" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.04,
-        sustain: 0,
-        release: 0.02
-      }
-    }).connect(bus);
-    this.crunchSynth.volume.value = -15;
-
-    // Layer 4: Heal synth - pleasant healing sound
-    this.healSynth = new Tone.AMSynth({
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.05,
-        decay: 0.3,
-        sustain: 0.2,
-        release: 0.4
-      }
-    }).connect(bus);
+      envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.3 }
+    }).connect(this.chorus);
     this.healSynth.volume.value = -10;
 
-    // Individual gain nodes for layering
-    this.popGain = new Tone.Gain(1).connect(bus);
-    this.shimmerGain = new Tone.Gain(0.6).connect(bus);
-    this.crunchGain = new Tone.Gain(0.4).connect(bus);
-    this.healGain = new Tone.Gain(0.8).connect(bus);
+    this.bounceSynth = new Tone.Synth({
+      oscillator: { type: "triangle" },
+      envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.1 }
+    }).connect(this.lowPassFilter);
+    this.bounceSynth.volume.value = -8;
 
-    // Add effects to layers
-    if (reverb) {
-      this.shimmerSynth.connect(reverb);
-      this.healSynth.connect(reverb);
-    }
-    if (delay) {
-      this.shimmerSynth.connect(delay);
-    }
+    this.impactNoise = new Tone.NoiseSynth({
+      noise: { type: "white" },
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.05 }
+    }).connect(this.masterGain);
+    this.impactNoise.volume.value = -10;
   }
 
   public triggerPop(variant: "NORMAL" | "SPIKED" | "PINBALL" | "SPINNING"): void {
-    const now = performance.now();
-    if (now - this.lastPopTime < this.popCooldown) return;
-    this.lastPopTime = now;
+    if (!this.ToneModule || !this.soundManager.canPlaySound(2)) return;
+    const now = this.ToneModule.now();
 
-    if (!this.soundManager.canPlaySound(2)) return;
-
-    const baseFreq = variant === "SPIKED" ? 880 : variant === "PINBALL" ? 1100 : 660;
-    const freqVariation = baseFreq * (0.9 + Math.random() * 0.2);
-
-    // Layer 1: Main pop
-    if (this.popSynth) {
-      this.popSynth.triggerAttackRelease(
-        freqVariation,
-        "32n",
-        undefined,
-        0.8
-      );
-      this.popSynth.triggerAttackRelease(
-        freqVariation * 1.5,
-        "32n",
-        undefined,
-        0.6
-      );
+    if (variant === "SPIKED") {
+      if (this.popSynth) {
+        this.popSynth.triggerAttackRelease("C4", "16n", now, 0.8);
+        this.popSynth.triggerAttackRelease("G3", "16n", now + 0.05, 0.6);
+      }
+    } else {
+      if (this.popSynth) {
+        this.popSynth.triggerAttackRelease("C5", "32n", now, 0.8);
+        this.popSynth.triggerAttackRelease("E5", "32n", now + 0.04, 0.7);
+        this.popSynth.triggerAttackRelease("G5", "16n", now + 0.08, 0.9);
+      }
     }
-
-    // Layer 2: Shimmer (less for spiked, more for normal)
-    if (this.shimmerSynth && variant !== "SPIKED") {
-      const shimmerVol = variant === "PINBALL" ? 0.8 : 0.6;
-      this.shimmerGain?.gain.setTargetAtTime(shimmerVol, this.ToneModule?.now() || 0, 0.01);
-      this.shimmerSynth.triggerAttackRelease(
-        freqVariation * 2,
-        "16n",
-        undefined,
-        0.5
-      );
-      this.shimmerSynth.triggerAttackRelease(
-        freqVariation * 3,
-        "16n",
-        undefined,
-        0.3
-      );
-    }
-
-    // Layer 3: Crunch (more for spiked and pinball)
-    if (this.crunchSynth && (variant === "SPIKED" || variant === "PINBALL")) {
-      const crunchVol = variant === "SPIKED" ? 0.7 : 0.5;
-      this.crunchGain?.gain.setTargetAtTime(crunchVol, this.ToneModule?.now() || 0, 0.01);
-      this.crunchSynth.triggerAttackRelease("32n");
-    }
-
-    // Layer 4: Heal sound only for normal pops
-    if (this.healSynth && variant === "NORMAL") {
-      this.healSynth.triggerAttackRelease(
-        freqVariation * 0.5,
-        "8n",
-        "+0.05",
-        0.4
-      );
-      this.healSynth.triggerAttackRelease(
-        freqVariation * 0.75,
-        "8n",
-        "+0.08",
-        0.3
-      );
-    }
-
     this.soundManager.recordSound("health_bug_pop", 2, 0.15);
   }
 
   public triggerHeal(): void {
-    if (!this.soundManager.canPlaySound(3)) return;
-
-    const now = this.ToneModule?.now() || 0;
-
-    // Pleasant ascending arpeggio for healing
-    const healFreqs = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+    if (!this.ToneModule || !this.soundManager.canPlaySound(3)) return;
+    const now = this.ToneModule.now();
     
     if (this.healSynth) {
-      this.healGain?.gain.setTargetAtTime(0.9, now, 0.05);
-      healFreqs.forEach((freq, i) => {
-        this.healSynth?.triggerAttackRelease(freq, "8n", now + i * 0.08, 0.6);
+      const notes = ["C5", "E5", "G5", "C6"];
+      notes.forEach((note, i) => {
+        this.healSynth?.triggerAttackRelease(note, "8n", now + i * 0.08, 0.7);
       });
     }
-
-    // Subtle shimmer layer
-    if (this.shimmerSynth) {
-      this.shimmerGain?.gain.setTargetAtTime(0.4, now, 0.05);
-      this.shimmerSynth.triggerAttackRelease(783.99, "4n", now + 0.1, 0.3);
-      this.shimmerSynth.triggerAttackRelease(1046.5, "4n", now + 0.15, 0.2);
-    }
-
     this.soundManager.recordSound("health_bug_heal", 3, 0.4);
   }
 
-  public triggerSpikedImpact(): void {
-    if (!this.soundManager.canPlaySound(4)) return;
-
-    const now = this.ToneModule?.now() || 0;
-
-    // Harsh, dissonant sound for spiked impact
-    if (this.popSynth) {
-      this.popSynth.triggerAttackRelease(220, "16n", now, 1.0);
-      this.popSynth.triggerAttackRelease(233, "16n", now, 0.9);
-      this.popSynth.triggerAttackRelease(246, "16n", now, 0.8);
+  public triggerPinballBounce(): void {
+    if (!this.ToneModule || !this.soundManager.canPlaySound(2)) return;
+    const now = this.ToneModule.now();
+    
+    if (this.bounceSynth) {
+      this.bounceSynth.triggerAttackRelease("C6", "16n", now, 0.9);
+      this.bounceSynth.frequency.setValueAtTime(1046.5, now);
+      this.bounceSynth.frequency.exponentialRampToValueAtTime(261.63, now + 0.15);
     }
-
-    if (this.crunchSynth) {
-      this.crunchGain?.gain.setTargetAtTime(0.8, now, 0.01);
-      this.crunchSynth.triggerAttackRelease("8n", now);
-    }
-
-    this.soundManager.recordSound("health_bug_spiked", 4, 0.2);
+    this.soundManager.recordSound("health_bug_pinball", 2, 0.15);
   }
 
-  public triggerPinballBounce(): void {
-    if (!this.soundManager.canPlaySound(3)) return;
-
-    const now = this.ToneModule?.now() || 0;
-
-    // Bouncy, playful sound
-    const bounceFreq = 440 + Math.random() * 220;
+  public triggerSpikedImpact(): void {
+    if (!this.ToneModule || !this.soundManager.canPlaySound(3)) return;
+    const now = this.ToneModule.now();
     
-    if (this.popSynth) {
-      this.popSynth.triggerAttackRelease(bounceFreq, "32n", now, 0.9);
+    if (this.impactNoise && this.lowPassFilter) {
+      this.lowPassFilter.frequency.setValueAtTime(8000, now);
+      this.lowPassFilter.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+      this.impactNoise.triggerAttackRelease("16n", now, 1.0);
     }
-
-    if (this.shimmerSynth) {
-      this.shimmerGain?.gain.setTargetAtTime(0.7, now, 0.01);
-      this.shimmerSynth.triggerAttackRelease(bounceFreq * 2, "16n", now + 0.02, 0.5);
-    }
-
-    this.soundManager.recordSound("health_bug_pinball", 3, 0.1);
+    this.soundManager.recordSound("health_bug_spiked", 3, 0.1);
   }
 
   public dispose(): void {
     this.popSynth?.dispose();
-    this.shimmerSynth?.dispose();
-    this.crunchSynth?.dispose();
     this.healSynth?.dispose();
-    this.popGain?.dispose();
-    this.shimmerGain?.dispose();
-    this.crunchGain?.dispose();
-    this.healGain?.dispose();
+    this.bounceSynth?.dispose();
+    this.impactNoise?.dispose();
+    this.chorus?.dispose();
+    this.lowPassFilter?.dispose();
+    this.masterGain?.dispose();
   }
 }
 
@@ -2838,44 +2732,40 @@ export class ProceduralSoundManager {
 
 
 
-● ./src/audio/tone/WeaverVocalSoundGenerator.ts
+● ./src/audio/tone/WeaverSFXGenerator.ts
 ────────────────────────────────────────────────────
 import type {
   Synth,
   FMSynth,
-  AMSynth,
-  MembraneSynth,
   NoiseSynth,
+  MembraneSynth,
   Gain,
-  Vibrato,
-  Tremolo,
-  Filter
+  Filter,
+  BitCrusher,
+  Distortion,
+  AutoFilter
 } from "tone";
 import { ProceduralSoundManager } from "./ProceduralSoundManager";
 
-export class WeaverVocalSoundGenerator {
+export class WeaverSFXGenerator {
   private soundManager: ProceduralSoundManager;
   private ToneModule: typeof import("tone") | null = null;
 
-  // Layered synths for weaver vocals
-  private vocalSynth: FMSynth | null = null;
-  private growlSynth: AMSynth | null = null;
-  private screamSynth: Synth | null = null;
-  private breathSynth: NoiseSynth | null = null;
-  private impactSynth: MembraneSynth | null = null;
+  private prepSweepSynth: FMSynth | null = null;
+  private tickSequencerSynth: Synth | null = null;
+  private thrustStabSynth: Synth | null = null;
+  private blastNoiseSynth: NoiseSynth | null = null;
+  private glassShatterSynth: NoiseSynth | null = null;
+  private subBassSynth: MembraneSynth | null = null;
+  private glitchSynth: Synth | null = null;
+  private webShotNoise: NoiseSynth | null = null;
 
-  private vocalGain: Gain | null = null;
-  private growlGain: Gain | null = null;
-  private screamGain: Gain | null = null;
-  private breathGain: Gain | null = null;
-  private impactGain: Gain | null = null;
-
-  private vibrato: Vibrato | null = null;
-  private tremolo: Tremolo | null = null;
-  private filter: Filter | null = null;
-
-  private lastVocalTime = 0;
-  private vocalCooldown = 150; // ms
+  private bitCrusher: BitCrusher | null = null;
+  private distortion: Distortion | null = null;
+  private lowPassFilter: Filter | null = null;
+  private autoFilter: AutoFilter | null = null;
+  
+  private masterGain: Gain | null = null;
 
   constructor(soundManager: ProceduralSoundManager) {
     this.soundManager = soundManager;
@@ -2886,371 +2776,216 @@ export class WeaverVocalSoundGenerator {
     this.ToneModule = Tone;
 
     const bus = this.soundManager.getWeaverVocalBus();
-    const reverb = this.soundManager.getReverb();
-    const distortion = this.soundManager.getDistortion();
-
     if (!bus) return;
 
-    // Layer 1: Main vocal synth - FM synthesis for organic vocal quality
-    this.vocalSynth = new Tone.FMSynth({
-      oscillator: { type: "sawtooth" },
-      envelope: {
-        attack: 0.05,
-        decay: 0.2,
-        sustain: 0.3,
-        release: 0.4
-      },
-      modulation: {
-        type: "sine"
-      }
-    }).connect(bus);
-    this.vocalSynth.volume.value = -12;
-    (this.vocalSynth as any).modulationIndex.value = 10;
-    (this.vocalSynth as any).harmonicity.value = 2;
+    this.masterGain = new Tone.Gain(0.8).connect(bus);
 
-    // Layer 2: Growl synth - AM synthesis for rumbling
-    this.growlSynth = new Tone.AMSynth({
+    this.bitCrusher = new Tone.BitCrusher(4).connect(this.masterGain);
+    this.distortion = new Tone.Distortion(0.6).connect(this.bitCrusher);
+    this.lowPassFilter = new Tone.Filter(800, "lowpass").connect(this.distortion);
+    this.autoFilter = new Tone.AutoFilter({
+      frequency: "8n",
+      baseFrequency: 200,
+      octaves: 4
+    }).connect(this.lowPassFilter);
+    this.autoFilter.start();
+
+    const fxChain = this.autoFilter;
+
+    this.prepSweepSynth = new Tone.FMSynth({
+      harmonicity: 3.01,
+      modulationIndex: 10,
+      oscillator: { type: "sawtooth" },
+      envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 },
+      modulation: { type: "square" },
+      modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 }
+    }).connect(fxChain);
+    this.prepSweepSynth.volume.value = -12;
+
+    this.tickSequencerSynth = new Tone.Synth({
       oscillator: { type: "square" },
-      envelope: {
-        attack: 0.1,
-        decay: 0.3,
-        sustain: 0.5,
-        release: 0.6
-      },
-      modulation: {
-        type: "sawtooth"
-      }
-    }).connect(bus);
-    this.growlSynth.volume.value = -15;
-    (this.growlSynth as any).modulationIndex.value = 5;
-    (this.growlSynth as any).harmonicity.value = 1.5;
+      envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.02 }
+    }).connect(fxChain);
+    this.tickSequencerSynth.volume.value = -18;
 
-    // Layer 3: Scream synth - bright, piercing
-    this.screamSynth = new Tone.Synth({
-      oscillator: { type: "sawtooth" },
-      envelope: {
-        attack: 0.01,
-        decay: 0.15,
-        sustain: 0.1,
-        release: 0.2
-      }
-    }).connect(bus);
-    this.screamSynth.volume.value = -10;
+    this.thrustStabSynth = new Tone.Synth({
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.05 }
+    }).connect(this.masterGain);
+    this.thrustStabSynth.volume.value = -8;
 
-    // Layer 4: Breath synth - noise for breathing sounds
-    this.breathSynth = new Tone.NoiseSynth({
-      noise: { type: "pink" },
-      envelope: {
-        attack: 0.2,
-        decay: 0.5,
-        sustain: 0.3,
-        release: 0.8
-      }
-    }).connect(bus);
-    this.breathSynth.volume.value = -20;
+    this.blastNoiseSynth = new Tone.NoiseSynth({
+      noise: { type: "brown" },
+      envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.2 }
+    }).connect(this.distortion);
+    this.blastNoiseSynth.volume.value = -6;
 
-    // Layer 5: Impact synth - for body hits
-    this.impactSynth = new Tone.MembraneSynth({
+    this.glassShatterSynth = new Tone.NoiseSynth({
+      noise: { type: "white" },
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.05 }
+    }).connect(fxChain);
+    this.glassShatterSynth.volume.value = -10;
+
+    this.subBassSynth = new Tone.MembraneSynth({
       pitchDecay: 0.05,
-      octaves: 3,
+      octaves: 6,
       oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.3,
-        sustain: 0,
-        release: 0.4
-      }
-    }).connect(bus);
-    this.impactSynth.volume.value = -8;
+      envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.2 }
+    }).connect(this.masterGain);
+    this.subBassSynth.volume.value = -4;
 
-    // Individual gain nodes
-    this.vocalGain = new Tone.Gain(0.7).connect(bus);
-    this.growlGain = new Tone.Gain(0.5).connect(bus);
-    this.screamGain = new Tone.Gain(0.6).connect(bus);
-    this.breathGain = new Tone.Gain(0.3).connect(bus);
-    this.impactGain = new Tone.Gain(0.8).connect(bus);
+    this.glitchSynth = new Tone.Synth({
+      oscillator: { type: "fmsquare" },
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 }
+    }).connect(fxChain);
+    this.glitchSynth.volume.value = -10;
 
-    // Effects for vocal character
-    this.vibrato = new Tone.Vibrato({
-      frequency: 6,
-      depth: 0.3,
-      type: "sine"
-    }).connect(bus);
-
-    this.tremolo = new Tone.Tremolo({
-      frequency: 8,
-      depth: 0.4,
-      type: "sine"
-    }).connect(bus);
-
-    this.filter = new Tone.Filter({
-      frequency: 800,
-      type: "lowpass",
-      Q: 2
-    }).connect(bus);
-
-    // Connect synths through effects
-    this.vocalSynth.connect(this.vibrato);
-    this.vibrato.connect(this.filter);
-    this.growlSynth.connect(this.filter);
-    this.screamSynth.connect(this.filter);
-
-    // Add reverb and distortion
-    if (reverb) {
-      this.vocalSynth.connect(reverb);
-      this.growlSynth.connect(reverb);
-      this.screamSynth.connect(reverb);
-    }
-    if (distortion) {
-      this.screamSynth.connect(distortion);
-      this.impactSynth.connect(distortion);
-    }
-  }
-
-  public triggerPatrolling(isBerserk: boolean): void {
-    const now = performance.now();
-    if (now - this.lastVocalTime < this.vocalCooldown) return;
-    this.lastVocalTime = now;
-
-    if (!this.soundManager.canPlaySound(1)) return;
-
-    const baseFreq = isBerserk ? 110 : 82; // Lower when berserk
-    const freqVariation = baseFreq * (0.95 + Math.random() * 0.1);
-
-    // Gentle vocalization for patrolling
-    if (this.vocalSynth) {
-      this.vocalGain?.gain.setTargetAtTime(0.5, this.ToneModule?.now() || 0, 0.1);
-      this.vocalSynth.triggerAttackRelease(freqVariation, "4n", undefined, 0.4);
-    }
-
-    // Subtle breath layer
-    if (this.breathSynth && Math.random() < 0.3) {
-      this.breathGain?.gain.setTargetAtTime(0.2, this.ToneModule?.now() || 0, 0.2);
-      this.breathSynth.triggerAttackRelease("2n");
-    }
-
-    this.soundManager.recordSound("weaver_patrolling", 1, 0.5);
+    this.webShotNoise = new Tone.NoiseSynth({
+      noise: { type: "white" },
+      envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.02 }
+    }).connect(fxChain);
+    this.webShotNoise.volume.value = -12;
   }
 
   public triggerStriking(phase: "PREP" | "THRUST" | "RECOVER", isBerserk: boolean): void {
+    if (!this.ToneModule || !this.soundManager.canPlaySound(4)) return;
+    const now = this.ToneModule.now();
+
     if (phase === "PREP") {
-      if (!this.soundManager.canPlaySound(3)) return;
-
-      const now = this.ToneModule?.now() || 0;
-      const baseFreq = isBerserk ? 130 : 98;
-
-      // Rising pitch for anticipation
-      if (this.vocalSynth) {
-        this.vocalGain?.gain.setTargetAtTime(0.7, now, 0.05);
-        if (this.vibrato) {
-          this.vibrato.frequency.value = 8;
-          this.vibrato.depth.value = 0.5;
-        }
-        this.vocalSynth.triggerAttackRelease(baseFreq, "8n", undefined, 0.6);
-        this.vocalSynth.triggerAttackRelease(baseFreq * 1.2, "8n", "+0.1", 0.5);
+      if (this.prepSweepSynth) {
+        const baseFreq = isBerserk ? 110 : 82;
+        this.prepSweepSynth.triggerAttackRelease(baseFreq, "8n", now, 0.8);
+        this.prepSweepSynth.frequency.setValueAtTime(baseFreq, now);
+        this.prepSweepSynth.frequency.exponentialRampToValueAtTime(baseFreq * 4, now + 0.3);
       }
-
-      // Growl layer
-      if (this.growlSynth) {
-        this.growlGain?.gain.setTargetAtTime(0.6, now, 0.1);
-        this.growlSynth.triggerAttackRelease(baseFreq * 0.5, "4n", undefined, 0.5);
+      if (this.tickSequencerSynth) {
+        const tickNotes = [440, 554, 659, 880];
+        const tickTime = isBerserk ? 0.06 : 0.08;
+        tickNotes.forEach((note, i) => {
+          this.tickSequencerSynth?.triggerAttackRelease(note, "32n", now + i * tickTime, 0.6);
+        });
       }
-
-      this.soundManager.recordSound("weaver_prep", 3, 0.3);
+      this.soundManager.recordSound("weaver_prep", 4, 0.4);
     } else if (phase === "THRUST") {
-      if (!this.soundManager.canPlaySound(4)) return;
-
-      const now = this.ToneModule?.now() || 0;
-      const baseFreq = isBerserk ? 164 : 130;
-
-      // Scream on thrust
-      if (this.screamSynth) {
-        this.screamGain?.gain.setTargetAtTime(0.8, now, 0.01);
-        this.screamSynth.triggerAttackRelease(baseFreq, "16n", undefined, 0.9);
-        this.screamSynth.triggerAttackRelease(baseFreq * 1.5, "16n", undefined, 0.7);
+      if (this.thrustStabSynth) {
+        const startFreq = isBerserk ? 880 : 660;
+        const endFreq = isBerserk ? 110 : 82;
+        this.thrustStabSynth.triggerAttackRelease(startFreq, "16n", now, 1.0);
+        this.thrustStabSynth.frequency.setValueAtTime(startFreq, now);
+        this.thrustStabSynth.frequency.exponentialRampToValueAtTime(endFreq, now + 0.15);
       }
-
-      // Impact layer
-      if (this.impactSynth) {
-        this.impactGain?.gain.setTargetAtTime(0.9, now, 0.01);
-        this.impactSynth.triggerAttackRelease(baseFreq * 0.3, "8n");
+      if (this.subBassSynth) {
+        this.subBassSynth.triggerAttackRelease("C1", "8n", now, 1.0);
       }
-
-      this.soundManager.recordSound("weaver_thrust", 4, 0.2);
+      this.soundManager.recordSound("weaver_thrust", 5, 0.2);
     } else if (phase === "RECOVER") {
-      if (!this.soundManager.canPlaySound(2)) return;
-
-      const now = this.ToneModule?.now() || 0;
-
-      // Exhausted breathing
-      if (this.breathSynth) {
-        this.breathGain?.gain.setTargetAtTime(0.5, now, 0.1);
-        this.breathSynth.triggerAttackRelease("4n");
+      if (this.tickSequencerSynth) {
+        const ratchetNotes = [220, 180, 140, 110, 90];
+        ratchetNotes.forEach((note, i) => {
+          this.tickSequencerSynth?.triggerAttackRelease(note, "32n", now + i * 0.05, 0.5);
+        });
       }
-
-      // Low vocalization
-      if (this.vocalSynth) {
-        this.vocalGain?.gain.setTargetAtTime(0.3, now, 0.2);
-        this.vocalSynth.triggerAttackRelease(73, "2n", undefined, 0.3);
-      }
-
-      this.soundManager.recordSound("weaver_recover", 2, 0.8);
+      this.soundManager.recordSound("weaver_recover", 3, 0.3);
     }
   }
 
   public triggerShockwave(phase: "TELEGRAPH" | "BLAST" | "RECOVER"): void {
+    if (!this.ToneModule || !this.soundManager.canPlaySound(5)) return;
+    const now = this.ToneModule.now();
+
     if (phase === "TELEGRAPH") {
-      if (!this.soundManager.canPlaySound(4)) return;
-
-      const now = this.ToneModule?.now() || 0;
-
-      // Building scream
-      if (this.screamSynth) {
-        this.screamGain?.gain.setTargetAtTime(0.7, now, 0.1);
-        this.tremolo?.start();
-        this.screamSynth.triggerAttackRelease(220, "8n", undefined, 0.7);
-        this.screamSynth.triggerAttackRelease(293, "8n", "+0.1", 0.6);
+      if (this.blastNoiseSynth && this.lowPassFilter) {
+        this.lowPassFilter.frequency.setValueAtTime(100, now);
+        this.lowPassFilter.frequency.exponentialRampToValueAtTime(2000, now + 0.8);
+        this.blastNoiseSynth.triggerAttackRelease("4n", now, 0.8);
       }
-
-      // Growl layer
-      if (this.growlSynth) {
-        this.growlGain?.gain.setTargetAtTime(0.6, now, 0.1);
-        this.growlSynth.triggerAttackRelease(110, "4n", undefined, 0.6);
-      }
-
-      this.soundManager.recordSound("weaver_telegraph", 4, 0.4);
+      this.soundManager.recordSound("weaver_telegraph", 5, 0.8);
     } else if (phase === "BLAST") {
-      if (!this.soundManager.canPlaySound(5)) return;
-
-      const now = this.ToneModule?.now() || 0;
-
-      // Explosive scream
-      if (this.screamSynth) {
-        this.screamGain?.gain.setTargetAtTime(1.0, now, 0.01);
-        this.screamSynth.triggerAttackRelease(440, "16n", undefined, 1.0);
-        this.screamSynth.triggerAttackRelease(587, "16n", undefined, 0.9);
-        this.screamSynth.triggerAttackRelease(880, "16n", undefined, 0.8);
+      if (this.blastNoiseSynth) {
+        this.blastNoiseSynth.triggerAttackRelease("16n", now, 1.0);
       }
-
-      // Heavy impact
-      if (this.impactSynth) {
-        this.impactGain?.gain.setTargetAtTime(1.0, now, 0.01);
-        this.impactSynth.triggerAttackRelease(55, "4n");
+      if (this.subBassSynth) {
+        this.subBassSynth.triggerAttackRelease("C0", "8n", now, 1.0);
+        this.subBassSynth.frequency.setValueAtTime(60, now);
+        this.subBassSynth.frequency.exponentialRampToValueAtTime(20, now + 0.3);
       }
-
-      // Noise burst
-      if (this.breathSynth) {
-        this.breathGain?.gain.setTargetAtTime(0.8, now, 0.01);
-        this.breathSynth.triggerAttackRelease("8n");
+      if (this.glassShatterSynth) {
+        this.glassShatterSynth.triggerAttackRelease("32n", now + 0.05, 0.7);
+        this.glassShatterSynth.triggerAttackRelease("32n", now + 0.12, 0.5);
       }
-
-      this.soundManager.recordSound("weaver_blast", 5, 0.3);
+      this.soundManager.recordSound("weaver_blast", 6, 0.4);
     } else if (phase === "RECOVER") {
-      if (!this.soundManager.canPlaySound(2)) return;
-
-      const now = this.ToneModule?.now() || 0;
-
-      this.tremolo?.stop();
-
-      // Worn out breathing
-      if (this.breathSynth) {
-        this.breathGain?.gain.setTargetAtTime(0.6, now, 0.2);
-        this.breathSynth.triggerAttackRelease("2n");
+      if (this.glassShatterSynth) {
+         this.glassShatterSynth.triggerAttackRelease("2n", now, 0.2);
       }
-
-      this.soundManager.recordSound("weaver_recover", 2, 1.0);
+      this.soundManager.recordSound("weaver_recover", 3, 1.0);
     }
   }
 
-  public triggerAscending(): void {
-    if (!this.soundManager.canPlaySound(2)) return;
-
-    const now = this.ToneModule?.now() || 0;
-
-    // Ascending vocalization
-    if (this.vocalSynth) {
-      this.vocalGain?.gain.setTargetAtTime(0.6, now, 0.1);
-      if (this.vibrato) {
-        this.vibrato.frequency.value = 4;
-        this.vibrato.depth.value = 0.2;
+  public triggerDamaged(comboCount: number, isBerserk: boolean): void {
+    if (!this.ToneModule || !this.soundManager.canPlaySound(4)) return;
+    const now = this.ToneModule.now();
+    
+    const basePitch = 200 + Math.min(comboCount * 15, 150) + (isBerserk ? 100 : 0);
+    
+    if (this.glitchSynth) {
+      for (let i = 0; i < 3; i++) {
+        this.glitchSynth.triggerAttackRelease(basePitch + (i * 50), "32n", now + i * 0.03, 0.8);
       }
-      this.vocalSynth.triggerAttackRelease(98, "8n", now, 0.5);
-      this.vocalSynth.triggerAttackRelease(130, "8n", now + 0.15, 0.4);
-      this.vocalSynth.triggerAttackRelease(164, "4n", now + 0.3, 0.3);
     }
-
-    this.soundManager.recordSound("weaver_ascending", 2, 0.6);
-  }
-
-  public triggerDamaged(comboCount: number, _isBerserk: boolean): void {
-    if (!this.soundManager.canPlaySound(4)) return;
-
-    const now = this.ToneModule?.now() || 0;
-
-    // Pitch rises with combo
-    const baseFreq = 110 + Math.min(comboCount * 20, 100);
-    const freqVariation = baseFreq * (0.9 + Math.random() * 0.2);
-
-    // Pain scream
-    if (this.screamSynth) {
-      this.screamGain?.gain.setTargetAtTime(0.8, now, 0.01);
-      this.screamSynth.triggerAttackRelease(freqVariation, "16n", now, 0.9);
+    if (this.subBassSynth) {
+      this.subBassSynth.triggerAttackRelease("G1", "16n", now, 0.9);
     }
-
-    // Growl layer
-    if (this.growlSynth) {
-      this.growlGain?.gain.setTargetAtTime(0.6, now, 0.05);
-      this.growlSynth.triggerAttackRelease(freqVariation * 0.5, "8n", now, 0.6);
-    }
-
-    // Impact
-    if (this.impactSynth) {
-      this.impactGain?.gain.setTargetAtTime(0.7, now, 0.01);
-      this.impactSynth.triggerAttackRelease(freqVariation * 0.3, "8n", now);
-    }
-
-    this.soundManager.recordSound("weaver_damaged", 4, 0.3);
+    this.soundManager.recordSound("weaver_damaged", 4, 0.15);
   }
 
   public triggerDefeated(): void {
-    if (!this.soundManager.canPlaySound(5)) return;
-
-    const now = this.ToneModule?.now() || 0;
-
-    // Defeated cry
-    if (this.vocalSynth) {
-      this.vocalGain?.gain.setTargetAtTime(0.8, now, 0.05);
-      if (this.vibrato) {
-        this.vibrato.frequency.value = 3;
-        this.vibrato.depth.value = 0.6;
-      }
-      this.vocalSynth.triggerAttackRelease(82, "2n", now, 0.8);
-      this.vocalSynth.triggerAttackRelease(65, "4n", now + 0.3, 0.6);
+    if (!this.ToneModule || !this.soundManager.canPlaySound(5)) return;
+    const now = this.ToneModule.now();
+    
+    if (this.tickSequencerSynth) {
+      const deathNotes = [880, 660, 440, 330, 220, 165, 110, 82, 55];
+      let timeOffset = 0;
+      deathNotes.forEach((note, i) => {
+        this.tickSequencerSynth?.triggerAttackRelease(note, "16n", now + timeOffset, 0.8);
+        timeOffset += 0.08 + (i * 0.04);
+      });
     }
-
-    // Long breath
-    if (this.breathSynth) {
-      this.breathGain?.gain.setTargetAtTime(0.7, now, 0.1);
-      this.breathSynth.triggerAttackRelease("2n", now);
+    if (this.subBassSynth) {
+       this.subBassSynth.triggerAttackRelease("C1", "2n", now + 0.8, 0.6);
     }
-
     this.soundManager.recordSound("weaver_defeated", 5, 2.0);
   }
 
+  public triggerWebShot(): void {
+    if (!this.ToneModule || !this.soundManager.canPlaySound(3)) return;
+    const now = this.ToneModule.now();
+    
+    if (this.webShotNoise) {
+      this.webShotNoise.triggerAttackRelease("32n", now, 0.8);
+      this.webShotNoise.triggerAttackRelease("32n", now + 0.06, 0.6);
+      this.webShotNoise.triggerAttackRelease("32n", now + 0.12, 0.4);
+    }
+    if (this.tickSequencerSynth) {
+       this.tickSequencerSynth.triggerAttackRelease(1200, "32n", now, 0.5);
+    }
+    this.soundManager.recordSound("weaver_web_shot", 3, 0.2);
+  }
+
   public dispose(): void {
-    this.vocalSynth?.dispose();
-    this.growlSynth?.dispose();
-    this.screamSynth?.dispose();
-    this.breathSynth?.dispose();
-    this.impactSynth?.dispose();
-    this.vocalGain?.dispose();
-    this.growlGain?.dispose();
-    this.screamGain?.dispose();
-    this.breathGain?.dispose();
-    this.impactGain?.dispose();
-    this.vibrato?.dispose();
-    this.tremolo?.dispose();
-    this.filter?.dispose();
+    this.prepSweepSynth?.dispose();
+    this.tickSequencerSynth?.dispose();
+    this.thrustStabSynth?.dispose();
+    this.blastNoiseSynth?.dispose();
+    this.glassShatterSynth?.dispose();
+    this.subBassSynth?.dispose();
+    this.glitchSynth?.dispose();
+    this.webShotNoise?.dispose();
+    this.bitCrusher?.dispose();
+    this.distortion?.dispose();
+    this.lowPassFilter?.dispose();
+    this.autoFilter?.dispose();
+    this.masterGain?.dispose();
   }
 }
 
@@ -3281,6 +3016,8 @@ export interface IAudioSfxTrigger {
   triggerTick(pitch: string, duration: string, time?: number): void;
   triggerConfirm(pitch: string, duration: string, time?: number): void;
   triggerAlarm(pitch: string, duration: string, time?: number): void;
+  triggerFling(power: number): void;
+  triggerWallStick(): void;
   setSfxPan(pan: number, time: number): void;
   setNoiseDecay(value: number): void;
 }

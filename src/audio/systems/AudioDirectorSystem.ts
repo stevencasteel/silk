@@ -6,21 +6,20 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IAudioRegistry } from "../../contracts/IAudio";
 import { AUDIO_PRESETS } from "../tone/AudioPresets";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { TransformComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TransformComponent, TraversalStateComponent, HealthComponent } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import { AudioSynthesizerRegistry } from "../tone/AudioSynthesizerRegistry";
 import { ProceduralSoundManager } from "../tone/ProceduralSoundManager";
 import { HealthBugSoundGenerator } from "../tone/HealthBugSoundGenerator";
-import { WeaverVocalSoundGenerator } from "../tone/WeaverVocalSoundGenerator";
+import { WeaverSFXGenerator } from "../tone/WeaverSFXGenerator";
 
 export class AudioDirectorSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   readonly initPhase = InitPhase.Bootstrap;
-  private audioRegistry: IAudioRegistry | null = null;
 
+  private audioRegistry: IAudioRegistry | null = null;
   private initialized: boolean = false;
   private isBooting: boolean = false;
-
   private broker: IEventBroker;
   private _tracker = new SubscriptionTracker();
   private gestureListener = new MultiEventListener();
@@ -28,13 +27,14 @@ export class AudioDirectorSystem implements ISystem {
   private hitComboCount = 0;
   private lastHitTime = 0;
   private toneModule: typeof import("tone") | null = null;
+
   private lastConfirmTime = 0;
   private lastTickTime = 0;
   private lastAlarmTime = 0;
 
   private soundManager: ProceduralSoundManager | null = null;
   private healthBugSoundGenerator: HealthBugSoundGenerator | null = null;
-  private weaverVocalSoundGenerator: WeaverVocalSoundGenerator | null = null;
+  private weaverSfxGenerator: WeaverSFXGenerator | null = null;
 
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
@@ -110,6 +110,8 @@ export class AudioDirectorSystem implements ISystem {
           if (pTrav) {
             const reelConfig = GAMEPLAY_TUNING.REEL;
             const power = pTrav.launchPower;
+            
+            this.audioRegistry.triggerFling(power);
 
             if (power >= 1.0) {
               this.audioRegistry.triggerImpact("A1", "4n");
@@ -121,6 +123,14 @@ export class AudioDirectorSystem implements ISystem {
               this.audioRegistry.triggerImpact("C3", "16n");
             }
           }
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
+        if (this.initialized && this.audioRegistry) {
+          this.audioRegistry.triggerWallStick();
         }
       })
     );
@@ -166,17 +176,15 @@ export class AudioDirectorSystem implements ISystem {
           const octave = Math.pow(2, Math.floor(this.hitComboCount / DORIAN_RATIOS.length));
           const baseFreq = 164.81;
           const freq = baseFreq * DORIAN_RATIOS[scaleIndex] * octave;
-
           this.audioRegistry.triggerImpact(freq, "16n");
 
-          // Use new weaver vocal system
-          const healthStore = this.context.stores.get("health");
+          const healthStore = this.context.stores.get<HealthComponent>("health");
           const weaverHealth = healthStore?.get(this.context.refs.weaver);
-          const maxHp = weaverHealth ? (weaverHealth as any).max : 100;
-          const currentHp = weaverHealth ? (weaverHealth as any).current : 100;
+          const maxHp = weaverHealth ? weaverHealth.max : 100;
+          const currentHp = weaverHealth ? weaverHealth.current : 100;
           const isBerserk = currentHp < maxHp * 0.5;
 
-          this.weaverVocalSoundGenerator?.triggerDamaged(this.hitComboCount, isBerserk);
+          this.weaverSfxGenerator?.triggerDamaged(this.hitComboCount, isBerserk);
         }
       })
     );
@@ -185,21 +193,16 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         if (this.initialized && this.audioRegistry) {
           this.audioRegistry.handleStateChange(payload.state, payload.audioParams);
-
-          // Use new weaver vocal system based on state
+          
           const state = payload.state.toUpperCase();
           const isBerserk = state.includes("BERSERK");
 
-          if (state.includes("PATROLLING")) {
-            this.weaverVocalSoundGenerator?.triggerPatrolling(isBerserk);
-          } else if (state.includes("STRIKING")) {
-            this.weaverVocalSoundGenerator?.triggerStriking("PREP", isBerserk);
+          if (state.includes("STRIKING")) {
+            this.weaverSfxGenerator?.triggerStriking("PREP", isBerserk);
           } else if (state.includes("SHOCKWAVE")) {
-            this.weaverVocalSoundGenerator?.triggerShockwave("TELEGRAPH");
-          } else if (state.includes("ASCENDING")) {
-            this.weaverVocalSoundGenerator?.triggerAscending();
+            this.weaverSfxGenerator?.triggerShockwave("TELEGRAPH");
           } else if (state.includes("DEFEATED")) {
-            this.weaverVocalSoundGenerator?.triggerDefeated();
+            this.weaverSfxGenerator?.triggerDefeated();
           }
         }
       })
@@ -231,16 +234,24 @@ export class AudioDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_STRIKING_PHASE, (payload) => {
-        if (this.initialized && this.weaverVocalSoundGenerator) {
-          this.weaverVocalSoundGenerator.triggerStriking(payload.phase, payload.isBerserk);
+        if (this.initialized && this.weaverSfxGenerator) {
+          this.weaverSfxGenerator.triggerStriking(payload.phase, payload.isBerserk);
         }
       })
     );
 
     this._tracker.add(
       this.broker.subscribe(GameEvent.WEAVER_SHOCKWAVE_PHASE, (payload) => {
-        if (this.initialized && this.weaverVocalSoundGenerator) {
-          this.weaverVocalSoundGenerator.triggerShockwave(payload.phase);
+        if (this.initialized && this.weaverSfxGenerator) {
+          this.weaverSfxGenerator.triggerShockwave(payload.phase);
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+        if (payload.isRelease && this.initialized && this.weaverSfxGenerator) {
+          this.weaverSfxGenerator.triggerWebShot();
         }
       })
     );
@@ -318,7 +329,6 @@ export class AudioDirectorSystem implements ISystem {
     presets: typeof AUDIO_PRESETS.PLAYER | typeof AUDIO_PRESETS.WEAVER
   ): void {
     if (!this.audioRegistry) return;
-
     this.audioRegistry.triggerImpact(presets.DEATH_NOTE_1, presets.DEATH_NOTE_1_DURATION);
     this.audioRegistry.triggerImpact(
       presets.DEATH_NOTE_2,
@@ -340,6 +350,7 @@ export class AudioDirectorSystem implements ISystem {
       const transforms = this.context.stores.get<TransformComponent>("transform");
       const playerTrans = transforms.get(this.context.refs.player);
       const weaverTrans = transforms.get(this.context.refs.weaver);
+
       if (playerTrans && weaverTrans) {
         if (this.audioRegistry) {
           this.audioRegistry.updatePositions(playerTrans.x, weaverTrans.x);
@@ -359,27 +370,26 @@ export class AudioDirectorSystem implements ISystem {
   private bootAudioEngine(): void {
     if (this.initialized || this.isBooting) return;
     this.isBooting = true;
+
     import("tone").then((Tone) => {
       this.toneModule = Tone;
       Tone.start().then(() => {
         this.initialized = true;
         this.isBooting = false;
-
         Tone.getDestination().mute = false;
 
         const registry = new AudioSynthesizerRegistry();
         registry.initialize(Tone).then(async () => {
           this.audioRegistry = registry;
 
-          // Initialize new procedural sound system
           this.soundManager = new ProceduralSoundManager();
           await this.soundManager.initialize(Tone);
 
           this.healthBugSoundGenerator = new HealthBugSoundGenerator(this.soundManager);
           await this.healthBugSoundGenerator.initialize(Tone);
 
-          this.weaverVocalSoundGenerator = new WeaverVocalSoundGenerator(this.soundManager);
-          await this.weaverVocalSoundGenerator.initialize(Tone);
+          this.weaverSfxGenerator = new WeaverSFXGenerator(this.soundManager);
+          await this.weaverSfxGenerator.initialize(Tone);
 
           this.broker.publish(GameEvent.USER_GESTURE_REGISTERED, undefined);
         });
@@ -392,7 +402,7 @@ export class AudioDirectorSystem implements ISystem {
     this._tracker.clear();
     if (this.audioRegistry) this.audioRegistry.dispose();
     this.healthBugSoundGenerator?.dispose();
-    this.weaverVocalSoundGenerator?.dispose();
+    this.weaverSfxGenerator?.dispose();
     this.soundManager?.dispose();
   }
 }

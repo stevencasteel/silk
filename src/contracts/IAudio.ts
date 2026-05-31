@@ -21,6 +21,8 @@ export interface IAudioSfxTrigger {
   triggerTick(pitch: string, duration: string, time?: number): void;
   triggerConfirm(pitch: string, duration: string, time?: number): void;
   triggerAlarm(pitch: string, duration: string, time?: number): void;
+  triggerFling(power: number): void;
+  triggerWallStick(): void;
   setSfxPan(pan: number, time: number): void;
   setNoiseDecay(value: number): void;
 }

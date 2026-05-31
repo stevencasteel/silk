@@ -9,7 +9,8 @@ import type {
   MembraneSynth,
   Loop,
   Panner,
-  NoiseSynth
+  NoiseSynth,
+  BitCrusher
 } from "tone";
 
 export class AudioSynthesizerRegistry implements IAudioRegistry {
@@ -27,6 +28,15 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public ratchetSynth: Synth | null = null;
   public heartbeatSynth: MembraneSynth | null = null;
   public heartbeatLoop: Loop | null = null;
+
+  private tensionArpSynth: Synth | null = null;
+  private tensionArpLoop: Loop | null = null;
+  private tensionBitCrusher: BitCrusher | null = null;
+  private currentTensionStage: "SLACK" | "TAUT" | "OVERLOAD" = "SLACK";
+
+  private flingSynth: Synth | null = null;
+  private wallThudSynth: MembraneSynth | null = null;
+  private wallNoiseSynth: NoiseSynth | null = null;
 
   public impactSynth: MembraneSynth | null = null;
   public noiseSynth: NoiseSynth | null = null;
@@ -47,7 +57,6 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public async initialize(ToneRaw: unknown): Promise<void> {
     const Tone = ToneRaw as typeof import("tone");
     this.ToneModule = Tone;
-
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
@@ -86,24 +95,14 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
     this.lfo.connect(this.lowpassFilter.frequency);
 
     this.ratchetSynth = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.015,
-        sustain: 0,
-        release: 0.015
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.02, sustain: 0, release: 0.01 }
     }).connect(this.ratchetPanner);
     this.ratchetSynth.volume.value = synthConfig.RATCHET_VOLUME;
 
     this.heartbeatSynth = new Tone.MembraneSynth({
       oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.18,
-        sustain: 0,
-        release: 0.12
-      }
+      envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.12 }
     }).connect(this.lowpassFilter);
     this.heartbeatSynth.volume.value = synthConfig.HEARTBEAT_VOLUME;
 
@@ -114,62 +113,80 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       }
     }, synthConfig.HEARTBEAT_INTERVAL);
 
+    this.tensionBitCrusher = new Tone.BitCrusher(4).connect(this.ratchetPanner);
+    this.tensionArpSynth = new Tone.Synth({
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 }
+    }).connect(this.tensionBitCrusher);
+    this.tensionArpSynth.volume.value = -18;
+
+    let arpIndex = 0;
+    this.tensionArpLoop = new Tone.Loop((time) => {
+      if (!this.tensionArpSynth) return;
+      if (this.currentTensionStage === "TAUT") {
+        const notes = ["C4", "E4", "G4", "C5"];
+        this.tensionArpSynth.triggerAttackRelease(notes[arpIndex % 4], "16n", time, 0.6);
+        arpIndex++;
+      } else if (this.currentTensionStage === "OVERLOAD") {
+        const notes = ["C5", "Eb5", "Gb5", "A5"];
+        this.tensionArpSynth.triggerAttackRelease(notes[arpIndex % 4], "32n", time, 0.8);
+        arpIndex++;
+      } else {
+        arpIndex = 0;
+      }
+    }, "16n");
+    this.tensionArpLoop.start();
+
+    this.flingSynth = new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+    }).connect(this.sfxPanner);
+    this.flingSynth.volume.value = -8;
+
+    this.wallThudSynth = new Tone.MembraneSynth({
+      pitchDecay: 0.01,
+      octaves: 2,
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 }
+    }).connect(this.sfxPanner);
+    this.wallThudSynth.volume.value = -10;
+
+    this.wallNoiseSynth = new Tone.NoiseSynth({
+      noise: { type: "white" },
+      envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.02 }
+    }).connect(this.sfxPanner);
+    this.wallNoiseSynth.volume.value = -15;
+
     this.impactSynth = new Tone.MembraneSynth({
       pitchDecay: 0.05,
       octaves: 4,
       oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.2,
-        sustain: 0,
-        release: 0.4,
-        attackCurve: "exponential"
-      }
+      envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.4, attackCurve: "exponential" }
     }).connect(this.sfxPanner);
 
     this.noiseSynth = new Tone.NoiseSynth({
       noise: { type: "pink" },
-      envelope: {
-        attack: 0.001,
-        decay: 0.1,
-        sustain: 0,
-        release: 0.1
-      }
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
     }).connect(this.sfxPanner);
     this.noiseSynth.volume.value = -10;
 
     this.tickSynth = new Tone.Synth({
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.002,
-        decay: 0.03,
-        sustain: 0,
-        release: 0.03
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.02, sustain: 0, release: 0.01 }
     }).toDestination();
-    this.tickSynth.volume.value = -14;
+    this.tickSynth.volume.value = -18;
 
     this.confirmSynth = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: {
-        attack: 0.002,
-        decay: 0.12,
-        sustain: 0,
-        release: 0.08
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 }
     }).toDestination();
-    this.confirmSynth.volume.value = -6;
+    this.confirmSynth.volume.value = -12;
 
     this.tensionAlarmSynth = new Tone.Synth({
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.01,
-        decay: 0.1,
-        sustain: 0,
-        release: 0.05
-      }
+      oscillator: { type: "square" },
+      envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 }
     }).toDestination();
-    this.tensionAlarmSynth.volume.value = -18;
+    this.tensionAlarmSynth.volume.value = -14;
 
     this.lfo.start();
     this.fmOsc.start();
@@ -192,8 +209,19 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
 
   public updateDronePitch(tensionVal: number): void {
     if (!this.fmOsc || !this.gainNode || !this.lowpassFilter || !this.ToneModule) return;
-
     const clampedTension = Math.max(0, Math.min(1.3, tensionVal));
+
+    if (clampedTension >= 0.8) {
+      this.currentTensionStage = "OVERLOAD";
+      // BitCrusher bits is read-only in Tone.js; tension conveyed via playbackRate
+      if (this.tensionArpLoop) this.tensionArpLoop.playbackRate = 2;
+    } else if (clampedTension >= 0.4) {
+      this.currentTensionStage = "TAUT";
+      // BitCrusher bits is read-only in Tone.js; tension conveyed via playbackRate
+      if (this.tensionArpLoop) this.tensionArpLoop.playbackRate = 1;
+    } else {
+      this.currentTensionStage = "SLACK";
+    }
 
     if (clampedTension > this.lastTension && clampedTension > 0.05) {
       const now = this.ToneModule.now();
@@ -205,44 +233,30 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       }
     }
 
-    if (Math.abs(clampedTension - this.lastTension) < 0.005) {
-      return;
-    }
+    if (Math.abs(clampedTension - this.lastTension) < 0.005) return;
     this.lastTension = clampedTension;
 
     const now = this.ToneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
 
-    const targetBaseFreq =
-      presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
-    const targetModulationIndex =
-      synthConfig.DRONE_MOD_INDEX_BASE +
-      Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
-    const targetGain =
-      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN +
-          Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
-        : 0.0;
+    const targetBaseFreq = presets.DRONE_BASE_FREQ + Math.min(1.0, clampedTension) * presets.DRONE_BASE_FREQ;
+    const targetModulationIndex = synthConfig.DRONE_MOD_INDEX_BASE + Math.min(1.0, clampedTension) * synthConfig.DRONE_MOD_INDEX_SCALE;
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+      ? synthConfig.DRONE_MIN_GAIN + Math.min(1.0, clampedTension) * synthConfig.DRONE_MAX_GAIN_ADD
+      : 0.0;
 
     this.fmOsc.frequency.setTargetAtTime(targetBaseFreq, now, synthConfig.DRONE_PITCH_RAMP_TIME);
-    this.fmOsc.modulationIndex.setTargetAtTime(
-      targetModulationIndex,
-      now,
-      synthConfig.DRONE_PITCH_RAMP_TIME
-    );
+    this.fmOsc.modulationIndex.setTargetAtTime(targetModulationIndex, now, synthConfig.DRONE_PITCH_RAMP_TIME);
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
   public setLowHPStatus(active: boolean): void {
     if (!this.lfo || !this.heartbeatLoop) return;
-
     const targetMin = active ? 40 : 150;
     const targetMax = active ? 150 : 280;
-
     this.lfo.min = targetMin;
     this.lfo.max = targetMax;
-
     if (active) {
       this.heartbeatLoop.start();
     } else {
@@ -255,10 +269,9 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
     const now = this.ToneModule.now();
     const synthConfig = AUDIO_PRESETS.TENSION_SYNTH;
     const clampedTension = this.lastTension === -999.0 ? 0.0 : this.lastTension;
-    const targetGain =
-      clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
-        ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
-        : 0.0;
+    const targetGain = clampedTension > synthConfig.DRONE_GAIN_THRESHOLD
+      ? synthConfig.DRONE_MIN_GAIN + clampedTension * synthConfig.DRONE_MAX_GAIN_ADD
+      : 0.0;
     this.gainNode.gain.setTargetAtTime(targetGain, now, synthConfig.DRONE_GAIN_RAMP_TIME);
   }
 
@@ -268,7 +281,6 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   ): void {
     if (!this.fmOsc || !this.lfo || !this.lowpassFilter || !this.ToneModule) return;
     const now = this.ToneModule.now();
-
     if (audioParams) {
       this.fmOsc.frequency.setTargetAtTime(audioParams.baseFreq, now, 0.5);
       this.lfo.frequency.setTargetAtTime(audioParams.lfoHz, now, 0.5);
@@ -284,98 +296,96 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
   public fadeOutAndMute(): void {
     if (!this.gainNode || !this.ToneModule) return;
     const now = this.ToneModule.now();
-
     this.gainNode.gain.cancelScheduledValues(now);
     this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
-
     if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
     if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
-
     if (this.heartbeatLoop) this.heartbeatLoop.stop();
     this.lastTension = 0.0;
   }
 
   public resetToBaseline(): void {
-    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.ToneModule)
-      return;
+    if (!this.fmOsc || !this.gainNode || !this.lfo || !this.lowpassFilter || !this.ToneModule) return;
     const now = this.ToneModule.now();
     const presets = AUDIO_PRESETS.WEAVER;
-
     this.gainNode.gain.setValueAtTime(0.0, now);
     this.fmOsc.frequency.setValueAtTime(presets.DRONE_BASE_FREQ, now);
     this.fmOsc.harmonicity.setValueAtTime(presets.HARMONICITY_NORMAL, now);
     this.lfo.frequency.setValueAtTime(presets.LFO_NORMAL_HZ, now);
     this.setLowHPStatus(false);
+    this.currentTensionStage = "SLACK";
   }
 
   public triggerImpact(pitch: string | number, duration: string, time?: string | number): void {
     const now = performance.now();
     if (now - this.lastImpactTime < 40) return;
     this.lastImpactTime = now;
-
     try {
       if (this.impactSynth) {
         this.impactSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerNoise(duration: string, time?: string | number): void {
     const now = performance.now();
     if (now - this.lastNoiseTime < 40) return;
     this.lastNoiseTime = now;
-
     try {
       if (this.noiseSynth) {
         this.noiseSynth.triggerAttackRelease(duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerTick(pitch: string, duration: string, time?: number): void {
     const now = performance.now();
     if (now - this.lastTickTime < 25) return;
     this.lastTickTime = now;
-
     try {
       if (this.tickSynth) {
         this.tickSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerConfirm(pitch: string, duration: string, time?: number): void {
     const now = performance.now();
     if (now - this.lastConfirmTime < 40) return;
     this.lastConfirmTime = now;
-
     try {
       if (this.confirmSynth) {
         this.confirmSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public triggerAlarm(pitch: string, duration: string, time?: number): void {
     const now = performance.now();
     if (now - this.lastAlarmTime < 40) return;
     this.lastAlarmTime = now;
-
     try {
       if (this.tensionAlarmSynth) {
         this.tensionAlarmSynth.triggerAttackRelease(pitch, duration, time);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
+  }
+
+  public triggerFling(power: number): void {
+    if (!this.ToneModule || !this.flingSynth) return;
+    const now = this.ToneModule.now();
+    const baseFreq = 440 + (power * 880);
+    const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2];
+    notes.forEach((freq, i) => {
+      this.flingSynth?.triggerAttackRelease(freq, "32n", now + i * 0.04, 0.8);
+    });
+  }
+
+  public triggerWallStick(): void {
+    if (!this.ToneModule || !this.wallThudSynth || !this.wallNoiseSynth) return;
+    const now = this.ToneModule.now();
+    this.wallThudSynth.triggerAttackRelease("C2", "16n", now, 0.9);
+    this.wallNoiseSynth.triggerAttackRelease("32n", now, 0.7);
   }
 
   public setSfxPan(pan: number, time: number): void {
@@ -383,9 +393,7 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       if (this.sfxPanner) {
         this.sfxPanner.pan.setTargetAtTime(pan, time, 0.05);
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public setNoiseDecay(value: number): void {
@@ -393,9 +401,7 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       if (this.noiseSynth) {
         this.noiseSynth.envelope.decay = value;
       }
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 
   public dispose(): void {
@@ -413,13 +419,17 @@ export class AudioSynthesizerRegistry implements IAudioRegistry {
       this.ratchetSynth?.dispose();
       this.heartbeatSynth?.dispose();
       this.heartbeatLoop?.dispose();
+      this.tensionArpSynth?.dispose();
+      this.tensionArpLoop?.dispose();
+      this.tensionBitCrusher?.dispose();
+      this.flingSynth?.dispose();
+      this.wallThudSynth?.dispose();
+      this.wallNoiseSynth?.dispose();
       this.impactSynth?.dispose();
       this.noiseSynth?.dispose();
       this.tickSynth?.dispose();
       this.confirmSynth?.dispose();
       this.tensionAlarmSynth?.dispose();
-    } catch (e) {
-      void e;
-    }
+    } catch (e) { void e; }
   }
 }
