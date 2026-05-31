@@ -1,5 +1,5 @@
 import { ISystem } from "../../contracts/ISystem";
-import { SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { SubscriptionTracker, MultiEventListener } from "../../core/utils/EngineUtils";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { IEventBroker } from "../../contracts/ICore";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -19,7 +19,7 @@ export class AudioDirectorSystem implements ISystem {
 
   private broker: IEventBroker;
   private _tracker = new SubscriptionTracker();
-  private gestureTriggerRef: (() => void) | null = null;
+  private gestureListener = new MultiEventListener();
 
   private hitComboCount = 0;
   private lastHitTime = 0;
@@ -31,15 +31,22 @@ export class AudioDirectorSystem implements ISystem {
   constructor(private context: SystemContext) {
     this.broker = this.context.broker;
 
-    this.gestureTriggerRef = (): void => {
+    this.gestureListener.add(window, "click", () => {
       this.bootAudioEngine();
       this.removeGestureListeners();
-    };
-
-    window.addEventListener("click", this.gestureTriggerRef);
-    window.addEventListener("keydown", this.gestureTriggerRef);
-    window.addEventListener("touchend", this.gestureTriggerRef);
-    window.addEventListener("mousedown", this.gestureTriggerRef);
+    });
+    this.gestureListener.add(window, "keydown", () => {
+      this.bootAudioEngine();
+      this.removeGestureListeners();
+    });
+    this.gestureListener.add(window, "touchend", () => {
+      this.bootAudioEngine();
+      this.removeGestureListeners();
+    });
+    this.gestureListener.add(window, "mousedown", () => {
+      this.bootAudioEngine();
+      this.removeGestureListeners();
+    });
   }
 
   public init(): void {
@@ -273,13 +280,7 @@ export class AudioDirectorSystem implements ISystem {
   }
 
   private removeGestureListeners(): void {
-    if (this.gestureTriggerRef) {
-      window.removeEventListener("click", this.gestureTriggerRef);
-      window.removeEventListener("keydown", this.gestureTriggerRef);
-      window.removeEventListener("touchend", this.gestureTriggerRef);
-      window.removeEventListener("mousedown", this.gestureTriggerRef);
-      this.gestureTriggerRef = null;
-    }
+    this.gestureListener.removeAll();
   }
 
   private bootAudioEngine(): void {

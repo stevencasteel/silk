@@ -34,6 +34,26 @@ export class SystemManager {
     }
   }
 
+  private executeWithProfiling<T extends ISystem>(
+    system: T,
+    operation: (system: T) => void,
+    phaseSuffix: string
+  ): void {
+    const isProfiling = this.profiler.isEnabled;
+    const start = isProfiling ? performance.now() : 0;
+    try {
+      operation(system);
+    } catch (err) {
+      console.error(`System ${this.systemNames.get(system)} crashed during ${phaseSuffix}:`, err);
+    }
+    if (isProfiling) {
+      this.profiler.recordSystem(
+        this.systemNames.get(system)! + phaseSuffix,
+        performance.now() - start
+      );
+    }
+  }
+
   public updateAll(dt: number): void {
     const isProfiling = this.profiler.isEnabled;
     if (isProfiling) {
@@ -45,15 +65,7 @@ export class SystemManager {
       const system = this.systems[i];
 
       if (isUpdateable(system)) {
-        const start = isProfiling ? performance.now() : 0;
-        try {
-          system.update(dt);
-        } catch (err) {
-          console.error(`System ${this.systemNames.get(system)} crashed during update:`, err);
-        }
-        if (isProfiling) {
-          this.profiler.recordSystem(this.systemNames.get(system)!, performance.now() - start);
-        }
+        this.executeWithProfiling(system, (s) => s.update(dt), "");
       }
     }
   }
@@ -63,18 +75,7 @@ export class SystemManager {
     for (let i = 0; i < this.systems.length; i++) {
       const system = this.systems[i];
       if (isRenderable(system)) {
-        const start = isProfiling ? performance.now() : 0;
-        try {
-          system.render(alpha);
-        } catch (err) {
-          console.error(`System ${this.systemNames.get(system)} crashed during render:`, err);
-        }
-        if (isProfiling) {
-          this.profiler.recordSystem(
-            this.systemNames.get(system)! + " (Render)",
-            performance.now() - start
-          );
-        }
+        this.executeWithProfiling(system, (s) => s.render(alpha), " (Render)");
       }
     }
     if (isProfiling) {

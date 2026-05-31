@@ -27,18 +27,11 @@ function hasMethod(system: unknown, methodName: string): boolean {
   return typeof candidate[methodName] === "function";
 }
 
-export function isInitializable(system: unknown): system is IInitializable {
-  return hasMethod(system, "init");
+function createTypeGuard<T>(methodName: string): (system: unknown) => system is T {
+  return (system: unknown): system is T => hasMethod(system, methodName);
 }
 
-export function isUpdateable(system: unknown): system is IUpdateable {
-  return hasMethod(system, "update");
-}
-
-export function isRenderable(system: unknown): system is IRenderable {
-  return hasMethod(system, "render");
-}
-
-export function isDisposable(system: unknown): system is IDisposable {
-  return hasMethod(system, "dispose");
-}
+export const isInitializable = createTypeGuard<IInitializable>("init");
+export const isUpdateable = createTypeGuard<IUpdateable>("update");
+export const isRenderable = createTypeGuard<IRenderable>("render");
+export const isDisposable = createTypeGuard<IDisposable>("dispose");

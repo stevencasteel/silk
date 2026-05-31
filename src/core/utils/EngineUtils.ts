@@ -23,6 +23,22 @@ export class SubscriptionTracker {
   }
 }
 
+export class MultiEventListener {
+  private listeners: Array<{ target: EventTarget; event: string; handler: EventListener }> = [];
+
+  public add(target: EventTarget, event: string, handler: EventListener): void {
+    target.addEventListener(event, handler);
+    this.listeners.push({ target, event, handler });
+  }
+
+  public removeAll(): void {
+    for (const { target, event, handler } of this.listeners) {
+      target.removeEventListener(event, handler);
+    }
+    this.listeners.length = 0;
+  }
+}
+
 export interface ProceduralTextureConfig {
   resolution: number;
   noiseScale: number;

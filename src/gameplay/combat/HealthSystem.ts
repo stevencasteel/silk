@@ -70,33 +70,44 @@ export class HealthSystem implements ISystem {
         });
       }
 
-      this.context.broker.publish(GameEvent.PLAYER_DAMAGED, {
-        amount: cmd.amount,
-        source: cmd.source
-      });
-      this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, {
-        hp: health.current,
-        maxHp: health.max
-      });
-
-      if (health.current <= 0) {
-        this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
-      }
+      this.publishDamageEvents(
+        GameEvent.PLAYER_DAMAGED,
+        GameEvent.PLAYER_HEALTH_CHANGED,
+        GameEvent.PLAYER_DIED,
+        cmd.amount,
+        cmd.source,
+        health.current,
+        health.max
+      );
     } else {
       health.current = Math.max(0, health.current - cmd.amount);
 
-      this.context.broker.publish(GameEvent.WEAVER_DAMAGED, {
-        amount: cmd.amount,
-        source: cmd.source
-      });
-      this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
-        hp: health.current,
-        maxHp: health.max
-      });
+      this.publishDamageEvents(
+        GameEvent.WEAVER_DAMAGED,
+        GameEvent.WEAVER_HEALTH_CHANGED,
+        GameEvent.WEAVER_DIED,
+        cmd.amount,
+        cmd.source,
+        health.current,
+        health.max
+      );
+    }
+  }
 
-      if (health.current <= 0) {
-        this.context.broker.publish(GameEvent.WEAVER_DIED, undefined);
-      }
+  private publishDamageEvents(
+    damagedEvent: GameEvent,
+    healthChangedEvent: GameEvent,
+    diedEvent: GameEvent,
+    amount: number,
+    source: string,
+    currentHp: number,
+    maxHp: number
+  ): void {
+    this.context.broker.publish(damagedEvent, { amount, source });
+    this.context.broker.publish(healthChangedEvent, { hp: currentHp, maxHp });
+
+    if (currentHp <= 0) {
+      this.context.broker.publish(diedEvent, undefined);
     }
   }
 
