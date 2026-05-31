@@ -49,7 +49,7 @@ export class HavokPhysicsSystem implements ISystem {
           let havokInstance;
           try {
             havokInstance = await withTimeout(
-              HavokPhysics({ locateFile: () => "/HavokPhysics.wasm" }),
+              HavokPhysics({ locateFile: () => "HavokPhysics.wasm" }),
               HAVOK_TIMEOUT_MS,
               "Local HavokPhysics.wasm timed out"
             );

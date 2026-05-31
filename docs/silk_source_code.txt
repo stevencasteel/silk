@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 4:10:00 PM
+ [SYSTEM] Generated: 5/31/2026, 4:20:51 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1156,7 +1156,6 @@ export default function App() {
         <div id="debug-telemetry-root" />
         <div className="viewport-container">
           <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
-          <canvas id="confetti-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 82 }} />
           <div className="vignette-overlay" />
           <ErrorBoundary>
             <HudOverlay />
@@ -13252,7 +13251,7 @@ export class HavokPhysicsSystem implements ISystem {
           let havokInstance;
           try {
             havokInstance = await withTimeout(
-              HavokPhysics({ locateFile: () => "/HavokPhysics.wasm" }),
+              HavokPhysics({ locateFile: () => "HavokPhysics.wasm" }),
               HAVOK_TIMEOUT_MS,
               "Local HavokPhysics.wasm timed out"
             );
@@ -14594,30 +14593,37 @@ export const HudOverlay: React.FC = () => {
             colors: ["#10b981", "#34d399", "#a7f3d0", "#ffffff"]
           });
         } else if (overlayTitle === "DEFEATED") {
-          // Constant dense rainfall of charcoal/red embers descending through entire cabinet, behind modal
+          let laneIndex = 0;
+          const NUM_LANES = 8;
+          
+          // Sequenced lane rainfall for perfectly uniform horizontal distribution
           const intervalId = setInterval(() => {
-            myConfetti({
-              particleCount: 4, // Raised particle count per tick
-              angle: 270 + (Math.random() - 0.5) * 12, // Facing downwards
-              spread: 30,
-              startVelocity: 14 + Math.random() * 12, // Rapid descent speed
-              decay: 0.95,
-              gravity: 0.9,
-              scalar: 0.65 + Math.random() * 0.35, // Varied particle scaling
-              origin: { 
-                y: 0.0, // Emerge from top edge of cabinet play area
-                x: Math.random() // Rain across entire width of cabinet
-              },
-              colors: [
-                "#dc2626", // High-contrast Red
-                "#991b1b", // Deep Crimson
-                "#7f1d1d", // Dark Burgundy
-                "#71717a", // Zinc-500 (High-visibility light grey)
-                "#52525b", // Zinc-600 (High-visibility medium grey)
-                "#3f3f46"  // Zinc-700 (High-visibility dark charcoal)
-              ]
-            });
-          }, 32); // Faster ticker interval for constant heavy particle density
+            for (let k = 0; k < 3; k++) {
+              const currentLane = (laneIndex + k * 3) % NUM_LANES;
+              const xCoord = (currentLane / (NUM_LANES - 1)) * 0.9 + 0.05 + (Math.random() - 0.5) * 0.05;
+              
+              myConfetti({
+                particleCount: 1,
+                angle: 270 + (Math.random() - 0.5) * 10, // Pointing straight down with minimal sway
+                spread: 15,
+                startVelocity: 14 + Math.random() * 8, // Direct gravity acceleration downward
+                decay: 0.95,
+                gravity: 0.85,
+                scalar: 0.65 + Math.random() * 0.3, // Varied soot sizes
+                origin: { 
+                  y: 0.0, // Emerge from top of cabinet play area
+                  x: Math.max(0.01, Math.min(0.99, xCoord)) 
+                },
+                colors: [
+                  "#dc2626", // High-contrast True Red
+                  "#991b1b", // Deep Burgundy
+                  "#374151", // Gray-700 (High-visibility dark iron grey - never shines white)
+                  "#27272a"  // Zinc-800 (Charcoal black - never shines white)
+                ]
+              });
+            }
+            laneIndex = (laneIndex + 1) % NUM_LANES;
+          }, 24); // High frequency interval for dense, continuous streaming rainfall
 
           return () => {
             clearInterval(intervalId);
@@ -15238,14 +15244,16 @@ export const HudOverlay: React.FC = () => {
 
       <AnimatePresence>
         {overlayVisible && (
-          <div className="overlay-root backdrop-wipe-active pointer-events-auto">
+          <div className="overlay-root backdrop-wipe-active pointer-events-auto overflow-hidden">
+            {/* Confetti canvas layered above the dark blur but below the card */}
+            <canvas id="confetti-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }} />
             <motion.div
               layout
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", stiffness: 220, damping: 26 }}
-              className={`overlay-modal ${overlayTitle === "DEFEATED" ? "defeat-border" : "victory-border"}`}
+              className={`overlay-modal relative z-10 ${overlayTitle === "DEFEATED" ? "defeat-border" : "victory-border"}`}
             >
               {staggerPhase >= 1 && (
                 <motion.div
@@ -18402,26 +18410,37 @@ export class RenderSystem implements ISystem {
     await arenaGeo.generateElevatorShaft();
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "Compiling materials and shaders (this may take a moment)..."
+      status: "Compiling shaders (this may take a moment)..."
     });
 
-    // Manually trigger a render frame synchronously. This forces the WebGL context
-    // to compile materials and bind procedural textures immediately.
-    if (this.engine && this.scene) {
-      this.engine.beginFrame();
-      this.scene.render();
-      this.engine.endFrame();
+    const compilePromises: Promise<void>[] = [];
+    this.scene!.materials.forEach((material) => {
+      const activeMeshes = this.scene!.meshes.filter((m) => m.material === material);
+      activeMeshes.forEach((mesh) => {
+        if (typeof material.forceCompilationAsync === "function") {
+          compilePromises.push(material.forceCompilationAsync(mesh));
+        }
+      });
+    });
+
+    if (compilePromises.length > 0) {
+      await Promise.all(compilePromises).catch((err) => {
+        console.warn("RenderSystem: Pre-compilation error:", err);
+      });
     }
 
-    // Race the ready check with a 1.2-second timeout to prevent loading locks on slower contexts
     await Promise.race([
       this.scene!.whenReadyAsync(),
-      new Promise<void>((resolve) => setTimeout(resolve, 1200))
-    ]);
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("Shader compilation ready timeout")), 15000)
+      )
+    ]).catch((err) => {
+      console.warn("RenderSystem: Ready check timeout or error:", err);
+    });
 
     if (this.engine && this.scene) {
       this.engine.beginFrame();
-      this.scene.render();
+      this.scene!.render();
       this.engine.endFrame();
     }
 

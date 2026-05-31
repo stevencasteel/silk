@@ -186,26 +186,37 @@ export class RenderSystem implements ISystem {
     await arenaGeo.generateElevatorShaft();
 
     this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-      status: "Compiling materials and shaders (this may take a moment)..."
+      status: "Compiling shaders (this may take a moment)..."
     });
 
-    // Manually trigger a render frame synchronously. This forces the WebGL context
-    // to compile materials and bind procedural textures immediately.
-    if (this.engine && this.scene) {
-      this.engine.beginFrame();
-      this.scene.render();
-      this.engine.endFrame();
+    const compilePromises: Promise<void>[] = [];
+    this.scene!.materials.forEach((material) => {
+      const activeMeshes = this.scene!.meshes.filter((m) => m.material === material);
+      activeMeshes.forEach((mesh) => {
+        if (typeof material.forceCompilationAsync === "function") {
+          compilePromises.push(material.forceCompilationAsync(mesh));
+        }
+      });
+    });
+
+    if (compilePromises.length > 0) {
+      await Promise.all(compilePromises).catch((err) => {
+        console.warn("RenderSystem: Pre-compilation error:", err);
+      });
     }
 
-    // Race the ready check with a 1.2-second timeout to prevent loading locks on slower contexts
     await Promise.race([
       this.scene!.whenReadyAsync(),
-      new Promise<void>((resolve) => setTimeout(resolve, 1200))
-    ]);
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("Shader compilation ready timeout")), 15000)
+      )
+    ]).catch((err) => {
+      console.warn("RenderSystem: Ready check timeout or error:", err);
+    });
 
     if (this.engine && this.scene) {
       this.engine.beginFrame();
-      this.scene.render();
+      this.scene!.render();
       this.engine.endFrame();
     }
 
