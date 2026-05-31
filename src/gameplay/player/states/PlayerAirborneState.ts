@@ -6,7 +6,7 @@ import {
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
-  PlayerCosmeticComponent
+  ActorCosmeticComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
@@ -39,7 +39,7 @@ export class PlayerAirborneState implements IPlayerState {
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
     const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
 
-    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (cosmetic) {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);

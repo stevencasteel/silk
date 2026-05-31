@@ -3,7 +3,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  TransformComponent, PlayerCosmeticComponent,
+  TransformComponent, ActorCosmeticComponent,
   KinematicVelocityComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -19,7 +19,7 @@ export class PlayerAnimationSystem implements ISystem {
       .get<TransformComponent>("transform")
       .get(this.context.refs.player);
     const cosmetic = this.context.stores
-      .get<PlayerCosmeticComponent>("playerCosmetic")
+      .get<ActorCosmeticComponent>("cosmetic")
       .get(this.context.refs.player);
 
     if (!pTrans || !cosmetic) return;
@@ -43,9 +43,9 @@ export class PlayerAnimationSystem implements ISystem {
       const gTarget = 0.15 + (0.85 * tColor);
       const bTarget = 0.4 + (0.6 * tColor);
       
-      cosmetic.emissiveR += (rTarget - cosmetic.emissiveR) * tColor;
-      cosmetic.emissiveG += (gTarget - cosmetic.emissiveG) * tColor;
-      cosmetic.emissiveB += (bTarget - cosmetic.emissiveB) * tColor;
+      cosmetic.emissiveR = (cosmetic.emissiveR ?? 0.1) + (rTarget - (cosmetic.emissiveR ?? 0.1)) * tColor;
+      cosmetic.emissiveG = (cosmetic.emissiveG ?? 0.0) + (gTarget - (cosmetic.emissiveG ?? 0.0)) * tColor;
+      cosmetic.emissiveB = (cosmetic.emissiveB ?? 0.2) + (bTarget - (cosmetic.emissiveB ?? 0.2)) * tColor;
     }
 
     pTrans.prevScaleZ = pTrans.scaleZ!;
@@ -64,7 +64,6 @@ export class PlayerAnimationSystem implements ISystem {
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
 
-    // Solve vertical landing spring-mass-damper offset
     const currentOffset = cosmetic.visualOffsetY ?? 0;
     const offsetVel = cosmetic.visualOffsetVelocityY ?? 0;
     const springResult = solveOffsetSpring(

@@ -1,9 +1,7 @@
-export interface PlayerTag {
-  readonly tag?: "player";
-}
+export type ActorTagType = "player" | "weaver" | "healthBug";
 
-export interface WeaverTag {
-  readonly tag?: "weaver";
+export interface TagComponent {
+  type: ActorTagType;
 }
 
 export interface InputIntentComponent {
@@ -126,8 +124,4 @@ export interface HealthBugComponent {
   spikesDisarmed: boolean;
   rotorAngle: number;
   pauseThresholdY: number;
-}
-
-export interface HealthBugTag {
-  readonly tag?: "healthBug";
 }

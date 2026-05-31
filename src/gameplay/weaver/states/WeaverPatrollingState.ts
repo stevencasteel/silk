@@ -10,7 +10,7 @@ import {
   TransformComponent,
   HealthComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent
 } from "../../../core/ecs/Components";
 
@@ -52,7 +52,7 @@ export class WeaverPatrollingState implements IWeaverState {
     if (!aiComp) return null;
 
     const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
-    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
     if (cosmetic && wVel) {
       const speed = Math.abs(wVel.x);

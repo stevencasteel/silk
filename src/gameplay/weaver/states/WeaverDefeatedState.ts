@@ -2,7 +2,7 @@ import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { VISUAL_JUICE_CONFIG, WEAVER_AI_TUNING } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { WeaverAIComponent, WeaverCosmeticComponent } from "../../../core/ecs/Components";
+import { WeaverAIComponent, ActorCosmeticComponent } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverDefeatedState implements IWeaverState {
@@ -17,7 +17,7 @@ export class WeaverDefeatedState implements IWeaverState {
       ai.desiredVelocityX = 0;
       ai.desiredVelocityY = 0;
 
-      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
       if (cosmetic) {
         cosmetic.emissiveHue = ai.hue;

@@ -5,8 +5,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  PlayerCosmeticComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   WeaverAIComponent,
   TransformComponent
 } from "../../core/ecs/Components";
@@ -36,7 +35,7 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
     const transformStore = this.context.stores.get<TransformComponent>("transform");
 
     if (wAI) {
@@ -46,10 +45,11 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    for (const [id, cosmetic] of cosmeticStore.entries()) {
-      const wTrans = transformStore.get(id);
-      if (!wTrans) continue;
+    const weaverId = this.context.refs.weaver;
+    const cosmetic = cosmetics.get(weaverId);
+    const wTrans = transformStore.get(weaverId);
 
+    if (cosmetic && wTrans) {
       wTrans.prevScaleX = wTrans.scaleX!;
       wTrans.prevScaleY = wTrans.scaleY!;
       wTrans.prevScaleZ = wTrans.scaleZ!;
@@ -83,7 +83,7 @@ export class VisualStateDressingSystem implements ISystem {
 
       const currentWobble = cosmetic.currentWobble ?? 0;
       const wobbleVel = cosmetic.wobbleVel ?? 0;
-      const wobbleSpring = solveSpringDamper(currentWobble, cosmetic.wobbleAngle, wobbleVel, dt, cosmetic.springStiffness * 0.8, cosmetic.springDamping);
+      const wobbleSpring = solveSpringDamper(currentWobble, cosmetic.wobbleAngle ?? 0, wobbleVel, dt, cosmetic.springStiffness * 0.8, cosmetic.springDamping);
       cosmetic.currentWobble = wobbleSpring.value;
       cosmetic.wobbleVel = wobbleSpring.velocity;
 
@@ -101,140 +101,142 @@ export class VisualStateDressingSystem implements ISystem {
   }
 
   public render(): void {
-    // Dynamic color dressing is calculated inside update loop to utilize frame-rate independent delta times
   }
 
   private updateAestheticDressing(dt: number): void {
-    const pCosmetics = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
-    const wCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
-      .get(this.context.refs.weaver);
-    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+    const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
+    const pId = this.context.refs.player;
+    const wId = this.context.refs.weaver;
 
-    for (const [id, pCosmetic] of pCosmetics.entries()) {
-      const pNode = this.context.visualQuery.getTransformNode(id);
-      if (!(pNode instanceof BABYLON.AbstractMesh)) continue;
-
-      const mesh = pNode;
-      const pbrMaterials: BABYLON.PBRMaterial[] = [];
-      if (mesh.material instanceof BABYLON.PBRMaterial) {
-        pbrMaterials.push(mesh.material);
-      }
-      mesh.getChildMeshes().forEach((child) => {
-        if (
-          child.material instanceof BABYLON.PBRMaterial &&
-          !pbrMaterials.includes(child.material)
-        ) {
-          pbrMaterials.push(child.material);
+    const pCosmetic = cosmetics.get(pId);
+    if (pCosmetic) {
+      const pNode = this.context.visualQuery.getTransformNode(pId);
+      if (pNode instanceof BABYLON.AbstractMesh) {
+        const pbrMaterials: BABYLON.PBRMaterial[] = [];
+        if (pNode.material instanceof BABYLON.PBRMaterial) {
+          pbrMaterials.push(pNode.material);
         }
-      });
+        pNode.getChildMeshes().forEach((child) => {
+          if (
+            child.material instanceof BABYLON.PBRMaterial &&
+            !pbrMaterials.includes(child.material)
+          ) {
+            pbrMaterials.push(child.material);
+          }
+        });
 
-      pbrMaterials.forEach((mat) => {
-        this._targetEmissiveColor.set(
-          pCosmetic.emissiveR,
-          pCosmetic.emissiveG,
-          pCosmetic.emissiveB
-        );
-        const playerLerpFactor = 1.0 - Math.exp(-dt * 12.0);
-        BABYLON.Color3.LerpToRef(
-          this.currentEmissiveColor,
-          this._targetEmissiveColor,
-          playerLerpFactor,
-          this.currentEmissiveColor
-        );
+        const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+        pbrMaterials.forEach((mat) => {
+          this._targetEmissiveColor.set(
+            pCosmetic.emissiveR ?? 0.1,
+            pCosmetic.emissiveG ?? 0.0,
+            pCosmetic.emissiveB ?? 0.2
+          );
+          const playerLerpFactor = 1.0 - Math.exp(-dt * 12.0);
+          BABYLON.Color3.LerpToRef(
+            this.currentEmissiveColor,
+            this._targetEmissiveColor,
+            playerLerpFactor,
+            this.currentEmissiveColor
+          );
 
-        mat.emissiveColor.set(
-          this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
-          this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
-          this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
-        );
-      });
+          mat.emissiveColor.set(
+            this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
+            this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
+            this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
+          );
+        });
+      }
     }
 
-    for (const [id, wCosmetic] of wCosmetics.entries()) {
-      const wNode = this.context.visualQuery.getTransformNode(id);
-      if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
+    const wCosmetic = cosmetics.get(wId);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(wId);
 
-      const mesh = wNode;
-      const pbrMaterials: BABYLON.PBRMaterial[] = [];
-      if (mesh.material instanceof BABYLON.PBRMaterial) {
-        pbrMaterials.push(mesh.material);
-      }
-      mesh.getChildMeshes().forEach((child) => {
-        if (
-          child.material instanceof BABYLON.PBRMaterial &&
-          !pbrMaterials.includes(child.material)
-        ) {
-          pbrMaterials.push(child.material);
+    if (wCosmetic) {
+      const wNode = this.context.visualQuery.getTransformNode(wId);
+      if (wNode instanceof BABYLON.AbstractMesh) {
+        const pbrMaterials: BABYLON.PBRMaterial[] = [];
+        if (wNode.material instanceof BABYLON.PBRMaterial) {
+          pbrMaterials.push(wNode.material);
         }
-      });
-
-      const pulse =
-        emissive.WEAVER_EMISSIVE_PULSE_BASE +
-        Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
-
-      const isYellowTelegraph = wCosmetic.emissiveHue === "#dffe00";
-      const cachedColor = ColorCache.getColor(wCosmetic.emissiveHue);
-
-      pbrMaterials.forEach((pbrMat) => {
-        let matColor = cachedColor;
-
-        if (isYellowTelegraph) {
-          if (pbrMat.name === "carapaceMat" || pbrMat.name === "legMat") {
-            matColor = ColorCache.getColor("#121212");
+        wNode.getChildMeshes().forEach((child) => {
+          if (
+            child.material instanceof BABYLON.PBRMaterial &&
+            !pbrMaterials.includes(child.material)
+          ) {
+            pbrMaterials.push(child.material);
           }
-        }
+        });
 
-        let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
-        if (pbrMat.name === "legMat") {
-          scale *= 0.24;
-        }
+        const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+        const pulse =
+          emissive.WEAVER_EMISSIVE_PULSE_BASE +
+          Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
-        pbrMat.emissiveColor.set(
-          matColor.r * scale + pulse * 0.12,
-          matColor.g * scale,
-          matColor.b * scale
-        );
+        const isYellowTelegraph = wCosmetic.emissiveHue === "#dffe00";
+        const cachedColor = ColorCache.getColor(wCosmetic.emissiveHue ?? "#121212");
 
-        if (wAI) {
-          const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
-            ._shearPlugin;
-          if (shearPlugin) {
-            shearPlugin.shearIntensity = wAI.damageShearIntensity;
-            shearPlugin.shearTime = wAI.damageShearTime;
+        pbrMaterials.forEach((pbrMat) => {
+          let matColor = cachedColor;
+
+          if (isYellowTelegraph) {
+            if (pbrMat.name === "carapaceMat" || pbrMat.name === "legMat") {
+              matColor = ColorCache.getColor("#121212");
+            }
           }
-        }
-      });
 
-      let parts = mesh.metadata?.cachedBodyParts as CachedBodyParts | undefined;
-      if (!parts) {
-        const abdomen = mesh.getChildren(
-          (node) => node.name === "weaver_abdomen",
-          false
-        )[0] as BABYLON.TransformNode;
-        const cephalothorax = mesh.getChildren(
-          (node) => node.name === "weaver_cephalothorax",
-          false
-        )[0] as BABYLON.TransformNode;
-        const head = mesh.getChildren(
-          (node) => node.name === "weaver_head",
-          false
-        )[0] as BABYLON.TransformNode;
+          let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
+          if (pbrMat.name === "legMat") {
+            scale *= 0.24;
+          }
 
-        parts = { abdomen, cephalothorax, head };
-        if (!mesh.metadata) {
-          mesh.metadata = {};
+          pbrMat.emissiveColor.set(
+            matColor.r * scale + pulse * 0.12,
+            matColor.g * scale,
+            matColor.b * scale
+          );
+
+          if (wAI) {
+            const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+              ._shearPlugin;
+            if (shearPlugin) {
+              shearPlugin.shearIntensity = wAI.damageShearIntensity;
+              shearPlugin.shearTime = wAI.damageShearTime;
+            }
+          }
+        });
+
+        let parts = wNode.metadata?.cachedBodyParts as CachedBodyParts | undefined;
+        if (!parts) {
+          const abdomen = wNode.getChildren(
+            (node) => node.name === "weaver_abdomen",
+            false
+          )[0] as BABYLON.TransformNode;
+          const cephalothorax = wNode.getChildren(
+            (node) => node.name === "weaver_cephalothorax",
+            false
+          )[0] as BABYLON.TransformNode;
+          const head = wNode.getChildren(
+            (node) => node.name === "weaver_head",
+            false
+          )[0] as BABYLON.TransformNode;
+
+          parts = { abdomen, cephalothorax, head };
+          if (!wNode.metadata) {
+            wNode.metadata = {};
+          }
+          wNode.metadata.cachedBodyParts = parts;
         }
-        mesh.metadata.cachedBodyParts = parts;
+
+        const bodySway = Math.sin(this.visualClock * 4.0) * 0.05 * 0.16;
+        const bodyBob = Math.cos(this.visualClock * 8.0) * 1.5 * 0.008;
+
+        this.animateBodyPart(parts.abdomen, bodySway, bodyBob * 0.55, 0.55);
+        this.animateBodyPart(parts.cephalothorax, -bodySway * 0.45, bodyBob * 0.35, 0.28);
+        this.animateBodyPart(parts.head, -bodySway * 0.7, bodyBob * 0.45, 0.4);
       }
-
-      const bodySway = Math.sin(this.visualClock * 4.0) * 0.05 * 0.16;
-      const bodyBob = Math.cos(this.visualClock * 8.0) * 1.5 * 0.008;
-
-      this.animateBodyPart(parts.abdomen, bodySway, bodyBob * 0.55, 0.55);
-      this.animateBodyPart(parts.cephalothorax, -bodySway * 0.45, bodyBob * 0.35, 0.28);
-      this.animateBodyPart(parts.head, -bodySway * 0.7, bodyBob * 0.45, 0.4);
     }
   }
 

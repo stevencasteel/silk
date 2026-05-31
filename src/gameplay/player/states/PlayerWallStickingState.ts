@@ -8,7 +8,7 @@ import {
   InputIntentComponent,
   StickySurfaceComponent,
   TransformComponent,
-  PlayerCosmeticComponent,
+  ActorCosmeticComponent,
   ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -47,7 +47,7 @@ export class PlayerWallStickingState implements IPlayerState {
       return "AIRBORNE";
     }
 
-    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (cosmetic) {
       const tuning = GAMEPLAY_TUNING.PLAYER;

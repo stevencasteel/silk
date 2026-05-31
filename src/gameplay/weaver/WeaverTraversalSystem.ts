@@ -9,7 +9,7 @@ import {
   WeaverAIComponent,
   HealthComponent,
   WeaverSweepComponent,
-  WeaverCosmeticComponent
+  ActorCosmeticComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -220,7 +220,7 @@ export class WeaverTraversalSystem implements ISystem {
       }
     }
 
-    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmeticStore = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(this.context.refs.weaver) : undefined;
     if (cosmetic && ai) {
       if (ai.state !== "DEFEATED") {

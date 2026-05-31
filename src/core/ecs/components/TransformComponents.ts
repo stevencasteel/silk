@@ -24,38 +24,29 @@ export interface TransformComponent {
   scaleVelZ?: number;
 }
 
-export interface PlayerCosmeticComponent {
-  emissiveR: number;
-  emissiveG: number;
-  emissiveB: number;
+export interface ActorCosmeticComponent {
+  emissiveR?: number;
+  emissiveG?: number;
+  emissiveB?: number;
+  emissiveHue?: string;
   targetScaleX: number;
   targetScaleY: number;
   targetScaleZ: number;
   springStiffness: number;
   springDamping: number;
   rotationAngle: number;
-  slerpFactor: number;
+  slerpFactor?: number;
   rotationVel?: number;
   currentRotation?: number;
   visualOffsetY?: number;
   visualOffsetVelocityY?: number;
-}
-
-export interface WeaverCosmeticComponent {
-  emissiveHue: string;
-  targetScaleX: number;
-  targetScaleY: number;
-  targetScaleZ: number;
-  springStiffness: number;
-  springDamping: number;
-  wobbleAngle: number;
-  rotationAngle: number;
+  wobbleAngle?: number;
   currentWobble?: number;
   wobbleVel?: number;
   currentRoll?: number;
   rollVel?: number;
-  rotationSpeed: number;
-  gaitAmplitude: number;
-  gaitFrequency: number;
-  gaitTuck: number;
+  rotationSpeed?: number;
+  gaitAmplitude?: number;
+  gaitFrequency?: number;
+  gaitTuck?: number;
 }

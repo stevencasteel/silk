@@ -4,7 +4,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   WallBugComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent,
   WeaverAIComponent
 } from "../../core/ecs/Components";
@@ -32,17 +32,20 @@ export class LegJointAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const weaverCosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
     const velocityStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
     const aiStore = this.context.stores.get<WeaverAIComponent>("weaverAI");
 
-    let firstCosmetic: WeaverCosmeticComponent | undefined;
+    let firstCosmetic: ActorCosmeticComponent | undefined;
     for (const [, cosmetic] of weaverCosmetics.entries()) {
       firstCosmetic = cosmetic;
       break;
     }
 
     if (firstCosmetic) {
+      const gaitFreqVal = firstCosmetic.gaitFrequency ?? 8.0;
+      const gaitAmpVal = firstCosmetic.gaitAmplitude ?? 0.12;
+      const gaitTuckVal = firstCosmetic.gaitTuck ?? 0.0;
       const wVel = velocityStore.get(this.context.refs.weaver);
       const ai = aiStore.get(this.context.refs.weaver);
 
@@ -57,10 +60,10 @@ export class LegJointAnimationSystem implements ISystem {
       const TRACTION_RATIO = 0.135;
 
       let dynamicFreq = 0.0;
-      if (firstCosmetic.gaitFrequency > 0.0) {
-        dynamicFreq = firstCosmetic.gaitFrequency;
-      } else if (firstCosmetic.gaitAmplitude > 0.001) {
-        dynamicFreq = (relativeSpeed * TRACTION_RATIO) / firstCosmetic.gaitAmplitude;
+      if (gaitFreqVal > 0.0) {
+        dynamicFreq = gaitFreqVal;
+      } else if (gaitAmpVal > 0.001) {
+        dynamicFreq = (relativeSpeed * TRACTION_RATIO) / gaitAmpVal;
       }
 
       if (ai && ai.state === "DEFEATED") {
@@ -68,9 +71,9 @@ export class LegJointAnimationSystem implements ISystem {
       }
 
       const blend = 1.0 - Math.exp(-dt * 8.0);
-      this.gaitAmp += (firstCosmetic.gaitAmplitude - this.gaitAmp) * blend;
+      this.gaitAmp += (gaitAmpVal - this.gaitAmp) * blend;
       this.gaitFreq += (dynamicFreq - this.gaitFreq) * blend;
-      this.gaitTuck += (firstCosmetic.gaitTuck - this.gaitTuck) * blend;
+      this.gaitTuck += (gaitTuckVal - this.gaitTuck) * blend;
     }
 
     this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);
@@ -150,7 +153,7 @@ export class LegJointAnimationSystem implements ISystem {
   }
 
   private dressWeaverLegs(): void {
-    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const weaverCosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
 
     for (const [id] of weaverCosmetics.entries()) {
       const wNode = this.context.visualQuery.getTransformNode(id);

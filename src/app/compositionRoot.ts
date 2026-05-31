@@ -11,8 +11,7 @@ import { RuntimeState } from "../core/engine/RuntimeState";
 import {
   HitStopComponent,
   CollisionResponseComponent,
-  PlayerCosmeticComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -20,8 +19,7 @@ import {
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
-  PlayerTag,
-  WeaverTag,
+  TagComponent,
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
@@ -35,8 +33,7 @@ import {
   HurtboxComponent,
   ParticleRequestComponent,
   BoundaryConstraintComponent,
-  HealthBugComponent,
-  HealthBugTag
+  HealthBugComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -118,16 +115,13 @@ export class CompositionRoot {
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
     const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
     const healthBugs = new ComponentStore<HealthBugComponent>();
-    const healthBugTags = new ComponentStore<HealthBugTag>();
     const hitStops = new ComponentStore<HitStopComponent>();
 
-    const playerTags = new ComponentStore<PlayerTag>();
-    const weaverTags = new ComponentStore<WeaverTag>();
-    const refs = new EntityRefs(playerTags, weaverTags);
+    const tags = new ComponentStore<TagComponent>();
+    const refs = new EntityRefs(tags);
 
     const collisionResponses = new ComponentStore<CollisionResponseComponent>();
-    const playerCosmetics = new ComponentStore<PlayerCosmeticComponent>();
-    const weaverCosmetics = new ComponentStore<WeaverCosmeticComponent>();
+    const cosmetics = new ComponentStore<ActorCosmeticComponent>();
 
     const storeContainer = new StoreContainer();
 
@@ -137,8 +131,7 @@ export class CompositionRoot {
     };
 
     registerStore("collisionResponse", collisionResponses);
-    registerStore("playerCosmetic", playerCosmetics);
-    registerStore("weaverCosmetic", weaverCosmetics);
+    registerStore("cosmetic", cosmetics);
     registerStore("transform", transforms);
     registerStore("velocity", velocities);
     registerStore("target", targets);
@@ -157,12 +150,10 @@ export class CompositionRoot {
     registerStore("tetherStrain", tetherStrains);
     registerStore("hitbox", hitboxes);
     registerStore("hurtbox", hurtboxes);
-    registerStore("playerTag", playerTags);
-    registerStore("weaverTag", weaverTags);
+    registerStore("tag", tags);
     registerStore("particleRequest", particleRequests);
     registerStore("boundaryConstraint", boundaryConstraints);
     registerStore("healthBug", healthBugs);
-    registerStore("healthBugTag", healthBugTags);
     registerStore("hitStop", hitStops);
 
     const visualRegistry = new VisualRegistry();

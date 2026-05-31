@@ -4,7 +4,7 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   InvulnerabilityComponent,
   ParticleRequestComponent,
   TetherComponent
@@ -112,7 +112,7 @@ export class WeaverShockwaveState implements IWeaverState {
     this.timer -= dt;
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    const cosmetic = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic").get(ctx.refs.weaver);
+    const cosmetic = ctx.stores.get<ActorCosmeticComponent>("cosmetic").get(ctx.refs.weaver);
 
     if (!ai || !cosmetic) return null;
 

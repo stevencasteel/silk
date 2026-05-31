@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 9:12:37 PM
+ [SYSTEM] Generated: 5/30/2026, 9:24:13 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1163,8 +1163,7 @@ import { RuntimeState } from "../core/engine/RuntimeState";
 import {
   HitStopComponent,
   CollisionResponseComponent,
-  PlayerCosmeticComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   TransformComponent,
   KinematicVelocityComponent,
   KinematicTargetComponent,
@@ -1172,8 +1171,7 @@ import {
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
-  PlayerTag,
-  WeaverTag,
+  TagComponent,
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
@@ -1187,8 +1185,7 @@ import {
   HurtboxComponent,
   ParticleRequestComponent,
   BoundaryConstraintComponent,
-  HealthBugComponent,
-  HealthBugTag
+  HealthBugComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -1270,16 +1267,13 @@ export class CompositionRoot {
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
     const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
     const healthBugs = new ComponentStore<HealthBugComponent>();
-    const healthBugTags = new ComponentStore<HealthBugTag>();
     const hitStops = new ComponentStore<HitStopComponent>();
 
-    const playerTags = new ComponentStore<PlayerTag>();
-    const weaverTags = new ComponentStore<WeaverTag>();
-    const refs = new EntityRefs(playerTags, weaverTags);
+    const tags = new ComponentStore<TagComponent>();
+    const refs = new EntityRefs(tags);
 
     const collisionResponses = new ComponentStore<CollisionResponseComponent>();
-    const playerCosmetics = new ComponentStore<PlayerCosmeticComponent>();
-    const weaverCosmetics = new ComponentStore<WeaverCosmeticComponent>();
+    const cosmetics = new ComponentStore<ActorCosmeticComponent>();
 
     const storeContainer = new StoreContainer();
 
@@ -1289,8 +1283,7 @@ export class CompositionRoot {
     };
 
     registerStore("collisionResponse", collisionResponses);
-    registerStore("playerCosmetic", playerCosmetics);
-    registerStore("weaverCosmetic", weaverCosmetics);
+    registerStore("cosmetic", cosmetics);
     registerStore("transform", transforms);
     registerStore("velocity", velocities);
     registerStore("target", targets);
@@ -1309,12 +1302,10 @@ export class CompositionRoot {
     registerStore("tetherStrain", tetherStrains);
     registerStore("hitbox", hitboxes);
     registerStore("hurtbox", hurtboxes);
-    registerStore("playerTag", playerTags);
-    registerStore("weaverTag", weaverTags);
+    registerStore("tag", tags);
     registerStore("particleRequest", particleRequests);
     registerStore("boundaryConstraint", boundaryConstraints);
     registerStore("healthBug", healthBugs);
-    registerStore("healthBugTag", healthBugTags);
     registerStore("hitStop", hitStops);
 
     const visualRegistry = new VisualRegistry();
@@ -2864,22 +2855,21 @@ export class EntityRegistry {
 ────────────────────────────────────────────────────
 import { EntityId } from "./Entity";
 import { IComponentStore, IEntityRefs } from "../../contracts/ICore";
-import { PlayerTag, WeaverTag } from "./Components";
+import { TagComponent } from "./Components";
 
 export class EntityRefs implements IEntityRefs {
   private _player: EntityId = -1;
   private _weaver: EntityId = -1;
 
-  constructor(
-    private playerTags: IComponentStore<PlayerTag>,
-    private weaverTags: IComponentStore<WeaverTag>
-  ) {}
+  constructor(private tags: IComponentStore<TagComponent>) {}
 
   public get player(): EntityId {
-    if (this._player !== -1 && this.playerTags.has(this._player)) return this._player;
-    for (const [id] of this.playerTags.entries()) {
-      this._player = id;
-      return id;
+    if (this._player !== -1 && this.tags.has(this._player)) return this._player;
+    for (const [id, tag] of this.tags.entries()) {
+      if (tag.type === "player") {
+        this._player = id;
+        return id;
+      }
     }
     return -1;
   }
@@ -2889,10 +2879,12 @@ export class EntityRefs implements IEntityRefs {
   }
 
   public get weaver(): EntityId {
-    if (this._weaver !== -1 && this.weaverTags.has(this._weaver)) return this._weaver;
-    for (const [id] of this.weaverTags.entries()) {
-      this._weaver = id;
-      return id;
+    if (this._weaver !== -1 && this.tags.has(this._weaver)) return this._weaver;
+    for (const [id, tag] of this.tags.entries()) {
+      if (tag.type === "weaver") {
+        this._weaver = id;
+        return id;
+      }
     }
     return -1;
   }
@@ -2928,12 +2920,10 @@ export class StoreContainer implements IStoreContainer {
 
 ● ./src/core/ecs/components/ActorComponents.ts
 ────────────────────────────────────────────────────
-export interface PlayerTag {
-  readonly tag?: "player";
-}
+export type ActorTagType = "player" | "weaver" | "healthBug";
 
-export interface WeaverTag {
-  readonly tag?: "weaver";
+export interface TagComponent {
+  type: ActorTagType;
 }
 
 export interface InputIntentComponent {
@@ -3056,10 +3046,6 @@ export interface HealthBugComponent {
   spikesDisarmed: boolean;
   rotorAngle: number;
   pauseThresholdY: number;
-}
-
-export interface HealthBugTag {
-  readonly tag?: "healthBug";
 }
 
 
@@ -3196,40 +3182,31 @@ export interface TransformComponent {
   scaleVelZ?: number;
 }
 
-export interface PlayerCosmeticComponent {
-  emissiveR: number;
-  emissiveG: number;
-  emissiveB: number;
+export interface ActorCosmeticComponent {
+  emissiveR?: number;
+  emissiveG?: number;
+  emissiveB?: number;
+  emissiveHue?: string;
   targetScaleX: number;
   targetScaleY: number;
   targetScaleZ: number;
   springStiffness: number;
   springDamping: number;
   rotationAngle: number;
-  slerpFactor: number;
+  slerpFactor?: number;
   rotationVel?: number;
   currentRotation?: number;
   visualOffsetY?: number;
   visualOffsetVelocityY?: number;
-}
-
-export interface WeaverCosmeticComponent {
-  emissiveHue: string;
-  targetScaleX: number;
-  targetScaleY: number;
-  targetScaleZ: number;
-  springStiffness: number;
-  springDamping: number;
-  wobbleAngle: number;
-  rotationAngle: number;
+  wobbleAngle?: number;
   currentWobble?: number;
   wobbleVel?: number;
   currentRoll?: number;
   rollVel?: number;
-  rotationSpeed: number;
-  gaitAmplitude: number;
-  gaitFrequency: number;
-  gaitTuck: number;
+  rotationSpeed?: number;
+  gaitAmplitude?: number;
+  gaitFrequency?: number;
+  gaitTuck?: number;
 }
 
 
@@ -4593,16 +4570,16 @@ import {
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
-  PlayerTag,
-  WeaverTag,
+  TagComponent,
+  
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
   WeaverSweepComponent,
   HurtboxComponent,
   HitboxComponent,
-  PlayerCosmeticComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
+  
   CollisionResponseComponent,
   BoundaryConstraintComponent,
   CollisionStateComponent
@@ -4665,10 +4642,10 @@ export class EntityAssembler {
     });
 
     context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
-    context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
+    context.stores.get<TagComponent>("tag").add(weaverId, { type: "weaver" });
     context.stores.get<HitStopComponent>("hitStop").add(weaverId, { timeRemaining: 0 });
 
-    context.stores.get<WeaverCosmeticComponent>("weaverCosmetic").add(weaverId, {
+    context.stores.get<ActorCosmeticComponent>("cosmetic").add(weaverId, {
       emissiveHue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
       targetScaleX: 1.0,
       targetScaleY: 1.0,
@@ -4840,10 +4817,10 @@ export class EntityAssembler {
       max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
-    context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+    context.stores.get<TagComponent>("tag").add(playerId, { type: "player" });
     context.stores.get<HitStopComponent>("hitStop").add(playerId, { timeRemaining: 0 });
 
-    context.stores.get<PlayerCosmeticComponent>("playerCosmetic").add(playerId, {
+    context.stores.get<ActorCosmeticComponent>("cosmetic").add(playerId, {
       emissiveR: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R,
       emissiveG: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.G,
       emissiveB: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.B,
@@ -8980,7 +8957,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  TransformComponent, PlayerCosmeticComponent,
+  TransformComponent, ActorCosmeticComponent,
   KinematicVelocityComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -8996,7 +8973,7 @@ export class PlayerAnimationSystem implements ISystem {
       .get<TransformComponent>("transform")
       .get(this.context.refs.player);
     const cosmetic = this.context.stores
-      .get<PlayerCosmeticComponent>("playerCosmetic")
+      .get<ActorCosmeticComponent>("cosmetic")
       .get(this.context.refs.player);
 
     if (!pTrans || !cosmetic) return;
@@ -9020,9 +8997,9 @@ export class PlayerAnimationSystem implements ISystem {
       const gTarget = 0.15 + (0.85 * tColor);
       const bTarget = 0.4 + (0.6 * tColor);
       
-      cosmetic.emissiveR += (rTarget - cosmetic.emissiveR) * tColor;
-      cosmetic.emissiveG += (gTarget - cosmetic.emissiveG) * tColor;
-      cosmetic.emissiveB += (bTarget - cosmetic.emissiveB) * tColor;
+      cosmetic.emissiveR = (cosmetic.emissiveR ?? 0.1) + (rTarget - (cosmetic.emissiveR ?? 0.1)) * tColor;
+      cosmetic.emissiveG = (cosmetic.emissiveG ?? 0.0) + (gTarget - (cosmetic.emissiveG ?? 0.0)) * tColor;
+      cosmetic.emissiveB = (cosmetic.emissiveB ?? 0.2) + (bTarget - (cosmetic.emissiveB ?? 0.2)) * tColor;
     }
 
     pTrans.prevScaleZ = pTrans.scaleZ!;
@@ -9041,7 +9018,6 @@ export class PlayerAnimationSystem implements ISystem {
     pTrans.scaleY = Math.max(0.1, pTrans.scaleY!);
     pTrans.scaleZ = Math.max(0.1, pTrans.scaleZ!);
 
-    // Solve vertical landing spring-mass-damper offset
     const currentOffset = cosmetic.visualOffsetY ?? 0;
     const offsetVel = cosmetic.visualOffsetVelocityY ?? 0;
     const springResult = solveOffsetSpring(
@@ -9622,7 +9598,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import {
   KinematicTargetComponent,
   TransformComponent,
-  PlayerCosmeticComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent,
   TraversalStateComponent,
   ParticleRequestComponent
@@ -9709,7 +9685,7 @@ export class VerticalBoundarySystem implements ISystem {
             pTrans.scaleVelZ -= impactFactor * 40.0;
 
             // Apply landing kinetic offset to cosmetic component
-            const cosmeticStore = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+            const cosmeticStore = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
             const cosmetic = cosmeticStore.get(this.context.refs.player);
             if (cosmetic) {
               const impactEnergy = vel.y;
@@ -10075,7 +10051,7 @@ import {
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
-  PlayerCosmeticComponent
+  ActorCosmeticComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
@@ -10108,7 +10084,7 @@ export class PlayerAirborneState implements IPlayerState {
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
     const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
 
-    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (cosmetic) {
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
@@ -10206,7 +10182,7 @@ import {
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
-  PlayerCosmeticComponent,
+  ActorCosmeticComponent,
   ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -10241,7 +10217,7 @@ export class PlayerLaunchingState implements IPlayerState {
     const trappedDamping = isTrapped ? Math.max(0.1, 0.5 - (webMass - 1) * 0.1) : 1.0;
     const recoilFactor = (trav.recoilTimer !== undefined && trav.recoilTimer > 0) ? 0.15 : 1.0;
 
-    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (cosmetic) {
       const stretchFactor = tuning.SQUASH_STRETCH.LAUNCH_POWER_MULT * trav.launchPower;
@@ -10380,7 +10356,7 @@ import {
   TraversalStateComponent,
   TransformComponent,
   ParticleRequestComponent,
-  PlayerCosmeticComponent,
+  ActorCosmeticComponent,
   StickySurfaceComponent,
   WallBugComponent,
   HealthBugComponent,
@@ -10465,7 +10441,7 @@ export class PlayerStateUtils {
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
 
-      const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+      const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
       if (pCosmetic) {
         pCosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;
@@ -10530,7 +10506,7 @@ export class PlayerStateUtils {
       }
     }
 
-    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (pCosmetic) {
       if (isOverload) {
@@ -10925,7 +10901,7 @@ import {
   InputIntentComponent,
   StickySurfaceComponent,
   TransformComponent,
-  PlayerCosmeticComponent,
+  ActorCosmeticComponent,
   ParticleRequestComponent
 } from "../../../core/ecs/Components";
 import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
@@ -10964,7 +10940,7 @@ export class PlayerWallStickingState implements IPlayerState {
       return "AIRBORNE";
     }
 
-    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (cosmetic) {
       const tuning = GAMEPLAY_TUNING.PLAYER;
@@ -11418,7 +11394,7 @@ import {
   WeaverAIComponent,
   HealthComponent,
   WeaverSweepComponent,
-  WeaverCosmeticComponent
+  ActorCosmeticComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -11629,7 +11605,7 @@ export class WeaverTraversalSystem implements ISystem {
       }
     }
 
-    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmeticStore = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(this.context.refs.weaver) : undefined;
     if (cosmetic && ai) {
       if (ai.state !== "DEFEATED") {
@@ -11666,7 +11642,7 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   TetherComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
@@ -11689,7 +11665,7 @@ export class WeaverAscendingState implements IWeaverState {
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
 
     if (wTrans && ai) {
-      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
       if (cosmetic) {
         cosmetic.emissiveHue = ai.hue;
@@ -11739,7 +11715,7 @@ import { IWeaverState, WeaverStateType } from "../IWeaverState";
 import { GameEvent } from "../../../core/events/GameEvents";
 import { VISUAL_JUICE_CONFIG, WEAVER_AI_TUNING } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
-import { WeaverAIComponent, WeaverCosmeticComponent } from "../../../core/ecs/Components";
+import { WeaverAIComponent, ActorCosmeticComponent } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
 
 export class WeaverDefeatedState implements IWeaverState {
@@ -11754,7 +11730,7 @@ export class WeaverDefeatedState implements IWeaverState {
       ai.desiredVelocityX = 0;
       ai.desiredVelocityY = 0;
 
-      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
       if (cosmetic) {
         cosmetic.emissiveHue = ai.hue;
@@ -11799,7 +11775,7 @@ import {
   TransformComponent,
   HealthComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent
 } from "../../../core/ecs/Components";
 
@@ -11841,7 +11817,7 @@ export class WeaverPatrollingState implements IWeaverState {
     if (!aiComp) return null;
 
     const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
-    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
     if (cosmetic && wVel) {
       const speed = Math.abs(wVel.x);
@@ -11949,7 +11925,7 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   InvulnerabilityComponent,
   ParticleRequestComponent,
   TetherComponent
@@ -12057,7 +12033,7 @@ export class WeaverShockwaveState implements IWeaverState {
     this.timer -= dt;
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
-    const cosmetic = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic").get(ctx.refs.weaver);
+    const cosmetic = ctx.stores.get<ActorCosmeticComponent>("cosmetic").get(ctx.refs.weaver);
 
     if (!ai || !cosmetic) return null;
 
@@ -12233,7 +12209,7 @@ import {
   TransformComponent,
   WeaverTraversalComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent,
   TetherComponent
 } from "../../../core/ecs/Components";
@@ -12366,7 +12342,7 @@ export class WeaverStrikingState implements IWeaverState {
     if (!aiComp) return null;
 
     const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
-    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
     if (cosmetic && wVel) {
       cosmetic.emissiveHue = aiComp.hue;
@@ -18312,7 +18288,7 @@ export class VisualRegistry implements IVisualRegistry {
 ────────────────────────────────────────────────────
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { TransformComponent, PlayerCosmeticComponent } from "../../core/ecs/Components";
+import { TransformComponent, ActorCosmeticComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 import * as BABYLON from "@babylonjs/core";
 
@@ -18337,7 +18313,7 @@ export class EntityInterpolationSystem implements ISystem {
       let interpolatedY = curr.prevY + deltaY * alpha;
       let finalY = curr.y;
       if (id === this.context.refs.player) {
-        const cosmeticStore = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+        const cosmeticStore = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
         const cosmetic = cosmeticStore.get(id);
         if (cosmetic && cosmetic.visualOffsetY !== undefined) {
           interpolatedY += cosmetic.visualOffsetY;
@@ -18395,7 +18371,7 @@ import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
   WallBugComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent,
   WeaverAIComponent
 } from "../../core/ecs/Components";
@@ -18423,17 +18399,20 @@ export class LegJointAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const weaverCosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
     const velocityStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
     const aiStore = this.context.stores.get<WeaverAIComponent>("weaverAI");
 
-    let firstCosmetic: WeaverCosmeticComponent | undefined;
+    let firstCosmetic: ActorCosmeticComponent | undefined;
     for (const [, cosmetic] of weaverCosmetics.entries()) {
       firstCosmetic = cosmetic;
       break;
     }
 
     if (firstCosmetic) {
+      const gaitFreqVal = firstCosmetic.gaitFrequency ?? 8.0;
+      const gaitAmpVal = firstCosmetic.gaitAmplitude ?? 0.12;
+      const gaitTuckVal = firstCosmetic.gaitTuck ?? 0.0;
       const wVel = velocityStore.get(this.context.refs.weaver);
       const ai = aiStore.get(this.context.refs.weaver);
 
@@ -18448,10 +18427,10 @@ export class LegJointAnimationSystem implements ISystem {
       const TRACTION_RATIO = 0.135;
 
       let dynamicFreq = 0.0;
-      if (firstCosmetic.gaitFrequency > 0.0) {
-        dynamicFreq = firstCosmetic.gaitFrequency;
-      } else if (firstCosmetic.gaitAmplitude > 0.001) {
-        dynamicFreq = (relativeSpeed * TRACTION_RATIO) / firstCosmetic.gaitAmplitude;
+      if (gaitFreqVal > 0.0) {
+        dynamicFreq = gaitFreqVal;
+      } else if (gaitAmpVal > 0.001) {
+        dynamicFreq = (relativeSpeed * TRACTION_RATIO) / gaitAmpVal;
       }
 
       if (ai && ai.state === "DEFEATED") {
@@ -18459,9 +18438,9 @@ export class LegJointAnimationSystem implements ISystem {
       }
 
       const blend = 1.0 - Math.exp(-dt * 8.0);
-      this.gaitAmp += (firstCosmetic.gaitAmplitude - this.gaitAmp) * blend;
+      this.gaitAmp += (gaitAmpVal - this.gaitAmp) * blend;
       this.gaitFreq += (dynamicFreq - this.gaitFreq) * blend;
-      this.gaitTuck += (firstCosmetic.gaitTuck - this.gaitTuck) * blend;
+      this.gaitTuck += (gaitTuckVal - this.gaitTuck) * blend;
     }
 
     this.gaitClock = (this.gaitClock + dt * this.gaitFreq) % (Math.PI * 2000.0);
@@ -18541,7 +18520,7 @@ export class LegJointAnimationSystem implements ISystem {
   }
 
   private dressWeaverLegs(): void {
-    const weaverCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const weaverCosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
 
     for (const [id] of weaverCosmetics.entries()) {
       const wNode = this.context.visualQuery.getTransformNode(id);
@@ -18946,8 +18925,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  PlayerCosmeticComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   WeaverAIComponent,
   TransformComponent
 } from "../../core/ecs/Components";
@@ -18977,7 +18955,7 @@ export class VisualStateDressingSystem implements ISystem {
     const wAI = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
-    const cosmeticStore = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
     const transformStore = this.context.stores.get<TransformComponent>("transform");
 
     if (wAI) {
@@ -18987,10 +18965,11 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    for (const [id, cosmetic] of cosmeticStore.entries()) {
-      const wTrans = transformStore.get(id);
-      if (!wTrans) continue;
+    const weaverId = this.context.refs.weaver;
+    const cosmetic = cosmetics.get(weaverId);
+    const wTrans = transformStore.get(weaverId);
 
+    if (cosmetic && wTrans) {
       wTrans.prevScaleX = wTrans.scaleX!;
       wTrans.prevScaleY = wTrans.scaleY!;
       wTrans.prevScaleZ = wTrans.scaleZ!;
@@ -19024,7 +19003,7 @@ export class VisualStateDressingSystem implements ISystem {
 
       const currentWobble = cosmetic.currentWobble ?? 0;
       const wobbleVel = cosmetic.wobbleVel ?? 0;
-      const wobbleSpring = solveSpringDamper(currentWobble, cosmetic.wobbleAngle, wobbleVel, dt, cosmetic.springStiffness * 0.8, cosmetic.springDamping);
+      const wobbleSpring = solveSpringDamper(currentWobble, cosmetic.wobbleAngle ?? 0, wobbleVel, dt, cosmetic.springStiffness * 0.8, cosmetic.springDamping);
       cosmetic.currentWobble = wobbleSpring.value;
       cosmetic.wobbleVel = wobbleSpring.velocity;
 
@@ -19042,140 +19021,142 @@ export class VisualStateDressingSystem implements ISystem {
   }
 
   public render(): void {
-    // Dynamic color dressing is calculated inside update loop to utilize frame-rate independent delta times
   }
 
   private updateAestheticDressing(dt: number): void {
-    const pCosmetics = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
-    const wCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
-    const wAI = this.context.stores
-      .get<WeaverAIComponent>("weaverAI")
-      .get(this.context.refs.weaver);
-    const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+    const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
+    const pId = this.context.refs.player;
+    const wId = this.context.refs.weaver;
 
-    for (const [id, pCosmetic] of pCosmetics.entries()) {
-      const pNode = this.context.visualQuery.getTransformNode(id);
-      if (!(pNode instanceof BABYLON.AbstractMesh)) continue;
-
-      const mesh = pNode;
-      const pbrMaterials: BABYLON.PBRMaterial[] = [];
-      if (mesh.material instanceof BABYLON.PBRMaterial) {
-        pbrMaterials.push(mesh.material);
-      }
-      mesh.getChildMeshes().forEach((child) => {
-        if (
-          child.material instanceof BABYLON.PBRMaterial &&
-          !pbrMaterials.includes(child.material)
-        ) {
-          pbrMaterials.push(child.material);
+    const pCosmetic = cosmetics.get(pId);
+    if (pCosmetic) {
+      const pNode = this.context.visualQuery.getTransformNode(pId);
+      if (pNode instanceof BABYLON.AbstractMesh) {
+        const pbrMaterials: BABYLON.PBRMaterial[] = [];
+        if (pNode.material instanceof BABYLON.PBRMaterial) {
+          pbrMaterials.push(pNode.material);
         }
-      });
+        pNode.getChildMeshes().forEach((child) => {
+          if (
+            child.material instanceof BABYLON.PBRMaterial &&
+            !pbrMaterials.includes(child.material)
+          ) {
+            pbrMaterials.push(child.material);
+          }
+        });
 
-      pbrMaterials.forEach((mat) => {
-        this._targetEmissiveColor.set(
-          pCosmetic.emissiveR,
-          pCosmetic.emissiveG,
-          pCosmetic.emissiveB
-        );
-        const playerLerpFactor = 1.0 - Math.exp(-dt * 12.0);
-        BABYLON.Color3.LerpToRef(
-          this.currentEmissiveColor,
-          this._targetEmissiveColor,
-          playerLerpFactor,
-          this.currentEmissiveColor
-        );
+        const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+        pbrMaterials.forEach((mat) => {
+          this._targetEmissiveColor.set(
+            pCosmetic.emissiveR ?? 0.1,
+            pCosmetic.emissiveG ?? 0.0,
+            pCosmetic.emissiveB ?? 0.2
+          );
+          const playerLerpFactor = 1.0 - Math.exp(-dt * 12.0);
+          BABYLON.Color3.LerpToRef(
+            this.currentEmissiveColor,
+            this._targetEmissiveColor,
+            playerLerpFactor,
+            this.currentEmissiveColor
+          );
 
-        mat.emissiveColor.set(
-          this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
-          this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
-          this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
-        );
-      });
+          mat.emissiveColor.set(
+            this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
+            this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
+            this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
+          );
+        });
+      }
     }
 
-    for (const [id, wCosmetic] of wCosmetics.entries()) {
-      const wNode = this.context.visualQuery.getTransformNode(id);
-      if (!(wNode instanceof BABYLON.AbstractMesh)) continue;
+    const wCosmetic = cosmetics.get(wId);
+    const wAI = this.context.stores
+      .get<WeaverAIComponent>("weaverAI")
+      .get(wId);
 
-      const mesh = wNode;
-      const pbrMaterials: BABYLON.PBRMaterial[] = [];
-      if (mesh.material instanceof BABYLON.PBRMaterial) {
-        pbrMaterials.push(mesh.material);
-      }
-      mesh.getChildMeshes().forEach((child) => {
-        if (
-          child.material instanceof BABYLON.PBRMaterial &&
-          !pbrMaterials.includes(child.material)
-        ) {
-          pbrMaterials.push(child.material);
+    if (wCosmetic) {
+      const wNode = this.context.visualQuery.getTransformNode(wId);
+      if (wNode instanceof BABYLON.AbstractMesh) {
+        const pbrMaterials: BABYLON.PBRMaterial[] = [];
+        if (wNode.material instanceof BABYLON.PBRMaterial) {
+          pbrMaterials.push(wNode.material);
         }
-      });
-
-      const pulse =
-        emissive.WEAVER_EMISSIVE_PULSE_BASE +
-        Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
-
-      const isYellowTelegraph = wCosmetic.emissiveHue === "#dffe00";
-      const cachedColor = ColorCache.getColor(wCosmetic.emissiveHue);
-
-      pbrMaterials.forEach((pbrMat) => {
-        let matColor = cachedColor;
-
-        if (isYellowTelegraph) {
-          if (pbrMat.name === "carapaceMat" || pbrMat.name === "legMat") {
-            matColor = ColorCache.getColor("#121212");
+        wNode.getChildMeshes().forEach((child) => {
+          if (
+            child.material instanceof BABYLON.PBRMaterial &&
+            !pbrMaterials.includes(child.material)
+          ) {
+            pbrMaterials.push(child.material);
           }
-        }
+        });
 
-        let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
-        if (pbrMat.name === "legMat") {
-          scale *= 0.24;
-        }
+        const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
+        const pulse =
+          emissive.WEAVER_EMISSIVE_PULSE_BASE +
+          Math.sin(this.visualClock * 5.5) * emissive.WEAVER_EMISSIVE_PULSE_AMP;
 
-        pbrMat.emissiveColor.set(
-          matColor.r * scale + pulse * 0.12,
-          matColor.g * scale,
-          matColor.b * scale
-        );
+        const isYellowTelegraph = wCosmetic.emissiveHue === "#dffe00";
+        const cachedColor = ColorCache.getColor(wCosmetic.emissiveHue ?? "#121212");
 
-        if (wAI) {
-          const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
-            ._shearPlugin;
-          if (shearPlugin) {
-            shearPlugin.shearIntensity = wAI.damageShearIntensity;
-            shearPlugin.shearTime = wAI.damageShearTime;
+        pbrMaterials.forEach((pbrMat) => {
+          let matColor = cachedColor;
+
+          if (isYellowTelegraph) {
+            if (pbrMat.name === "carapaceMat" || pbrMat.name === "legMat") {
+              matColor = ColorCache.getColor("#121212");
+            }
           }
-        }
-      });
 
-      let parts = mesh.metadata?.cachedBodyParts as CachedBodyParts | undefined;
-      if (!parts) {
-        const abdomen = mesh.getChildren(
-          (node) => node.name === "weaver_abdomen",
-          false
-        )[0] as BABYLON.TransformNode;
-        const cephalothorax = mesh.getChildren(
-          (node) => node.name === "weaver_cephalothorax",
-          false
-        )[0] as BABYLON.TransformNode;
-        const head = mesh.getChildren(
-          (node) => node.name === "weaver_head",
-          false
-        )[0] as BABYLON.TransformNode;
+          let scale = emissive.WEAVER_EMISSIVE_SCALE * 0.42;
+          if (pbrMat.name === "legMat") {
+            scale *= 0.24;
+          }
 
-        parts = { abdomen, cephalothorax, head };
-        if (!mesh.metadata) {
-          mesh.metadata = {};
+          pbrMat.emissiveColor.set(
+            matColor.r * scale + pulse * 0.12,
+            matColor.g * scale,
+            matColor.b * scale
+          );
+
+          if (wAI) {
+            const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+              ._shearPlugin;
+            if (shearPlugin) {
+              shearPlugin.shearIntensity = wAI.damageShearIntensity;
+              shearPlugin.shearTime = wAI.damageShearTime;
+            }
+          }
+        });
+
+        let parts = wNode.metadata?.cachedBodyParts as CachedBodyParts | undefined;
+        if (!parts) {
+          const abdomen = wNode.getChildren(
+            (node) => node.name === "weaver_abdomen",
+            false
+          )[0] as BABYLON.TransformNode;
+          const cephalothorax = wNode.getChildren(
+            (node) => node.name === "weaver_cephalothorax",
+            false
+          )[0] as BABYLON.TransformNode;
+          const head = wNode.getChildren(
+            (node) => node.name === "weaver_head",
+            false
+          )[0] as BABYLON.TransformNode;
+
+          parts = { abdomen, cephalothorax, head };
+          if (!wNode.metadata) {
+            wNode.metadata = {};
+          }
+          wNode.metadata.cachedBodyParts = parts;
         }
-        mesh.metadata.cachedBodyParts = parts;
+
+        const bodySway = Math.sin(this.visualClock * 4.0) * 0.05 * 0.16;
+        const bodyBob = Math.cos(this.visualClock * 8.0) * 1.5 * 0.008;
+
+        this.animateBodyPart(parts.abdomen, bodySway, bodyBob * 0.55, 0.55);
+        this.animateBodyPart(parts.cephalothorax, -bodySway * 0.45, bodyBob * 0.35, 0.28);
+        this.animateBodyPart(parts.head, -bodySway * 0.7, bodyBob * 0.45, 0.4);
       }
-
-      const bodySway = Math.sin(this.visualClock * 4.0) * 0.05 * 0.16;
-      const bodyBob = Math.cos(this.visualClock * 8.0) * 1.5 * 0.008;
-
-      this.animateBodyPart(parts.abdomen, bodySway, bodyBob * 0.55, 0.55);
-      this.animateBodyPart(parts.cephalothorax, -bodySway * 0.45, bodyBob * 0.35, 0.28);
-      this.animateBodyPart(parts.head, -bodySway * 0.7, bodyBob * 0.45, 0.4);
     }
   }
 

@@ -9,16 +9,16 @@ import {
   HealthComponent,
   InputIntentComponent,
   WeaverAIComponent,
-  PlayerTag,
-  WeaverTag,
+  TagComponent,
+  
   TraversalStateComponent,
   InvulnerabilityComponent,
   WeaverTraversalComponent,
   WeaverSweepComponent,
   HurtboxComponent,
   HitboxComponent,
-  PlayerCosmeticComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
+  
   CollisionResponseComponent,
   BoundaryConstraintComponent,
   CollisionStateComponent
@@ -81,10 +81,10 @@ export class EntityAssembler {
     });
 
     context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
-    context.stores.get<WeaverTag>("weaverTag").add(weaverId, {});
+    context.stores.get<TagComponent>("tag").add(weaverId, { type: "weaver" });
     context.stores.get<HitStopComponent>("hitStop").add(weaverId, { timeRemaining: 0 });
 
-    context.stores.get<WeaverCosmeticComponent>("weaverCosmetic").add(weaverId, {
+    context.stores.get<ActorCosmeticComponent>("cosmetic").add(weaverId, {
       emissiveHue: String.fromCharCode(35) + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING,
       targetScaleX: 1.0,
       targetScaleY: 1.0,
@@ -256,10 +256,10 @@ export class EntityAssembler {
       max: GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY
     });
     context.stores.get<InputIntentComponent>("input").add(playerId, { x: 0, y: 0 });
-    context.stores.get<PlayerTag>("playerTag").add(playerId, {});
+    context.stores.get<TagComponent>("tag").add(playerId, { type: "player" });
     context.stores.get<HitStopComponent>("hitStop").add(playerId, { timeRemaining: 0 });
 
-    context.stores.get<PlayerCosmeticComponent>("playerCosmetic").add(playerId, {
+    context.stores.get<ActorCosmeticComponent>("cosmetic").add(playerId, {
       emissiveR: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R,
       emissiveG: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.G,
       emissiveB: VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.B,

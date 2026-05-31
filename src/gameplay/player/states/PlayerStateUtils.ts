@@ -7,7 +7,7 @@ import {
   TraversalStateComponent,
   TransformComponent,
   ParticleRequestComponent,
-  PlayerCosmeticComponent,
+  ActorCosmeticComponent,
   StickySurfaceComponent,
   WallBugComponent,
   HealthBugComponent,
@@ -92,7 +92,7 @@ export class PlayerStateUtils {
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
 
-      const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+      const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
       if (pCosmetic) {
         pCosmetic.emissiveR = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_DEFAULT.R;
@@ -157,7 +157,7 @@ export class PlayerStateUtils {
       }
     }
 
-    const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (pCosmetic) {
       if (isOverload) {

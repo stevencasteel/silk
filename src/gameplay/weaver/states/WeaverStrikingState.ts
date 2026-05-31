@@ -11,7 +11,7 @@ import {
   TransformComponent,
   WeaverTraversalComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent,
   TetherComponent
 } from "../../../core/ecs/Components";
@@ -144,7 +144,7 @@ export class WeaverStrikingState implements IWeaverState {
     if (!aiComp) return null;
 
     const wVel = ctx.stores.get<KinematicVelocityComponent>("velocity").get(ctx.refs.weaver);
-    const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+    const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
     if (cosmetic && wVel) {
       cosmetic.emissiveHue = aiComp.hue;

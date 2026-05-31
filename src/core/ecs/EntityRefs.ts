@@ -1,21 +1,20 @@
 import { EntityId } from "./Entity";
 import { IComponentStore, IEntityRefs } from "../../contracts/ICore";
-import { PlayerTag, WeaverTag } from "./Components";
+import { TagComponent } from "./Components";
 
 export class EntityRefs implements IEntityRefs {
   private _player: EntityId = -1;
   private _weaver: EntityId = -1;
 
-  constructor(
-    private playerTags: IComponentStore<PlayerTag>,
-    private weaverTags: IComponentStore<WeaverTag>
-  ) {}
+  constructor(private tags: IComponentStore<TagComponent>) {}
 
   public get player(): EntityId {
-    if (this._player !== -1 && this.playerTags.has(this._player)) return this._player;
-    for (const [id] of this.playerTags.entries()) {
-      this._player = id;
-      return id;
+    if (this._player !== -1 && this.tags.has(this._player)) return this._player;
+    for (const [id, tag] of this.tags.entries()) {
+      if (tag.type === "player") {
+        this._player = id;
+        return id;
+      }
     }
     return -1;
   }
@@ -25,10 +24,12 @@ export class EntityRefs implements IEntityRefs {
   }
 
   public get weaver(): EntityId {
-    if (this._weaver !== -1 && this.weaverTags.has(this._weaver)) return this._weaver;
-    for (const [id] of this.weaverTags.entries()) {
-      this._weaver = id;
-      return id;
+    if (this._weaver !== -1 && this.tags.has(this._weaver)) return this._weaver;
+    for (const [id, tag] of this.tags.entries()) {
+      if (tag.type === "weaver") {
+        this._weaver = id;
+        return id;
+      }
     }
     return -1;
   }

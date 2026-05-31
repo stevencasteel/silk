@@ -8,7 +8,7 @@ import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   TransformComponent,
   WeaverAIComponent,
-  WeaverCosmeticComponent,
+  ActorCosmeticComponent,
   TetherComponent
 } from "../../../core/ecs/Components";
 import { HASH_PREFIX } from "../../../core/utils/EngineUtils";
@@ -31,7 +31,7 @@ export class WeaverAscendingState implements IWeaverState {
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
 
     if (wTrans && ai) {
-      const cosmeticStore = ctx.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
+      const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
       const cosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.weaver) : undefined;
       if (cosmetic) {
         cosmetic.emissiveHue = ai.hue;
