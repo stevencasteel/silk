@@ -50,6 +50,7 @@ export interface TraversalStateComponent {
   safeLaunchTimer?: number;
   lastStickyEntityId?: number;
   webMass?: number;
+  recoilVelocityY?: number;
 }
 
 export interface WeaverTraversalComponent {

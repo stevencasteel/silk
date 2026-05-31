@@ -7,6 +7,7 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
 import {
   TransformComponent,
+  ActorCosmeticComponent,
   KinematicVelocityComponent,
   ProjectileComponent,
   WeaverAIComponent,
@@ -226,11 +227,14 @@ export class ProjectileSystem implements ISystem {
           const totalUnreel = baseUnreel + dynamicUnreel;
           const maxLengthLimit = 38.0;
 
-          tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + totalUnreel);
+          // Only unreel the desired target, letting maxLength spring outward organically
           tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + totalUnreel);
+          
+          // Spike visual tension instantly to set off line shivers
+          tether.tension = Math.max(tether.tension, 1.15);
         }
 
-        const kickbackSpeed = 18.0;
+        const kickbackSpeed = 22.0;
         const pVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(otherId);
         if (pVel) {
           pVel.x += pushX * kickbackSpeed;
@@ -238,26 +242,38 @@ export class ProjectileSystem implements ISystem {
         }
 
         if (pTrav) {
-          pTrav.recoilTimer = 0.25;
+          pTrav.recoilTimer = 0.35;
+          pTrav.recoilVelocityY = pushY * 34.0;
         }
 
-        pTrans.scaleVelX = -8.0;
-        pTrans.scaleVelY = 16.0;
-        pTrans.scaleVelZ = -8.0;
+        // Deform player along incoming impact normal vector (directional squash and stretch)
+        const squashAmount = 0.38;
+        const stretchAmount = 0.32;
+        pTrans.scaleX = 1.0 - Math.abs(pushX) * squashAmount + Math.abs(pushY) * stretchAmount;
+        pTrans.scaleY = 1.0 - Math.abs(pushY) * squashAmount + Math.abs(pushX) * stretchAmount;
+        pTrans.scaleZ = 1.0 - squashAmount * 0.15;
 
-        if (pTrav && pTrav.state === "WALL_STICKING") {
-          const pushDistance = 4.0;
-          const verticalShift = pushY * pushDistance;
+        pTrans.scaleVelX = -pushX * 36.0;
+        pTrans.scaleVelY = -pushY * 36.0;
+        pTrans.scaleVelZ = 12.0;
 
-          const targetYStore = sysCtx.stores.get<KinematicTargetComponent>("target");
-          const pTarget = targetYStore ? targetYStore.get(otherId) : undefined;
-          if (pTarget) {
-            pTarget.y += verticalShift;
-          }
-          if (pTrav.stickyWallYOffset !== undefined) {
-            pTrav.stickyWallYOffset += verticalShift;
-          }
+        // Visual spring dip inside capsule body
+        const cosmeticStore = sysCtx.stores.get<ActorCosmeticComponent>("cosmetic");
+        const cosmetic = cosmeticStore ? cosmeticStore.get(otherId) : undefined;
+        if (cosmetic) {
+          cosmetic.visualOffsetY = (cosmetic.visualOffsetY ?? 0.0) + pushY * 2.2;
+          cosmetic.visualOffsetVelocityY = (cosmetic.visualOffsetVelocityY ?? 0.0) + pushY * 24.0;
         }
+
+
+
+        // Direction-aligned camera jolt along impact axis
+        sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+          amplitude: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_AMP * 1.6,
+          duration: WEAVER_AI_TUNING.SHOOT.CAMERA_SHAKE_DUR * 1.3,
+          dirX: pushX,
+          dirY: pushY
+        });
       }
 
       if (alreadyTrapped && pTrav) {

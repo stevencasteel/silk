@@ -89,6 +89,16 @@ export class PlayerWallStickingState implements IPlayerState {
       });
     }
 
+    // Decay the vertical recoil velocity smoothly over time (exponential decay)
+    let recoilY = 0.0;
+    if (trav.recoilVelocityY !== undefined && trav.recoilVelocityY !== 0) {
+      recoilY = trav.recoilVelocityY;
+      trav.recoilVelocityY += (0 - trav.recoilVelocityY) * (1.0 - Math.exp(-dt * 11.0));
+      if (Math.abs(trav.recoilVelocityY) < 0.05) {
+        trav.recoilVelocityY = 0;
+      }
+    }
+
     const stillPressingIn = Math.abs(input.x - trav.wallDir) < GAMEPLAY_TUNING.PLAYER.INPUT_TOLERANCE;
     const webMass = trav.webMass || 1;
     const recoilFactor = trav.recoilTimer !== undefined && trav.recoilTimer > 0 ? 0.15 : 1.0;
@@ -99,6 +109,8 @@ export class PlayerWallStickingState implements IPlayerState {
       PlayerStateUtils.triggerFling(ctx, vel, tether, target, trav);
       return trav.state;
     }
+
+    const inRecoil = trav.recoilTimer !== undefined && trav.recoilTimer > 0;
 
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const stickyStore = ctx.stores.get<StickySurfaceComponent>("stickySurface");
@@ -119,11 +131,12 @@ export class PlayerWallStickingState implements IPlayerState {
 
       target.x = bugTrans.x - trav.wallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
 
-      let slideSpeed = 0.0;
+      // Recoil velocity integrates directly into slide offsets instead of snapping coordinates!
+      let slideSpeed = recoilY;
       if (input.y > 0) {
-        slideSpeed = GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
+        slideSpeed += GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
       } else if (input.y < 0) {
-        slideSpeed = -GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
+        slideSpeed -= GAMEPLAY_TUNING.PLAYER.WALL_SLIDE_SPEED * controlFactor;
       }
       trav.stickyWallYOffset += slideSpeed * dt;
       trav.stickyWallYOffset = Math.max(-halfH, Math.min(halfH, trav.stickyWallYOffset));
@@ -131,7 +144,8 @@ export class PlayerWallStickingState implements IPlayerState {
       const finalY = bugTrans.y + trav.stickyWallYOffset;
       const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
-      if (input.y <= 0 && requiredLength > tether.maxLength) {
+      // Disable rigid unreel snapping during recoil to enable organic spring extension
+      if (input.y <= 0 && requiredLength > tether.maxLength && !inRecoil) {
         const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
         if (tether.maxLength < maxAllowed) {
           tether.maxLength = Math.min(maxAllowed, requiredLength);
@@ -148,12 +162,13 @@ export class PlayerWallStickingState implements IPlayerState {
 
     target.x = trav.wallDir * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
     vel.x = 0;
-    vel.y = -currentScrollSpeed;
+    vel.y = -currentScrollSpeed + recoilY;
 
     const finalY = target.y + vel.y * dt;
     const requiredLength = getDistance2D(target.x, finalY, tether.anchorX, tether.anchorY);
 
-    if (input.y <= 0 && requiredLength > tether.maxLength) {
+    // Disable rigid unreel snapping during recoil to enable organic spring extension
+    if (input.y <= 0 && requiredLength > tether.maxLength && !inRecoil) {
       const maxAllowed = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
       if (tether.maxLength < maxAllowed) {
         tether.maxLength = Math.min(maxAllowed, requiredLength);
