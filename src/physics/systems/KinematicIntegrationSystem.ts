@@ -15,17 +15,23 @@ export class KinematicIntegrationSystem implements ISystem {
 
     const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
     for (const [id, trans] of transforms.entries()) {
+      trans.z = 0.0;
+      trans.prevZ = 0.0;
+
+      const vel = velocities.get(id);
+      if (vel) {
+        vel.z = 0.0;
+      }
+
       const hs = hitStops.get(id);
       if (hs && hs.timeRemaining > 0) continue;
       if (id === this.context.refs.player || id === this.context.refs.weaver) {
         continue;
       }
 
-      const vel = velocities.get(id);
       if (vel) {
         trans.x += vel.x * dt;
         trans.y += vel.y * dt;
-        trans.z += vel.z * dt;
       }
     }
   }

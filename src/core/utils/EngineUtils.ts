@@ -75,11 +75,54 @@ export function solveSpringDamper(
   stiffness: number,
   damping: number
 ): { value: number; velocity: number } {
+  if (dt <= 0) return { value: current, velocity };
+
   const displacement = current - target;
-  const acceleration = -stiffness * displacement - damping * velocity;
-  const nextVelocity = velocity + acceleration * dt;
-  const nextValue = current + nextVelocity * dt;
-  return { value: nextValue, velocity: nextVelocity };
+  const omega = Math.sqrt(stiffness);
+  if (omega < 0.001) {
+    const decay = Math.exp(-damping * dt);
+    return { value: target + displacement * decay, velocity: velocity * decay };
+  }
+
+  const zeta = damping / (2 * omega);
+
+  if (zeta < 0.999) {
+    const omegaD = omega * Math.sqrt(1.0 - zeta * zeta);
+    const alpha = -omega * zeta;
+    const expTerm = Math.exp(alpha * dt);
+    const cosTerm = Math.cos(omegaD * dt);
+    const sinTerm = Math.sin(omegaD * dt);
+
+    const c1 = displacement;
+    const c2 = (velocity - alpha * displacement) / omegaD;
+
+    const nextValue = (c1 * cosTerm + c2 * sinTerm) * expTerm + target;
+    const nextVelocity = (c1 * (alpha * cosTerm - omegaD * sinTerm) + c2 * (alpha * sinTerm + omegaD * cosTerm)) * expTerm;
+    return { value: nextValue, velocity: nextVelocity };
+  } else if (zeta > 1.001) {
+    const omegaD = omega * Math.sqrt(zeta * zeta - 1.0);
+    const alpha = -omega * zeta;
+    const r1 = alpha + omegaD;
+    const r2 = alpha - omegaD;
+
+    const expTerm1 = Math.exp(r1 * dt);
+    const expTerm2 = Math.exp(r2 * dt);
+
+    const c1 = (r2 * displacement - velocity) / (r2 - r1);
+    const c2 = displacement - c1;
+
+    const nextValue = c1 * expTerm1 + c2 * expTerm2 + target;
+    const nextVelocity = c1 * r1 * expTerm1 + c2 * r2 * expTerm2;
+    return { value: nextValue, velocity: nextVelocity };
+  } else {
+    const expTerm = Math.exp(-omega * dt);
+    const c1 = displacement;
+    const c2 = velocity + omega * displacement;
+
+    const nextValue = (c1 + c2 * dt) * expTerm + target;
+    const nextVelocity = (c2 - omega * (c1 + c2 * dt)) * expTerm;
+    return { value: nextValue, velocity: nextVelocity };
+  }
 }
 
 export interface ScaleTransformLike {
@@ -119,8 +162,6 @@ export function solveScaleSpring(
   trans.scaleZ = springZ.value;
   trans.scaleVelZ = springZ.velocity;
 }
-
-
 
 const _stingerLocalTip = new BABYLON.Vector3();
 const _stingerQ = new BABYLON.Quaternion();

@@ -1,6 +1,4 @@
-import {
-  
-  SystemContext } from "../../../core/engine/SystemContext";
+import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   HitStopComponent,
   KinematicTargetComponent,
@@ -31,7 +29,8 @@ export class PlayerStateUtils {
   ): void {
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
-    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= 0.001) return;
 
     const activeMaxLength = tether.maxLength;
 
@@ -42,10 +41,21 @@ export class PlayerStateUtils {
       target.x = tether.anchorX + nx * activeMaxLength;
       target.y = tether.anchorY + ny * activeMaxLength;
 
-      const dVal = vel.x * nx + vel.y * ny;
-      if (dVal > 0) {
-        vel.x -= dVal * nx;
-        vel.y -= dVal * ny;
+      const radialVel = vel.x * nx + vel.y * ny;
+
+      if (radialVel > 0) {
+        const initialSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+
+        vel.x -= radialVel * nx;
+        vel.y -= radialVel * ny;
+
+        const tangentSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+        if (tangentSpeed > 0.01 && initialSpeed > tangentSpeed) {
+          const restoreRatio = initialSpeed / tangentSpeed;
+          const clampRatio = Math.min(restoreRatio, 1.05);
+          vel.x *= clampRatio;
+          vel.y *= clampRatio;
+        }
       }
     }
   }
@@ -68,19 +78,16 @@ export class PlayerStateUtils {
     }
     trav.stickyEntityId = -1;
 
-    // STAGE 1 (GREEN ZONE, Slack Release): Tension < Sweet Spot Minimum (0.555)
-    // Simply detach into standard Airborne falling trajectory without a speed fling launch.
     if (storedTension < reelConfig.SWEET_SPOT_MIN) {
       tether.tension = 0.0;
       trav.state = "AIRBORNE";
-      trav.launchPower = 0.05; // Base tiny impulse indicator
+      trav.launchPower = 0.05;
       trav.launchTimer = 0;
       
-      // Clean outward physical nudge to break static cling loops
       const nudgeDistance = 0.35;
       target.x += trav.wallNormalX * nudgeDistance;
       vel.x = trav.wallNormalX * 5.5;
-      vel.y = Math.max(vel.y, -3.0); // Retain smooth falling trajectory
+      vel.y = Math.max(vel.y, -3.0);
       
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
@@ -98,7 +105,6 @@ export class PlayerStateUtils {
       return;
     }
 
-    // ACTIVE FLINGS (Stage 2 & 3): Tension >= 0.555
     const dx = tether.anchorX - target.x;
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
@@ -107,12 +113,10 @@ export class PlayerStateUtils {
       storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
-    // Continuous progressive speed multiplier: starts very small and scales dynamically
     const minT = reelConfig.SWEET_SPOT_MIN;
-    const maxT = 1.3; // Maximum possible overload peak tension
+    const maxT = 1.3;
     const rangeFactor = Math.max(0, Math.min(1.0, (storedTension - minT) / (maxT - minT)));
     
-    // Ramps from 0.35 (very small fling) up to 2.2 (powerful extreme lunge)
     const minMult = 0.35;
     const maxMult = 2.2;
     const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, 1.5);
@@ -134,24 +138,24 @@ export class PlayerStateUtils {
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(ctx.refs.player);
     if (pTrans) {
-          if (isOverload) {
-            pTrans.scaleVelY = 36.0;
-            pTrans.scaleVelX = -18.0;
-            pTrans.scaleVelZ = -18.0;
-            const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
-            if (hs) hs.timeRemaining = 0.10;
-          } else if (isSweetSpot) {
-            pTrans.scaleVelY = 22.0;
-            pTrans.scaleVelX = -11.0;
-            pTrans.scaleVelZ = -11.0;
-            EngineTime.hitLagTimer = 0.08;
-            EngineTime.hitLagScale = 0.15;
-          } else {
-            pTrans.scaleVelY = powerScale * 15.0;
-            pTrans.scaleVelX = -powerScale * 7.5;
-            pTrans.scaleVelZ = -powerScale * 7.5;
-          }
-        }
+      if (isOverload) {
+        pTrans.scaleVelY = 36.0;
+        pTrans.scaleVelX = -18.0;
+        pTrans.scaleVelZ = -18.0;
+        const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
+        if (hs) hs.timeRemaining = 0.10;
+      } else if (isSweetSpot) {
+        pTrans.scaleVelY = 22.0;
+        pTrans.scaleVelX = -11.0;
+        pTrans.scaleVelZ = -11.0;
+        EngineTime.hitLagTimer = 0.08;
+        EngineTime.hitLagScale = 0.15;
+      } else {
+        pTrans.scaleVelY = powerScale * 15.0;
+        pTrans.scaleVelX = -powerScale * 7.5;
+        pTrans.scaleVelZ = -powerScale * 7.5;
+      }
+    }
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -227,15 +231,13 @@ export class PlayerStateUtils {
       const impactSpeed = Math.abs(pVel.x);
       const impactFactor = Math.min(1.0, impactSpeed / 50.0);
 
-      // Deepen the squash based on impact speed
       pTrans.scaleX = Math.max(0.3, squash.SQUASH_WALL_X - impactFactor * 0.35);
       pTrans.scaleY = Math.min(2.0, squash.SQUASH_WALL_Y + impactFactor * 0.5);
       pTrans.scaleZ = 1.0;
 
-      // Inject aggressive counter-velocity to force a juicy spring overshoot ("boing")
       pTrans.scaleVelX = 15.0 + impactFactor * 55.0; 
       pTrans.scaleVelY = -(15.0 + impactFactor * 55.0);
-      pTrans.scaleVelZ = 0;
+      pTrans.scaleZ = 1.0;
     }
   }
 

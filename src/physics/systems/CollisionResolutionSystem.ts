@@ -43,9 +43,15 @@ export class CollisionResolutionSystem implements ISystem {
         const combinedRadius = hb.radius + hub.radius;
 
         if (dist < combinedRadius) {
-          const dx = hubTrans.x - hbTrans.x;
-          const dy = hubTrans.y - hbTrans.y;
-          const len = Math.sqrt(dx * dx + dy * dy) || 1.0;
+          let dx = hubTrans.x - hbTrans.x;
+          let dy = hubTrans.y - hbTrans.y;
+          let len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 0.001) {
+            const angle = Math.random() * Math.PI * 2.0;
+            dx = Math.cos(angle) * 0.001;
+            dy = Math.sin(angle) * 0.001;
+            len = 0.001;
+          }
 
           const response = responses.get(hubId);
           if (response && response.onHit) {

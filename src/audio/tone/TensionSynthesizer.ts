@@ -204,7 +204,16 @@ export class TensionSynthesizer implements ITensionDrone {
   public fadeOutAndMute(): void {
     if (!this.gainNode || !this.toneModule) return;
     const now = this.toneModule.now();
-    this.gainNode.gain.setTargetAtTime(0.0, now, 0.15);
+    
+    // Aggressively cancel any pending ramps to ensure silence
+    this.gainNode.gain.cancelScheduledValues(now);
+    this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
+    
+    if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
+    if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
+    
+    if (this.heartbeatLoop) this.heartbeatLoop.stop();
+    this.lastTension = 0.0;
   }
 
   public resetToBaseline(): void {

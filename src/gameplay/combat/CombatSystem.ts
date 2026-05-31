@@ -53,7 +53,7 @@ export class CombatSystem implements ISystem {
       wHb.isActive = wAI.state === "STRIKING" && wAI.isThrusting === true;
     }
 
-    const dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
+    let dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
     const distSq = dist * dist;
 
     if (distSq > this.BROADPHASE_ENVELOPE) return;
@@ -61,8 +61,15 @@ export class CombatSystem implements ISystem {
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
     if (!isColliding) return;
 
-    const dx = pTrans.x - wTrans.x;
-    const dy = pTrans.y - wTrans.y;
+    let dx = pTrans.x - wTrans.x;
+    let dy = pTrans.y - wTrans.y;
+
+    if (dist < 0.001) {
+      const angle = Math.random() * Math.PI * 2.0;
+      dx = Math.cos(angle) * 0.001;
+      dy = Math.sin(angle) * 0.001;
+      dist = 0.001;
+    }
 
     const pVel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")

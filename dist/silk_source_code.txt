@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 7:30:22 PM
+ [SYSTEM] Generated: 5/30/2026, 7:50:28 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1645,6 +1645,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         if (this.initialized) {
           this.triggerDeathSequence(AUDIO_PRESETS.WEAVER);
+          if (this.tensionSynth) this.tensionSynth.fadeOutAndMute();
         }
       })
     );
@@ -1653,6 +1654,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         if (this.initialized) {
           this.triggerDeathSequence(AUDIO_PRESETS.PLAYER);
+          if (this.tensionSynth) this.tensionSynth.fadeOutAndMute();
         }
       })
     );
@@ -2194,7 +2196,16 @@ export class TensionSynthesizer implements ITensionDrone {
   public fadeOutAndMute(): void {
     if (!this.gainNode || !this.toneModule) return;
     const now = this.toneModule.now();
-    this.gainNode.gain.setTargetAtTime(0.0, now, 0.15);
+    
+    // Aggressively cancel any pending ramps to ensure silence
+    this.gainNode.gain.cancelScheduledValues(now);
+    this.gainNode.gain.setTargetAtTime(0.0, now, 0.05);
+    
+    if (this.fmOsc) this.fmOsc.frequency.cancelScheduledValues(now);
+    if (this.lfo) this.lfo.frequency.cancelScheduledValues(now);
+    
+    if (this.heartbeatLoop) this.heartbeatLoop.stop();
+    this.lastTension = 0.0;
   }
 
   public resetToBaseline(): void {
@@ -4335,11 +4346,54 @@ export function solveSpringDamper(
   stiffness: number,
   damping: number
 ): { value: number; velocity: number } {
+  if (dt <= 0) return { value: current, velocity };
+
   const displacement = current - target;
-  const acceleration = -stiffness * displacement - damping * velocity;
-  const nextVelocity = velocity + acceleration * dt;
-  const nextValue = current + nextVelocity * dt;
-  return { value: nextValue, velocity: nextVelocity };
+  const omega = Math.sqrt(stiffness);
+  if (omega < 0.001) {
+    const decay = Math.exp(-damping * dt);
+    return { value: target + displacement * decay, velocity: velocity * decay };
+  }
+
+  const zeta = damping / (2 * omega);
+
+  if (zeta < 0.999) {
+    const omegaD = omega * Math.sqrt(1.0 - zeta * zeta);
+    const alpha = -omega * zeta;
+    const expTerm = Math.exp(alpha * dt);
+    const cosTerm = Math.cos(omegaD * dt);
+    const sinTerm = Math.sin(omegaD * dt);
+
+    const c1 = displacement;
+    const c2 = (velocity - alpha * displacement) / omegaD;
+
+    const nextValue = (c1 * cosTerm + c2 * sinTerm) * expTerm + target;
+    const nextVelocity = (c1 * (alpha * cosTerm - omegaD * sinTerm) + c2 * (alpha * sinTerm + omegaD * cosTerm)) * expTerm;
+    return { value: nextValue, velocity: nextVelocity };
+  } else if (zeta > 1.001) {
+    const omegaD = omega * Math.sqrt(zeta * zeta - 1.0);
+    const alpha = -omega * zeta;
+    const r1 = alpha + omegaD;
+    const r2 = alpha - omegaD;
+
+    const expTerm1 = Math.exp(r1 * dt);
+    const expTerm2 = Math.exp(r2 * dt);
+
+    const c1 = (r2 * displacement - velocity) / (r2 - r1);
+    const c2 = displacement - c1;
+
+    const nextValue = c1 * expTerm1 + c2 * expTerm2 + target;
+    const nextVelocity = c1 * r1 * expTerm1 + c2 * r2 * expTerm2;
+    return { value: nextValue, velocity: nextVelocity };
+  } else {
+    const expTerm = Math.exp(-omega * dt);
+    const c1 = displacement;
+    const c2 = velocity + omega * displacement;
+
+    const nextValue = (c1 + c2 * dt) * expTerm + target;
+    const nextVelocity = (c2 - omega * (c1 + c2 * dt)) * expTerm;
+    return { value: nextValue, velocity: nextVelocity };
+  }
 }
 
 export interface ScaleTransformLike {
@@ -4379,8 +4433,6 @@ export function solveScaleSpring(
   trans.scaleZ = springZ.value;
   trans.scaleVelZ = springZ.velocity;
 }
-
-
 
 const _stingerLocalTip = new BABYLON.Vector3();
 const _stingerQ = new BABYLON.Quaternion();
@@ -5012,7 +5064,7 @@ export class CombatSystem implements ISystem {
       wHb.isActive = wAI.state === "STRIKING" && wAI.isThrusting === true;
     }
 
-    const dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
+    let dist = getDistance2D(pTrans.x, pTrans.y, wTrans.x, wTrans.y);
     const distSq = dist * dist;
 
     if (distSq > this.BROADPHASE_ENVELOPE) return;
@@ -5020,8 +5072,15 @@ export class CombatSystem implements ISystem {
     const isColliding = dist < this.COMBINED_RADIUS_THRESHOLD;
     if (!isColliding) return;
 
-    const dx = pTrans.x - wTrans.x;
-    const dy = pTrans.y - wTrans.y;
+    let dx = pTrans.x - wTrans.x;
+    let dy = pTrans.y - wTrans.y;
+
+    if (dist < 0.001) {
+      const angle = Math.random() * Math.PI * 2.0;
+      dx = Math.cos(angle) * 0.001;
+      dy = Math.sin(angle) * 0.001;
+      dist = 0.001;
+    }
 
     const pVel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
@@ -5451,6 +5510,7 @@ import {
   ParticleRequestComponent,
   WallBugComponent,
   HealthBugComponent,
+  HealthComponent,
   TetherComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
@@ -5658,8 +5718,9 @@ export class ProjectileSystem implements ISystem {
           const pComp = sysCtx.stores.get<ProjectileComponent>("projectile").get(projId);
           const trans = sysCtx.stores.get<TransformComponent>("transform").get(projId);
           const pTrans = sysCtx.stores.get<TransformComponent>("transform").get(otherId);
+          const pHealth = sysCtx.stores.get<HealthComponent>("health").get(otherId);
 
-          if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer) return;
+          if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer || (pHealth && pHealth.current <= 0)) return;
 
           const isLaunching = pTrav && pTrav.state === "LAUNCHING";
           const hasIframe = pIframe && pIframe.timeRemaining > 0;
@@ -6168,8 +6229,9 @@ export class ProjectileSystem implements ISystem {
         // 2.5 Check intersection with Health Bugs to carry them
         const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
         if (hBugStore) {
+          let hitRedBug = false;
           for (const [hBugId, hBug] of hBugStore.entries()) {
-            if (hBug.isWebTrapped) continue;
+            if (hBug.isWebTrapped || hBug.state === "DEAD") continue;
             const hBugTrans = transformStore.get(hBugId);
             if (!hBugTrans) continue;
 
@@ -6179,10 +6241,19 @@ export class ProjectileSystem implements ISystem {
             const combinedRadius = 0.9 + 2.0; // Recalibrated Health Bug Radius
 
             if (dist < combinedRadius) {
-              hBug.isWebTrapped = true;
-              hBug.stuckToProjectileId = projId;
+              if (p.isRed) {
+                hBug.state = "DEAD";
+                hitRedBug = true;
+              } else {
+                hBug.isWebTrapped = true;
+                hBug.stuckToProjectileId = projId;
+              }
               break;
             }
+          }
+          if (hitRedBug) {
+             this.recycleProjectile(projId, p);
+             continue;
           }
         }
 
@@ -8165,6 +8236,11 @@ export class HealthBugSystem implements ISystem {
       const sticky = stickyStore.get(pBug.entityId);
 
       if (!bug || !trans || !vel || !sticky) continue;
+
+      if (bug.state === "DEAD") {
+        this.popBug(pBug.entityId);
+        continue;
+      }
 
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       bug.rotorAngle = (bug.rotorAngle + Math.max(2.0, speed * 2.0) * dt) % (Math.PI * 2.0);
@@ -10249,9 +10325,7 @@ export class PlayerStateHints {
 
 ● ./src/gameplay/player/states/PlayerStateUtils.ts
 ────────────────────────────────────────────────────
-import {
-  
-  SystemContext } from "../../../core/engine/SystemContext";
+import { SystemContext } from "../../../core/engine/SystemContext";
 import {
   HitStopComponent,
   KinematicTargetComponent,
@@ -10282,7 +10356,8 @@ export class PlayerStateUtils {
   ): void {
     const dx = target.x - tether.anchorX;
     const dy = target.y - tether.anchorY;
-    const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= 0.001) return;
 
     const activeMaxLength = tether.maxLength;
 
@@ -10293,10 +10368,21 @@ export class PlayerStateUtils {
       target.x = tether.anchorX + nx * activeMaxLength;
       target.y = tether.anchorY + ny * activeMaxLength;
 
-      const dVal = vel.x * nx + vel.y * ny;
-      if (dVal > 0) {
-        vel.x -= dVal * nx;
-        vel.y -= dVal * ny;
+      const radialVel = vel.x * nx + vel.y * ny;
+
+      if (radialVel > 0) {
+        const initialSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+
+        vel.x -= radialVel * nx;
+        vel.y -= radialVel * ny;
+
+        const tangentSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+        if (tangentSpeed > 0.01 && initialSpeed > tangentSpeed) {
+          const restoreRatio = initialSpeed / tangentSpeed;
+          const clampRatio = Math.min(restoreRatio, 1.05);
+          vel.x *= clampRatio;
+          vel.y *= clampRatio;
+        }
       }
     }
   }
@@ -10319,19 +10405,16 @@ export class PlayerStateUtils {
     }
     trav.stickyEntityId = -1;
 
-    // STAGE 1 (GREEN ZONE, Slack Release): Tension < Sweet Spot Minimum (0.555)
-    // Simply detach into standard Airborne falling trajectory without a speed fling launch.
     if (storedTension < reelConfig.SWEET_SPOT_MIN) {
       tether.tension = 0.0;
       trav.state = "AIRBORNE";
-      trav.launchPower = 0.05; // Base tiny impulse indicator
+      trav.launchPower = 0.05;
       trav.launchTimer = 0;
       
-      // Clean outward physical nudge to break static cling loops
       const nudgeDistance = 0.35;
       target.x += trav.wallNormalX * nudgeDistance;
       vel.x = trav.wallNormalX * 5.5;
-      vel.y = Math.max(vel.y, -3.0); // Retain smooth falling trajectory
+      vel.y = Math.max(vel.y, -3.0);
       
       trav.wallDir = 0;
       trav.safeLaunchTimer = Math.max(trav.safeLaunchTimer || 0, 0.4);
@@ -10349,7 +10432,6 @@ export class PlayerStateUtils {
       return;
     }
 
-    // ACTIVE FLINGS (Stage 2 & 3): Tension >= 0.555
     const dx = tether.anchorX - target.x;
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
@@ -10358,12 +10440,10 @@ export class PlayerStateUtils {
       storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
     const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
 
-    // Continuous progressive speed multiplier: starts very small and scales dynamically
     const minT = reelConfig.SWEET_SPOT_MIN;
-    const maxT = 1.3; // Maximum possible overload peak tension
+    const maxT = 1.3;
     const rangeFactor = Math.max(0, Math.min(1.0, (storedTension - minT) / (maxT - minT)));
     
-    // Ramps from 0.35 (very small fling) up to 2.2 (powerful extreme lunge)
     const minMult = 0.35;
     const maxMult = 2.2;
     const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, 1.5);
@@ -10385,24 +10465,24 @@ export class PlayerStateUtils {
     const transforms = ctx.stores.get<TransformComponent>("transform");
     const pTrans = transforms.get(ctx.refs.player);
     if (pTrans) {
-          if (isOverload) {
-            pTrans.scaleVelY = 36.0;
-            pTrans.scaleVelX = -18.0;
-            pTrans.scaleVelZ = -18.0;
-            const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
-            if (hs) hs.timeRemaining = 0.10;
-          } else if (isSweetSpot) {
-            pTrans.scaleVelY = 22.0;
-            pTrans.scaleVelX = -11.0;
-            pTrans.scaleVelZ = -11.0;
-            EngineTime.hitLagTimer = 0.08;
-            EngineTime.hitLagScale = 0.15;
-          } else {
-            pTrans.scaleVelY = powerScale * 15.0;
-            pTrans.scaleVelX = -powerScale * 7.5;
-            pTrans.scaleVelZ = -powerScale * 7.5;
-          }
-        }
+      if (isOverload) {
+        pTrans.scaleVelY = 36.0;
+        pTrans.scaleVelX = -18.0;
+        pTrans.scaleVelZ = -18.0;
+        const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
+        if (hs) hs.timeRemaining = 0.10;
+      } else if (isSweetSpot) {
+        pTrans.scaleVelY = 22.0;
+        pTrans.scaleVelX = -11.0;
+        pTrans.scaleVelZ = -11.0;
+        EngineTime.hitLagTimer = 0.08;
+        EngineTime.hitLagScale = 0.15;
+      } else {
+        pTrans.scaleVelY = powerScale * 15.0;
+        pTrans.scaleVelX = -powerScale * 7.5;
+        pTrans.scaleVelZ = -powerScale * 7.5;
+      }
+    }
 
     const cosmeticStore = ctx.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
@@ -10478,15 +10558,13 @@ export class PlayerStateUtils {
       const impactSpeed = Math.abs(pVel.x);
       const impactFactor = Math.min(1.0, impactSpeed / 50.0);
 
-      // Deepen the squash based on impact speed
       pTrans.scaleX = Math.max(0.3, squash.SQUASH_WALL_X - impactFactor * 0.35);
       pTrans.scaleY = Math.min(2.0, squash.SQUASH_WALL_Y + impactFactor * 0.5);
       pTrans.scaleZ = 1.0;
 
-      // Inject aggressive counter-velocity to force a juicy spring overshoot ("boing")
       pTrans.scaleVelX = 15.0 + impactFactor * 55.0; 
       pTrans.scaleVelY = -(15.0 + impactFactor * 55.0);
-      pTrans.scaleVelZ = 0;
+      pTrans.scaleZ = 1.0;
     }
   }
 
@@ -13566,9 +13644,15 @@ export class CollisionResolutionSystem implements ISystem {
         const combinedRadius = hb.radius + hub.radius;
 
         if (dist < combinedRadius) {
-          const dx = hubTrans.x - hbTrans.x;
-          const dy = hubTrans.y - hbTrans.y;
-          const len = Math.sqrt(dx * dx + dy * dy) || 1.0;
+          let dx = hubTrans.x - hbTrans.x;
+          let dy = hubTrans.y - hbTrans.y;
+          let len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 0.001) {
+            const angle = Math.random() * Math.PI * 2.0;
+            dx = Math.cos(angle) * 0.001;
+            dy = Math.sin(angle) * 0.001;
+            len = 0.001;
+          }
 
           const response = responses.get(hubId);
           if (response && response.onHit) {
@@ -13712,17 +13796,23 @@ export class KinematicIntegrationSystem implements ISystem {
 
     const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
     for (const [id, trans] of transforms.entries()) {
+      trans.z = 0.0;
+      trans.prevZ = 0.0;
+
+      const vel = velocities.get(id);
+      if (vel) {
+        vel.z = 0.0;
+      }
+
       const hs = hitStops.get(id);
       if (hs && hs.timeRemaining > 0) continue;
       if (id === this.context.refs.player || id === this.context.refs.weaver) {
         continue;
       }
 
-      const vel = velocities.get(id);
       if (vel) {
         trans.x += vel.x * dt;
         trans.y += vel.y * dt;
-        trans.z += vel.z * dt;
       }
     }
   }
@@ -17261,9 +17351,9 @@ export function createWeaverVisualMesh(
         const z = positions[i + 2];
         if (y < 0) {
           const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
-          if (r_sphere > 0.001) {
-            const r_cone = radius * (1.0 + y / radius);
-            const scaleFactor = r_cone / r_sphere;
+          if (r_sphere > 0.05) {
+                const r_cone = radius * (1.0 + y / radius);
+                const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
             positions[i] = x * scaleFactor;
             positions[i + 2] = z * scaleFactor;
           } else {
@@ -17420,9 +17510,9 @@ export function decorateWeaverVisual(
       if (y < 0) {
         const normY = y / halfY;
         const r_sphere = Math.sqrt(Math.max(0, 1.0 - normY * normY));
-        if (r_sphere > 0.001) {
-          const r_cone = 1.0 + normY;
-          const scaleFactor = r_cone / r_sphere;
+        if (r_sphere > 0.05) {
+              const r_cone = 1.0 + normY;
+              const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
           positions[i] = x * scaleFactor;
           positions[i + 2] = z * scaleFactor;
         } else {

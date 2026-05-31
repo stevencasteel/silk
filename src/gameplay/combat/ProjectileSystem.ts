@@ -19,6 +19,7 @@ import {
   ParticleRequestComponent,
   WallBugComponent,
   HealthBugComponent,
+  HealthComponent,
   TetherComponent,
   KinematicTargetComponent
 } from "../../core/ecs/Components";
@@ -226,8 +227,9 @@ export class ProjectileSystem implements ISystem {
           const pComp = sysCtx.stores.get<ProjectileComponent>("projectile").get(projId);
           const trans = sysCtx.stores.get<TransformComponent>("transform").get(projId);
           const pTrans = sysCtx.stores.get<TransformComponent>("transform").get(otherId);
+          const pHealth = sysCtx.stores.get<HealthComponent>("health").get(otherId);
 
-          if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer) return;
+          if (!pComp || !trans || !pTrans || pComp.isTrappingPlayer || (pHealth && pHealth.current <= 0)) return;
 
           const isLaunching = pTrav && pTrav.state === "LAUNCHING";
           const hasIframe = pIframe && pIframe.timeRemaining > 0;
@@ -736,8 +738,9 @@ export class ProjectileSystem implements ISystem {
         // 2.5 Check intersection with Health Bugs to carry them
         const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
         if (hBugStore) {
+          let hitRedBug = false;
           for (const [hBugId, hBug] of hBugStore.entries()) {
-            if (hBug.isWebTrapped) continue;
+            if (hBug.isWebTrapped || hBug.state === "DEAD") continue;
             const hBugTrans = transformStore.get(hBugId);
             if (!hBugTrans) continue;
 
@@ -747,10 +750,19 @@ export class ProjectileSystem implements ISystem {
             const combinedRadius = 0.9 + 2.0; // Recalibrated Health Bug Radius
 
             if (dist < combinedRadius) {
-              hBug.isWebTrapped = true;
-              hBug.stuckToProjectileId = projId;
+              if (p.isRed) {
+                hBug.state = "DEAD";
+                hitRedBug = true;
+              } else {
+                hBug.isWebTrapped = true;
+                hBug.stuckToProjectileId = projId;
+              }
               break;
             }
+          }
+          if (hitRedBug) {
+             this.recycleProjectile(projId, p);
+             continue;
           }
         }
 

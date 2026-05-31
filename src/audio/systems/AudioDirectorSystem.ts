@@ -221,6 +221,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.WEAVER_DIED, () => {
         if (this.initialized) {
           this.triggerDeathSequence(AUDIO_PRESETS.WEAVER);
+          if (this.tensionSynth) this.tensionSynth.fadeOutAndMute();
         }
       })
     );
@@ -229,6 +230,7 @@ export class AudioDirectorSystem implements ISystem {
       this.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         if (this.initialized) {
           this.triggerDeathSequence(AUDIO_PRESETS.PLAYER);
+          if (this.tensionSynth) this.tensionSynth.fadeOutAndMute();
         }
       })
     );

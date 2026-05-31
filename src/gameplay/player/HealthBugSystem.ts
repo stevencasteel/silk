@@ -191,6 +191,11 @@ export class HealthBugSystem implements ISystem {
 
       if (!bug || !trans || !vel || !sticky) continue;
 
+      if (bug.state === "DEAD") {
+        this.popBug(pBug.entityId);
+        continue;
+      }
+
       const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
       bug.rotorAngle = (bug.rotorAngle + Math.max(2.0, speed * 2.0) * dt) % (Math.PI * 2.0);
 

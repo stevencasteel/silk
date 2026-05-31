@@ -116,9 +116,9 @@ export function createWeaverVisualMesh(
         const z = positions[i + 2];
         if (y < 0) {
           const r_sphere = Math.sqrt(Math.max(0, radius * radius - y * y));
-          if (r_sphere > 0.001) {
-            const r_cone = radius * (1.0 + y / radius);
-            const scaleFactor = r_cone / r_sphere;
+          if (r_sphere > 0.05) {
+                const r_cone = radius * (1.0 + y / radius);
+                const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
             positions[i] = x * scaleFactor;
             positions[i + 2] = z * scaleFactor;
           } else {
@@ -275,9 +275,9 @@ export function decorateWeaverVisual(
       if (y < 0) {
         const normY = y / halfY;
         const r_sphere = Math.sqrt(Math.max(0, 1.0 - normY * normY));
-        if (r_sphere > 0.001) {
-          const r_cone = 1.0 + normY;
-          const scaleFactor = r_cone / r_sphere;
+        if (r_sphere > 0.05) {
+              const r_cone = 1.0 + normY;
+              const scaleFactor = Math.min(r_cone / r_sphere, 4.0);
           positions[i] = x * scaleFactor;
           positions[i + 2] = z * scaleFactor;
         } else {
