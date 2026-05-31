@@ -13,6 +13,7 @@ export class RuntimeState {
   public hitLagTimer: number = 0.0;
   public hitLagScale: number = 1.0;
   public altitude: number = 0.0;
+  public gameStarted: boolean = false;
 
   public get activeTimeScale(): number {
     if (this.hitLagTimer > 0) {
@@ -37,5 +38,6 @@ export class RuntimeState {
     this.hitLagTimer = 0.0;
     this.hitLagScale = 1.0;
     this.altitude = 0.0;
+    this.gameStarted = false;
   }
 }

@@ -305,13 +305,14 @@ export const HudOverlay: React.FC = () => {
       const handleStartOnKey = (e: KeyboardEvent) => {
         e.preventDefault();
         playConfirmSynth();
+        publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
         useOverlayStore.getState().setAwaitingGesture(false);
         useOverlayStore.getState().setBootStatus("READY");
       };
       window.addEventListener("keydown", handleStartOnKey);
       return () => window.removeEventListener("keydown", handleStartOnKey);
     }
-  }, [awaitingGesture, playConfirmSynth]);
+  }, [awaitingGesture, playConfirmSynth, publishEvent]);
 
   useEffect(() => {
     if (!overlayVisible) return;

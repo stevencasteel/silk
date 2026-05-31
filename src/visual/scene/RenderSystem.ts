@@ -188,6 +188,11 @@ export class RenderSystem implements ISystem {
     const arenaGeo = new ArenaGeometry(this.scene);
     await arenaGeo.generateElevatorShaft();
 
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "COMPILING SHADERS & PREPARING SCENE..."
+    });
+    await this.scene.whenReadyAsync();
+
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         if (this.pipeline) {
@@ -222,6 +227,8 @@ export class RenderSystem implements ISystem {
         }
       })
     );
+
+
 
     window.addEventListener("resize", this.handleResize);
   }

@@ -1,6 +1,7 @@
 export enum GameEvent {
   GAME_INITIALIZED = "GAME_INITIALIZED",
   GAME_BOOT_PROGRESS = "GAME_BOOT_PROGRESS",
+  GAME_STARTED = "GAME_STARTED",
   USER_GESTURE_REGISTERED = "USER_GESTURE_REGISTERED",
   PLAYER_HEALTH_CHANGED = "PLAYER_HEALTH_CHANGED",
   PLAYER_DAMAGED = "PLAYER_DAMAGED",
@@ -34,6 +35,7 @@ export enum GameEvent {
 export interface GameEventMap {
   [GameEvent.GAME_INITIALIZED]: void;
   [GameEvent.GAME_BOOT_PROGRESS]: { status: string };
+  [GameEvent.GAME_STARTED]: void;
   [GameEvent.USER_GESTURE_REGISTERED]: void;
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };

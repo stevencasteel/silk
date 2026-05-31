@@ -15,6 +15,7 @@ export class Engine {
   private pauseHandler: PauseHandler;
 
   public isPaused: boolean = true;
+  public gameStarted: boolean = false;
   private unsubscribes: (() => void)[] = [];
   public _bootProgressUnsubscribe?: () => void;
 
@@ -81,6 +82,9 @@ export class Engine {
   private initGestureHandlers(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        this.gameStarted = true;
+        this.runtime.gameStarted = true;
+        this.broker.publish(GameEvent.GAME_STARTED, undefined);
         this.pauseHandler.resumeFromGesture();
       })
     );

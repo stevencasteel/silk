@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 1:54:07 PM
+ [SYSTEM] Generated: 5/31/2026, 2:27:01 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -2900,6 +2900,7 @@ export class Engine {
   private pauseHandler: PauseHandler;
 
   public isPaused: boolean = true;
+  public gameStarted: boolean = false;
   private unsubscribes: (() => void)[] = [];
   public _bootProgressUnsubscribe?: () => void;
 
@@ -2966,6 +2967,9 @@ export class Engine {
   private initGestureHandlers(): void {
     this.unsubscribes.push(
       this.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
+        this.gameStarted = true;
+        this.runtime.gameStarted = true;
+        this.broker.publish(GameEvent.GAME_STARTED, undefined);
         this.pauseHandler.resumeFromGesture();
       })
     );
@@ -3069,6 +3073,7 @@ export class RuntimeState {
   public hitLagTimer: number = 0.0;
   public hitLagScale: number = 1.0;
   public altitude: number = 0.0;
+  public gameStarted: boolean = false;
 
   public get activeTimeScale(): number {
     if (this.hitLagTimer > 0) {
@@ -3093,6 +3098,7 @@ export class RuntimeState {
     this.hitLagTimer = 0.0;
     this.hitLagScale = 1.0;
     this.altitude = 0.0;
+    this.gameStarted = false;
   }
 }
 
@@ -3228,6 +3234,7 @@ export class EventTrafficTracker {
 export enum GameEvent {
   GAME_INITIALIZED = "GAME_INITIALIZED",
   GAME_BOOT_PROGRESS = "GAME_BOOT_PROGRESS",
+  GAME_STARTED = "GAME_STARTED",
   USER_GESTURE_REGISTERED = "USER_GESTURE_REGISTERED",
   PLAYER_HEALTH_CHANGED = "PLAYER_HEALTH_CHANGED",
   PLAYER_DAMAGED = "PLAYER_DAMAGED",
@@ -3261,6 +3268,7 @@ export enum GameEvent {
 export interface GameEventMap {
   [GameEvent.GAME_INITIALIZED]: void;
   [GameEvent.GAME_BOOT_PROGRESS]: { status: string };
+  [GameEvent.GAME_STARTED]: void;
   [GameEvent.USER_GESTURE_REGISTERED]: void;
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
@@ -4370,12 +4378,15 @@ import { EntityId } from "../core/ecs/Entity";
 import { SystemContext } from "../core/engine/SystemContext";
 import { ARENA_CONFIG } from "../core/engine/ArenaConfig";
 import { EntityAssembler } from "./EntityAssembler";
+import { GameEvent } from "../core/events/GameEvents";
+import { SubscriptionTracker } from "../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
 
 export class EntitySpawnerSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   readonly initPhase = InitPhase.World;
   private sharedPlayerShape: BABYLON.PhysicsShapeCapsule | null = null;
+  private _tracker = new SubscriptionTracker();
 
   constructor(private context: SystemContext) {}
 
@@ -4391,8 +4402,41 @@ export class EntitySpawnerSystem implements ISystem {
         scene
       );
     }
+
+    // Pre-spawn entities on initialization so they are fully loaded, textured, and compiled
     this.spawnWeaver();
     this.spawnPlayer();
+
+    // Initially hide them so they do not render or glitch behind the loading/start overlays
+    this.setEntitiesEnabled(false);
+
+    // Show them when the game state officially starts
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_STARTED, () => {
+        this.setEntitiesEnabled(true);
+      })
+    );
+
+    // Respawn/Reset entities on game reset
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.despawnAll();
+        this.spawnWeaver();
+        this.spawnPlayer();
+        this.setEntitiesEnabled(true);
+      })
+    );
+  }
+
+  private setEntitiesEnabled(enabled: boolean): void {
+    const weaverId = this.context.refs.weaver;
+    const playerId = this.context.refs.player;
+
+    const wNode = this.context.visualQuery.getTransformNode(weaverId);
+    const pNode = this.context.visualQuery.getTransformNode(playerId);
+
+    if (wNode) wNode.setEnabled(enabled);
+    if (pNode) pNode.setEnabled(enabled);
   }
 
   public spawnWeaver(existingId?: EntityId): EntityId {
@@ -4421,8 +4465,21 @@ export class EntitySpawnerSystem implements ISystem {
     return playerId;
   }
 
+  private despawnAll(): void {
+    const weaverId = this.context.refs.weaver;
+    const playerId = this.context.refs.player;
+
+    if (weaverId !== -1) {
+      this.context.world.clearEntityComponents(weaverId);
+    }
+    if (playerId !== -1) {
+      this.context.world.clearEntityComponents(playerId);
+    }
+  }
+
   public dispose(): void {
     if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
+    this._tracker.clear();
   }
 }
 
@@ -4569,7 +4626,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { HitStopComponent, HealthComponent, TetherComponent } from "../../core/ecs/Components";
+import { HitStopComponent, HealthComponent, TetherComponent, ProjectileComponent, ParticleRequestComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
@@ -4692,6 +4749,18 @@ export class GameDirectorSystem implements ISystem {
       })
     );
 
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.cleanupGameEnd();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
+        this.cleanupGameEnd();
+      })
+    );
+
     window.addEventListener("keydown", this.handleKeyDown);
   }
 
@@ -4768,6 +4837,32 @@ export class GameDirectorSystem implements ISystem {
     }
   }
 
+  private cleanupGameEnd(): void {
+    console.log("[GameDirectorSystem] Cleaning up game end state...");
+    // Clear all projectiles
+    const projectiles = this.context.stores.get<ProjectileComponent>("projectile");
+    for (const [entityId] of projectiles.entries()) {
+      this.context.world.clearEntityComponents(entityId);
+    }
+
+    // Clear particle requests
+    const particleRequests = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    for (const [entityId] of particleRequests.entries()) {
+      this.context.world.clearEntityComponents(entityId);
+    }
+
+    // Reset hit stops
+    const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
+    for (const [, hs] of hitStops.entries()) {
+      hs.timeRemaining = 0;
+    }
+
+    // Reset runtime state
+    this.context.runtime.hitLagTimer = 0;
+    this.context.runtime.hitLagScale = 1.0;
+    this.context.runtime.timeScale = 1.0;
+  }
+
   private resetGame(): void {
     console.log("[GameDirectorSystem] Resetting game state...");
     this.gameState = "PLAYING";
@@ -4775,6 +4870,10 @@ export class GameDirectorSystem implements ISystem {
     this.cinematicTimer = 0.0;
     this.adrenalineTimer = 0.0;
     this.context.runtime.timeScale = 1.0;
+    this.context.runtime.gameStarted = true; // Game is already started, just resetting
+
+    // Clean up any remaining entities from previous game
+    this.cleanupGameEnd();
 
     this.spawner.spawnWeaver(this.context.refs.weaver);
     this.spawner.spawnPlayer(this.context.refs.player);
@@ -9394,7 +9493,6 @@ export class TutorialSystem implements ISystem {
           this.step1Completed = true;
           this.calibrationStep = 2;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-          this.context.broker.publish(GameEvent.UI_SFX_DING, undefined);
         }
       }
     }
@@ -14459,13 +14557,14 @@ export const HudOverlay: React.FC = () => {
       const handleStartOnKey = (e: KeyboardEvent) => {
         e.preventDefault();
         playConfirmSynth();
+        publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
         useOverlayStore.getState().setAwaitingGesture(false);
         useOverlayStore.getState().setBootStatus("READY");
       };
       window.addEventListener("keydown", handleStartOnKey);
       return () => window.removeEventListener("keydown", handleStartOnKey);
     }
-  }, [awaitingGesture, playConfirmSynth]);
+  }, [awaitingGesture, playConfirmSynth, publishEvent]);
 
   useEffect(() => {
     if (!overlayVisible) return;
@@ -18214,6 +18313,11 @@ export class RenderSystem implements ISystem {
     const arenaGeo = new ArenaGeometry(this.scene);
     await arenaGeo.generateElevatorShaft();
 
+    this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+      status: "COMPILING SHADERS & PREPARING SCENE..."
+    });
+    await this.scene.whenReadyAsync();
+
     this._tracker.add(
       this.broker.subscribe(GameEvent.PLAYER_DAMAGED, () => {
         if (this.pipeline) {
@@ -18248,6 +18352,8 @@ export class RenderSystem implements ISystem {
         }
       })
     );
+
+
 
     window.addEventListener("resize", this.handleResize);
   }

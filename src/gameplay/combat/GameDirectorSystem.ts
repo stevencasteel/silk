@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { HitStopComponent, HealthComponent, TetherComponent } from "../../core/ecs/Components";
+import { HitStopComponent, HealthComponent, TetherComponent, ProjectileComponent, ParticleRequestComponent } from "../../core/ecs/Components";
 import { EntitySpawnerSystem } from "../EntitySpawnerSystem";
 import { GAMEPLAY_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { HASH_PREFIX, SubscriptionTracker } from "../../core/utils/EngineUtils";
@@ -125,6 +125,18 @@ export class GameDirectorSystem implements ISystem {
       })
     );
 
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.cleanupGameEnd();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
+        this.cleanupGameEnd();
+      })
+    );
+
     window.addEventListener("keydown", this.handleKeyDown);
   }
 
@@ -201,6 +213,32 @@ export class GameDirectorSystem implements ISystem {
     }
   }
 
+  private cleanupGameEnd(): void {
+    console.log("[GameDirectorSystem] Cleaning up game end state...");
+    // Clear all projectiles
+    const projectiles = this.context.stores.get<ProjectileComponent>("projectile");
+    for (const [entityId] of projectiles.entries()) {
+      this.context.world.clearEntityComponents(entityId);
+    }
+
+    // Clear particle requests
+    const particleRequests = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    for (const [entityId] of particleRequests.entries()) {
+      this.context.world.clearEntityComponents(entityId);
+    }
+
+    // Reset hit stops
+    const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
+    for (const [, hs] of hitStops.entries()) {
+      hs.timeRemaining = 0;
+    }
+
+    // Reset runtime state
+    this.context.runtime.hitLagTimer = 0;
+    this.context.runtime.hitLagScale = 1.0;
+    this.context.runtime.timeScale = 1.0;
+  }
+
   private resetGame(): void {
     console.log("[GameDirectorSystem] Resetting game state...");
     this.gameState = "PLAYING";
@@ -208,6 +246,10 @@ export class GameDirectorSystem implements ISystem {
     this.cinematicTimer = 0.0;
     this.adrenalineTimer = 0.0;
     this.context.runtime.timeScale = 1.0;
+    this.context.runtime.gameStarted = true; // Game is already started, just resetting
+
+    // Clean up any remaining entities from previous game
+    this.cleanupGameEnd();
 
     this.spawner.spawnWeaver(this.context.refs.weaver);
     this.spawner.spawnPlayer(this.context.refs.player);
