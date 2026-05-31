@@ -219,15 +219,15 @@ export const HudOverlay: React.FC = () => {
       const reelProgress = (maxLength - minReelLimit) / (maxReelLimit - minReelLimit);
       const barWidthPercent = Math.max(0.0, Math.min(100.0, reelProgress * 100.0));
 
-      // Color/Glow represents dynamic elastic tautness (Restored sweet-spot and red thresholds)
+      // Color/Glow based on reel progress to match visual stage markers
       const uiConfig = VISUAL_JUICE_CONFIG.TETHER_UI;
       let color = `rgb(${uiConfig.COLOR_GREEN.r}, ${uiConfig.COLOR_GREEN.g}, ${uiConfig.COLOR_GREEN.b})`;
       let glow = `rgba(${uiConfig.GLOW_GREEN.r}, ${uiConfig.GLOW_GREEN.g}, ${uiConfig.GLOW_GREEN.b}, ${uiConfig.GLOW_GREEN.a})`;
 
-      if (tension >= uiConfig.THRESHOLD_RED) {
+      if (reelProgress >= uiConfig.THRESHOLD_RED) {
         color = `rgb(${uiConfig.COLOR_RED.r}, ${uiConfig.COLOR_RED.g}, ${uiConfig.COLOR_RED.b})`;
         glow = `rgba(${uiConfig.GLOW_RED.r}, ${uiConfig.GLOW_RED.g}, ${uiConfig.GLOW_RED.b}, ${uiConfig.GLOW_RED.a})`;
-      } else if (tension >= uiConfig.THRESHOLD_YELLOW) {
+      } else if (reelProgress >= uiConfig.THRESHOLD_YELLOW) {
         color = `rgb(${uiConfig.COLOR_YELLOW.r}, ${uiConfig.COLOR_YELLOW.g}, ${uiConfig.COLOR_YELLOW.b})`;
         glow = `rgba(${uiConfig.GLOW_YELLOW.r}, ${uiConfig.GLOW_YELLOW.g}, ${uiConfig.GLOW_YELLOW.b}, ${uiConfig.GLOW_YELLOW.a})`;
       }

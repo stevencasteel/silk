@@ -12,7 +12,7 @@ export const CANONICAL_UNITS = {
   },
   TETHER_STRAIN: {
     OVERLOAD_LIMIT: 0.8,
-    SNAP_LIMIT: 0.95,
+    SNAP_LIMIT: 1.3,
     DAMAGE_COOLDOWN_MS: 800,
     TENSION_RESET_AFTER_DAMAGE: 0.62
   },
@@ -284,7 +284,7 @@ export const VISUAL_JUICE_CONFIG = {
     GLOW_GREEN: { r: 34, g: 197, b: 94, a: 0.45 },
     GLOW_YELLOW: { r: 234, g: 179, b: 8, a: 0.75 },
     GLOW_RED: { r: 239, g: 68, b: 68, a: 0.95 },
-    THRESHOLD_YELLOW: 0.555,
+    THRESHOLD_YELLOW: 0.427,
     THRESHOLD_RED: 0.8,
     PULSE_FREQ: 0.05,
     PULSE_AMP: 0.1,
