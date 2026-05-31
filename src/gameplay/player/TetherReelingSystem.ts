@@ -2,7 +2,6 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent,
   TetherComponent,
   TraversalStateComponent,
   InputIntentComponent,
@@ -16,9 +15,6 @@ export class TetherReelingSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
-    if (hs && hs.timeRemaining > 0) return;
-
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
     const trav = this.context.stores
       .get<TraversalStateComponent>("traversal")
@@ -32,11 +28,10 @@ export class TetherReelingSystem implements ISystem {
     const input = this.context.stores.get<InputIntentComponent>("input").get(this.context.refs.player);
     const target = this.context.stores.get<KinematicTargetComponent>("target").get(this.context.refs.player);
 
-    // Manual Reel-In by pressing Up (W / ArrowUp)
     const isPressingUp = input && input.y > 0;
 
     if (isPressingUp && !isWebTrapped && target) {
-      const manualInSpeed = 16.0; // Responsive manual climb and reel rate
+      const manualInSpeed = 16.0;
       const minPossibleLength = Math.max(
         reelConfig.MIN_LENGTH,
         Math.abs(target.x - tether.anchorX) + 0.5
@@ -46,7 +41,6 @@ export class TetherReelingSystem implements ISystem {
       tether.maxLength = Math.max(minPossibleLength, tether.maxLength - manualInSpeed * dt);
       tether.reelVelocity = -manualInSpeed;
     } else {
-      // Standard auto-slack takeup and reeling logic
       const AUTO_SLACK_MARGIN = 0.5;
       if (!isWebTrapped) {
         tether.desiredLength = Math.min(
@@ -57,7 +51,6 @@ export class TetherReelingSystem implements ISystem {
       tether.desiredLength = Math.max(reelConfig.MIN_LENGTH, Math.min(reelConfig.MAX_LENGTH, tether.desiredLength));
 
       if (tether.maxLength > tether.desiredLength) {
-        // Reeling IN (Slack takeup)
         const resistance = Math.max(0.1, 1.0 - tether.tension);
         const easeSpeed = reelConfig.IN_SPEED * resistance;
         const maxDelta = easeSpeed * dt;
@@ -68,7 +61,6 @@ export class TetherReelingSystem implements ISystem {
         }
         tether.reelVelocity = -easeSpeed;
       } else if (tether.maxLength < tether.desiredLength) {
-        // Reeling OUT
         const rate = 16.0;
         const lerpFactor = 1.0 - Math.exp(-dt * rate);
         tether.maxLength += (tether.desiredLength - tether.maxLength) * lerpFactor;

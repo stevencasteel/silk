@@ -2,7 +2,6 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent,
   KinematicVelocityComponent,
   WeaverTraversalComponent,
   TransformComponent,
@@ -28,9 +27,6 @@ export class WeaverTraversalSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.weaver);
-    if (hs && hs.timeRemaining > 0) return;
-
     const vel = this.context.stores
       .get<KinematicVelocityComponent>("velocity")
       .get(this.context.refs.weaver);

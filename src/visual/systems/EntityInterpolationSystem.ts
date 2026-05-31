@@ -18,9 +18,19 @@ export class EntityInterpolationSystem implements ISystem {
       const node = this.context.visualRegistry.getTransformNode(id);
       if (!node) continue;
 
-      node.position.x = curr.prevX + (curr.x - curr.prevX) * alpha;
-      node.position.y = curr.prevY + (curr.y - curr.prevY) * alpha;
-      node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
+      const deltaX = curr.x - curr.prevX;
+      const deltaY = curr.y - curr.prevY;
+      const distSq = deltaX * deltaX + deltaY * deltaY;
+
+      if (distSq > 400.0) {
+        node.position.x = curr.x;
+        node.position.y = curr.y;
+        node.position.z = curr.z;
+      } else {
+        node.position.x = curr.prevX + deltaX * alpha;
+        node.position.y = curr.prevY + deltaY * alpha;
+        node.position.z = curr.prevZ + (curr.z - curr.prevZ) * alpha;
+      }
 
       const sx =
         curr.prevScaleX !== undefined && curr.scaleX !== undefined

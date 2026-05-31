@@ -22,7 +22,6 @@ export class CameraSystem implements ISystem {
 
   private cameraScrollY = 0.0;
 
-  // Track shake offsets across update and render
   private _shakeOffsetX = 0.0;
   private _shakeOffsetY = 0.0;
   private _shakeOffsetZ = 0.0;
@@ -129,7 +128,6 @@ export class CameraSystem implements ISystem {
       const baseY = POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
       const playerLocalY = playerTrans.y - baseY;
 
-      // Lock tracking when Weaver is safely patrolling
       const isBossEngaging = wAI && (wAI.state === "STRIKING" || wAI.state === "SHOCKWAVE" || wAI.state === "ASCENDING");
       const lowerLimit = CAMERA_TUNING.LOWER_COMFORT_Y;
       
@@ -142,7 +140,6 @@ export class CameraSystem implements ISystem {
           Math.max(this.cameraScrollY + maxScrollDelta, desiredScrollY)
         );
       } else {
-        // Smoothly return Y back to static baseline coordinates
         let targetY = 0.0;
         if (weaverTrans) {
           const weaverLocalY = weaverTrans.y - baseY;
@@ -151,11 +148,11 @@ export class CameraSystem implements ISystem {
           }
         }
         
-        const panRecoverySpeed = 0.08;
+        const panRecoveryFactor = 1.0 - Math.exp(-dt * 5.0);
         this.cameraScrollY = BABYLON.Scalar.Lerp(
           this.cameraScrollY,
           targetY,
-          panRecoverySpeed
+          panRecoveryFactor
         );
       }
     }

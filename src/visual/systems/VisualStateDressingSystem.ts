@@ -5,7 +5,6 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent,
   PlayerCosmeticComponent,
   WeaverCosmeticComponent,
   WeaverAIComponent,
@@ -47,10 +46,7 @@ export class VisualStateDressingSystem implements ISystem {
       }
     }
 
-    const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
     for (const [id, cosmetic] of cosmeticStore.entries()) {
-      const hs = hitStops.get(id);
-      if (hs && hs.timeRemaining > 0) continue;
       const wTrans = transformStore.get(id);
       if (!wTrans) continue;
 
@@ -79,9 +75,8 @@ export class VisualStateDressingSystem implements ISystem {
       wTrans.scaleVelZ = (wTrans.scaleVelZ ?? 0.0) + accelerationZ * dt;
       wTrans.scaleZ = wTrans.scaleZ! + wTrans.scaleVelZ * dt;
 
-            const currentRoll = cosmetic.currentRoll ?? 0;
+      const currentRoll = cosmetic.currentRoll ?? 0;
       const rollVel = cosmetic.rollVel ?? 0;
-      // Slightly lower stiffness for rotation to emphasize weight
       const rollSpring = solveSpringDamper(currentRoll, cosmetic.rotationAngle, rollVel, dt, cosmetic.springStiffness * 0.6, cosmetic.springDamping);
       cosmetic.currentRoll = rollSpring.value;
       cosmetic.rollVel = rollSpring.velocity;
@@ -92,7 +87,6 @@ export class VisualStateDressingSystem implements ISystem {
       cosmetic.currentWobble = wobbleSpring.value;
       cosmetic.wobbleVel = wobbleSpring.velocity;
 
-      // Combine sprung wobble and roll
       BABYLON.Quaternion.RotationYawPitchRollToRef(0, 0, cosmetic.currentWobble, this._weaverTargetQuat);
       const rollQuat = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, cosmetic.currentRoll);
       this._weaverTargetQuat.multiplyInPlace(rollQuat);
@@ -102,13 +96,15 @@ export class VisualStateDressingSystem implements ISystem {
       wTrans.qz = this._weaverTargetQuat.z;
       wTrans.qw = this._weaverTargetQuat.w;
     }
+
+    this.updateAestheticDressing(dt);
   }
 
   public render(): void {
-    this.updateAestheticDressing();
+    // Dynamic color dressing is calculated inside update loop to utilize frame-rate independent delta times
   }
 
-  private updateAestheticDressing(): void {
+  private updateAestheticDressing(dt: number): void {
     const pCosmetics = this.context.stores.get<PlayerCosmeticComponent>("playerCosmetic");
     const wCosmetics = this.context.stores.get<WeaverCosmeticComponent>("weaverCosmetic");
     const wAI = this.context.stores
@@ -140,10 +136,11 @@ export class VisualStateDressingSystem implements ISystem {
           pCosmetic.emissiveG,
           pCosmetic.emissiveB
         );
+        const playerLerpFactor = 1.0 - Math.exp(-dt * 12.0);
         BABYLON.Color3.LerpToRef(
           this.currentEmissiveColor,
           this._targetEmissiveColor,
-          emissive.PLAYER_LERP_RATE,
+          playerLerpFactor,
           this.currentEmissiveColor
         );
 

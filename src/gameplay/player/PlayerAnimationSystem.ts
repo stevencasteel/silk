@@ -3,7 +3,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent, TransformComponent, PlayerCosmeticComponent,
+  TransformComponent, PlayerCosmeticComponent,
   KinematicVelocityComponent } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -15,9 +15,6 @@ export class PlayerAnimationSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
-    if (hs && hs.timeRemaining > 0) return;
-
     const pTrans = this.context.stores
       .get<TransformComponent>("transform")
       .get(this.context.refs.player);
@@ -35,7 +32,6 @@ export class PlayerAnimationSystem implements ISystem {
     const speedY = vel ? vel.y : 0.0;
     const speed = Math.sqrt(speedX * speedX + speedY * speedY);
 
-    // --- PHASE 3: GAME JUICE VELOCITY STRETCH & COLOR LERP ---
     if (speed > 15.0) {
       const stretch = Math.min(0.85, (speed - 15.0) * 0.015);
       cosmetic.targetScaleY = Math.max(cosmetic.targetScaleY, 1.0 + stretch);
@@ -51,7 +47,6 @@ export class PlayerAnimationSystem implements ISystem {
       cosmetic.emissiveG += (gTarget - cosmetic.emissiveG) * tColor;
       cosmetic.emissiveB += (bTarget - cosmetic.emissiveB) * tColor;
     }
-    // ---------------------------------------------------------
 
     pTrans.prevScaleZ = pTrans.scaleZ!;
 
@@ -72,7 +67,6 @@ export class PlayerAnimationSystem implements ISystem {
     const currentRot = cosmetic.currentRotation ?? 0;
     const rotVel = cosmetic.rotationVel ?? 0;
     
-    // Dynamic aerodynamic lean based on horizontal velocity (Damped Harmonic Oscillator target offset)
     const velocityLean = speedX * -0.022; 
     const targetRot = cosmetic.rotationAngle + velocityLean;
 
@@ -80,7 +74,6 @@ export class PlayerAnimationSystem implements ISystem {
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     const adjustedTarget = currentRot + diff;
 
-    // Utilize dynamic state-driven spring parameters rather than hardcoded ones
     const rotStiffness = cosmetic.springStiffness;
     const rotDamping = cosmetic.springDamping;
 

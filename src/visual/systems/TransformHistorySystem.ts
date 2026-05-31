@@ -4,7 +4,7 @@ import { TransformComponent } from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 
 export class TransformHistorySystem implements ISystem {
-  readonly phase = SystemPhase.Input;
+  readonly phase = SystemPhase.Gameplay;
 
   constructor(private context: SystemContext) {}
 

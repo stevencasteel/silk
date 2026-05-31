@@ -2,7 +2,7 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import {
-  HitStopComponent, WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
+  WeaverAIComponent, KinematicVelocityComponent } from "../../core/ecs/Components";
 import { GameEvent } from "../../core/events/GameEvents";
 
 export class WeaverActionSystem implements ISystem {
@@ -11,10 +11,6 @@ export class WeaverActionSystem implements ISystem {
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.weaver);
-    if (hs && hs.timeRemaining > 0) return;
-
-    void dt;
     const aiStore = this.context.stores.get<WeaverAIComponent>("weaverAI");
     const velocityStore = this.context.stores.get<KinematicVelocityComponent>("velocity");
 
@@ -24,13 +20,11 @@ export class WeaverActionSystem implements ISystem {
 
     if (!ai || !vel) return;
 
-    // 1. Process movement intents
-    const accelRate = 12.0; // Responsive but physically weighted
+    const accelRate = 12.0;
     const lerpFactor = 1.0 - Math.exp(-dt * accelRate);
     vel.x += (ai.desiredVelocityX - vel.x) * lerpFactor;
     vel.y += (ai.desiredVelocityY - vel.y) * lerpFactor;
 
-    // 2. Process shooting intents
     if (
       ai.shootRequested &&
       ai.shootOriginX !== undefined &&
@@ -48,7 +42,6 @@ export class WeaverActionSystem implements ISystem {
       ai.shootRequested = false;
     }
 
-    // 3. Process screen shake intents
     if (ai.shakeRequested && ai.shakeAmplitude !== undefined && ai.shakeDuration !== undefined) {
       this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
         amplitude: ai.shakeAmplitude,

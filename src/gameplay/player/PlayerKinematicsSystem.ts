@@ -2,9 +2,10 @@ import { getWeaverStingerTip, getDistance2D } from "../../core/utils/EngineUtils
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
-import { GameEvent } from "../../core/events/GameEvents";
 import {
-  HitStopComponent,
+  GameEvent
+} from "../../core/events/GameEvents";
+import {
   TetherComponent,
   KinematicTargetComponent,
   TraversalStateComponent,
@@ -48,9 +49,6 @@ export class PlayerKinematicsSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    const hs = this.context.stores.get<HitStopComponent>("hitStop").get(this.context.refs.player);
-    if (hs && hs.timeRemaining > 0) return;
-
     const tether = this.context.stores.get<TetherComponent>("tether").get(this.context.refs.player);
     const target = this.context.stores
       .get<KinematicTargetComponent>("target")
@@ -162,7 +160,6 @@ export class PlayerKinematicsSystem implements ISystem {
     this.lengthPayload.maxLength = tether.maxLength;
     this.context.broker.publish(GameEvent.TETHER_LENGTH_CHANGE, this.lengthPayload);
 
-    // Dispatch unified, highly granular telemetry payload directly to window renders
     const renderEvt = new CustomEvent("silk-tension-render-tick", {
       detail: {
         tension: tether.tension,
