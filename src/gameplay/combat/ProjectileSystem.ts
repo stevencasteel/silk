@@ -1,5 +1,5 @@
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
-import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
+import { SilkMaterialPlugin } from "../../visual/lighting/SilkMaterialPlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -430,15 +430,15 @@ export class ProjectileSystem implements ISystem {
 
     this.noiseTime += dt;
     if (this.pool.projMatActive) {
-      const noisePlugin = (this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePlugin = (this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
     if (this.pool.projMatActiveRed) {
-      const noisePluginRed = (this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePluginRed = (this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
       if (noisePluginRed) noisePluginRed.time = this.noiseTime;
     }
     if (this.pool.projMatTrapped) {
-      const noisePlugin = (this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePlugin = (this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
 

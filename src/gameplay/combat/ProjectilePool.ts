@@ -2,7 +2,7 @@ import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
 import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
-import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
+import { SilkMaterialPlugin } from "../../visual/lighting/SilkMaterialPlugin";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -40,21 +40,21 @@ export class ProjectilePool {
     private onOverlapCallback: (otherId: number, projId: number) => void
   ) {
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive");
-    const noisePlugin = new ProjectileNoisePlugin(this.projMatActive);
-    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePlugin;
+    const noisePlugin = new SilkMaterialPlugin(this.projMatActive, { noise: true });
+    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePlugin;
 
     this.projMatActiveRed = this.createBaseProjectileMaterial("projectileMatActiveRed");
     this.projMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
-    const noisePluginRed = new ProjectileNoisePlugin(this.projMatActiveRed);
-    (this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePluginRed;
+    const noisePluginRed = new SilkMaterialPlugin(this.projMatActiveRed, { noise: true });
+    (this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePluginRed;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck");
     this.projMatStuckRed = this.createBaseProjectileMaterial("projectileMatStuckRed");
     this.projMatStuckRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
 
     this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped");
-    const trappedNoise = new ProjectileNoisePlugin(this.projMatTrapped);
-    (this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = trappedNoise;
+    const trappedNoise = new SilkMaterialPlugin(this.projMatTrapped, { noise: true });
+    (this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = trappedNoise;
 
     if (this.scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(

@@ -1,5 +1,5 @@
 import { ColorCache, solveSpringDamper } from "../../core/utils/EngineUtils";
-import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
+import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -199,7 +199,7 @@ export class VisualStateDressingSystem implements ISystem {
           );
 
           if (wAI) {
-            const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+            const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: SilkMaterialPlugin })
               ._shearPlugin;
             if (shearPlugin) {
               shearPlugin.shearIntensity = wAI.damageShearIntensity;

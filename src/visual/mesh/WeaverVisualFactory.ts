@@ -1,12 +1,11 @@
 import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
 import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
-import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
-import { AbdomenGradientPlugin } from "../lighting/AbdomenGradientPlugin";
+import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
 interface CustomPBRMaterial extends BABYLON.PBRMaterial {
-  _shearPlugin?: RasterShearPlugin;
+  _shearPlugin?: SilkMaterialPlugin;
 }
 
 interface LegPose {
@@ -73,7 +72,8 @@ function createWeaverMaterial(
   color: BABYLON.Color3,
   metallic: number,
   roughness: number,
-  enableClearCoat: boolean = false
+  enableClearCoat: boolean = false,
+  options?: { shear?: boolean; gradient?: boolean; noise?: boolean }
 ): CustomPBRMaterial {
   const mat = new BABYLON.PBRMaterial(name, scene) as CustomPBRMaterial;
   mat.albedoColor = color;
@@ -89,7 +89,11 @@ function createWeaverMaterial(
   mat.enableSpecularAntiAliasing = true;
   mat.forceIrradianceInFragment = true;
 
-  const shearPlugin = new RasterShearPlugin(mat);
+  const shearPlugin = new SilkMaterialPlugin(mat, {
+    shear: options?.shear ?? true,
+    gradient: options?.gradient ?? false,
+    noise: options?.noise ?? false
+  });
   mat._shearPlugin = shearPlugin;
 
   return mat;
@@ -146,8 +150,8 @@ export function createWeaverVisualMesh(
   wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
   wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
   wMesh.material = wMat;
-  const shearPlugin = new RasterShearPlugin(wMat);
-  (wMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin = shearPlugin;
+  const shearPlugin = new SilkMaterialPlugin(wMat, { shear: true });
+  (wMat as BABYLON.PBRMaterial & { _shearPlugin?: SilkMaterialPlugin })._shearPlugin = shearPlugin;
 
   decorateWeaverVisual(scene, wMesh, radius, registerShadowCaster);
   return wMesh;
@@ -199,9 +203,9 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
   );
 
-  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true);
-  const abdomenPlugin = new AbdomenGradientPlugin(shellMat);
-  (shellMat as BABYLON.PBRMaterial & { _abdomenPlugin?: AbdomenGradientPlugin })._abdomenPlugin = abdomenPlugin;
+  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, { shear: true, gradient: true });
+  const abdomenPlugin = shellMat._shearPlugin;
+  (shellMat as BABYLON.PBRMaterial & { _abdomenPlugin?: SilkMaterialPlugin })._abdomenPlugin = abdomenPlugin;
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,

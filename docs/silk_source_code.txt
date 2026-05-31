@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/30/2026, 9:24:13 PM
+ [SYSTEM] Generated: 5/30/2026, 9:29:36 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -157,10 +157,8 @@
 │   │   ├── cameras/
 │   │   │   └── CameraSystem.ts
 │   │   ├── lighting/
-│   │   │   ├── AbdomenGradientPlugin.ts
 │   │   │   ├── LightingSystem.ts
-│   │   │   ├── ProjectileNoisePlugin.ts
-│   │   │   └── RasterShearPlugin.ts
+│   │   │   └── SilkMaterialPlugin.ts
 │   │   ├── mesh/
 │   │   │   ├── ArenaGeometry.ts
 │   │   │   ├── HealthBugVisualFactory.ts
@@ -5514,7 +5512,7 @@ import * as BABYLON from "@babylonjs/core";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { EntityId } from "../../core/ecs/Entity";
 import { WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
-import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
+import { SilkMaterialPlugin } from "../../visual/lighting/SilkMaterialPlugin";
 import {
   TransformComponent,
   KinematicVelocityComponent,
@@ -5552,21 +5550,21 @@ export class ProjectilePool {
     private onOverlapCallback: (otherId: number, projId: number) => void
   ) {
     this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive");
-    const noisePlugin = new ProjectileNoisePlugin(this.projMatActive);
-    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePlugin;
+    const noisePlugin = new SilkMaterialPlugin(this.projMatActive, { noise: true });
+    (this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePlugin;
 
     this.projMatActiveRed = this.createBaseProjectileMaterial("projectileMatActiveRed");
     this.projMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
-    const noisePluginRed = new ProjectileNoisePlugin(this.projMatActiveRed);
-    (this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = noisePluginRed;
+    const noisePluginRed = new SilkMaterialPlugin(this.projMatActiveRed, { noise: true });
+    (this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = noisePluginRed;
 
     this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck");
     this.projMatStuckRed = this.createBaseProjectileMaterial("projectileMatStuckRed");
     this.projMatStuckRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
 
     this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped");
-    const trappedNoise = new ProjectileNoisePlugin(this.projMatTrapped);
-    (this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin = trappedNoise;
+    const trappedNoise = new SilkMaterialPlugin(this.projMatTrapped, { noise: true });
+    (this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin = trappedNoise;
 
     if (this.scene.isPhysicsEnabled()) {
       this.sharedShape = new BABYLON.PhysicsShapeSphere(
@@ -5893,7 +5891,7 @@ export class ProjectilePool {
 ● ./src/gameplay/combat/ProjectileSystem.ts
 ────────────────────────────────────────────────────
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
-import { ProjectileNoisePlugin } from "../../visual/lighting/ProjectileNoisePlugin";
+import { SilkMaterialPlugin } from "../../visual/lighting/SilkMaterialPlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -6324,15 +6322,15 @@ export class ProjectileSystem implements ISystem {
 
     this.noiseTime += dt;
     if (this.pool.projMatActive) {
-      const noisePlugin = (this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePlugin = (this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
     if (this.pool.projMatActiveRed) {
-      const noisePluginRed = (this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePluginRed = (this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
       if (noisePluginRed) noisePluginRed.time = this.noiseTime;
     }
     if (this.pool.projMatTrapped) {
-      const noisePlugin = (this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: ProjectileNoisePlugin })._noisePlugin;
+      const noisePlugin = (this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin })._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
 
@@ -15956,87 +15954,6 @@ export class CameraSystem implements ISystem {
 
 
 
-● ./src/visual/lighting/AbdomenGradientPlugin.ts
-────────────────────────────────────────────────────
-import { Material, MaterialPluginBase, ShaderLanguage, Color3, PBRMaterial, MaterialDefines, Scene, AbstractMesh } from "@babylonjs/core";
-
-export class AbdomenGradientPlugin extends MaterialPluginBase {
-  constructor(material: Material) {
-    super(material, "AbdomenGradient", 202, { ABDOMEN_GRADIENT: false });
-    this._enable(true);
-
-    const pbr = material as PBRMaterial;
-    if (pbr) {
-      pbr.emissiveColor = new Color3(0.05, 0.0, 0.1);
-    }
-    material.markAsDirty(Material.AllDirtyFlag);
-  }
-
-  public prepareDefines(defines: MaterialDefines, scene: Scene, mesh?: AbstractMesh) {
-    void scene;
-    void mesh;
-    const customDefines = defines as Record<string, unknown>;
-    customDefines.ABDOMEN_GRADIENT = true;
-  }
-
-  public getClassName(): string {
-    return "AbdomenGradientPlugin";
-  }
-
-  public isCompatible(shaderLanguage: ShaderLanguage): boolean {
-    return shaderLanguage === ShaderLanguage.GLSL;
-  }
-
-  public getCustomCode(
-    shaderType: string,
-    shaderLanguage?: ShaderLanguage
-  ): Record<string, string> | null {
-    if (shaderLanguage === ShaderLanguage.GLSL) {
-      if (shaderType === "vertex") {
-        return {
-          CUSTOM_VERTEX_DEFINITIONS: `
-            #ifdef ABDOMEN_GRADIENT
-            varying float vAbdomenLocalY;
-            #endif
-          `,
-          CUSTOM_VERTEX_UPDATE_POSITION: `
-            #ifdef ABDOMEN_GRADIENT
-            vAbdomenLocalY = position.y;
-            #endif
-          `
-        };
-      } else if (shaderType === "fragment") {
-        return {
-          CUSTOM_FRAGMENT_DEFINITIONS: `
-            #ifdef ABDOMEN_GRADIENT
-            varying float vAbdomenLocalY;
-            #endif
-          `,
-          CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `
-            #ifdef ABDOMEN_GRADIENT
-            #ifdef EMISSIVE
-            // Apply only to the yellow warning telegraph color (green > 0.3)
-            if (vEmissiveColor.g > 0.3) {
-                float distFromEquator = max(0.0, -vAbdomenLocalY);
-                float gradientFactor = smoothstep(0.0, 3.4, distFromEquator);
-                gradientFactor = pow(gradientFactor, 2.5);
-                
-                // Subtract flat emissive contribution, then add back the gradient-attenuated emissive
-                finalColor.rgb -= finalEmissive;
-                finalColor.rgb += finalEmissive * gradientFactor;
-            }
-            #endif
-            #endif
-          `
-        };
-      }
-    }
-    return null;
-  }
-}
-
-
-
 ● ./src/visual/lighting/LightingSystem.ts
 ────────────────────────────────────────────────────
 import { ColorCache } from "../../core/utils/EngineUtils";
@@ -16176,153 +16093,72 @@ export class LightingSystem implements ISystem {
 
 
 
-● ./src/visual/lighting/ProjectileNoisePlugin.ts
+● ./src/visual/lighting/SilkMaterialPlugin.ts
 ────────────────────────────────────────────────────
-import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer } from "@babylonjs/core";
+import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer, Color3, PBRMaterial } from "@babylonjs/core";
 
-export class ProjectileNoisePlugin extends MaterialPluginBase {
-  public time = 0.0;
-
-  constructor(material: Material) {
-    super(material, "ProjectileNoise", 201, { NOISE: false });
-    this._enable(true);
-  }
-
-  public prepareDefines(defines: Record<string, boolean>) {
-    defines["NOISE"] = true;
-  }
-
-  public getClassName(): string {
-    return "ProjectileNoisePlugin";
-  }
-
-  public getUniforms() {
-    return {
-      ubo: [{ name: "u_noiseTime", size: 1, type: "float" }]
-    };
-  }
-
-  public isCompatible(shaderLanguage: ShaderLanguage): boolean {
-    return shaderLanguage === ShaderLanguage.GLSL;
-  }
-
-  public getCustomCode(
-    shaderType: string,
-    shaderLanguage?: ShaderLanguage
-  ): Record<string, string> | null {
-    if (shaderLanguage === ShaderLanguage.GLSL) {
-      if (shaderType === "vertex") {
-        return {
-          CUSTOM_VERTEX_DEFINITIONS: `
-            #ifdef NOISE
-            uniform float u_noiseTime;
-            varying vec3 vLocalPos;
-
-            float getNoiseVal(vec3 pos, float time) {
-                float n = sin(pos.x * 2.0 + time * 5.0) * 
-                          cos(pos.y * 2.3 + time * 6.3) * 
-                          sin(pos.z * 2.6 + time * 4.1);
-                n += sin(pos.y * 5.0 - time * 11.0) * 0.35;
-                return n * 0.24;
-            }
-            #endif
-          `,
-          CUSTOM_VERTEX_UPDATE_POSITION: `
-            #ifdef NOISE
-            vLocalPos = positionUpdated;
-            float noiseVal = getNoiseVal(positionUpdated, u_noiseTime);
-
-            #ifdef NORMAL
-            vec3 originalNormal = normalUpdated;
-            #else
-            vec3 originalNormal = length(positionUpdated) > 0.0 ? normalize(positionUpdated) : vec3(0.0, 1.0, 0.0);
-            #endif
-
-            float eps = 0.02;
-            float hL = noiseVal;
-            float hR_x = getNoiseVal(positionUpdated + vec3(eps, 0.0, 0.0), u_noiseTime);
-            float hR_y = getNoiseVal(positionUpdated + vec3(0.0, eps, 0.0), u_noiseTime);
-            float hR_z = getNoiseVal(positionUpdated + vec3(0.0, 0.0, eps), u_noiseTime);
-
-            vec3 grad = vec3(hR_x - hL, hR_y - hL, hR_z - hL) / eps;
-
-            positionUpdated += originalNormal * noiseVal;
-
-            #ifdef NORMAL
-            normalUpdated = normalize(originalNormal - grad * 0.5);
-            #endif
-            #endif
-          `
-        };
-      } else if (shaderType === "fragment") {
-        return {
-          CUSTOM_FRAGMENT_DEFINITIONS: `
-            #ifdef NOISE
-            uniform float u_noiseTime;
-            varying vec3 vLocalPos;
-            #endif
-          `,
-          CUSTOM_FRAGMENT_BEFORE_LIGHTS: `
-            #ifdef NOISE
-            #ifdef NORMAL
-            vec3 pos = vLocalPos;
-            float epsF = 0.005;
-            float hLF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
-            float hR_xF = sin((pos.x + epsF) * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
-            float hR_yF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin((pos.y + epsF) * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
-            float hR_zF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin((pos.z + epsF) * 12.0 + u_noiseTime * 18.0) * 0.09;
-
-            vec3 gradF = vec3(hR_xF - hLF, hR_yF - hLF, hR_zF - hLF) / epsF;
-
-            normalW = normalize(normalW - gradF * 0.15);
-            #endif
-            #endif
-          `
-        };
-      }
-    }
-    return null;
-  }
-
-  public bindForSubMesh(uniformBuffer: UniformBuffer): void {
-    uniformBuffer.updateFloat("u_noiseTime", this.time);
-  }
-}
-
-
-
-● ./src/visual/lighting/RasterShearPlugin.ts
-────────────────────────────────────────────────────
-import { Material, MaterialPluginBase, ShaderLanguage, UniformBuffer } from "@babylonjs/core";
-
-export class RasterShearPlugin extends MaterialPluginBase {
+export class SilkMaterialPlugin extends MaterialPluginBase {
   public shearIntensity = 0.0;
   public shearTime = 0.0;
+  public time = 0.0;
 
-  constructor(material: Material) {
-    super(material, "RasterShear", 200, { SHEAR: false });
+  public shearActive = false;
+  public gradientActive = false;
+  public noiseActive = false;
+
+  constructor(material: Material, options?: { shear?: boolean; gradient?: boolean; noise?: boolean }) {
+    super(material, "SilkMaterialEffects", 200, {
+      SHEAR: false,
+      ABDOMEN_GRADIENT: false,
+      NOISE: false
+    });
+    
+    this.shearActive = options?.shear ?? false;
+    this.gradientActive = options?.gradient ?? false;
+    this.noiseActive = options?.noise ?? false;
+
     this._enable(true);
+
+    if (this.gradientActive) {
+      const pbr = material as PBRMaterial;
+      if (pbr) {
+        pbr.emissiveColor = new Color3(0.05, 0.0, 0.1);
+      }
+    }
   }
 
   public prepareDefines(defines: Record<string, boolean>) {
-    defines["SHEAR"] = true;
+    defines["SHEAR"] = this.shearActive;
+    defines["ABDOMEN_GRADIENT"] = this.gradientActive;
+    defines["NOISE"] = this.noiseActive;
   }
 
   public getClassName(): string {
-    return "RasterShearPlugin";
+    return "SilkMaterialPlugin";
   }
 
   public getUniforms() {
     return {
       ubo: [
         { name: "u_shearIntensity", size: 1, type: "float" },
-        { name: "u_shearTime", size: 1, type: "float" }
+        { name: "u_shearTime", size: 1, type: "float" },
+        { name: "u_noiseTime", size: 1, type: "float" }
       ]
     };
   }
 
   public isCompatible(shaderLanguage: ShaderLanguage): boolean {
     return shaderLanguage === ShaderLanguage.GLSL;
+  }
+
+  public bindForSubMesh(uniformBuffer: UniformBuffer): void {
+    if (this.shearActive) {
+      uniformBuffer.updateFloat("u_shearIntensity", this.shearIntensity);
+      uniformBuffer.updateFloat("u_shearTime", this.shearTime);
+    }
+    if (this.noiseActive) {
+      uniformBuffer.updateFloat("u_noiseTime", this.time);
+    }
   }
 
   public getCustomCode(
@@ -16353,26 +16189,115 @@ export class RasterShearPlugin extends MaterialPluginBase {
                 return steppedWave * envelope * intensity * 0.45;
             }
             #endif
+
+            #ifdef NOISE
+            uniform float u_noiseTime;
+            varying vec3 vLocalPos;
+
+            float getNoiseVal(vec3 pos, float time) {
+                float n = sin(pos.x * 2.0 + time * 5.0) * 
+                          cos(pos.y * 2.3 + time * 6.3) * 
+                          sin(pos.z * 2.6 + time * 4.1);
+                n += sin(pos.y * 5.0 - time * 11.0) * 0.35;
+                return n * 0.24;
+            }
+            #endif
+
+            #ifdef ABDOMEN_GRADIENT
+            varying float vAbdomenLocalY;
+            #endif
           `,
           CUSTOM_VERTEX_UPDATE_POSITION: `
             #ifdef SHEAR
             float displacement = getShearDisplacement(positionUpdated, u_shearIntensity, u_shearTime);
 
             #ifdef NORMAL
-            vec3 originalNormal = normalUpdated;
+            vec3 originalNormalShear = normalUpdated;
             #endif
 
-            float eps = 0.02;
-            float hL = displacement;
+            float epsShear = 0.02;
+            float hLShear = displacement;
             
-            float hR_y = getShearDisplacement(positionUpdated + vec3(0.0, eps, 0.0), u_shearIntensity, u_shearTime);
-            float d_dy = (hR_y - hL) / eps;
+            float hR_yShear = getShearDisplacement(positionUpdated + vec3(0.0, epsShear, 0.0), u_shearIntensity, u_shearTime);
+            float d_dyShear = (hR_yShear - hLShear) / epsShear;
 
             positionUpdated.x += displacement;
 
             #ifdef NORMAL
-            normalUpdated.x -= d_dy * 0.35;
+            normalUpdated.x -= d_dyShear * 0.35;
             normalUpdated = normalize(normalUpdated);
+            #endif
+            #endif
+
+            #ifdef NOISE
+            vLocalPos = positionUpdated;
+            float noiseVal = getNoiseVal(positionUpdated, u_noiseTime);
+
+            #ifdef NORMAL
+            vec3 originalNormalNoise = normalUpdated;
+            #else
+            vec3 originalNormalNoise = length(positionUpdated) > 0.0 ? normalize(positionUpdated) : vec3(0.0, 1.0, 0.0);
+            #endif
+
+            float epsNoise = 0.02;
+            float hLNoise = noiseVal;
+            float hR_xNoise = getNoiseVal(positionUpdated + vec3(epsNoise, 0.0, 0.0), u_noiseTime);
+            float hR_yNoise = getNoiseVal(positionUpdated + vec3(0.0, epsNoise, 0.0), u_noiseTime);
+            float hR_zNoise = getNoiseVal(positionUpdated + vec3(0.0, 0.0, epsNoise), u_noiseTime);
+
+            vec3 gradNoise = vec3(hR_xNoise - hLNoise, hR_yNoise - hLNoise, hR_zNoise - hLNoise) / epsNoise;
+
+            positionUpdated += originalNormalNoise * noiseVal;
+
+            #ifdef NORMAL
+            normalUpdated = normalize(originalNormalNoise - gradNoise * 0.5);
+            #endif
+            #endif
+
+            #ifdef ABDOMEN_GRADIENT
+            vAbdomenLocalY = position.y;
+            #endif
+          `
+        };
+      } else if (shaderType === "fragment") {
+        return {
+          CUSTOM_FRAGMENT_DEFINITIONS: `
+            #ifdef NOISE
+            uniform float u_noiseTime;
+            varying vec3 vLocalPos;
+            #endif
+
+            #ifdef ABDOMEN_GRADIENT
+            varying float vAbdomenLocalY;
+            #endif
+          `,
+          CUSTOM_FRAGMENT_BEFORE_LIGHTS: `
+            #ifdef NOISE
+            #ifdef NORMAL
+            vec3 pos = vLocalPos;
+            float epsF = 0.005;
+            float hLF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_xF = sin((pos.x + epsF) * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_yF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin((pos.y + epsF) * 12.0 - u_noiseTime * 12.0) * sin(pos.z * 12.0 + u_noiseTime * 18.0) * 0.09;
+            float hR_zF = sin(pos.x * 12.0 + u_noiseTime * 15.0) * sin(pos.y * 12.0 - u_noiseTime * 12.0) * sin((pos.z + epsF) * 12.0 + u_noiseTime * 18.0) * 0.09;
+
+            vec3 gradF = vec3(hR_xF - hLF, hR_yF - hLF, hR_zF - hLF) / epsF;
+
+            normalW = normalize(normalW - gradF * 0.15);
+            #endif
+            #endif
+          `,
+          CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `
+            #ifdef ABDOMEN_GRADIENT
+            #ifdef EMISSIVE
+            if (vEmissiveColor.g > 0.3) {
+                float distFromEquator = max(0.0, -vAbdomenLocalY);
+                float gradientFactor = smoothstep(0.0, 3.4, distFromEquator);
+                gradientFactor = pow(gradientFactor, 2.5);
+                
+                finalColor.rgb -= finalEmissive;
+                finalColor.rgb += finalEmissive * gradientFactor;
+            }
             #endif
             #endif
           `
@@ -16380,11 +16305,6 @@ export class RasterShearPlugin extends MaterialPluginBase {
       }
     }
     return null;
-  }
-
-  public bindForSubMesh(uniformBuffer: UniformBuffer): void {
-    uniformBuffer.updateFloat("u_shearIntensity", this.shearIntensity);
-    uniformBuffer.updateFloat("u_shearTime", this.shearTime);
   }
 }
 
@@ -17287,12 +17207,11 @@ export class WallBugVisualFactory {
 import { applyProceduralTextures, removeMeshFromShadows } from "../../core/utils/EngineUtils";
 import { ARENA_CONFIG, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
-import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
-import { AbdomenGradientPlugin } from "../lighting/AbdomenGradientPlugin";
+import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { ProceduralTextureGenerator } from "../scene/ProceduralTextureGenerator";
 
 interface CustomPBRMaterial extends BABYLON.PBRMaterial {
-  _shearPlugin?: RasterShearPlugin;
+  _shearPlugin?: SilkMaterialPlugin;
 }
 
 interface LegPose {
@@ -17359,7 +17278,8 @@ function createWeaverMaterial(
   color: BABYLON.Color3,
   metallic: number,
   roughness: number,
-  enableClearCoat: boolean = false
+  enableClearCoat: boolean = false,
+  options?: { shear?: boolean; gradient?: boolean; noise?: boolean }
 ): CustomPBRMaterial {
   const mat = new BABYLON.PBRMaterial(name, scene) as CustomPBRMaterial;
   mat.albedoColor = color;
@@ -17375,7 +17295,11 @@ function createWeaverMaterial(
   mat.enableSpecularAntiAliasing = true;
   mat.forceIrradianceInFragment = true;
 
-  const shearPlugin = new RasterShearPlugin(mat);
+  const shearPlugin = new SilkMaterialPlugin(mat, {
+    shear: options?.shear ?? true,
+    gradient: options?.gradient ?? false,
+    noise: options?.noise ?? false
+  });
   mat._shearPlugin = shearPlugin;
 
   return mat;
@@ -17432,8 +17356,8 @@ export function createWeaverVisualMesh(
   wMat.clearCoat.intensity = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_INTENSITY;
   wMat.clearCoat.roughness = VISUAL_JUICE_CONFIG.MATERIALS.WEAVER.CLEAR_COAT_ROUGHNESS;
   wMesh.material = wMat;
-  const shearPlugin = new RasterShearPlugin(wMat);
-  (wMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })._shearPlugin = shearPlugin;
+  const shearPlugin = new SilkMaterialPlugin(wMat, { shear: true });
+  (wMat as BABYLON.PBRMaterial & { _shearPlugin?: SilkMaterialPlugin })._shearPlugin = shearPlugin;
 
   decorateWeaverVisual(scene, wMesh, radius, registerShadowCaster);
   return wMesh;
@@ -17485,9 +17409,9 @@ export function decorateWeaverVisual(
     ARENA_CONFIG.ENTITY_COLORS.WEAVER_ALBEDO.b * 1.6
   );
 
-  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true);
-  const abdomenPlugin = new AbdomenGradientPlugin(shellMat);
-  (shellMat as BABYLON.PBRMaterial & { _abdomenPlugin?: AbdomenGradientPlugin })._abdomenPlugin = abdomenPlugin;
+  const shellMat = createWeaverMaterial("carapaceUpperMat", scene, upperPurple, 0.95, 0.08, true, { shear: true, gradient: true });
+  const abdomenPlugin = shellMat._shearPlugin;
+  (shellMat as BABYLON.PBRMaterial & { _abdomenPlugin?: SilkMaterialPlugin })._abdomenPlugin = abdomenPlugin;
 
   applyProceduralTextures(textureGen, "carapaceUpper", scene, shellMat, {
     resolution: 512,
@@ -18919,7 +18843,7 @@ export class TransformHistorySystem implements ISystem {
 ● ./src/visual/systems/VisualStateDressingSystem.ts
 ────────────────────────────────────────────────────
 import { ColorCache, solveSpringDamper } from "../../core/utils/EngineUtils";
-import { RasterShearPlugin } from "../lighting/RasterShearPlugin";
+import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -19119,7 +19043,7 @@ export class VisualStateDressingSystem implements ISystem {
           );
 
           if (wAI) {
-            const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: RasterShearPlugin })
+            const shearPlugin = (pbrMat as BABYLON.PBRMaterial & { _shearPlugin?: SilkMaterialPlugin })
               ._shearPlugin;
             if (shearPlugin) {
               shearPlugin.shearIntensity = wAI.damageShearIntensity;
