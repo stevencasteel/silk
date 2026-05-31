@@ -397,7 +397,7 @@ export const VISUAL_JUICE_CONFIG = {
     }
   },
   WALL_BUG_COLORS: {
-    BLUE_STRIPE: { r: 0.05, g: 0.45, b: 0.85 },
+    BLUE_STRIPE: { r: 0.027, g: 0.431, b: 0.749 },
     SPIKE_RED: { r: 0.95, g: 0.12, b: 0.12 }
   },
   COCOON_COLORS: {

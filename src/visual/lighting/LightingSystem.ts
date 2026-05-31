@@ -13,6 +13,7 @@ export class LightingSystem implements ISystem {
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
+  private fillLights: BABYLON.PointLight[] = [];
   private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0);
   private currentColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
@@ -56,6 +57,31 @@ export class LightingSystem implements ISystem {
     this.rimLight.intensity = 1.8;
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.3, 0.3, 0.3);
+
+    // Add fill lights distributed throughout the arena for uniform lighting
+    const fillLightPositions = [
+      new BABYLON.Vector3(-8, 20, -8),
+      new BABYLON.Vector3(8, 20, -8),
+      new BABYLON.Vector3(-8, 0, -8),
+      new BABYLON.Vector3(8, 0, -8),
+      new BABYLON.Vector3(-8, -20, -8),
+      new BABYLON.Vector3(8, -20, -8),
+      new BABYLON.Vector3(0, 30, -10),
+      new BABYLON.Vector3(0, -30, -10)
+    ];
+
+    for (let i = 0; i < fillLightPositions.length; i++) {
+      const fillLight = new BABYLON.PointLight(
+        `fillLight_${i}`,
+        fillLightPositions[i],
+        scene
+      );
+      fillLight.intensity = 0.6;
+      fillLight.range = 25.0;
+      fillLight.diffuse = new BABYLON.Color3(0.95, 0.97, 1.0);
+      fillLight.specular = new BABYLON.Color3(0.2, 0.2, 0.2);
+      this.fillLights.push(fillLight);
+    }
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
@@ -136,5 +162,9 @@ export class LightingSystem implements ISystem {
     if (this.weaverLight) this.weaverLight.dispose();
     if (this.weaverKeyLight) this.weaverKeyLight.dispose();
     if (this.rimLight) this.rimLight.dispose();
+    for (const fillLight of this.fillLights) {
+      fillLight.dispose();
+    }
+    this.fillLights = [];
   }
 }

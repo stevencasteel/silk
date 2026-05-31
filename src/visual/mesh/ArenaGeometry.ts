@@ -392,10 +392,11 @@ export class ArenaGeometry {
     }
 
     const tickMat = new BABYLON.PBRMaterial("tickMat", this.scene);
-    tickMat.albedoColor = new BABYLON.Color3(0.1, 0.13, 0.16);
+    tickMat.albedoColor = new BABYLON.Color3(0.027, 0.431, 0.749);
     tickMat.metallic = 0.3;
     tickMat.roughness = 0.4;
-    tickMat.emissiveColor = new BABYLON.Color3(0.5, 0.72, 0.94);
+    tickMat.emissiveColor = new BABYLON.Color3(0.0, 0.35, 0.65);
+    tickMat.emissiveIntensity = 0.5;
 
     const tickBase = BABYLON.MeshBuilder.CreateBox(
       "tickBase",

@@ -266,6 +266,22 @@ export class FaunaVisualFactory {
     stripL.material = stripeMat;
     stripL.parent = leftSafety;
 
+    // Add horizontal lines to left safety side
+    for (let h = 0; h < 6; h++) {
+      const hLineL = BABYLON.MeshBuilder.CreateBox(
+        `hLineL_${id}_${h}`,
+        {
+          width: 0.35,
+          height: 0.06,
+          depth: 0.32
+        },
+        scene
+      );
+      hLineL.position.set(-0.59, -2.5 + h * 1.0, 0);
+      hLineL.material = stripeMat;
+      hLineL.parent = leftSafety;
+    }
+
     const stripR = BABYLON.MeshBuilder.CreateBox(
       `stripR_${id}`,
       {
@@ -278,6 +294,22 @@ export class FaunaVisualFactory {
     stripR.position.set(0.59, 0, 0);
     stripR.material = stripeMat;
     stripR.parent = rightSafety;
+
+    // Add horizontal lines to right safety side
+    for (let h = 0; h < 6; h++) {
+      const hLineR = BABYLON.MeshBuilder.CreateBox(
+        `hLineR_${id}_${h}`,
+        {
+          width: 0.35,
+          height: 0.06,
+          depth: 0.32
+        },
+        scene
+      );
+      hLineR.position.set(0.59, -2.5 + h * 1.0, 0);
+      hLineR.material = stripeMat;
+      hLineR.parent = rightSafety;
+    }
 
     for (let leg = 0; leg < 4; leg++) {
       const legY = -2.0 + leg * 1.35;
