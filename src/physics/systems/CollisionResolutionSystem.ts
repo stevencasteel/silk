@@ -12,15 +12,15 @@ import {
   TraversalStateComponent
 } from "../../core/ecs/Components";
 import { GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
-import * as BABYLON from "@babylonjs/core";
 
 export class CollisionResolutionSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
+  private currentTime = 0.0;
 
   constructor(private context: SystemContext) {}
 
   public update(dt: number): void {
-    void dt;
+    this.currentTime += dt;
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const responses = this.context.stores.get<CollisionResponseComponent>("collisionResponse");
 
@@ -44,18 +44,26 @@ export class CollisionResolutionSystem implements ISystem {
         const combinedRadius = hb.radius + hub.radius;
 
         if (dist < combinedRadius) {
+          const cooldown = hb.hitCooldown || 0.1;
+          
+          if (hb.lastHitTime !== undefined && this.currentTime - hb.lastHitTime < cooldown) {
+            continue;
+          }
+
           let dx = hubTrans.x - hbTrans.x;
           let dy = hubTrans.y - hbTrans.y;
           let len = Math.sqrt(dx * dx + dy * dy);
           if (len < 0.001) {
-            dx = 0.001;
-            dy = 0.0;
-            len = 0.001;
+            const angle = Math.random() * Math.PI * 2;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+            len = 1.0;
           }
 
           const response = responses.get(hubId);
           if (response && response.onHit) {
             response.onHit(hb.damage, "PLAYER_FLING", dx / len, dy / len, this.context);
+            hb.lastHitTime = this.currentTime;
           }
         }
       }
@@ -67,15 +75,39 @@ export class CollisionResolutionSystem implements ISystem {
 
       const response = responses.get(projId);
       if (response && response.layer === "PROJECTILE" && response.onOverlap) {
-        const mesh = this.context.visualQuery.getTransformNode(projId);
-        const pMesh = this.context.visualQuery.getTransformNode(this.context.refs.player);
+        const projTrans = transforms.get(projId);
+        const playerTrans = transforms.get(this.context.refs.player);
 
-        if (
-          mesh instanceof BABYLON.AbstractMesh &&
-          pMesh instanceof BABYLON.AbstractMesh &&
-          mesh.intersectsMesh(pMesh, false)
-        ) {
-          response.onOverlap(this.context.refs.player, this.context);
+        if (projTrans && playerTrans) {
+          const projectileRadius = 0.9;
+          const playerRadius = this.context.stores.get<HurtboxComponent>("hurtbox").get(this.context.refs.player)?.radius || 1.0;
+          const combinedRadius = projectileRadius + playerRadius;
+
+          const dist = getDistance2D(projTrans.x, projTrans.y, playerTrans.x, playerTrans.y);
+          
+          if (dist < combinedRadius) {
+            response.onOverlap(this.context.refs.player, this.context);
+          } else {
+            const dx = projTrans.x - projTrans.prevX;
+            const dy = projTrans.y - projTrans.prevY;
+            const movementDist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (movementDist > 0.01) {
+              const t = this.closestPointOnSegment(
+                projTrans.prevX, projTrans.prevY,
+                projTrans.x, projTrans.y,
+                playerTrans.x, playerTrans.y
+              );
+              
+              const closestX = projTrans.prevX + dx * t;
+              const closestY = projTrans.prevY + dy * t;
+              const closestDist = getDistance2D(closestX, closestY, playerTrans.x, playerTrans.y);
+              
+              if (closestDist < combinedRadius) {
+                response.onOverlap(this.context.refs.player, this.context);
+              }
+            }
+          }
         }
       }
     }
@@ -106,5 +138,20 @@ export class CollisionResolutionSystem implements ISystem {
         }
       }
     }
+  }
+
+  private closestPointOnSegment(
+    x1: number, y1: number,
+    x2: number, y2: number,
+    px: number, py: number
+  ): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    
+    if (lenSq < 0.0001) return 0;
+    
+    const t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    return Math.max(0, Math.min(1, t));
   }
 }

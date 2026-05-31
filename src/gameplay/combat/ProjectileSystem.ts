@@ -75,7 +75,8 @@ export class ProjectileSystem implements ISystem {
         pComp.isStuck = true;
         pComp.isStuckOnWall = true;
 
-        projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - 0.05);
+        const PROJECTILE_WALL_OFFSET = 0.05;
+        projTrans.x = Math.sign(currentX) * (ARENA_CONFIG.HORIZONTAL.PLAY_AREA_HALF_WIDTH - PROJECTILE_WALL_OFFSET);
         projTrans.prevX = projTrans.x;
 
         if (projVel) {

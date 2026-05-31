@@ -11,6 +11,8 @@ export interface HitboxComponent {
   targetLayer: "PLAYER" | "WEAVER" | "BOTH";
   knockbackX?: number;
   knockbackY?: number;
+  lastHitTime?: number;
+  hitCooldown?: number;
 }
 
 export interface HurtboxComponent {

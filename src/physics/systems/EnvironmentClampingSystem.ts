@@ -43,6 +43,10 @@ export class EnvironmentClampingSystem implements ISystem {
 
       if (hitRight || hitLeft) {
         const hitSide = hitRight ? "RIGHT" : "LEFT";
+        
+        trans.x = hitRight ? constraint.limitX : -constraint.limitX;
+        trans.prevX = trans.x;
+        
         if (constraint.onBoundaryHit) {
           constraint.onBoundaryHit(id, hitSide, trans.x);
         }
