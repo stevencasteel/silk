@@ -41,6 +41,12 @@ export class AudioSystem implements ISystem, IDisposable {
     );
 
     this._tracker.add(
+      this.context.broker.subscribe(GameEvent.UI_SFX_DING, () => {
+        this.playDingSound();
+      })
+    );
+
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.playVictorySound();
       })
@@ -124,6 +130,39 @@ export class AudioSystem implements ISystem, IDisposable {
     gain.connect(this.masterGain);
     osc.start(now);
     osc.stop(now + duration + 0.06);
+  }
+
+  private playDingSound(): void {
+    if (!this.resumeContext() || !this.ctx || !this.masterGain) return;
+
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const duration = 0.15;
+
+    // Crisp high frequency fundamental tone (G6)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(1567.98, now);
+    gain1.gain.setValueAtTime(0.08, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+
+    // Bright harmonic overtone perfect-fifth above (D7)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(2349.32, now);
+    gain2.gain.setValueAtTime(0.04, now);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration * 0.7);
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain);
+
+    osc1.start(now);
+    osc1.stop(now + duration + 0.05);
+    osc2.start(now);
+    osc2.stop(now + duration + 0.05);
   }
 
   private playRevealSound(): void {

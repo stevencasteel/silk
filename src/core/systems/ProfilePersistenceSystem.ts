@@ -40,8 +40,8 @@ export class ProfilePersistenceSystem implements ISystem {
         this.wins = typeof parsed.wins === "number" ? parsed.wins : 0;
         this.losses = typeof parsed.losses === "number" ? parsed.losses : 0;
       }
-    } catch (e) {
-      console.warn("ProfilePersistenceSystem: Failed to load local stats", e);
+    } catch (err) {
+      console.warn("ProfilePersistenceSystem: Failed to load local stats", err);
     }
     this.publishStats();
   }
@@ -59,8 +59,8 @@ export class ProfilePersistenceSystem implements ISystem {
   private saveStats(): void {
     try {
       localStorage.setItem("silk_stats", JSON.stringify({ wins: this.wins, losses: this.losses }));
-    } catch (e) {
-      console.warn("ProfilePersistenceSystem: Failed to save stats", e);
+    } catch (err) {
+      console.warn("ProfilePersistenceSystem: Failed to save stats", err);
     }
     this.publishStats();
   }
@@ -70,8 +70,8 @@ export class ProfilePersistenceSystem implements ISystem {
     this.losses = 0;
     try {
       localStorage.setItem("silk_stats", JSON.stringify({ wins: 0, losses: 0 }));
-    } catch (e) {
-      console.warn("ProfilePersistenceSystem: Failed to clear stats", e);
+    } catch (err) {
+      console.warn("ProfilePersistenceSystem: Failed to clear stats", err);
     }
     this.publishStats();
   };

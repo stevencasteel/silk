@@ -27,7 +27,8 @@ export enum GameEvent {
   WEAVER_BOUNCED = "WEAVER_BOUNCED",
   UI_SFX_TICK = "UI_SFX_TICK",
   UI_SFX_CONFIRM = "UI_SFX_CONFIRM",
-  UI_SFX_REVEAL = "UI_SFX_REVEAL"
+  UI_SFX_REVEAL = "UI_SFX_REVEAL",
+  UI_SFX_DING = "UI_SFX_DING"
 }
 
 export interface GameEventMap {
@@ -68,4 +69,5 @@ export interface GameEventMap {
   [GameEvent.UI_SFX_TICK]: void;
   [GameEvent.UI_SFX_CONFIRM]: void;
   [GameEvent.UI_SFX_REVEAL]: void;
+  [GameEvent.UI_SFX_DING]: void;
 }

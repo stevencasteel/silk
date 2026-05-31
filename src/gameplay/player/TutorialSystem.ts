@@ -41,7 +41,7 @@ export class TutorialSystem implements ISystem {
           this.step0Completed = true;
           this.calibrationStep = 1;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 1 });
-          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+          this.context.broker.publish(GameEvent.UI_SFX_DING, undefined);
         }
       })
     );
@@ -58,7 +58,7 @@ export class TutorialSystem implements ISystem {
           this.step1Completed = true;
           this.calibrationStep = 2;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+          this.context.broker.publish(GameEvent.UI_SFX_DING, undefined);
         }
       }
     }

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 1:28:02 PM
+ [SYSTEM] Generated: 5/31/2026, 1:54:07 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -17,6 +17,7 @@
 │   └── silk_source_code.txt
 ├── node_modules/ (contents skipped)
 ├── public/
+│   ├── sfx/
 │   ├── favicon.svg
 │   ├── HavokPhysics.wasm
 │   ├── silk_source_code.txt
@@ -3253,7 +3254,8 @@ export enum GameEvent {
   WEAVER_BOUNCED = "WEAVER_BOUNCED",
   UI_SFX_TICK = "UI_SFX_TICK",
   UI_SFX_CONFIRM = "UI_SFX_CONFIRM",
-  UI_SFX_REVEAL = "UI_SFX_REVEAL"
+  UI_SFX_REVEAL = "UI_SFX_REVEAL",
+  UI_SFX_DING = "UI_SFX_DING"
 }
 
 export interface GameEventMap {
@@ -3294,6 +3296,7 @@ export interface GameEventMap {
   [GameEvent.UI_SFX_TICK]: void;
   [GameEvent.UI_SFX_CONFIRM]: void;
   [GameEvent.UI_SFX_REVEAL]: void;
+  [GameEvent.UI_SFX_DING]: void;
 }
 
 
@@ -3493,8 +3496,8 @@ export class ProfilePersistenceSystem implements ISystem {
         this.wins = typeof parsed.wins === "number" ? parsed.wins : 0;
         this.losses = typeof parsed.losses === "number" ? parsed.losses : 0;
       }
-    } catch (e) {
-      console.warn("ProfilePersistenceSystem: Failed to load local stats", e);
+    } catch (err) {
+      console.warn("ProfilePersistenceSystem: Failed to load local stats", err);
     }
     this.publishStats();
   }
@@ -3512,8 +3515,8 @@ export class ProfilePersistenceSystem implements ISystem {
   private saveStats(): void {
     try {
       localStorage.setItem("silk_stats", JSON.stringify({ wins: this.wins, losses: this.losses }));
-    } catch (e) {
-      console.warn("ProfilePersistenceSystem: Failed to save stats", e);
+    } catch (err) {
+      console.warn("ProfilePersistenceSystem: Failed to save stats", err);
     }
     this.publishStats();
   }
@@ -3523,8 +3526,8 @@ export class ProfilePersistenceSystem implements ISystem {
     this.losses = 0;
     try {
       localStorage.setItem("silk_stats", JSON.stringify({ wins: 0, losses: 0 }));
-    } catch (e) {
-      console.warn("ProfilePersistenceSystem: Failed to clear stats", e);
+    } catch (err) {
+      console.warn("ProfilePersistenceSystem: Failed to clear stats", err);
     }
     this.publishStats();
   };
@@ -6247,6 +6250,12 @@ export class AudioSystem implements ISystem, IDisposable {
     );
 
     this._tracker.add(
+      this.context.broker.subscribe(GameEvent.UI_SFX_DING, () => {
+        this.playDingSound();
+      })
+    );
+
+    this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.playVictorySound();
       })
@@ -6330,6 +6339,39 @@ export class AudioSystem implements ISystem, IDisposable {
     gain.connect(this.masterGain);
     osc.start(now);
     osc.stop(now + duration + 0.06);
+  }
+
+  private playDingSound(): void {
+    if (!this.resumeContext() || !this.ctx || !this.masterGain) return;
+
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const duration = 0.15;
+
+    // Crisp high frequency fundamental tone (G6)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(1567.98, now);
+    gain1.gain.setValueAtTime(0.08, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+
+    // Bright harmonic overtone perfect-fifth above (D7)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(2349.32, now);
+    gain2.gain.setValueAtTime(0.04, now);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration * 0.7);
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain);
+
+    osc1.start(now);
+    osc1.stop(now + duration + 0.05);
+    osc2.start(now);
+    osc2.stop(now + duration + 0.05);
   }
 
   private playRevealSound(): void {
@@ -9335,7 +9377,7 @@ export class TutorialSystem implements ISystem {
           this.step0Completed = true;
           this.calibrationStep = 1;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 1 });
-          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+          this.context.broker.publish(GameEvent.UI_SFX_DING, undefined);
         }
       })
     );
@@ -9352,7 +9394,7 @@ export class TutorialSystem implements ISystem {
           this.step1Completed = true;
           this.calibrationStep = 2;
           this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-          this.context.broker.publish(GameEvent.UI_SFX_CONFIRM, undefined);
+          this.context.broker.publish(GameEvent.UI_SFX_DING, undefined);
         }
       }
     }
