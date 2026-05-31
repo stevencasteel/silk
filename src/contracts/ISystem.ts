@@ -21,26 +21,24 @@ export interface IDisposable {
   dispose(): void;
 }
 
-export function isInitializable(system: unknown): system is IInitializable {
+function hasMethod(system: unknown, methodName: string): boolean {
   if (system === null || typeof system !== "object") return false;
   const candidate = system as Record<string, unknown>;
-  return typeof candidate.init === "function";
+  return typeof candidate[methodName] === "function";
+}
+
+export function isInitializable(system: unknown): system is IInitializable {
+  return hasMethod(system, "init");
 }
 
 export function isUpdateable(system: unknown): system is IUpdateable {
-  if (system === null || typeof system !== "object") return false;
-  const candidate = system as Record<string, unknown>;
-  return typeof candidate.update === "function";
+  return hasMethod(system, "update");
 }
 
 export function isRenderable(system: unknown): system is IRenderable {
-  if (system === null || typeof system !== "object") return false;
-  const candidate = system as Record<string, unknown>;
-  return typeof candidate.render === "function";
+  return hasMethod(system, "render");
 }
 
 export function isDisposable(system: unknown): system is IDisposable {
-  if (system === null || typeof system !== "object") return false;
-  const candidate = system as Record<string, unknown>;
-  return typeof candidate.dispose === "function";
+  return hasMethod(system, "dispose");
 }

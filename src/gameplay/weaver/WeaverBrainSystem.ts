@@ -6,15 +6,14 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { IWeaverState, WeaverStateType } from "./IWeaverState";
 import { WEAVER_AI_TUNING } from "../../core/engine/ArenaConfig";
 import { SystemContext } from "../../core/engine/SystemContext";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 
 export class WeaverBrainSystem implements ISystem {
   readonly phase = SystemPhase.Intents;
   private states = new Map<WeaverStateType, IWeaverState>();
   private activeState: IWeaverState | null = null;
-  private unsubDamage: (() => void) | null = null;
-  private unsubReset: (() => void) | null = null;
-  private unsubBounce: (() => void) | null = null;
   private pendingTransition: WeaverStateType | null = null;
+  private _tracker = new SubscriptionTracker();
 
   constructor(private context: SystemContext) {}
 
@@ -25,37 +24,43 @@ export class WeaverBrainSystem implements ISystem {
   public init(): void {
     this.resetBrain();
 
-    this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-      this.resetBrain();
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.resetBrain();
+      })
+    );
 
-    this.unsubDamage = this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
-      const aiComp = this.context.stores
-        .get<WeaverAIComponent>("weaverAI")
-        .get(this.context.refs.weaver);
-      const health = this.context.stores
-        .get<HealthComponent>("health")
-        .get(this.context.refs.weaver);
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        const aiComp = this.context.stores
+          .get<WeaverAIComponent>("weaverAI")
+          .get(this.context.refs.weaver);
+        const health = this.context.stores
+          .get<HealthComponent>("health")
+          .get(this.context.refs.weaver);
 
-      if (aiComp && health) {
-        aiComp.damageShearIntensity = 1.0;
-        aiComp.damageShearTime = 0.0;
-        if (health.current <= 0) {
-          this.pendingTransition = "DEFEATED";
-        } else if (aiComp.state === "PATROLLING" || aiComp.state === "SHOCKWAVE") {
-          this.pendingTransition = "STRIKING";
+        if (aiComp && health) {
+          aiComp.damageShearIntensity = 1.0;
+          aiComp.damageShearTime = 0.0;
+          if (health.current <= 0) {
+            this.pendingTransition = "DEFEATED";
+          } else if (aiComp.state === "PATROLLING" || aiComp.state === "SHOCKWAVE") {
+            this.pendingTransition = "STRIKING";
+          }
         }
-      }
-    });
+      })
+    );
 
-    this.unsubBounce = this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
-      const aiComp = this.context.stores
-        .get<WeaverAIComponent>("weaverAI")
-        .get(this.context.refs.weaver);
-      if (aiComp && aiComp.state === "PATROLLING") {
-        this.pendingTransition = "SHOCKWAVE";
-      }
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
+        const aiComp = this.context.stores
+          .get<WeaverAIComponent>("weaverAI")
+          .get(this.context.refs.weaver);
+        if (aiComp && aiComp.state === "PATROLLING") {
+          this.pendingTransition = "SHOCKWAVE";
+        }
+      })
+    );
   }
 
   private resetBrain(): void {
@@ -160,8 +165,6 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsubDamage) this.unsubDamage();
-    if (this.unsubReset) this.unsubReset();
-    if (this.unsubBounce) this.unsubBounce();
+    this._tracker.clear();
   }
 }

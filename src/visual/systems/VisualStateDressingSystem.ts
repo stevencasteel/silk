@@ -1,4 +1,4 @@
-import { ColorCache, solveSpringDamper } from "../../core/utils/EngineUtils";
+import { ColorCache, solveSpringDamper, collectPBRMaterials } from "../../core/utils/EngineUtils";
 import { SilkMaterialPlugin } from "../lighting/SilkMaterialPlugin";
 import { VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
 import { ISystem } from "../../contracts/ISystem";
@@ -112,18 +112,7 @@ export class VisualStateDressingSystem implements ISystem {
     if (pCosmetic) {
       const pNode = this.context.visualQuery.getTransformNode(pId);
       if (pNode instanceof BABYLON.AbstractMesh) {
-        const pbrMaterials: BABYLON.PBRMaterial[] = [];
-        if (pNode.material instanceof BABYLON.PBRMaterial) {
-          pbrMaterials.push(pNode.material);
-        }
-        pNode.getChildMeshes().forEach((child) => {
-          if (
-            child.material instanceof BABYLON.PBRMaterial &&
-            !pbrMaterials.includes(child.material)
-          ) {
-            pbrMaterials.push(child.material);
-          }
-        });
+        const pbrMaterials = collectPBRMaterials(pNode);
 
         const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
         pbrMaterials.forEach((mat) => {
@@ -157,18 +146,7 @@ export class VisualStateDressingSystem implements ISystem {
     if (wCosmetic) {
       const wNode = this.context.visualQuery.getTransformNode(wId);
       if (wNode instanceof BABYLON.AbstractMesh) {
-        const pbrMaterials: BABYLON.PBRMaterial[] = [];
-        if (wNode.material instanceof BABYLON.PBRMaterial) {
-          pbrMaterials.push(wNode.material);
-        }
-        wNode.getChildMeshes().forEach((child) => {
-          if (
-            child.material instanceof BABYLON.PBRMaterial &&
-            !pbrMaterials.includes(child.material)
-          ) {
-            pbrMaterials.push(child.material);
-          }
-        });
+        const pbrMaterials = collectPBRMaterials(wNode);
 
         const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
         const pulse =

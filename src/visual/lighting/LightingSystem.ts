@@ -1,4 +1,4 @@
-import { ColorCache } from "../../core/utils/EngineUtils";
+import { ColorCache, SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -9,7 +9,7 @@ export class LightingSystem implements ISystem {
   readonly phase = SystemPhase.RenderSync;
   readonly initPhase = InitPhase.World;
 
-  private unsub: (() => void) | null = null;
+  private _tracker = new SubscriptionTracker();
   private weaverLight: BABYLON.PointLight | null = null;
   private weaverKeyLight: BABYLON.SpotLight | null = null;
   private rimLight: BABYLON.DirectionalLight | null = null;
@@ -57,17 +57,23 @@ export class LightingSystem implements ISystem {
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Disable specular spot on colored light
 
-    this.unsub = this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
-      this.setWeaverPhaseHue(payload.hue);
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
+        this.setWeaverPhaseHue(payload.hue);
+      })
+    );
 
-    this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
-      this.triggerFlash();
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DIED, () => {
+        this.triggerFlash();
+      })
+    );
 
-    this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
-      this.triggerFlash();
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        this.triggerFlash();
+      })
+    );
   }
 
   public update(dt: number): void {
@@ -126,7 +132,7 @@ export class LightingSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsub) this.unsub();
+    this._tracker.clear();
     if (this.weaverLight) this.weaverLight.dispose();
     if (this.weaverKeyLight) this.weaverKeyLight.dispose();
     if (this.rimLight) this.rimLight.dispose();

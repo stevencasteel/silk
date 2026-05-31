@@ -264,3 +264,16 @@ export function removeMeshFromShadows(mesh: BABYLON.AbstractMesh, scene: BABYLON
     }
   });
 }
+
+export function collectPBRMaterials(mesh: BABYLON.AbstractMesh): BABYLON.PBRMaterial[] {
+  const materials: BABYLON.PBRMaterial[] = [];
+  if (mesh.material instanceof BABYLON.PBRMaterial) {
+    materials.push(mesh.material);
+  }
+  mesh.getChildMeshes().forEach((child) => {
+    if (child.material instanceof BABYLON.PBRMaterial && !materials.includes(child.material)) {
+      materials.push(child.material);
+    }
+  });
+  return materials;
+}

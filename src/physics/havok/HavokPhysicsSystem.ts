@@ -176,6 +176,20 @@ export class HavokPhysicsSystem implements ISystem {
     });
   }
 
+  private setMeshTargetTransform(
+    entityId: number,
+    trans: TransformComponent | undefined
+  ): void {
+    const mesh = this.context.visualQuery.getTransformNode(
+      entityId
+    ) as BABYLON.AbstractMesh | null;
+    if (mesh && mesh.physicsBody && trans) {
+      this._scratchPos.set(trans.x, trans.y, trans.z);
+      this._scratchRot.set(trans.qx, trans.qy, trans.qz, trans.qw);
+      mesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
+    }
+  }
+
   public update(): void {
     this.context.commands.flush();
     const transforms = this.context.stores.get<TransformComponent>("transform");
@@ -195,23 +209,8 @@ export class HavokPhysicsSystem implements ISystem {
       wTrans.z = wTarget.z;
     }
 
-    const pMesh = this.context.visualQuery.getTransformNode(
-      this.context.refs.player
-    ) as BABYLON.AbstractMesh | null;
-    if (pMesh && pMesh.physicsBody && pTrans) {
-      this._scratchPos.set(pTrans.x, pTrans.y, pTrans.z);
-      this._scratchRot.set(pTrans.qx, pTrans.qy, pTrans.qz, pTrans.qw);
-      pMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
-    }
-
-    const wMesh = this.context.visualQuery.getTransformNode(
-      this.context.refs.weaver
-    ) as BABYLON.AbstractMesh | null;
-    if (wMesh && wMesh.physicsBody && wTrans) {
-      this._scratchPos.set(wTrans.x, wTrans.y, wTrans.z);
-      this._scratchRot.set(wTrans.qx, wTrans.qy, wTrans.qz, wTrans.qw);
-      wMesh.physicsBody.setTargetTransform(this._scratchPos, this._scratchRot);
-    }
+    this.setMeshTargetTransform(this.context.refs.player, pTrans);
+    this.setMeshTargetTransform(this.context.refs.weaver, wTrans);
   }
 
   public dispose(): void {

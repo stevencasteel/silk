@@ -21,7 +21,7 @@ import {
   KinematicTargetComponent
 } from "../../core/ecs/Components";
 import { ARENA_CONFIG, WEAVER_AI_TUNING, VISUAL_JUICE_CONFIG } from "../../core/engine/ArenaConfig";
-import { getWeaverAbdomenTip } from "../../core/utils/EngineUtils";
+import { getWeaverAbdomenTip, SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { ProjectilePool } from "./ProjectilePool";
 import * as BABYLON from "@babylonjs/core";
 
@@ -29,10 +29,9 @@ export class ProjectileSystem implements ISystem {
   readonly phase = SystemPhase.Gameplay;
   private pool!: ProjectilePool;
 
-  private unsubShoot: (() => void) | null = null;
   private shotCounter = 0;
-  private unsubReset: (() => void) | null = null;
   private noiseTime = 0.0;
+  private _tracker = new SubscriptionTracker();
 
   private _scratchPos = new BABYLON.Vector3();
   private _scratchRot = new BABYLON.Quaternion();
@@ -50,15 +49,19 @@ export class ProjectileSystem implements ISystem {
       (otherId, projId) => this.handleOverlap(otherId, projId)
     );
 
-    this.unsubShoot = this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
-      this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty, !!payload.isRelease);
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+        this.spawnProjectile(payload.x, payload.y, payload.tx, payload.ty, !!payload.isRelease);
+      })
+    );
 
-    this.unsubReset = this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-      this.pool.reset();
-      this.noiseTime = 0.0;
-      this.shotCounter = 0;
-    });
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.pool.reset();
+        this.noiseTime = 0.0;
+        this.shotCounter = 0;
+      })
+    );
   }
 
   private handleBoundaryHit(id: EntityId, side: "LEFT" | "RIGHT", currentX: number): void {
@@ -791,8 +794,7 @@ export class ProjectileSystem implements ISystem {
   }
 
   public dispose(): void {
-    if (this.unsubShoot) this.unsubShoot();
-    if (this.unsubReset) this.unsubReset();
+    this._tracker.clear();
     if (this.pool) this.pool.dispose();
   }
 }
