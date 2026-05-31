@@ -42,7 +42,7 @@ export class EntityAssembler {
       qz: 0,
       qw: 1,
       prevX: 0,
-      prevY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - 6.0,
+      prevY: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
       prevZ: 0,
       prevQx: 0,
       prevQy: 0,

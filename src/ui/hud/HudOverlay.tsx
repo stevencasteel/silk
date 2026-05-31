@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Package, Layers, Loader2 } from "lucide-react";
+import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Package, Layers, Loader2, Lock, Unlock, Check, Monitor } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -59,7 +59,7 @@ const LOADING_STEPS = [
   { id: 0, label: "Core Engine", sub: "Loading base systems and physics", icon: Cpu },
   { id: 1, label: "World Data", sub: "Initializing 3D arena and bounds", icon: Layers },
   { id: 2, label: "Game Entities", sub: "Spawning player and boss", icon: Package },
-  { id: 3, label: "Render Pipeline", sub: "Compiling shaders and UI", icon: Loader2 }
+  { id: 3, label: "Render Pipeline", sub: "Compiling shaders and UI", icon: Monitor }
 ];
 
 export const HudOverlay: React.FC = () => {
@@ -307,19 +307,24 @@ export const HudOverlay: React.FC = () => {
     };
   }, [playerHp]);
 
+  const handleProceed = useCallback(() => {
+    playConfirmSynth();
+    publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
+    useOverlayStore.getState().setAwaitingGesture(false);
+    useOverlayStore.getState().setBootStatus("READY");
+  }, [playConfirmSynth, publishEvent]);
+
+  // Handle any key press to progress once fully loaded
   useEffect(() => {
-    if (awaitingGesture) {
+    if (bootStatus === "READY" && awaitingGesture) {
       const handleStartOnKey = (e: KeyboardEvent) => {
         e.preventDefault();
-        playConfirmSynth();
-        publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
-        useOverlayStore.getState().setAwaitingGesture(false);
-        useOverlayStore.getState().setBootStatus("READY");
+        handleProceed();
       };
       window.addEventListener("keydown", handleStartOnKey);
       return () => window.removeEventListener("keydown", handleStartOnKey);
     }
-  }, [awaitingGesture, playConfirmSynth, publishEvent]);
+  }, [bootStatus, awaitingGesture, handleProceed]);
 
   useEffect(() => {
     if (!overlayVisible) return;
@@ -344,6 +349,7 @@ export const HudOverlay: React.FC = () => {
         e.preventDefault();
         playConfirmSynth();
         if (menuIndex === 0) {
+          handleProceed();
           handleRetryClick();
         } else {
           handleClearStats();
@@ -360,7 +366,8 @@ export const HudOverlay: React.FC = () => {
     playTickSynth,
     playConfirmSynth,
     handleRetryClick,
-    handleClearStats
+    handleClearStats,
+    handleProceed
   ]);
 
   useEffect(() => {
@@ -450,6 +457,10 @@ export const HudOverlay: React.FC = () => {
   }, [overlayVisible, overlayTitle]);
 
   const isBooting = bootStatus !== "READY" && !awaitingGesture;
+  const showBootScreen = bootStatus !== "READY" || awaitingGesture;
+  const isFullyLoaded = bootStatus === "READY" && awaitingGesture;
+  const isFinished = isFullyLoaded || bootStatus === "READY";
+  const currentLoadingStep = Math.min(bootPhase, 3);
   const weaverHpRatio = Math.max(0, weaverHp / weaverMaxHp);
   const isCriticalHp = playerHp === 1 && !overlayVisible;
 
@@ -458,30 +469,37 @@ export const HudOverlay: React.FC = () => {
     : "led-yellow led-spring-impact";
   const activeStep = CALIBRATION_STEPS[displayedStep];
 
-  const currentLoadingStep = Math.min(bootPhase, 3);
-
   return (
     <>
-      {isBooting ? (
-        <div className="overlay-root font-mono pointer-events-auto bg-[#050506]/98 flex flex-col justify-center items-center">
-          <div className="relative p-10 rounded-[24px] bg-[#0c0e12] border border-white/5 shadow-2xl max-w-sm w-full mx-auto"
-               style={{
-                 boxShadow: "-8px -8px 24px rgba(255,255,255,0.02), 12px 12px 36px rgba(0,0,0,0.85)"
-               }}>
-            
-            <h2 className="text-zinc-500 font-bold uppercase tracking-[0.25em] text-xs mb-8 text-center select-none">
-              INITIALIZING GAME
+      {showBootScreen ? (
+        <div className="overlay-root font-mono pointer-events-auto bg-[#050506]/98 flex flex-col justify-between items-center p-6 sm:p-8">
+          
+          {/* Top Section: Description */}
+          <div className="w-full max-w-sm flex flex-col items-center text-center mt-4">
+            <div className="p-4 rounded-xl border border-white/5 bg-[#0c0e12]/60 backdrop-blur-sm shadow-lg">
+              <p className="text-[10px] sm:text-xs text-zinc-400 tracking-wide leading-relaxed select-none">
+                A game about being tethered to something dangerous{" "}
+                <span className="font-bold italic" style={{ color: "var(--signal-green)" }}>with a mind of its own</span>, where the tension between you and the thing trying to kill you is literally your only weapon.
+              </p>
+            </div>
+          </div>
+
+          {/* Middle Section: Loading Subsystems List & Progress */}
+          <div className="w-full max-w-sm flex flex-col gap-4 my-6 p-6 rounded-2xl bg-[#0c0e12] border border-white/5 shadow-2xl"
+               style={{ boxShadow: "-8px -8px 24px rgba(255,255,255,0.02), 12px 12px 36px rgba(0,0,0,0.85)" }}>
+            <h2 className="text-zinc-500 font-bold uppercase tracking-[0.25em] text-[10px] text-center select-none">
+              INITIALIZING CORE SYSTEMS
             </h2>
 
-            <div className="flex flex-col gap-6 mb-8">
+            <div className="flex flex-col gap-4">
               {LOADING_STEPS.map((step) => {
-                const isActive = step.id === currentLoadingStep;
-                const isCompleted = step.id < currentLoadingStep;
+                const isCompleted = isFinished || step.id < currentLoadingStep;
+                const isActive = !isFinished && step.id === currentLoadingStep;
                 const StepIcon = step.icon;
 
                 return (
-                  <div key={step.id} className={`flex items-center gap-4 transition-all duration-300 ${isActive ? "opacity-100 scale-102" : isCompleted ? "opacity-45" : "opacity-20"}`}>
-                    <div className={`relative flex items-center justify-center w-10 h-10 rounded-[12px] border transition-all duration-300 ${
+                  <div key={step.id} className={`flex items-center gap-3 transition-all duration-300 ${isActive ? "opacity-100 scale-102" : isCompleted ? "opacity-45" : "opacity-25"}`}>
+                    <div className={`relative flex items-center justify-center w-8 h-8 rounded-lg border transition-all duration-300 ${
                       isActive 
                         ? "bg-[#141820] border-emerald-500/30 text-emerald-500 shadow-inner" 
                         : isCompleted 
@@ -489,16 +507,80 @@ export const HudOverlay: React.FC = () => {
                           : "bg-[#07080b] border-zinc-800 text-zinc-600"
                     }`}
                     style={isActive ? { boxShadow: "inset 2px 2px 5px rgba(0,0,0,0.5), 0 0 10px rgba(16,185,129,0.1)" } : {}}>
-                      <StepIcon size={16} className={isActive && step.id === 3 ? "animate-spin" : isActive ? "animate-pulse" : ""} />
+                      
+                      {/* Icon Switcher Layer */}
+                      <div className="relative w-4 h-4 flex items-center justify-center">
+                        <AnimatePresence mode="wait">
+                          {isActive ? (
+                            <motion.div
+                              key="spinning-loader"
+                              initial={{ scale: 0.5, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.5, opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className="text-emerald-500"
+                            >
+                              <Loader2 size={16} className="animate-spin" />
+                            </motion.div>
+                          ) : isCompleted ? (
+                            <div className="relative w-4 h-4 flex items-center justify-center">
+                              {/* Swish Checkmark Overlay */}
+                              <motion.div
+                                key="checkmark-swish"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{
+                                  scale: [0, 1.3, 1.3, 0],
+                                  opacity: [0, 1, 1, 0]
+                                }}
+                                transition={{
+                                  duration: 1.8,
+                                  times: [0, 0.22, 0.78, 1.0],
+                                  ease: "easeInOut"
+                                }}
+                                className="absolute text-emerald-400"
+                              >
+                                <Check size={16} className="stroke-[3]" />
+                              </motion.div>
+                              {/* Final Default Icon Reveal */}
+                              <motion.div
+                                key="revealed-icon"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{
+                                  scale: [0, 0, 1],
+                                  opacity: [0, 0, 1]
+                                }}
+                                transition={{
+                                  duration: 1.8,
+                                  times: [0, 0.78, 1.0],
+                                  ease: "easeInOut"
+                                }}
+                                className="text-emerald-500"
+                              >
+                                <StepIcon size={14} />
+                              </motion.div>
+                            </div>
+                          ) : (
+                            <motion.div
+                              key="idle-icon"
+                              className="text-zinc-600"
+                            >
+                              <StepIcon size={14} />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Ping LED - active only during loading of that step */}
                       {isActive && (
-                        <div className="absolute -top-1 -right-1 flex items-center justify-center w-3 h-3">
+                        <div className="absolute -top-1 -right-1 flex items-center justify-center w-2.5 h-2.5">
                           <div className="absolute w-full h-full rounded-full bg-emerald-500 animate-ping opacity-75" />
-                          <div className="relative w-2 h-2 rounded-full bg-emerald-500 border border-[#0c0e12]" />
+                          <div className="relative w-1.5 h-1.5 rounded-full bg-emerald-500 border border-[#0c0e12]" />
                         </div>
                       )}
                     </div>
+
                     <div className="flex-1 min-w-0">
-                      <div className={`text-[10px] font-black tracking-wider ${isActive ? "text-emerald-500" : isCompleted ? "text-zinc-400" : "text-zinc-600"}`}>
+                      <div className={`text-[9px] font-black tracking-wider ${isActive ? "text-emerald-500" : isCompleted ? "text-zinc-400" : "text-zinc-600"}`}>
                         {step.label}
                       </div>
                       <div className="text-[8px] text-zinc-500 tracking-normal truncate">
@@ -510,45 +592,49 @@ export const HudOverlay: React.FC = () => {
               })}
             </div>
 
-            <div className="relative w-full h-2 rounded-full bg-[#07080b] border border-white/[0.02] p-0.5 overflow-hidden shadow-inner">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-300 ease-out"
+            {/* Kinetic Spring Progress Bar */}
+            <div className="relative w-full h-2 rounded-full bg-[#07080b] border border-white/[0.02] p-0.5 overflow-hidden shadow-inner mt-2">
+              <motion.div
+                className="h-full rounded-full bg-emerald-500"
+                initial={{ width: "0%" }}
+                animate={{ width: `${isFinished ? 100 : Math.round(loadingProgress * 100)}%` }}
+                transition={{ type: "spring", stiffness: 80, damping: 15 }}
                 style={{
-                  width: `${Math.round(loadingProgress * 100)}%`,
                   boxShadow: "0 0 8px rgba(16,185,129,0.5)"
                 }}
               />
             </div>
             
-            <div className="text-[7.5px] text-zinc-600 tracking-wider text-right mt-1.5 font-bold uppercase select-none">
-              LOADING PROCESS: {Math.round(loadingProgress * 100)}%
+            <div className="text-[7.5px] text-zinc-600 tracking-wider text-right font-bold uppercase select-none">
+              PROGRESS: {isFinished ? 100 : Math.round(loadingProgress * 100)}%
             </div>
           </div>
-        </div>
-      ) : awaitingGesture ? (
-        <div className="overlay-root font-mono backdrop-wipe-gesture pointer-events-auto">
-          <div className="overlay-modal start-screen-modal victory-border max-w-md w-full p-8 flex flex-col items-center">
-            <p className="text-[11px] text-zinc-400 tracking-wide uppercase mb-6 leading-relaxed select-none max-w-sm text-center">
-              A game about being tethered to something dangerous{" "}
-              <u>
-                <i>with a mind of its own</i>
-              </u>
-              , where the tension between you and the thing trying to kill you is literally your
-              only weapon.
-            </p>
-            <button
-              onClick={() => {
-                playConfirmSynth();
-                publishEvent(GameEvent.USER_GESTURE_REGISTERED, undefined);
-                useOverlayStore.getState().setAwaitingGesture(false);
-                useOverlayStore.getState().setBootStatus("READY");
-              }}
-              onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
-              onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
-              className="gameover-btn gameover-btn-victory-focused pointer-events-auto w-full flex items-center justify-center"
-            >
-              <span>CLICK OR PRESS ANY BUTTON TO BEGIN</span>
-            </button>
+
+          {/* Bottom Section: Action Gate Button (Locked / Unlocked) */}
+          <div className="w-full max-w-sm mb-6 px-2">
+            {isFullyLoaded ? (
+              <motion.button
+                onClick={handleProceed}
+                onMouseEnter={() => useCursorStore.getState().setCursorType("button")}
+                onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="gameover-btn gameover-btn-victory-focused pointer-events-auto w-full flex items-center justify-center gap-3 py-4 rounded-xl cursor-pointer border border-emerald-500/30"
+              >
+                <Unlock size={14} className="text-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-black tracking-[0.15em]">PROCEED TO SHAFT</span>
+              </motion.button>
+            ) : (
+              <button
+                disabled
+                className="gameover-btn pointer-events-none opacity-40 w-full flex items-center justify-center gap-3 py-4 rounded-xl border border-zinc-800/80 bg-[#07080b] text-zinc-500"
+              >
+                <Lock size={14} className="text-zinc-600" />
+                <span className="text-[11px] font-black tracking-[0.15em] text-zinc-600">
+                  BOOTING PROTOCOLS...
+                </span>
+              </button>
+            )}
           </div>
         </div>
       ) : (
