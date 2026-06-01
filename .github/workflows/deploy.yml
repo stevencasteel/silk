@@ -51,10 +51,10 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-#      - name: Setup Butler
-#        uses: remarkablegames/setup-butler@v3
+      - name: Setup Butler
+        uses: remarkablegames/setup-butler@v4
 
-#      - name: Deploy to Itch.io
-#        run: butler push dist stevencasteel/silk:html5
-#        env:
-#          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      - name: Deploy to Itch.io
+        run: butler push dist stevencasteel/silk:html5
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
