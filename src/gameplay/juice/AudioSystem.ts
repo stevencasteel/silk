@@ -5,6 +5,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import * as Tone from "tone";
+import { ProceduralAmbienceEngine } from "./ProceduralAmbienceEngine";
 
 export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   readonly phase = SystemPhase.PostRender;
@@ -30,13 +31,33 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _isReeling = false;
   private _lastMaxLength = 0;
 
+  private _ambienceEngine = new ProceduralAmbienceEngine();
+  private _gestureCleanup: (() => void) | null = null;
+
   constructor(private context: SystemContext) {}
 
   public init(): void {
+    const startOnGesture = () => {
+      this.initAudio();
+      if (this._isInitialized && this._gestureCleanup) {
+        this._gestureCleanup();
+      }
+    };
+    window.addEventListener("pointerdown", startOnGesture);
+    window.addEventListener("keydown", startOnGesture);
+
+    this._gestureCleanup = () => {
+      window.removeEventListener("pointerdown", startOnGesture);
+      window.removeEventListener("keydown", startOnGesture);
+    };
+
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
         this.initAudio();
         this.playConfirmSound();
+        if (this._gestureCleanup) {
+          this._gestureCleanup();
+        }
       })
     );
 
@@ -245,6 +266,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         url: "sfx/crowd_defeat.mp3",
         autostart: false
       }).toDestination();
+
+      const rawCtx = Tone.context.rawContext as AudioContext;
+      if (rawCtx) {
+        this._ambienceEngine.start(rawCtx, rawCtx.destination);
+      }
 
       this._isInitialized = true;
     } catch (e) {
@@ -504,6 +530,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   public dispose(): void {
     this._tracker.clear();
     this.stopRatchet();
+    this._ambienceEngine.stop();
+    if (this._gestureCleanup) {
+      this._gestureCleanup();
+    }
     if (this._synth) {
       this._synth.dispose();
       this._synth = null;
