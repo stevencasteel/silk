@@ -859,10 +859,27 @@ export class ProjectileSystem implements ISystem {
           continue;
         }
 
-        const wTrans = transformStore.get(this.context.refs.weaver);
-        if (wTrans) {
+        const wId = this.context.refs.weaver;
+        const wTrans = transformStore.get(wId);
+        if (!wTrans) {
+          this.pool.release(projId);
+          continue;
+        }
+        const wNode = this.context.visualQuery.getTransformNode(wId);
+        let tipWorld: BABYLON.Vector3 | null = null;
+
+        if (wNode) {
+          const abdomenNode = wNode.getChildren().find((c) => c.name === "weaver_abdomen");
+          if (abdomenNode && abdomenNode instanceof BABYLON.TransformNode) {
+            const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+            const localTip = new BABYLON.Vector3(0, -radius * 0.75, 0);
+            tipWorld = BABYLON.Vector3.TransformCoordinates(localTip, abdomenNode.getWorldMatrix());
+          }
+        }
+
+        if (!tipWorld && wTrans) {
           const radius = ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
-          const tipWorld = getWeaverAbdomenTip(
+          tipWorld = getWeaverAbdomenTip(
             wTrans.x,
             wTrans.y,
             wTrans.z,
@@ -873,7 +890,9 @@ export class ProjectileSystem implements ISystem {
             radius,
             1.0
           );
+        }
 
+        if (tipWorld) {
           trans.x = tipWorld.x;
           trans.y = tipWorld.y;
           trans.z = tipWorld.z;
