@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/1/2026, 12:05:13 PM
+ [SYSTEM] Generated: 6/1/2026, 12:20:08 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -9319,47 +9319,6 @@ export class HealthBugSystem implements ISystem {
 
     const hitSpikes = bug.variant !== "NORMAL" && !bug.spikesDisarmed && !isWebShieldActive;
 
-    if (isLaunching && launchPower >= 0.8) {
-      if (hitSpikes) {
-        bug.state = "SPINNING";
-        bug.timer = 0.0;
-
-        const knockbackX = (pTrans.x > bug.x ? 1 : -1) * 20.0;
-        pVel.x = knockbackX;
-        pVel.y = 8.0;
-        pTrav.state = "AIRBORNE";
-
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.85,
-          duration: 0.35
-        });
-      } else {
-        this.popBug(bugId, false);
-      }
-      return;
-    }
-
-    if (isLaunching && launchPower >= 0.555) {
-      if (hitSpikes) {
-        this.popBug(bugId, true);
-      } else {
-        bug.state = "PINBALL";
-        const shoveX = (bug.x > pTrans.x ? 1 : -1) * 25.0;
-        const shoveY = 12.0;
-
-        const bugVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
-        if (bugVel) {
-          bugVel.x = shoveX;
-          bugVel.y = shoveY;
-        }
-        this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-          amplitude: 0.65,
-          duration: 0.3
-        });
-      }
-      return;
-    }
-
     if (hitSpikes) {
       this.context.commands.dispatch({
         type: "DAMAGE_REQUEST",
@@ -9369,39 +9328,65 @@ export class HealthBugSystem implements ISystem {
         knockbackX: (pTrans.x > bug.x ? 1 : -1) * 16.0,
         knockbackY: 8.0
       });
+    }
+
+    if (isLaunching && launchPower >= 0.8) {
+      this.popBug(bugId, hitSpikes);
+      return;
+    }
+
+    if (isLaunching && launchPower >= 0.555) {
+      bug.state = "PINBALL";
+      const shoveX = (bug.x > pTrans.x ? 1 : -1) * 25.0;
+      const shoveY = 12.0;
+
+      const bugVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+      if (bugVel) {
+        bugVel.x = shoveX;
+        bugVel.y = shoveY;
+      }
+      this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+        amplitude: 0.65,
+        duration: 0.3
+      });
+      return;
+    }
+
+    if (hitSpikes) {
+      return;
+    }
+
+    const input = this.context.stores.get<InputIntentComponent>("input").get(playerId);
+    const bugWallDir = pTrans.x > bug.x ? -1 : 1;
+    const pressingIn = input && input.x === bugWallDir;
+
+    if (pressingIn) {
+      PlayerStateUtils.applyWallImpactSquash(this.context);
+
+      pTrav.state = "WALL_STICKING";
+      pTrav.wallDir = bugWallDir;
+      pTrav.wallNormalX = -bugWallDir;
+      pTrav.stickyEntityId = bugId;
+
+      const halfW = 2.0;
+      pTrav.stickyWallX = bug.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
+      pTrav.stickyWallYOffset = pTrans.y - bug.y;
+
+      pTrans.x = pTrav.stickyWallX;
+      pVel.x = 0;
+      pVel.y = -this.context.runtime.currentScrollSpeed;
+
+      this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+        x: pTrans.x,
+        y: pTrans.y,
+        wallNormalX: -bugWallDir
+      });
     } else {
-      const input = this.context.stores.get<InputIntentComponent>("input").get(playerId);
-      const bugWallDir = pTrans.x > bug.x ? -1 : 1;
-      const pressingIn = input && input.x === bugWallDir;
-
-      if (pressingIn) {
-        PlayerStateUtils.applyWallImpactSquash(this.context);
-
-        pTrav.state = "WALL_STICKING";
-        pTrav.wallDir = bugWallDir;
-        pTrav.wallNormalX = -bugWallDir;
-        pTrav.stickyEntityId = bugId;
-
-        const halfW = 2.0;
-        pTrav.stickyWallX = bug.x + bugWallDir * (halfW + ARENA_CONFIG.ENTITY.PLAYER_RADIUS);
-        pTrav.stickyWallYOffset = pTrans.y - bug.y;
-
-        pTrans.x = pTrav.stickyWallX;
-        pVel.x = 0;
-        pVel.y = -this.context.runtime.currentScrollSpeed;
-
-        this.context.broker.publish(GameEvent.PLAYER_WALL_HIT, {
-          x: pTrans.x,
-          y: pTrans.y,
-          wallNormalX: -bugWallDir
-        });
-      } else {
-        bug.state = "SHOVED";
-        const bugVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
-        if (bugVel) {
-          bugVel.x = (bug.x > pTrans.x ? 1 : -1) * 6.5;
-          bugVel.y = 2.0;
-        }
+      bug.state = "SHOVED";
+      const bugVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(bugId);
+      if (bugVel) {
+        bugVel.x = (bug.x > pTrans.x ? 1 : -1) * 6.5;
+        bugVel.y = 2.0;
       }
     }
   }
@@ -11726,6 +11711,11 @@ export class PlayerStateUtils {
 
       const bugTrans = bugTransStore.get(bugId);
       if (!bugTrans) continue;
+
+      const hBug = hBugStore ? hBugStore.get(bugId) : undefined;
+      if (hBug && currentState === "LAUNCHING") {
+        continue;
+      }
 
       if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
         const halfW = sticky.width / 2;

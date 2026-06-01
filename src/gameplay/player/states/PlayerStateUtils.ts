@@ -268,6 +268,11 @@ export class PlayerStateUtils {
       const bugTrans = bugTransStore.get(bugId);
       if (!bugTrans) continue;
 
+      const hBug = hBugStore ? hBugStore.get(bugId) : undefined;
+      if (hBug && currentState === "LAUNCHING") {
+        continue;
+      }
+
       if (trav.lastStickyEntityId !== undefined && trav.lastStickyEntityId === bugId) {
         const halfW = sticky.width / 2;
         const halfH = sticky.height / 2;
