@@ -75,7 +75,6 @@ export class PlayerStateUtils {
     trav: TraversalStateComponent
   ): void {
     const storedTension = tether.tension;
-    const reelConfig = GAMEPLAY_TUNING.REEL;
     const tuning = GAMEPLAY_TUNING.PLAYER;
 
     const launchedFromBug = trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1;
@@ -476,6 +475,7 @@ export class PlayerStateUtils {
     if (currentDir !== "" && currentDir !== trav.lastEscapeDirection) {
       trav.escapeProgress = (trav.escapeProgress || 0) + 1;
       trav.lastEscapeDirection = currentDir;
+      trav.webFlashTimer = 0.35;
 
       ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
         amplitude: 0.18,

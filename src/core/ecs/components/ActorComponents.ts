@@ -52,6 +52,7 @@ export interface TraversalStateComponent {
   webMass?: number;
   recoilVelocityY?: number;
   chargeTimer?: number;
+  webFlashTimer?: number;
 }
 
 export interface WeaverTraversalComponent {

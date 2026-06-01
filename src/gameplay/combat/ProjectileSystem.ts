@@ -13,6 +13,7 @@ import {
   TraversalStateComponent,
   CollisionStateComponent,
   ParticleRequestComponent,
+  InputIntentComponent,
   HurtboxComponent,
   HitboxComponent,
   WallBugComponent,
@@ -310,7 +311,18 @@ export class ProjectileSystem implements ISystem {
       pTrav.webMass = 1;
       pTrav.escapeProgress = 0;
       pTrav.escapeRequired = 5;
-      pTrav.lastEscapeDirection = "";
+      pTrav.webFlashTimer = 0;
+
+      const inputStore = sysCtx.stores.get<InputIntentComponent>("input");
+      const playerInput = inputStore ? inputStore.get(otherId) : undefined;
+      let startDir: "UP" | "DOWN" | "LEFT" | "RIGHT" | "" = "";
+      if (playerInput) {
+        if (playerInput.x < -0.1) startDir = "LEFT";
+        else if (playerInput.x > 0.1) startDir = "RIGHT";
+        else if (playerInput.y > 0.1) startDir = "UP";
+        else if (playerInput.y < -0.1) startDir = "DOWN";
+      }
+      pTrav.lastEscapeDirection = startDir;
       pTrav.hasFlingBonus = false;
     }
 
@@ -644,6 +656,10 @@ export class ProjectileSystem implements ISystem {
           continue;
         }
 
+        if (pTrav.webFlashTimer !== undefined && pTrav.webFlashTimer > 0) {
+          pTrav.webFlashTimer = Math.max(0, pTrav.webFlashTimer - dt);
+        }
+
         const start = VISUAL_JUICE_CONFIG.COCOON_COLORS.DECAY_START;
         const mid = VISUAL_JUICE_CONFIG.COCOON_COLORS.DECAY_MID;
         const end = VISUAL_JUICE_CONFIG.COCOON_COLORS.DECAY_END;
@@ -654,7 +670,11 @@ export class ProjectileSystem implements ISystem {
 
         let rVal: number, gVal: number, bVal: number;
 
-        if (progressRatio >= 1.0) {
+        if (pTrav.webFlashTimer !== undefined && pTrav.webFlashTimer > 0) {
+          rVal = 0.05;
+          gVal = 0.05;
+          bVal = 0.05;
+        } else if (progressRatio >= 1.0) {
           rVal = 0.0;
           gVal = 0.0;
           bVal = 0.0;
@@ -672,7 +692,11 @@ export class ProjectileSystem implements ISystem {
 
         if (this.pool.projMatTrapped) {
           this.pool.projMatTrapped.albedoColor.set(rVal, gVal, bVal);
-          this.pool.projMatTrapped.emissiveColor.set(rVal * 0.18, gVal * 0.18, bVal * 0.18);
+          if (pTrav.webFlashTimer !== undefined && pTrav.webFlashTimer > 0) {
+            this.pool.projMatTrapped.emissiveColor.set(0.0, 0.0, 0.0);
+          } else {
+            this.pool.projMatTrapped.emissiveColor.set(rVal * 0.18, gVal * 0.18, bVal * 0.18);
+          }
         }
 
         const addedSize = Math.min(10.0, ((pTrav.webMass || 1) - 1) * 1.2);
