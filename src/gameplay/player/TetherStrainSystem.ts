@@ -2,8 +2,17 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TetherComponent, HealthComponent, TetherStrainComponent } from "../../core/ecs/Components";
-import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import {
+  TetherComponent,
+  HealthComponent,
+  TetherStrainComponent,
+  TraversalStateComponent,
+  TransformComponent,
+  ActorCosmeticComponent,
+  KinematicTargetComponent,
+  KinematicVelocityComponent
+} from "../../core/ecs/Components";
+import { CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class TetherStrainSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
@@ -66,10 +75,62 @@ export class TetherStrainSystem implements ISystem {
             this.snapTether(tether, health);
           } else {
             this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: 0.95,
-              duration: 0.45
+              amplitude: 1.6,
+              duration: 0.65
             });
             tether.tension = CANONICAL_UNITS.TETHER_STRAIN.TENSION_RESET_AFTER_DAMAGE;
+
+            // PAUSE ELEVATOR SHAFT SCROLLING, WEAVER MOTION AND TRIGGER TUG SEQUENCE
+            this.context.runtime.tetherDamagePauseTimer = 0.8;
+
+            // 1. Force the player off the wall immediately (No Fling)
+            const pId = this.context.refs.player;
+            const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(pId);
+            if (pTrav) {
+              pTrav.state = "AIRBORNE";
+              pTrav.wallDir = 0;
+              pTrav.wallNormalX = 0;
+              pTrav.wallNormalY = 0;
+              pTrav.stickyEntityId = -1;
+            }
+
+            // 2. Reduce current maximum allowed line length by exactly 50%
+            const targetLength = Math.max(GAMEPLAY_TUNING.REEL.MIN_LENGTH, tether.maxLength * 0.5);
+            tether.maxLength = targetLength;
+            tether.desiredLength = targetLength;
+            tether.currentLength = targetLength;
+
+            const pTarget = this.context.stores.get<KinematicTargetComponent>("target").get(pId);
+            if (pTarget) {
+              const dx = pTarget.x - tether.anchorX;
+              const dy = pTarget.y - tether.anchorY;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+              pTarget.x = tether.anchorX + (dx / dist) * targetLength;
+              pTarget.y = tether.anchorY + (dy / dist) * targetLength;
+
+              const pTrans = this.context.stores.get<TransformComponent>("transform").get(pId);
+              if (pTrans) {
+                pTrans.x = pTarget.x;
+                pTrans.y = pTarget.y;
+              }
+            }
+
+            const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(pId);
+            if (pVel) {
+              pVel.x = 0;
+              pVel.y = 0;
+            }
+
+            // 3. Elastic tug squash animation on the Weaver
+            const wId = this.context.refs.weaver;
+            const wTrans = this.context.stores.get<TransformComponent>("transform").get(wId);
+            const wCosmetic = this.context.stores.get<ActorCosmeticComponent>("cosmetic").get(wId);
+            if (wTrans && wCosmetic) {
+              wTrans.scaleVelY = -22.0;
+              wTrans.scaleVelX = 14.0;
+              wTrans.scaleVelZ = 14.0;
+              wCosmetic.emissiveHue = "#ef4444";
+            }
           }
         }
       }

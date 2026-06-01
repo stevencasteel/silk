@@ -120,6 +120,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public update(dt: number): void {
+    if (this.context.runtime.tetherDamagePauseTimer > 0) {
+      return;
+    }
     const aiComp = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);

@@ -181,6 +181,9 @@ export class GameDirectorSystem implements ISystem {
   };
 
   public update(dt: number): void {
+    if (this.context.runtime.tetherDamagePauseTimer > 0) {
+      this.context.runtime.tetherDamagePauseTimer = Math.max(0, this.context.runtime.tetherDamagePauseTimer - dt);
+    }
     const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
     for (const [, hs] of hitStops.entries()) {
       if (hs.timeRemaining > 0) hs.timeRemaining = Math.max(0, hs.timeRemaining - dt);

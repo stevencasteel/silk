@@ -67,7 +67,9 @@ export class ParallaxScrollSystem implements ISystem {
       .get(this.context.refs.weaver);
 
     const targetScrollSpeed =
-      this.hitStopTimer > 0 ? 0.0 : this.getDesiredScrollSpeed(wAI, wHealth, wVel);
+      (this.hitStopTimer > 0 || this.context.runtime.tetherDamagePauseTimer > 0)
+        ? 0.0
+        : this.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
     this.context.runtime.currentScrollSpeed = this.scrollSpeed;

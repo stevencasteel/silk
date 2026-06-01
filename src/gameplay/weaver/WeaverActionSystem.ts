@@ -19,6 +19,14 @@ export class WeaverActionSystem implements ISystem {
 
     if (!ai || !vel) return;
 
+    if (this.context.runtime.tetherDamagePauseTimer > 0) {
+      vel.x = 0;
+      vel.y = 0;
+      ai.desiredVelocityX = 0;
+      ai.desiredVelocityY = 0;
+      return;
+    }
+
     const accelRate = 12.0;
     const lerpFactor = 1.0 - Math.exp(-dt * accelRate);
     vel.x += (ai.desiredVelocityX - vel.x) * lerpFactor;

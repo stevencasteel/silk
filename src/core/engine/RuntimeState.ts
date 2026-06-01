@@ -16,6 +16,7 @@ export class RuntimeState {
   public gameStarted: boolean = false;
   public wallBugsSpawningAllowed: boolean = false;
   public healthBugsSpawningAllowed: boolean = false;
+  public tetherDamagePauseTimer: number = 0.0;
 
   public get activeTimeScale(): number {
     if (this.hitLagTimer > 0) {
@@ -43,5 +44,6 @@ export class RuntimeState {
     this.gameStarted = false;
     this.wallBugsSpawningAllowed = false;
     this.healthBugsSpawningAllowed = false;
+    this.tetherDamagePauseTimer = 0.0;
   }
 }

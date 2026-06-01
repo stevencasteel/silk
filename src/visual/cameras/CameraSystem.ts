@@ -34,11 +34,11 @@ export class CameraSystem implements ISystem {
 
   constructor(private context: SystemContext) {}
 
-  public init(): void {
+  private tryAcquireCamera(): boolean {
+    if (this.cameraNode) return true;
     const scene = this.context.visualQuery.getScene();
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
-
       const preset = POST_PROCESSING_PRESETS.CAMERA;
       this.cameraNode.position.set(
         preset.DEFAULT_POS.x,
@@ -52,7 +52,14 @@ export class CameraSystem implements ISystem {
           preset.DEFAULT_TARGET.z
         )
       );
+      return true;
     }
+    return false;
+  }
+
+  public init(): void {
+    // Attempt dynamic acquisition early
+    this.tryAcquireCamera();
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
@@ -87,6 +94,8 @@ export class CameraSystem implements ISystem {
   }
 
   public update(dt: number): void {
+    if (!this.tryAcquireCamera()) return;
+
     this.noiseTime += dt * 45.0;
 
     let strainOffsetX = 0.0;
@@ -182,7 +191,9 @@ export class CameraSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    if (!this.cameraNode) return;
+    if (!this.tryAcquireCamera()) return;
+    const camera = this.cameraNode;
+    if (!camera) return;
 
     const preset = POST_PROCESSING_PRESETS.CAMERA;
     const pNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
@@ -206,7 +217,7 @@ export class CameraSystem implements ISystem {
       }
     }
 
-    this.cameraNode.position.set(
+    camera.position.set(
       preset.DEFAULT_POS.x + this._shakeOffsetX,
       preset.DEFAULT_POS.y + targetScrollY + this._shakeOffsetY,
       preset.DEFAULT_POS.z + this._shakeOffsetZ
@@ -216,7 +227,7 @@ export class CameraSystem implements ISystem {
       preset.DEFAULT_TARGET.y + targetScrollY + this._shakeOffsetY * 0.25,
       preset.DEFAULT_TARGET.z
     );
-    this.cameraNode.setTarget(this.cameraTarget);
+    camera.setTarget(this.cameraTarget);
   }
 
   public dispose(): void {

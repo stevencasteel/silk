@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 6:56:12 PM
+ [SYSTEM] Generated: 5/31/2026, 7:10:08 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -3207,6 +3207,7 @@ export class RuntimeState {
   public gameStarted: boolean = false;
   public wallBugsSpawningAllowed: boolean = false;
   public healthBugsSpawningAllowed: boolean = false;
+  public tetherDamagePauseTimer: number = 0.0;
 
   public get activeTimeScale(): number {
     if (this.hitLagTimer > 0) {
@@ -3234,6 +3235,7 @@ export class RuntimeState {
     this.gameStarted = false;
     this.wallBugsSpawningAllowed = false;
     this.healthBugsSpawningAllowed = false;
+    this.tetherDamagePauseTimer = 0.0;
   }
 }
 
@@ -4977,6 +4979,9 @@ export class GameDirectorSystem implements ISystem {
   };
 
   public update(dt: number): void {
+    if (this.context.runtime.tetherDamagePauseTimer > 0) {
+      this.context.runtime.tetherDamagePauseTimer = Math.max(0, this.context.runtime.tetherDamagePauseTimer - dt);
+    }
     const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
     for (const [, hs] of hitStops.entries()) {
       if (hs.timeRemaining > 0) hs.timeRemaining = Math.max(0, hs.timeRemaining - dt);
@@ -9482,8 +9487,17 @@ import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
-import { TetherComponent, HealthComponent, TetherStrainComponent } from "../../core/ecs/Components";
-import { CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import {
+  TetherComponent,
+  HealthComponent,
+  TetherStrainComponent,
+  TraversalStateComponent,
+  TransformComponent,
+  ActorCosmeticComponent,
+  KinematicTargetComponent,
+  KinematicVelocityComponent
+} from "../../core/ecs/Components";
+import { CANONICAL_UNITS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 
 export class TetherStrainSystem implements ISystem {
   readonly phase = SystemPhase.Collision;
@@ -9546,10 +9560,62 @@ export class TetherStrainSystem implements ISystem {
             this.snapTether(tether, health);
           } else {
             this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: 0.95,
-              duration: 0.45
+              amplitude: 1.6,
+              duration: 0.65
             });
             tether.tension = CANONICAL_UNITS.TETHER_STRAIN.TENSION_RESET_AFTER_DAMAGE;
+
+            // PAUSE ELEVATOR SHAFT SCROLLING, WEAVER MOTION AND TRIGGER TUG SEQUENCE
+            this.context.runtime.tetherDamagePauseTimer = 0.8;
+
+            // 1. Force the player off the wall immediately (No Fling)
+            const pId = this.context.refs.player;
+            const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(pId);
+            if (pTrav) {
+              pTrav.state = "AIRBORNE";
+              pTrav.wallDir = 0;
+              pTrav.wallNormalX = 0;
+              pTrav.wallNormalY = 0;
+              pTrav.stickyEntityId = -1;
+            }
+
+            // 2. Reduce current maximum allowed line length by exactly 50%
+            const targetLength = Math.max(GAMEPLAY_TUNING.REEL.MIN_LENGTH, tether.maxLength * 0.5);
+            tether.maxLength = targetLength;
+            tether.desiredLength = targetLength;
+            tether.currentLength = targetLength;
+
+            const pTarget = this.context.stores.get<KinematicTargetComponent>("target").get(pId);
+            if (pTarget) {
+              const dx = pTarget.x - tether.anchorX;
+              const dy = pTarget.y - tether.anchorY;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+              pTarget.x = tether.anchorX + (dx / dist) * targetLength;
+              pTarget.y = tether.anchorY + (dy / dist) * targetLength;
+
+              const pTrans = this.context.stores.get<TransformComponent>("transform").get(pId);
+              if (pTrans) {
+                pTrans.x = pTarget.x;
+                pTrans.y = pTarget.y;
+              }
+            }
+
+            const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(pId);
+            if (pVel) {
+              pVel.x = 0;
+              pVel.y = 0;
+            }
+
+            // 3. Elastic tug squash animation on the Weaver
+            const wId = this.context.refs.weaver;
+            const wTrans = this.context.stores.get<TransformComponent>("transform").get(wId);
+            const wCosmetic = this.context.stores.get<ActorCosmeticComponent>("cosmetic").get(wId);
+            if (wTrans && wCosmetic) {
+              wTrans.scaleVelY = -22.0;
+              wTrans.scaleVelX = 14.0;
+              wTrans.scaleVelZ = 14.0;
+              wCosmetic.emissiveHue = "#ef4444";
+            }
           }
         }
       }
@@ -11220,6 +11286,14 @@ export class WeaverActionSystem implements ISystem {
 
     if (!ai || !vel) return;
 
+    if (this.context.runtime.tetherDamagePauseTimer > 0) {
+      vel.x = 0;
+      vel.y = 0;
+      ai.desiredVelocityX = 0;
+      ai.desiredVelocityY = 0;
+      return;
+    }
+
     const accelRate = 12.0;
     const lerpFactor = 1.0 - Math.exp(-dt * accelRate);
     vel.x += (ai.desiredVelocityX - vel.x) * lerpFactor;
@@ -11378,6 +11452,9 @@ export class WeaverBrainSystem implements ISystem {
   }
 
   public update(dt: number): void {
+    if (this.context.runtime.tetherDamagePauseTimer > 0) {
+      return;
+    }
     const aiComp = this.context.stores
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
@@ -16212,11 +16289,11 @@ export class CameraSystem implements ISystem {
 
   constructor(private context: SystemContext) {}
 
-  public init(): void {
+  private tryAcquireCamera(): boolean {
+    if (this.cameraNode) return true;
     const scene = this.context.visualQuery.getScene();
     if (scene && scene.activeCamera) {
       this.cameraNode = scene.activeCamera as BABYLON.FreeCamera;
-
       const preset = POST_PROCESSING_PRESETS.CAMERA;
       this.cameraNode.position.set(
         preset.DEFAULT_POS.x,
@@ -16230,7 +16307,14 @@ export class CameraSystem implements ISystem {
           preset.DEFAULT_TARGET.z
         )
       );
+      return true;
     }
+    return false;
+  }
+
+  public init(): void {
+    // Attempt dynamic acquisition early
+    this.tryAcquireCamera();
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.CAMERA_SHAKE_TRIGGERED, (payload) => {
@@ -16265,6 +16349,8 @@ export class CameraSystem implements ISystem {
   }
 
   public update(dt: number): void {
+    if (!this.tryAcquireCamera()) return;
+
     this.noiseTime += dt * 45.0;
 
     let strainOffsetX = 0.0;
@@ -16360,7 +16446,9 @@ export class CameraSystem implements ISystem {
   }
 
   public render(alpha: number): void {
-    if (!this.cameraNode) return;
+    if (!this.tryAcquireCamera()) return;
+    const camera = this.cameraNode;
+    if (!camera) return;
 
     const preset = POST_PROCESSING_PRESETS.CAMERA;
     const pNode = this.context.visualQuery.getTransformNode(this.context.refs.player);
@@ -16384,7 +16472,7 @@ export class CameraSystem implements ISystem {
       }
     }
 
-    this.cameraNode.position.set(
+    camera.position.set(
       preset.DEFAULT_POS.x + this._shakeOffsetX,
       preset.DEFAULT_POS.y + targetScrollY + this._shakeOffsetY,
       preset.DEFAULT_POS.z + this._shakeOffsetZ
@@ -16394,7 +16482,7 @@ export class CameraSystem implements ISystem {
       preset.DEFAULT_TARGET.y + targetScrollY + this._shakeOffsetY * 0.25,
       preset.DEFAULT_TARGET.z
     );
-    this.cameraNode.setTarget(this.cameraTarget);
+    camera.setTarget(this.cameraTarget);
   }
 
   public dispose(): void {
@@ -19451,7 +19539,9 @@ export class ParallaxScrollSystem implements ISystem {
       .get(this.context.refs.weaver);
 
     const targetScrollSpeed =
-      this.hitStopTimer > 0 ? 0.0 : this.getDesiredScrollSpeed(wAI, wHealth, wVel);
+      (this.hitStopTimer > 0 || this.context.runtime.tetherDamagePauseTimer > 0)
+        ? 0.0
+        : this.getDesiredScrollSpeed(wAI, wHealth, wVel);
 
     this.scrollSpeed = BABYLON.Scalar.Lerp(this.scrollSpeed, targetScrollSpeed, 0.15);
     this.context.runtime.currentScrollSpeed = this.scrollSpeed;
