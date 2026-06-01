@@ -23,6 +23,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _healthBugRupturePlayer: Tone.Player | null = null;
   private _touchedSpikePlayer: Tone.Player | null = null;
   private _flingPlayer: Tone.Player | null = null;
+  private _crowdVictoryPlayer: Tone.Player | null = null;
+  private _crowdDefeatPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -234,6 +236,16 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         autostart: false
       }).toDestination();
 
+      this._crowdVictoryPlayer = new Tone.Player({
+        url: "sfx/crowd_victory.mp3",
+        autostart: false
+      }).toDestination();
+
+      this._crowdDefeatPlayer = new Tone.Player({
+        url: "sfx/crowd_defeat.mp3",
+        autostart: false
+      }).toDestination();
+
       this._isInitialized = true;
     } catch (e) {
       console.warn("Tone.js failed to initialize:", e);
@@ -360,6 +372,16 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
   private playVictorySound(): void {
+    if (this._isInitialized && this._crowdVictoryPlayer && this._crowdVictoryPlayer.loaded) {
+      try {
+        if (this._crowdVictoryPlayer.state === "started") {
+          this._crowdVictoryPlayer.stop();
+        }
+        this._crowdVictoryPlayer.start();
+      } catch {
+        // Defensive catch-all
+      }
+    }
     if (!this._isInitialized || !this._synth) return;
     try {
       const now = Tone.now();
@@ -373,6 +395,16 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
   private playDefeatSound(): void {
+    if (this._isInitialized && this._crowdDefeatPlayer && this._crowdDefeatPlayer.loaded) {
+      try {
+        if (this._crowdDefeatPlayer.state === "started") {
+          this._crowdDefeatPlayer.stop();
+        }
+        this._crowdDefeatPlayer.start();
+      } catch {
+        // Defensive catch-all
+      }
+    }
     if (!this._isInitialized || !this._synth) return;
     try {
       const now = Tone.now();
@@ -519,6 +551,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._flingPlayer) {
       this._flingPlayer.dispose();
       this._flingPlayer = null;
+    }
+    if (this._crowdVictoryPlayer) {
+      this._crowdVictoryPlayer.dispose();
+      this._crowdVictoryPlayer = null;
+    }
+    if (this._crowdDefeatPlayer) {
+      this._crowdDefeatPlayer.dispose();
+      this._crowdDefeatPlayer = null;
     }
     this._isInitialized = false;
   }
