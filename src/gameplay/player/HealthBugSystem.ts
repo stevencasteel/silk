@@ -525,7 +525,62 @@ export class HealthBugSystem implements ISystem {
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
 
     const startY = cameraY - 28.0;
-    const startX = this.getNextLane();
+
+    const activeUpMinions = [];
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    
+    const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+    if (hBugStore) {
+      for (const [id, hBug] of hBugStore.entries()) {
+        const trans = transforms.get(id);
+        if (trans && hBug.state !== "DEAD" && trans.y < cameraY - 10.0) {
+          activeUpMinions.push({ x: trans.x, y: trans.y });
+        }
+      }
+    }
+
+    const spikeBugStore = this.context.stores.get<SpikeBugComponent>("spikeBug");
+    if (spikeBugStore) {
+      for (const [id] of spikeBugStore.entries()) {
+        const trans = transforms.get(id);
+        if (trans && trans.y < cameraY - 10.0) {
+          activeUpMinions.push({ x: trans.x, y: trans.y });
+        }
+      }
+    }
+
+    let startX = this.getNextLane();
+    if (activeUpMinions.length > 0) {
+      let maxMinDist = -1;
+      let safestX = startX;
+
+      for (let i = 0; i < this.LANES.length; i++) {
+        const laneX = this.LANES[i];
+        let minDist = Infinity;
+        for (let j = 0; j < activeUpMinions.length; j++) {
+          const dist = Math.abs(laneX - activeUpMinions[j].x);
+          if (dist < minDist) {
+            minDist = dist;
+          }
+        }
+        if (minDist > maxMinDist) {
+          maxMinDist = minDist;
+          safestX = laneX;
+        }
+      }
+
+      if (maxMinDist >= 1.5) {
+        startX = safestX;
+        const laneIndex = this.LANES.indexOf(startX);
+        if (laneIndex !== -1) {
+          const bagIdx = this.laneBag.indexOf(laneIndex);
+          if (bagIdx !== -1) {
+            this.laneBag.splice(bagIdx, 1);
+          }
+        }
+        this.lastSelectedLaneIndex = laneIndex;
+      }
+    }
 
     const isSpikedAllowed = this.context.runtime.weaverDamageCount >= 2;
     const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] = isSpikedAllowed
