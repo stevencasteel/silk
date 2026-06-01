@@ -8,6 +8,10 @@ export class ArenaGeometry {
 
   public async generateElevatorShaft(): Promise<void> {
     const textureGen = new ProceduralTextureGenerator();
+    const isMobile = typeof window !== "undefined" && (window.innerWidth < 768 || navigator.maxTouchPoints > 0);
+    const wallRes = isMobile ? 256 : 512;
+    const panelRes = isMobile ? 256 : 512;
+    const backdropRes = isMobile ? 512 : 1024;
 
     const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
     wallMaterial.metallic = 0.0;
@@ -67,7 +71,7 @@ export class ArenaGeometry {
     const texturesPromise = Promise.all([
       textureGen
         .generatePBRTextures("concreteWall", this.scene, {
-          resolution: 512,
+          resolution: wallRes,
           noiseScale: 10.0,
           bumpStrength: 2.5,
           baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
@@ -83,7 +87,7 @@ export class ArenaGeometry {
 
       textureGen
         .generatePBRTextures("scrollingPanel", this.scene, {
-          resolution: 512,
+          resolution: panelRes,
           noiseScale: 16.0,
           bumpStrength: 1.8,
           baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
@@ -99,7 +103,7 @@ export class ArenaGeometry {
 
       textureGen
         .generatePBRTextures("shaftBackdropConcrete", this.scene, {
-          resolution: 1024,
+          resolution: backdropRes,
           noiseScale: 14.0,
           bumpStrength: 4.2,
           baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),

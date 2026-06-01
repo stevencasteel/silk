@@ -56,7 +56,7 @@ export default function App() {
     <div className="app-wrapper">
       <div className="cabinet-outer">
         <div className="viewport-container">
-          <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
+          <canvas ref={canvasRef} style={{ width: "100%", height: "100%", touchAction: "none" }} />
           <div className="vignette-overlay" />
           <ErrorBoundary>
             <HudOverlay />

@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 11:35:59 PM
+ [SYSTEM] Generated: 6/1/2026, 11:53:01 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -1064,7 +1064,7 @@ console.log('Manifest and dynamic source assets compiled successfully.');
   }
 }
 
-@media (max-width: 768px) and (pointer: coarse) {
+@media (max-width: 768px) {
   .cabinet-outer {
     width: 100vw !important;
     height: 100vh !important;
@@ -1163,7 +1163,7 @@ export default function App() {
     <div className="app-wrapper">
       <div className="cabinet-outer">
         <div className="viewport-container">
-          <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
+          <canvas ref={canvasRef} style={{ width: "100%", height: "100%", touchAction: "none" }} />
           <div className="vignette-overlay" />
           <ErrorBoundary>
             <HudOverlay />
@@ -1184,10 +1184,11 @@ import { useOverlayStore } from "../ui/hud/hudStore";
 import { GameEvent } from "../core/events/GameEvents";
 
 let globalActiveEngine: Engine | null = null;
-let isBootstrapping = false;
+let currentBootstrapId = 0;
 
 export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<Engine> {
   const overlay = useOverlayStore.getState();
+  const bootstrapId = ++currentBootstrapId;
 
   const activeEngine = globalActiveEngine as Engine | null;
   if (activeEngine) {
@@ -1199,53 +1200,45 @@ export async function bootstrapApplication(canvas: HTMLCanvasElement): Promise<E
     globalActiveEngine = null;
   }
 
-  if (isBootstrapping) {
-    await new Promise((resolve) => setTimeout(resolve, 380));
-    
-    const concurrentEngine = globalActiveEngine as Engine | null;
-    if (concurrentEngine) {
-      try {
-        concurrentEngine.stop();
-      } catch (e) {
-        console.warn("Error stopping concurrent engine:", e);
-      }
-      globalActiveEngine = null;
-    }
-  }
-
-  isBootstrapping = true;
   overlay.setBootStatus("INITIALIZING...");
   overlay.addBootLog("INITIALIZING BOOT SEQUENCE...");
   overlay.setAwaitingGesture(false);
 
   try {
     const { CompositionRoot } = await import("./compositionRoot");
+
+    if (bootstrapId !== currentBootstrapId) {
+      throw new Error("Bootstrap superseded by another request");
+    }
+
     const root = new CompositionRoot();
     const engine = root.buildEngine(canvas);
 
+    globalActiveEngine = engine;
+
     const unsubscribe = engine.eventBroker.subscribe(GameEvent.GAME_BOOT_PROGRESS, (payload) => {
-      overlay.setBootStatus(payload.status);
-      overlay.addBootLog(payload.status);
-      if (payload.progress !== undefined) {
-        overlay.setLoadingProgress(payload.progress);
-      }
-      if (payload.phase !== undefined) {
-        overlay.setBootPhase(payload.phase);
+      if (bootstrapId === currentBootstrapId) {
+        overlay.setBootStatus(payload.status);
+        overlay.addBootLog(payload.status);
+        if (payload.progress !== undefined) {
+          overlay.setLoadingProgress(payload.progress);
+        }
+        if (payload.phase !== undefined) {
+          overlay.setBootPhase(payload.phase);
+        }
       }
     });
 
     engine._bootProgressUnsubscribe = unsubscribe;
-    globalActiveEngine = engine;
-    isBootstrapping = false;
-
     return engine;
   } catch (error) {
-    isBootstrapping = false;
-    console.error("Failed to bootstrap application:", error);
-    const errMsg = "BOOT FAILED: " + (error instanceof Error ? error.message : String(error));
-    overlay.setBootStatus(errMsg);
-    overlay.addBootLog(errMsg);
-    overlay.setLoadingProgress(0);
+    if (bootstrapId === currentBootstrapId) {
+      console.error("Failed to initialize game:", error);
+      const errMsg = "BOOT FAILED: " + (error instanceof Error ? error.message : String(error));
+      overlay.setBootStatus(errMsg);
+      overlay.addBootLog(errMsg);
+      overlay.setLoadingProgress(0);
+    }
     throw error;
   }
 }
@@ -9732,6 +9725,9 @@ export class PlayerInputSystem implements ISystem {
 
   private handleKeyDown = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "spacebar"].includes(key)) {
+      e.preventDefault();
+    }
     this.keysPressed[key] = true;
     this.context.broker.publish(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, {
       key,
@@ -17936,6 +17932,10 @@ export class ArenaGeometry {
 
   public async generateElevatorShaft(): Promise<void> {
     const textureGen = new ProceduralTextureGenerator();
+    const isMobile = typeof window !== "undefined" && (window.innerWidth < 768 || navigator.maxTouchPoints > 0);
+    const wallRes = isMobile ? 256 : 512;
+    const panelRes = isMobile ? 256 : 512;
+    const backdropRes = isMobile ? 512 : 1024;
 
     const wallMaterial = new BABYLON.PBRMaterial("wallMat", this.scene);
     wallMaterial.metallic = 0.0;
@@ -17995,7 +17995,7 @@ export class ArenaGeometry {
     const texturesPromise = Promise.all([
       textureGen
         .generatePBRTextures("concreteWall", this.scene, {
-          resolution: 512,
+          resolution: wallRes,
           noiseScale: 10.0,
           bumpStrength: 2.5,
           baseColor: new BABYLON.Color3(0.043, 0.051, 0.063),
@@ -18011,7 +18011,7 @@ export class ArenaGeometry {
 
       textureGen
         .generatePBRTextures("scrollingPanel", this.scene, {
-          resolution: 512,
+          resolution: panelRes,
           noiseScale: 16.0,
           bumpStrength: 1.8,
           baseColor: new BABYLON.Color3(0.08, 0.09, 0.11),
@@ -18027,7 +18027,7 @@ export class ArenaGeometry {
 
       textureGen
         .generatePBRTextures("shaftBackdropConcrete", this.scene, {
-          resolution: 1024,
+          resolution: backdropRes,
           noiseScale: 14.0,
           bumpStrength: 4.2,
           baseColor: new BABYLON.Color3(0.026, 0.03, 0.037),

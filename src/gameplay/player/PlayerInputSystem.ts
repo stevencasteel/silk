@@ -80,6 +80,9 @@ export class PlayerInputSystem implements ISystem {
 
   private handleKeyDown = (e: KeyboardEvent): void => {
     const key = e.key.toLowerCase();
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "spacebar"].includes(key)) {
+      e.preventDefault();
+    }
     this.keysPressed[key] = true;
     this.context.broker.publish(GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED, {
       key,
