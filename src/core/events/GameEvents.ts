@@ -41,7 +41,7 @@ export interface GameEventMap {
   [GameEvent.PLAYER_HEALTH_CHANGED]: { hp: number; maxHp: number };
   [GameEvent.PLAYER_DAMAGED]: { amount: number; source: string };
   [GameEvent.PLAYER_DIED]: void;
-  [GameEvent.PLAYER_STATE_CHANGE]: { state: string; launchPower?: number };
+  [GameEvent.PLAYER_STATE_CHANGE]: { state: string; launchPower?: number; flingStage?: number };
   [GameEvent.TETHER_TENSION_CHANGE]: { tension: number };
   [GameEvent.TETHER_LENGTH_CHANGE]: { length: number; maxLength: number };
   [GameEvent.WEAVER_STATE_CHANGE]: {
@@ -73,5 +73,5 @@ export interface GameEventMap {
   [GameEvent.UI_SFX_CONFIRM]: void;
   [GameEvent.UI_SFX_REVEAL]: void;
   [GameEvent.UI_SFX_DING]: void;
-  [GameEvent.HEALTH_BUG_RUPTURED]: void;
+  [GameEvent.HEALTH_BUG_RUPTURED]: { bySpikes?: boolean } | void;
 }

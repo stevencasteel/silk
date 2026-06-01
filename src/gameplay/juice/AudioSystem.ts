@@ -21,6 +21,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _webShotPlayer: Tone.Player | null = null;
   private _bossDeathPlayer: Tone.Player | null = null;
   private _healthBugRupturePlayer: Tone.Player | null = null;
+  private _touchedSpikePlayer: Tone.Player | null = null;
+  private _flingPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -101,8 +103,26 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     );
 
     this._tracker.add(
-      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, (payload) => {
+        if (payload && (
+          payload.source === "BUG_SPIKES" ||
+          payload.source === "SPIKE_BUG_HEAD" ||
+          payload.source === "HEALTH_BUG_SPIKES"
+        )) {
+          this.playTouchedSpike();
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, (payload) => {
         this.playSpiderSounds();
+        if (payload && (
+          payload.source === "HEALTH_BUG_SPIKES" ||
+          payload.source === "HEALTH_BUG_PINBALL_SPIKES"
+        )) {
+          this.playTouchedSpike();
+        }
       })
     );
 
@@ -127,8 +147,23 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     );
 
     this._tracker.add(
-      this.context.broker.subscribe(GameEvent.HEALTH_BUG_RUPTURED, () => {
+      this.context.broker.subscribe(GameEvent.HEALTH_BUG_RUPTURED, (payload) => {
         this.playHealthBugRupture();
+        if (payload && payload.bySpikes) {
+          this.playTouchedSpike();
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
+        if (
+          payload.state === "LAUNCHING" &&
+          payload.flingStage !== undefined &&
+          (payload.flingStage === 2 || payload.flingStage === 3)
+        ) {
+          this.playFling();
+        }
       })
     );
   }
@@ -186,6 +221,16 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
       this._healthBugRupturePlayer = new Tone.Player({
         url: "sfx/health_bug_rupture.mp3",
+        autostart: false
+      }).toDestination();
+
+      this._touchedSpikePlayer = new Tone.Player({
+        url: "sfx/touched_spike.mp3",
+        autostart: false
+      }).toDestination();
+
+      this._flingPlayer = new Tone.Player({
+        url: "sfx/fling.mp3",
         autostart: false
       }).toDestination();
 
@@ -400,6 +445,30 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
+  private playTouchedSpike(): void {
+    if (!this._isInitialized || !this._touchedSpikePlayer || !this._touchedSpikePlayer.loaded) return;
+    try {
+      if (this._touchedSpikePlayer.state === "started") {
+        this._touchedSpikePlayer.stop();
+      }
+      this._touchedSpikePlayer.start();
+    } catch {
+      // Defensive catch-all
+    }
+  }
+
+  private playFling(): void {
+    if (!this._isInitialized || !this._flingPlayer || !this._flingPlayer.loaded) return;
+    try {
+      if (this._flingPlayer.state === "started") {
+        this._flingPlayer.stop();
+      }
+      this._flingPlayer.start();
+    } catch {
+      // Defensive catch-all
+    }
+  }
+
   public dispose(): void {
     this._tracker.clear();
     this.stopRatchet();
@@ -442,6 +511,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._healthBugRupturePlayer) {
       this._healthBugRupturePlayer.dispose();
       this._healthBugRupturePlayer = null;
+    }
+    if (this._touchedSpikePlayer) {
+      this._touchedSpikePlayer.dispose();
+      this._touchedSpikePlayer = null;
+    }
+    if (this._flingPlayer) {
+      this._flingPlayer.dispose();
+      this._flingPlayer = null;
     }
     this._isInitialized = false;
   }

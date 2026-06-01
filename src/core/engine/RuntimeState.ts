@@ -14,9 +14,10 @@ export class RuntimeState {
   public hitLagScale: number = 1.0;
   public altitude: number = 0.0;
   public gameStarted: boolean = false;
-  public wallBugsSpawningAllowed: boolean = false;
-  public healthBugsSpawningAllowed: boolean = false;
+  public wallBugsSpawningAllowed: boolean = true;
+  public healthBugsSpawningAllowed: boolean = true;
   public tetherDamagePauseTimer: number = 0.0;
+  public weaverDamageCount: number = 0;
 
   public get activeTimeScale(): number {
     if (this.hitLagTimer > 0) {
@@ -42,8 +43,9 @@ export class RuntimeState {
     this.hitLagScale = 1.0;
     this.altitude = 0.0;
     this.gameStarted = false;
-    this.wallBugsSpawningAllowed = false;
-    this.healthBugsSpawningAllowed = false;
+    this.wallBugsSpawningAllowed = true;
+    this.healthBugsSpawningAllowed = true;
     this.tetherDamagePauseTimer = 0.0;
+    this.weaverDamageCount = 0;
   }
 }

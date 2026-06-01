@@ -171,7 +171,8 @@ export class PlayerKinematicsSystem implements ISystem {
       this.lastTraversalState = trav.state;
       this.context.broker.publish(GameEvent.PLAYER_STATE_CHANGE, {
         state: trav.state,
-        launchPower: trav.launchPower
+        launchPower: trav.launchPower,
+        flingStage: trav.flingStage
       });
     }
   }

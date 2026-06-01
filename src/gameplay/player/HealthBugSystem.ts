@@ -77,7 +77,10 @@ export class HealthBugSystem implements ISystem {
 
     const healthStore = this.context.stores.get<HealthComponent>("health");
     const wHealth = healthStore.get(this.context.refs.weaver);
-    const isSpawningEnabled = this.context.runtime.healthBugsSpawningAllowed && wHealth &&
+
+    const isSpawningEnabled = this.context.runtime.healthBugsSpawningAllowed &&
+      this.context.runtime.weaverDamageCount >= 1 &&
+      wHealth &&
       (wHealth.current / wHealth.max) <= GAMEPLAY_TUNING.SPAWN_THRESHOLDS.HEALTH_BUG_HEALTH_RATIO;
 
     if (isSpawningEnabled) {
@@ -122,8 +125,8 @@ export class HealthBugSystem implements ISystem {
           const isSpikedB = bugB.variant !== "NORMAL" && !bugB.spikesDisarmed;
 
           if (isSpikedA || isSpikedB) {
-            this.popBug(pBugA.entityId);
-            this.popBug(pBugB.entityId);
+            this.popBug(pBugA.entityId, true);
+            this.popBug(pBugB.entityId, true);
           } else {
             const overlap = combinedRadius - dist;
             const nx = dx / (dist || 1.0);
@@ -195,7 +198,7 @@ export class HealthBugSystem implements ISystem {
       if (!bug || !trans || !vel || !sticky) continue;
 
       if (bug.state === "DEAD") {
-        this.popBug(pBug.entityId);
+        this.popBug(pBug.entityId, false);
         continue;
       }
 
@@ -433,7 +436,7 @@ export class HealthBugSystem implements ISystem {
         }
 
         if (hitWallBugSpikes) {
-          this.popBug(pBug.entityId);
+          this.popBug(pBug.entityId, true);
           continue;
         }
       }
@@ -454,7 +457,7 @@ export class HealthBugSystem implements ISystem {
                 amount: 15,
                 source: "HEALTH_BUG_SPIKES"
               });
-              this.popBug(pBug.entityId);
+              this.popBug(pBug.entityId, true);
               continue;
             } else {
               const nx = dx / (dist || 1.0);
@@ -472,7 +475,7 @@ export class HealthBugSystem implements ISystem {
               amount: damage,
               source: isSpiked ? "HEALTH_BUG_PINBALL_SPIKES" : "HEALTH_BUG_PINBALL"
             });
-            this.popBug(pBug.entityId);
+            this.popBug(pBug.entityId, isSpiked);
             continue;
           }
         }
@@ -492,11 +495,14 @@ export class HealthBugSystem implements ISystem {
       ? scene.activeCamera.position.y
       : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
 
-    const startY = cameraY - 26.0;
+    const startY = cameraY - 28.0;
     const startX = this.getNextLane();
 
-    const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] =
-      ["NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"];
+    const isSpikedAllowed = this.context.runtime.weaverDamageCount >= 1;
+    const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] = isSpikedAllowed
+      ? ["NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"]
+      : ["NORMAL"];
+
     const chosenVariant = variants[Math.floor(Math.random() * variants.length)];
     const calculatedPauseY = cameraY - 4.0 + Math.random() * 12.0;
 
@@ -541,14 +547,14 @@ export class HealthBugSystem implements ISystem {
           duration: 0.35
         });
       } else {
-        this.popBug(bugId);
+        this.popBug(bugId, false);
       }
       return;
     }
 
     if (isLaunching && launchPower >= 0.555) {
       if (hitSpikes) {
-        this.popBug(bugId);
+        this.popBug(bugId, true);
       } else {
         bug.state = "PINBALL";
         const shoveX = (bug.x > pTrans.x ? 1 : -1) * 25.0;
@@ -613,7 +619,7 @@ export class HealthBugSystem implements ISystem {
     }
   }
 
-  public popBug(bugId: number): void {
+  public popBug(bugId: number, bySpikes: boolean = false): void {
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const bugTrans = transforms.get(bugId);
     if (!bugTrans) return;
@@ -656,7 +662,7 @@ export class HealthBugSystem implements ISystem {
       });
     }
 
-    this.context.broker.publish(GameEvent.HEALTH_BUG_RUPTURED, undefined);
+    this.context.broker.publish(GameEvent.HEALTH_BUG_RUPTURED, { bySpikes });
 
     this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
       x: bugTrans.x,

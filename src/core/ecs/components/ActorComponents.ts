@@ -38,6 +38,7 @@ export interface TraversalStateComponent {
   wallDir: number;
   launchTimer: number;
   launchPower: number;
+  flingStage?: number;
   stickyEntityId?: number;
   stickyWallX?: number;
   stickyWallYOffset?: number;

@@ -79,7 +79,7 @@ export class EntityAssembler {
       shakeRequested: false
     });
 
-    context.stores.get<HealthComponent>("health").add(weaverId, { current: 100, max: 100 });
+    context.stores.get<HealthComponent>("health").add(weaverId, { current: 200, max: 200 });
     context.stores.get<TagComponent>("tag").add(weaverId, { type: "weaver" });
     context.stores.get<HitStopComponent>("hitStop").add(weaverId, { timeRemaining: 0 });
 

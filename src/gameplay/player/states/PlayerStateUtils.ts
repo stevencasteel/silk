@@ -85,7 +85,6 @@ export class PlayerStateUtils {
     }
     trav.stickyEntityId = -1;
 
-    // Use THRESHOLD_YELLOW (0.427) to align with Stage 2 beginning in the UI
     const STAGE2_THRESHOLD = 0.427;
 
     if (storedTension < STAGE2_THRESHOLD) {
@@ -93,6 +92,7 @@ export class PlayerStateUtils {
       trav.state = "AIRBORNE";
       trav.launchPower = 0.05;
       trav.launchTimer = 0;
+      trav.flingStage = 1;
 
       const nudgeDistance = GAMEPLAY_TUNING.PLAYER.FLING.LOW_TENSION_NUDGE_DISTANCE;
       target.x += trav.wallNormalX * nudgeDistance;
@@ -124,10 +124,8 @@ export class PlayerStateUtils {
     const requiredHold = isStage3 ? 0.4 : 1.5;
     const chargeRatio = Math.min(1.0, (trav.chargeTimer || 0) / requiredHold);
 
-    // Refined launch speeds: Yellow (Stage 2) is 0.55, Red (Stage 3) is 0.90
     const baseZonePower = isStage3 ? 0.90 : 0.55;
 
-    // Scale by tether length: longer tether = flings harder (scaled from 1.0 to 1.7)
     const absoluteMin = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
     const absoluteMax = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
     const lengthRatio = (tether.maxLength - absoluteMin) / (absoluteMax - absoluteMin);
@@ -141,7 +139,8 @@ export class PlayerStateUtils {
 
     trav.state = "LAUNCHING";
     trav.launchTimer = tuning.LAUNCH_DURATION;
-    trav.launchPower = baseZonePower * chargeRatio; // Save relative launch strength for validation
+    trav.launchPower = baseZonePower * chargeRatio;
+    trav.flingStage = isStage3 ? 3 : 2;
     trav.wallDir = 0;
 
     tether.tension = 0.0;
@@ -299,7 +298,7 @@ export class PlayerStateUtils {
 
           const bug = bugStore ? bugStore.get(bugId) : undefined;
           const hBug = hBugStore ? hBugStore.get(bugId) : undefined;
-      const sBug = spikeBugStore ? spikeBugStore.get(bugId) : undefined;
+          const sBug = spikeBugStore ? spikeBugStore.get(bugId) : undefined;
           const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
           const isPlayerTrapped = trav.isWebTrapped;

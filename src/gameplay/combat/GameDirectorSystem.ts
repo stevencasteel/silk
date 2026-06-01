@@ -108,6 +108,7 @@ export class GameDirectorSystem implements ISystem {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        this.context.runtime.weaverDamageCount++;
         const hs = this.context.stores
           .get<HitStopComponent>("hitStop")
           .get(this.context.refs.weaver);
@@ -281,8 +282,8 @@ export class GameDirectorSystem implements ISystem {
         hue: HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING
       });
       this.context.broker.publish(GameEvent.WEAVER_HEALTH_CHANGED, {
-        hp: wHealth?.current || 100,
-        maxHp: wHealth?.max || 100
+        hp: wHealth?.current || 200,
+        maxHp: wHealth?.max || 200
       });
     });
   }

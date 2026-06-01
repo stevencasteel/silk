@@ -45,7 +45,6 @@ export class WallBugSystem implements ISystem {
     const scene = this.context.visualQuery.getScene();
     if (!scene) return;
 
-    // Overhaul: Dark metallic slate-grey carapace (Zero yellow/orange emissive body glow!)
     this.bugMaterial = new BABYLON.PBRMaterial("wallBugCarapace", scene);
     this.bugMaterial.metallic = 0.88;
     this.bugMaterial.roughness = 0.24;
@@ -53,7 +52,6 @@ export class WallBugSystem implements ISystem {
     this.bugMaterial.emissiveColor = new BABYLON.Color3(0.0, 0.0, 0.0);
     this.bugMaterial.emissiveIntensity = 0.0;
 
-    // Subtle glowing orange sensory eyes
     this.eyeMaterial = new BABYLON.StandardMaterial("wallBugEyes", scene);
     this.eyeMaterial.emissiveColor = new BABYLON.Color3(0.95, 0.35, 0.0);
     this.eyeMaterial.disableLighting = true;
@@ -108,7 +106,10 @@ export class WallBugSystem implements ISystem {
 
     const healthStore = this.context.stores.get<HealthComponent>("health");
     const wHealth = healthStore.get(this.context.refs.weaver);
-    const isSpawningEnabled = this.context.runtime.wallBugsSpawningAllowed && wHealth &&
+
+    const isSpawningEnabled = this.context.runtime.wallBugsSpawningAllowed &&
+      this.context.runtime.weaverDamageCount >= 2 &&
+      wHealth &&
       (wHealth.current / wHealth.max) <= GAMEPLAY_TUNING.SPAWN_THRESHOLDS.WALL_BUG_HEALTH_RATIO;
 
     if (isSpawningEnabled) {
@@ -154,7 +155,6 @@ export class WallBugSystem implements ISystem {
       bugPhase += legFrequency * dt;
       bug.gaitPhase = bugPhase;
 
-      // Sync spikes/safety visibility to the live spikedSide state:
       pBug.rootNode.getChildren().forEach((child) => {
         if (child.name === "left_spikes") {
           child.setEnabled(bug.spikedSide === "LEFT");
@@ -219,8 +219,11 @@ export class WallBugSystem implements ISystem {
     const finalWidth = 1.15;
 
     const rand = Math.random();
-    const spikedSide: "LEFT" | "RIGHT" | "NONE" =
-      rand < 0.45 ? "LEFT" : rand < 0.9 ? "RIGHT" : "NONE";
+    
+    const isSpikedAllowed = this.context.runtime.weaverDamageCount >= 2;
+    const spikedSide: "LEFT" | "RIGHT" | "NONE" = isSpikedAllowed
+      ? (rand < 0.45 ? "LEFT" : rand < 0.9 ? "RIGHT" : "NONE")
+      : "NONE";
 
     this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
       x: startX,
