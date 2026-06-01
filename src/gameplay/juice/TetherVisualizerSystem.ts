@@ -1,7 +1,12 @@
 import { getWeaverStingerTip } from "../../core/utils/EngineUtils";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
-import { TransformComponent, TetherComponent } from "../../core/ecs/Components";
+import {
+  TransformComponent,
+  TetherComponent,
+  TraversalStateComponent,
+  InputIntentComponent
+} from "../../core/ecs/Components";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { VISUAL_JUICE_CONFIG, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
 import * as BABYLON from "@babylonjs/core";
@@ -18,6 +23,10 @@ export class TetherVisualizerSystem implements ISystem {
   private tetherMeshAnchor: BABYLON.Mesh | null = null;
   private tetherMeshPlayer: BABYLON.Mesh | null = null;
   private tetherMat: BABYLON.PBRMaterial | null = null;
+
+  private currentAlbedo = new BABYLON.Color3(0.85, 0.85, 0.88);
+  private currentEmissive = new BABYLON.Color3(0, 0, 0);
+  private currentEmissiveIntensity = 0.0;
 
   private points: BABYLON.Vector3[] = [];
   private pointsAnchor: BABYLON.Vector3[] = [];
@@ -114,6 +123,60 @@ export class TetherVisualizerSystem implements ISystem {
     } else {
       this.isSnapped = false;
       this.snapTimer = 0.0;
+    }
+
+    const travs = this.context.stores.get<TraversalStateComponent>("traversal");
+    const pTrav = travs ? travs.get(this.context.refs.player) : undefined;
+    const inputs = this.context.stores.get<InputIntentComponent>("input");
+    const pInput = inputs ? inputs.get(this.context.refs.player) : undefined;
+
+    let isChargingFling = false;
+    if (pTrav && pTrav.state === "WALL_STICKING" && pInput && pTrav.wallDir !== 0) {
+      if (pInput.x === pTrav.wallDir) {
+        isChargingFling = true;
+      }
+    }
+
+    const tension = Math.max(0, Math.min(1.0, tether.tension));
+    const targetAlbedo = new BABYLON.Color3(0.85, 0.85, 0.88);
+    const targetEmissive = new BABYLON.Color3(0.0, 0.0, 0.0);
+    let targetIntensity = 0.0;
+
+    if (isChargingFling) {
+      const stage1Green = new BABYLON.Color3(0.133, 0.772, 0.368);
+      const stage2Gold = new BABYLON.Color3(0.95, 0.72, 0.05);
+      const stage3Red = new BABYLON.Color3(0.95, 0.05, 0.05);
+
+      if (tension >= 0.8) {
+        const progress3 = Math.max(0.0, Math.min(1.0, (tension - 0.8) / 0.2));
+        BABYLON.Color3.LerpToRef(stage2Gold, stage3Red, progress3, targetAlbedo);
+        targetEmissive.copyFrom(targetAlbedo);
+        targetIntensity = 1.8 + progress3 * 2.2;
+      } else if (tension >= 0.427) {
+        const progress2 = Math.max(0.0, Math.min(1.0, (tension - 0.427) / (0.8 - 0.427)));
+        BABYLON.Color3.LerpToRef(stage1Green, stage2Gold, progress2, targetAlbedo);
+        targetEmissive.copyFrom(targetAlbedo);
+        targetIntensity = 1.0 + progress2 * 0.8;
+      } else {
+        const progress1 = tension > 0.001
+          ? 0.38 + Math.min(0.62, Math.pow(tension / 0.427, 0.45) * 0.62)
+          : 0.0;
+        const baseWhite = new BABYLON.Color3(0.85, 0.85, 0.88);
+        BABYLON.Color3.LerpToRef(baseWhite, stage1Green, progress1, targetAlbedo);
+        targetEmissive.copyFrom(targetAlbedo);
+        targetIntensity = progress1 * 1.0;
+      }
+    }
+
+    const lerpRate = 1.0 - Math.exp(-dt * 10.0);
+    BABYLON.Color3.LerpToRef(this.currentAlbedo, targetAlbedo, lerpRate, this.currentAlbedo);
+    BABYLON.Color3.LerpToRef(this.currentEmissive, targetEmissive, lerpRate, this.currentEmissive);
+    this.currentEmissiveIntensity += (targetIntensity - this.currentEmissiveIntensity) * lerpRate;
+
+    if (this.tetherMat) {
+      this.tetherMat.albedoColor.copyFrom(this.currentAlbedo);
+      this.tetherMat.emissiveColor.copyFrom(this.currentEmissive);
+      this.tetherMat.emissiveIntensity = this.currentEmissiveIntensity;
     }
   }
 
