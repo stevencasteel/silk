@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 8:39:28 PM
+ [SYSTEM] Generated: 5/31/2026, 8:42:01 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -19779,7 +19779,8 @@ import { SystemContext } from "../../core/engine/SystemContext";
 import {
   ActorCosmeticComponent,
   WeaverAIComponent,
-  TransformComponent
+  TransformComponent,
+  TraversalStateComponent
 } from "../../core/ecs/Components";
 import * as BABYLON from "@babylonjs/core";
 
@@ -19893,6 +19894,13 @@ export class VisualStateDressingSystem implements ISystem {
       if (pNode instanceof BABYLON.AbstractMesh) {
         const pbrMaterials = collectPBRMaterials(pNode);
 
+        const travs = this.context.stores.get<TraversalStateComponent>("traversal");
+        const pTrav = travs ? travs.get(pId) : undefined;
+        const flashMax = 0.35;
+        const flashAlpha = (pTrav && pTrav.isWebTrapped && pTrav.webFlashTimer !== undefined)
+          ? Math.min(1.0, pTrav.webFlashTimer / flashMax)
+          : 0.0;
+
         const emissive = VISUAL_JUICE_CONFIG.EMISSIVE;
         pbrMaterials.forEach((mat) => {
           this._targetEmissiveColor.set(
@@ -19908,11 +19916,44 @@ export class VisualStateDressingSystem implements ISystem {
             this.currentEmissiveColor
           );
 
-          mat.emissiveColor.set(
-            this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE,
-            this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE,
-            this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE
-          );
+          const finalEmissiveR = this.currentEmissiveColor.r * emissive.PLAYER_EMISSIVE_SCALE;
+          const finalEmissiveG = this.currentEmissiveColor.g * emissive.PLAYER_EMISSIVE_SCALE;
+          const finalEmissiveB = this.currentEmissiveColor.b * emissive.PLAYER_EMISSIVE_SCALE;
+
+          let baseAlbedoR = 0.95;
+          let baseAlbedoG = 0.95;
+          let baseAlbedoB = 1.0;
+
+          if (mat.name === "playerInnerMat") {
+            baseAlbedoR = 0.04;
+            baseAlbedoG = 0.01;
+            baseAlbedoB = 0.08;
+          } else if (mat.name === "playerBandMat" || mat.name === "playerKnotMat") {
+            baseAlbedoR = 1.0;
+            baseAlbedoG = 1.0;
+            baseAlbedoB = 1.0;
+          }
+
+          if (flashAlpha > 0) {
+            const flashR = 0.01;
+            const flashG = 0.01;
+            const flashB = 0.01;
+
+            mat.albedoColor.set(
+              baseAlbedoR * (1.0 - flashAlpha) + flashR * flashAlpha,
+              baseAlbedoG * (1.0 - flashAlpha) + flashG * flashAlpha,
+              baseAlbedoB * (1.0 - flashAlpha) + flashB * flashAlpha
+            );
+
+            mat.emissiveColor.set(
+              finalEmissiveR * (1.0 - flashAlpha),
+              finalEmissiveG * (1.0 - flashAlpha),
+              finalEmissiveB * (1.0 - flashAlpha)
+            );
+          } else {
+            mat.albedoColor.set(baseAlbedoR, baseAlbedoG, baseAlbedoB);
+            mat.emissiveColor.set(finalEmissiveR, finalEmissiveG, finalEmissiveB);
+          }
         });
       }
     }
