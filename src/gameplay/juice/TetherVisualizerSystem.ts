@@ -47,15 +47,16 @@ export class TetherVisualizerSystem implements ISystem {
     if (!scene) return;
 
     this.tetherMat = new BABYLON.PBRMaterial("tetherMat", scene);
-    this.tetherMat.metallic = 0.95;
-    this.tetherMat.roughness = 0.05;
+    this.tetherMat.metallic = 0.1;
+    this.tetherMat.roughness = 0.65;
     this.tetherMat.sheen.isEnabled = true;
-    this.tetherMat.sheen.intensity = 0.95;
-    this.tetherMat.sheen.roughness = 0.05;
+    this.tetherMat.sheen.intensity = 0.85;
+    this.tetherMat.sheen.roughness = 0.5;
     this.tetherMat.emissiveIntensity = 0.0;
-    this.tetherMat.albedoColor = new BABYLON.Color3(0.82, 0.82, 0.86);
+    this.tetherMat.albedoColor = new BABYLON.Color3(0.85, 0.85, 0.88);
     this.tetherMat.emissiveColor = new BABYLON.Color3(0.0, 0.0, 0.0);
     this.tetherMat.disableLighting = false;
+    this.tetherMat.enableSpecularAntiAliasing = true;
 
     this.tetherMesh = BABYLON.MeshBuilder.CreateTube(
       "tetherTube",
