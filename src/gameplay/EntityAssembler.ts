@@ -118,13 +118,33 @@ export class EntityAssembler {
         });
 
         const pId = sysCtx.refs.player;
-        sysCtx.commands.dispatch({
-          type: "APPLY_IMPULSE",
-          entityId: pId,
-          x: -dx * tuning.REBOUND_FORCE,
-          y: -dy * tuning.REBOUND_FORCE,
-          z: 0
-        });
+        const wId = sysCtx.refs.weaver;
+
+        const transforms = sysCtx.stores.get<TransformComponent>("transform");
+        const targets = sysCtx.stores.get<KinematicTargetComponent>("target");
+        const velocities = sysCtx.stores.get<KinematicVelocityComponent>("velocity");
+
+        const pTrans = transforms.get(pId);
+        const wTrans = transforms.get(wId);
+        const pTarget = targets.get(pId);
+        const pVel = velocities.get(pId);
+
+        if (pTrans && wTrans && pTarget) {
+          const combinedRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS + ARENA_CONFIG.ENTITY.WEAVER_RADIUS;
+          pTrans.x = wTrans.x - dx * (combinedRadius + 0.05);
+          pTrans.y = wTrans.y - dy * (combinedRadius + 0.05);
+          pTrans.prevX = pTrans.x;
+          pTrans.prevY = pTrans.y;
+          pTarget.x = pTrans.x;
+          pTarget.y = pTrans.y;
+        }
+
+        if (pVel) {
+          const incomingSpeed = Math.sqrt(pVel.x * pVel.x + pVel.y * pVel.y);
+          const bounceSpeed = Math.max(tuning.REBOUND_FORCE, incomingSpeed * 0.45);
+          pVel.x = -dx * bounceSpeed;
+          pVel.y = -dy * bounceSpeed;
+        }
 
         const trav = sysCtx.stores.get<TraversalStateComponent>("traversal").get(pId);
         if (trav) {
