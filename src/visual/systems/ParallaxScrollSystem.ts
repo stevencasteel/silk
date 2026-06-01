@@ -98,14 +98,8 @@ export class ParallaxScrollSystem implements ISystem {
       return isBerserk ? profile.scrollSpeed * 1.5 : profile.scrollSpeed;
     }
 
+    void wVel;
     if (wAI.state === "STRIKING") {
-      if (wVel) {
-        if (wVel.y < -0.1) {
-          return wVel.y * ARENA_CONFIG.SCROLL_SPEED.DASH_MULTIPLIER;
-        } else if (wVel.y > 0.1) {
-          return wVel.y * ARENA_CONFIG.SCROLL_SPEED.DASH_MULTIPLIER;
-        }
-      }
       return 0.0;
     }
 
