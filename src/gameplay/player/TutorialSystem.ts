@@ -10,7 +10,6 @@ export class TutorialSystem implements ISystem {
 
   private calibrationStep = 0;
   private step0Completed = false;
-  private step1Completed = false;
 
   private _tracker = new SubscriptionTracker();
 
@@ -21,7 +20,6 @@ export class TutorialSystem implements ISystem {
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.calibrationStep = 0;
         this.step0Completed = false;
-        this.step1Completed = false;
         this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 0 });
       })
     );
@@ -49,18 +47,6 @@ export class TutorialSystem implements ISystem {
 
   public update(dt: number): void {
     void dt;
-
-    if (this.calibrationStep === 1) {
-      const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
-      const pTrav = travStore.get(this.context.refs.player);
-      if (pTrav && pTrav.state === "LAUNCHING" && pTrav.launchPower >= 0.45) {
-        if (!this.step1Completed) {
-          this.step1Completed = true;
-          this.calibrationStep = 2;
-          this.context.broker.publish(GameEvent.UI_CALIBRATION_STEP_CHANGED, { step: 2 });
-        }
-      }
-    }
   }
 
   public dispose(): void {

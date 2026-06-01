@@ -23,9 +23,9 @@ interface CalibrationStepMeta {
 
 const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
   0: {
-    successTitle: "1. Cling Successful!",
-    activeTitle: "1. Cling to a Wall",
-    subtitle: "Hold direction against a wall to stick",
+    successTitle: "STICK SUCCESSFUL!",
+    activeTitle: "STICK TO WALL",
+    subtitle: "",
     renderKeys: (useWasd, isLeft, isRight) => (
       <>
         <motion.span
@@ -42,16 +42,6 @@ const CALIBRATION_STEPS: Record<number, CalibrationStepMeta> = {
         </motion.span>
       </>
     )
-  },
-  1: {
-    successTitle: "2. Fling Successful!",
-    activeTitle: "2. Let Go to Fling",
-    subtitle: "Release key under tension to launch",
-    renderKeys: () => (
-      <span className="keycap-box" style={{ padding: "3px 8px" }}>
-        RELEASE KEY
-      </span>
-    )
   }
 };
 
@@ -63,17 +53,29 @@ const LOADING_STEPS = [
 ];
 
 export const HudOverlay: React.FC = () => {
+  const [isWebBreaking, setIsWebBreaking] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleWebBreak = () => {
+      setIsWebBreaking(true);
+      const timer = setTimeout(() => {
+        setIsWebBreaking(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    };
+    window.addEventListener("silk-web-break", handleWebBreak);
+    return () => {
+      window.removeEventListener("silk-web-break", handleWebBreak);
+    };
+  }, []);
   const playerState = usePlayerStore(
     useShallow((s) => ({
       playerHp: s.playerHp,
       isWebTrapped: s.isWebTrapped,
-      escapeProgress: s.escapeProgress,
-      escapeRequired: s.escapeRequired,
-      webMass: s.webMass,
       tetherDamage: s.tetherDamage
     }))
   );
-  const { playerHp, isWebTrapped, escapeProgress, escapeRequired, webMass, tetherDamage } =
+  const { playerHp, isWebTrapped, tetherDamage } =
     playerState;
 
   const weaverState = useWeaverStore(
@@ -765,122 +767,145 @@ export const HudOverlay: React.FC = () => {
               style={{ minWidth: "220px", display: "flex", justifyContent: "center" }}
             >
               <AnimatePresence mode="wait">
-                {isWebTrapped ? (
-                  <motion.div
-                    key="web-trapped-header"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "2px"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      <motion.span
-                        animate={activeStruggleDir === "LEFT" ? { scale: 0.82 } : { scale: 1 }}
-                        className={`keycap-box ${activeStruggleDir === "LEFT" ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "A" : "◀"}
-                      </motion.span>
-                      <motion.span
-                        animate={activeStruggleDir === "UP" ? { scale: 0.82 } : { scale: 1 }}
-                        className={`keycap-box ${activeStruggleDir === "UP" ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "W" : "▲"}
-                      </motion.span>
-                      <motion.span
-                        animate={activeStruggleDir === "DOWN" ? { scale: 0.82 } : { scale: 1 }}
-                        className={`keycap-box ${activeStruggleDir === "DOWN" ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "S" : "▼"}
-                      </motion.span>
-                      <motion.span
-                        animate={activeStruggleDir === "RIGHT" ? { scale: 0.82 } : { scale: 1 }}
-                        className={`keycap-box ${activeStruggleDir === "RIGHT" ? "keycap-used" : ""}`}
-                      >
-                        {useWasd ? "D" : "▶"}
-                      </motion.span>
-                      <div
-                        className="led-dot led-red"
-                        style={{ width: "6px", height: "6px", marginLeft: "4px" }}
-                      />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      <ShieldAlert
-                        size={10}
-                        style={{ color: "var(--signal-red)", flexShrink: 0 }}
-                        className="animate-pulse"
-                      />
-                      <span
-                        className="bezel-panel-label warn-alert"
-                        style={{ fontSize: "9px", fontWeight: "900", letterSpacing: "0.15em" }}
-                      >
-                        {webMass > 1 ? `WEB MASS x${webMass}` : "WEB SNAGGED"}
-                      </span>
-                    </div>
-                    <div
-                      className="hud-struggle-bar-track"
-                      style={{ width: "100px", height: "4px", marginTop: "2px" }}
-                    >
-                      <div
-                        className="hud-struggle-bar-fill"
+                {(isWebTrapped || isWebBreaking) ? (
+                  (() => {
+                    const webColor = isWebBreaking ? "rgba(34, 197, 94, 1)" : "rgba(239, 68, 68, 1)";
+                    const webGlow = isWebBreaking ? "rgba(34, 197, 94, 0.35)" : "rgba(239, 68, 68, 0.35)";
+                    const webBorder = isWebBreaking ? "rgba(34, 197, 94, 0.45)" : "rgba(239, 68, 68, 0.45)";
+                    const webLedClass = isWebBreaking ? "led-green led-elastic-spring" : "led-red";
+                    const webText = isWebBreaking ? "BROKEN FREE!" : "BREAK FREE!";
+
+                    return (
+                      <motion.div
+                        key="web-trapped-header"
+                        initial={{ opacity: 0, y: -12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 12 }}
+                        transition={{ type: "spring", stiffness: 350, damping: 25 }}
                         style={{
-                          width: `${((escapeProgress / escapeRequired) * 100).toFixed(1)}%`
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "2px",
+                          padding: "2px 10px",
+                          borderRadius: "6px",
+                          border: `1.5px solid ${webBorder}`,
+                          background: "rgba(7, 8, 11, 0.92)",
+                          boxShadow: `0 0 8px ${webGlow}`,
+                          textShadow: `0 0 5px ${webGlow}`
                         }}
-                      />
-                    </div>
-                  </motion.div>
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                              <motion.span
+                                animate={activeStruggleDir === "LEFT" ? { scale: 0.82 } : { scale: 1 }}
+                                className={`keycap-box ${activeStruggleDir === "LEFT" ? "keycap-used" : ""}`}
+                              >
+                                {useWasd ? "A" : "◀"}
+                              </motion.span>
+                              <motion.span
+                                animate={activeStruggleDir === "UP" ? { scale: 0.82 } : { scale: 1 }}
+                                className={`keycap-box ${activeStruggleDir === "UP" ? "keycap-used" : ""}`}
+                              >
+                                {useWasd ? "W" : "▲"}
+                              </motion.span>
+                              <motion.span
+                                animate={activeStruggleDir === "DOWN" ? { scale: 0.82 } : { scale: 1 }}
+                                className={`keycap-box ${activeStruggleDir === "DOWN" ? "keycap-used" : ""}`}
+                              >
+                                {useWasd ? "S" : "▼"}
+                              </motion.span>
+                              <motion.span
+                                animate={activeStruggleDir === "RIGHT" ? { scale: 0.82 } : { scale: 1 }}
+                                className={`keycap-box ${activeStruggleDir === "RIGHT" ? "keycap-used" : ""}`}
+                              >
+                                {useWasd ? "D" : "▶"}
+                              </motion.span>
+                          <div
+                            className={`led-dot ${webLedClass}`}
+                            style={{ width: "6px", height: "6px", marginLeft: "4px" }}
+                          />
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <ShieldAlert
+                            size={10}
+                            style={{ color: webColor, flexShrink: 0 }}
+                            className="animate-pulse"
+                          />
+                          <span
+                            className="bezel-panel-label warn-alert"
+                            style={{ fontSize: "9px", fontWeight: "950", letterSpacing: "0.12em", color: webColor }}
+                          >
+                            {webText}
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })()
                 ) : activeStep ? (
-                  <motion.div
-                    key={`step-${displayedStep}`}
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "2px"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      {activeStep.renderKeys(
-                        useWasd,
-                        isLeftPressed,
-                        isRightPressed,
-                        isUpPressed,
-                        isDownPressed
-                      )}
-                      <div
-                        className={`led-dot ${activeLedClass}`}
-                        style={{ width: "6px", height: "6px", marginLeft: "4px" }}
-                      />
-                    </div>
-                    <span
-                      className="bezel-panel-label"
-                      style={{
-                        color: stepSuccess ? "var(--signal-green)" : "var(--signal-yellow)",
-                        fontSize: "9px"
-                      }}
-                    >
-                      {stepSuccess ? activeStep.successTitle : activeStep.activeTitle}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "7.5px",
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em"
-                      }}
-                    >
-                      {activeStep.subtitle}
-                    </span>
-                  </motion.div>
+                  (() => {
+                    const activeColor = stepSuccess ? "rgba(34, 197, 94, 1)" : "rgba(234, 179, 8, 1)";
+                    const activeGlow = stepSuccess ? "rgba(34, 197, 94, 0.3)" : "rgba(234, 179, 8, 0.3)";
+                    const activeBorder = stepSuccess ? "rgba(34, 197, 94, 0.45)" : "rgba(234, 179, 8, 0.45)";
+
+                    return (
+                      <motion.div
+                        key={`step-${displayedStep}`}
+                        initial={{ opacity: 0, y: -12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 12 }}
+                        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "2px",
+                          padding: "2px 10px",
+                          borderRadius: "6px",
+                          border: `1.5px solid ${activeBorder}`,
+                          background: "rgba(7, 8, 11, 0.92)",
+                          boxShadow: `0 0 8px ${activeGlow}`,
+                          textShadow: `0 0 5px ${activeGlow}`
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {activeStep.renderKeys(
+                            useWasd,
+                            isLeftPressed,
+                            isRightPressed,
+                            isUpPressed,
+                            isDownPressed
+                          )}
+                          <div
+                            className={`led-dot ${activeLedClass}`}
+                            style={{ width: "6px", height: "6px", marginLeft: "4px" }}
+                          />
+                        </div>
+                        <span
+                          className="bezel-panel-label"
+                          style={{
+                            color: activeColor,
+                            fontSize: "9px",
+                            fontWeight: "900",
+                            letterSpacing: "0.12em"
+                          }}
+                        >
+                          {stepSuccess ? activeStep.successTitle : activeStep.activeTitle}
+                        </span>
+                        {activeStep.subtitle && (
+                          <span
+                            style={{
+                              fontSize: "7.5px",
+                              color: "var(--text-muted)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em"
+                            }}
+                          >
+                            {activeStep.subtitle}
+                          </span>
+                        )}
+                      </motion.div>
+                    );
+                  })()
                 ) : (
                   <motion.div
                     key="completed"
