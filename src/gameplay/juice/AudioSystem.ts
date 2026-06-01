@@ -1,11 +1,12 @@
-import { ISystem, IDisposable } from "../../contracts/ISystem";
+import { ISystem, IDisposable, IUpdateable } from "../../contracts/ISystem";
 import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { TetherComponent } from "../../core/ecs/Components";
 import * as Tone from "tone";
 
-export class AudioSystem implements ISystem, IDisposable {
+export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   readonly phase = SystemPhase.PostRender;
   readonly initPhase = InitPhase.UI;
 
@@ -13,7 +14,11 @@ export class AudioSystem implements ISystem, IDisposable {
   private _synth: Tone.Synth | null = null;
   private _noise: Tone.Noise | null = null;
   private _filter: Tone.Filter | null = null;
+  private _ratchetPlayer: Tone.Player | null = null;
   private _isInitialized = false;
+
+  private _isReeling = false;
+  private _lastMaxLength = 0;
 
   constructor(private context: SystemContext) {}
 
@@ -52,12 +57,28 @@ export class AudioSystem implements ISystem, IDisposable {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.playVictorySound();
+        this.stopRatchet();
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
         this.playDefeatSound();
+        this.stopRatchet();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.stopRatchet();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_PAUSED, ({ isPaused }) => {
+        if (isPaused) {
+          this.stopRatchet();
+        }
       })
     );
   }
@@ -80,9 +101,66 @@ export class AudioSystem implements ISystem, IDisposable {
 
       this._noise = new Tone.Noise("white").connect(this._filter);
 
+      this._ratchetPlayer = new Tone.Player({
+        url: "/sfx/tether_ratchet.mp3",
+        loop: true,
+        autostart: false,
+        fadeIn: 0.05,
+        fadeOut: 0.05
+      }).toDestination();
+
       this._isInitialized = true;
     } catch (e) {
       console.warn("Tone.js failed to initialize:", e);
+    }
+  }
+
+  public update(dt: number): void {
+    void dt;
+    if (!this._isInitialized || !this._ratchetPlayer) return;
+
+    const tethers = this.context.stores.get<TetherComponent>("tether");
+    const playerTether = tethers.get(this.context.refs.player);
+
+    if (playerTether && playerTether.isAttached) {
+      const velocityActive = playerTether.reelVelocity !== 0;
+      const lengthChangeActive = Math.abs(playerTether.maxLength - this._lastMaxLength) > 0.001;
+      const isCurrentlyReeling = velocityActive || lengthChangeActive;
+
+      this._lastMaxLength = playerTether.maxLength;
+
+      if (isCurrentlyReeling) {
+        if (!this._isReeling) {
+          this._isReeling = true;
+          this.startRatchet();
+        }
+      } else {
+        if (this._isReeling) {
+          this._isReeling = false;
+          this.stopRatchet();
+        }
+      }
+    } else {
+      if (this._isReeling) {
+        this._isReeling = false;
+        this.stopRatchet();
+      }
+    }
+  }
+
+  private startRatchet(): void {
+    if (this._isInitialized && this._ratchetPlayer && this._ratchetPlayer.loaded) {
+      if (this._ratchetPlayer.state !== "started") {
+        const randomOffset = Math.random() * 6.0;
+        this._ratchetPlayer.start(undefined, randomOffset);
+      }
+    }
+  }
+
+  private stopRatchet(): void {
+    this._isReeling = false;
+    if (this._ratchetPlayer && this._ratchetPlayer.state === "started") {
+      this._ratchetPlayer.stop();
     }
   }
 
@@ -165,6 +243,7 @@ export class AudioSystem implements ISystem, IDisposable {
 
   public dispose(): void {
     this._tracker.clear();
+    this.stopRatchet();
     if (this._synth) {
       this._synth.dispose();
       this._synth = null;
@@ -176,6 +255,10 @@ export class AudioSystem implements ISystem, IDisposable {
     if (this._filter) {
       this._filter.dispose();
       this._filter = null;
+    }
+    if (this._ratchetPlayer) {
+      this._ratchetPlayer.dispose();
+      this._ratchetPlayer = null;
     }
     this._isInitialized = false;
   }
