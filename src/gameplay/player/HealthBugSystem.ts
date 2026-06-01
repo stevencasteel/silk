@@ -656,6 +656,8 @@ export class HealthBugSystem implements ISystem {
       });
     }
 
+    this.context.broker.publish(GameEvent.HEALTH_BUG_RUPTURED, undefined);
+
     this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
       x: bugTrans.x,
       y: bugTrans.y,

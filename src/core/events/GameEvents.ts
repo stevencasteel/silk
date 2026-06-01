@@ -29,7 +29,8 @@ export enum GameEvent {
   UI_SFX_TICK = "UI_SFX_TICK",
   UI_SFX_CONFIRM = "UI_SFX_CONFIRM",
   UI_SFX_REVEAL = "UI_SFX_REVEAL",
-  UI_SFX_DING = "UI_SFX_DING"
+  UI_SFX_DING = "UI_SFX_DING",
+  HEALTH_BUG_RUPTURED = "HEALTH_BUG_RUPTURED"
 }
 
 export interface GameEventMap {
@@ -72,4 +73,5 @@ export interface GameEventMap {
   [GameEvent.UI_SFX_CONFIRM]: void;
   [GameEvent.UI_SFX_REVEAL]: void;
   [GameEvent.UI_SFX_DING]: void;
+  [GameEvent.HEALTH_BUG_RUPTURED]: void;
 }

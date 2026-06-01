@@ -20,6 +20,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _boingPlayer: Tone.Player | null = null;
   private _webShotPlayer: Tone.Player | null = null;
   private _bossDeathPlayer: Tone.Player | null = null;
+  private _healthBugRupturePlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -124,6 +125,12 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         this.playBossDeath();
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.HEALTH_BUG_RUPTURED, () => {
+        this.playHealthBugRupture();
+      })
+    );
   }
 
   private async initAudio(): Promise<void> {
@@ -174,6 +181,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
       this._bossDeathPlayer = new Tone.Player({
         url: "sfx/boss_death.mp3",
+        autostart: false
+      }).toDestination();
+
+      this._healthBugRupturePlayer = new Tone.Player({
+        url: "sfx/health_bug_rupture.mp3",
         autostart: false
       }).toDestination();
 
@@ -376,6 +388,18 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
+  private playHealthBugRupture(): void {
+    if (!this._isInitialized || !this._healthBugRupturePlayer || !this._healthBugRupturePlayer.loaded) return;
+    try {
+      if (this._healthBugRupturePlayer.state === "started") {
+        this._healthBugRupturePlayer.stop();
+      }
+      this._healthBugRupturePlayer.start();
+    } catch {
+      // Defensive catch-all
+    }
+  }
+
   public dispose(): void {
     this._tracker.clear();
     this.stopRatchet();
@@ -414,6 +438,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._bossDeathPlayer) {
       this._bossDeathPlayer.dispose();
       this._bossDeathPlayer = null;
+    }
+    if (this._healthBugRupturePlayer) {
+      this._healthBugRupturePlayer.dispose();
+      this._healthBugRupturePlayer = null;
     }
     this._isInitialized = false;
   }
