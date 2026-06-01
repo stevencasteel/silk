@@ -11,6 +11,13 @@ import "./App.css";
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  const awaitingGesture = useOverlayStore((state) => state.awaitingGesture);
+  const overlayVisible = useOverlayStore((state) => state.overlayVisible);
+  const isPaused = useOverlayStore((state) => state.isPaused);
+  const bootStatus = useOverlayStore((state) => state.bootStatus);
+
+  const showBlur = awaitingGesture || overlayVisible || isPaused || bootStatus !== "READY";
+
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -56,7 +63,11 @@ export default function App() {
     <div className="app-wrapper">
       <div className="cabinet-outer">
         <div className="viewport-container">
-          <canvas ref={canvasRef} style={{ width: "100%", height: "100%", touchAction: "none" }} />
+          <canvas
+            ref={canvasRef}
+            className={showBlur ? "canvas-blurred" : ""}
+            style={{ width: "100%", height: "100%", touchAction: "none" }}
+          />
           <div className="vignette-overlay" />
           <ErrorBoundary>
             <HudOverlay />
