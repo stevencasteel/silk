@@ -12,8 +12,9 @@ import {
   WeaverAIComponent,
   TraversalStateComponent,
   CollisionStateComponent,
-  InvulnerabilityComponent,
   ParticleRequestComponent,
+  HurtboxComponent,
+  HitboxComponent,
   WallBugComponent,
   HealthBugComponent,
   HealthComponent,
@@ -142,7 +143,6 @@ export class ProjectileSystem implements ISystem {
   private handleOverlap(otherId: EntityId, projId: EntityId): void {
     const sysCtx = this.context;
     const pTrav = sysCtx.stores.get<TraversalStateComponent>("traversal").get(otherId);
-    const pIframe = sysCtx.stores.get<InvulnerabilityComponent>("iframe").get(otherId);
     const pComp = sysCtx.stores.get<ProjectileComponent>("projectile").get(projId);
     const trans = sysCtx.stores.get<TransformComponent>("transform").get(projId);
     const pTrans = sysCtx.stores.get<TransformComponent>("transform").get(otherId);
@@ -152,7 +152,6 @@ export class ProjectileSystem implements ISystem {
       return;
 
     const isLaunching = pTrav && pTrav.state === "LAUNCHING";
-    const hasIframe = pIframe && pIframe.timeRemaining > 0;
     const launchPower = pTrav ? pTrav.launchPower || 0 : 0;
 
     // Fling/launch deflection check
@@ -218,36 +217,38 @@ export class ProjectileSystem implements ISystem {
       const pushX = dx / dist;
       const pushY = dy / dist;
 
-      // Apply knockback impulse through standard command flow
-      const tuning = GAMEPLAY_TUNING.COMBAT;
-      const kbX = pushX * tuning.WEB_IMPACT_KNOCKBACK_X * 0.8;
-      const kbY = pushY * tuning.WEB_IMPACT_KNOCKBACK_Y * 0.8;
-      sysCtx.commands.dispatch({
-        type: "APPLY_IMPULSE",
-        entityId: otherId,
-        x: kbX,
-        y: kbY,
-        z: 0
-      });
+      // Extract the projectile's movement direction for momentum-conformed flick
+      const projVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+      let shotDirX = pushX;
+      let shotDirY = pushY;
+      if (projVel) {
+        const pSpeed = Math.sqrt(projVel.x * projVel.x + projVel.y * projVel.y);
+        if (pSpeed > 0.1) {
+          shotDirX = projVel.x / pSpeed;
+          shotDirY = projVel.y / pSpeed;
+        }
+      }
 
-      // Extend tether reel length on consecutive hits
+      // Extend tether reel length on consecutive hits by 3.6 units of extra slack
       const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
       const tether = tetherStore ? tetherStore.get(otherId) : undefined;
       if (tether && tether.isAttached) {
-        const reelIncrease = GAMEPLAY_TUNING.COMBAT.WEB_IMPACT_SLACK_INCREASE * 0.6;
+        const reelIncrease = 3.6;
         const maxLengthLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
         tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + reelIncrease);
         tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + reelIncrease);
       }
 
-      if (!hasIframe) {
-        sysCtx.commands.dispatch({
-          type: "DAMAGE_REQUEST",
-          targetId: otherId,
-          amount: 1,
-          source: "PROJECTILE_STACK"
-        });
-      }
+      // White web shots deal 0 health damage, but still stack mass & apply physics flick
+      const dmgAmount = pComp.isRed ? 1 : 0;
+      sysCtx.commands.dispatch({
+        type: "DAMAGE_REQUEST",
+        targetId: otherId,
+        amount: dmgAmount,
+        source: "PROJECTILE_STACK",
+        knockbackX: shotDirX * 28.0,
+        knockbackY: shotDirY * 28.0
+      });
 
       const reqId = sysCtx.world.create();
       const reqStore = sysCtx.stores.get<ParticleRequestComponent>("particleRequest");
@@ -293,30 +294,17 @@ export class ProjectileSystem implements ISystem {
       pTrav.stickyEntityId = -1;
     }
 
-    // 2. Physics-based push: apply standard physical impulse via core command
-    const tuning = GAMEPLAY_TUNING.COMBAT;
-    const kbX = pushX * tuning.WEB_IMPACT_KNOCKBACK_X;
-    const kbY = pushY * tuning.WEB_IMPACT_KNOCKBACK_Y;
-    sysCtx.commands.dispatch({
-      type: "APPLY_IMPULSE",
-      entityId: otherId,
-      x: kbX,
-      y: kbY,
-      z: 0
-    });
-
-    // 3. Make player's reel get longer (simulating unspooling/elongating)
+    // 2. Make player's reel get longer (adding exactly 6.0 units of extra slack)
     const tetherStore = sysCtx.stores.get<TetherComponent>("tether");
     const tether = tetherStore ? tetherStore.get(otherId) : undefined;
     if (tether && tether.isAttached) {
-      const reelIncrease = tuning.WEB_IMPACT_SLACK_INCREASE;
+      const reelIncrease = 6.0;
       const maxLengthLimit = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
       tether.desiredLength = Math.min(maxLengthLimit, tether.desiredLength + reelIncrease);
       tether.maxLength = Math.min(maxLengthLimit, tether.maxLength + reelIncrease);
-      
     }
 
-    // 4. Trap in web cocoon
+    // 3. Trap in web cocoon
     if (pTrav) {
       pTrav.isWebTrapped = true;
       pTrav.webMass = 1;
@@ -324,20 +312,33 @@ export class ProjectileSystem implements ISystem {
       pTrav.escapeRequired = 5;
       pTrav.lastEscapeDirection = "";
       pTrav.hasFlingBonus = false;
-      
     }
 
     pComp.isTrappingPlayer = true;
 
-    // 5. Apply damage & i-frame logic
-    if (!hasIframe) {
-      sysCtx.commands.dispatch({
-        type: "DAMAGE_REQUEST",
-        targetId: otherId,
-        amount: 1,
-        source: "PROJECTILE"
-      });
+    // Extract the projectile's movement direction for momentum-conformed flick
+    const projVel = sysCtx.stores.get<KinematicVelocityComponent>("velocity").get(projId);
+    let shotDirX = pushX;
+    let shotDirY = pushY;
+    if (projVel) {
+      const pSpeed = Math.sqrt(projVel.x * projVel.x + projVel.y * projVel.y);
+      if (pSpeed > 0.1) {
+        shotDirX = projVel.x / pSpeed;
+        shotDirY = projVel.y / pSpeed;
+      }
     }
+
+    // 4. Apply damage, i-frame, and a powerful physical flick via single request flow
+    // White web shots deal 0 health damage, but still stack mass & apply physics flick
+    const dmgAmount = pComp.isRed ? 1 : 0;
+    sysCtx.commands.dispatch({
+      type: "DAMAGE_REQUEST",
+      targetId: otherId,
+      amount: dmgAmount,
+      source: "PROJECTILE",
+      knockbackX: shotDirX * 35.0,
+      knockbackY: shotDirY * 35.0
+    });
 
     // 6. Visual juice and effects
     const reqId = sysCtx.world.create();
@@ -455,6 +456,21 @@ export class ProjectileSystem implements ISystem {
     const projStore = this.context.stores.get<ProjectileComponent>("projectile");
 
     this.noiseTime += dt;
+
+    // Dynamically scale player's hurtbox and hitbox according to cocoon mass size
+    const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(this.context.refs.player);
+    const hurtboxes = this.context.stores.get<HurtboxComponent>("hurtbox");
+    const hitboxes = this.context.stores.get<HitboxComponent>("hitbox");
+    const pHurt = hurtboxes.get(this.context.refs.player);
+    const pHit = hitboxes.get(this.context.refs.player);
+    if (pTrav && pTrav.isWebTrapped) {
+      const scaleFactor = 1.0 + ((pTrav.webMass ?? 1) - 1) * 0.8;
+      if (pHurt) pHurt.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS * scaleFactor;
+      if (pHit) pHit.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS * scaleFactor;
+    } else {
+      if (pHurt) pHurt.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+      if (pHit) pHit.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+    }
     if (this.pool.projMatActive) {
       const noisePlugin = (
         this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }

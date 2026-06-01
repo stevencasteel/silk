@@ -50,13 +50,15 @@ export class HealthSystem implements ISystem {
     if (isPlayer) {
       const iframeStore = this.context.stores.get<InvulnerabilityComponent>("iframe");
       const iframe = iframeStore.get(cmd.targetId);
-      if (iframe && iframe.timeRemaining > 0) {
+      // Bypasses the active iframe block if damage amount is 0 (white shots)
+      if (iframe && iframe.timeRemaining > 0 && cmd.amount > 0) {
         return;
       }
 
       health.current = Math.max(0, health.current - cmd.amount);
 
-      if (iframe) {
+      // Only trigger a new iframe window if actual health damage is taken
+      if (iframe && cmd.amount > 0) {
         iframe.timeRemaining = GAMEPLAY_TUNING.COMBAT.PLAYER_IFRAME_DURATION;
       }
 
