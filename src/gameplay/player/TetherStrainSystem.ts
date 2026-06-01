@@ -40,9 +40,7 @@ export class TetherStrainSystem implements ISystem {
       });
     }
     const tStrain = strainStore.get(pId)!;
-    if (tStrain.damageCount === undefined) tStrain.damageCount = 0;
-    if (tStrain.lastDamageTime === undefined) tStrain.lastDamageTime = 0;
-
+    
     this.updateStrainMeter(tether, health, tStrain);
   }
 
@@ -55,82 +53,69 @@ export class TetherStrainSystem implements ISystem {
     tStrain.isOverloaded = isOverloaded;
     tStrain.strain = tether.tension;
 
-    if (isOverloaded) {
-      // Unused overloadDelta removed for strict compilation
-      // Unused strainRatio removed for strict compilation
+    if (isOverloaded && tether.tension >= this.SNAP_LIMIT) {
+      const now = performance.now();
+      const lastHit = tStrain.lastDamageTime ?? 0;
 
-      // Continuous shake is now handled directly by the CameraSystem via tension subscriptions.
+      if (now - lastHit > CANONICAL_UNITS.TETHER_STRAIN.DAMAGE_COOLDOWN_MS) {
+        tStrain.damageCount = (tStrain.damageCount ?? 0) + 1;
+        tStrain.lastDamageTime = now;
 
-      if (tether.tension >= this.SNAP_LIMIT) {
-        const now = performance.now();
-        if (now - tStrain.lastDamageTime! > CANONICAL_UNITS.TETHER_STRAIN.DAMAGE_COOLDOWN_MS) {
-          tStrain.damageCount! += 1;
-          tStrain.lastDamageTime = now;
+        window.dispatchEvent(
+          new CustomEvent("silk-tether-damaged", { detail: { count: tStrain.damageCount } })
+        );
 
-          window.dispatchEvent(
-            new CustomEvent("silk-tether-damaged", { detail: { count: tStrain.damageCount! } })
-          );
+        if (tStrain.damageCount >= 3) {
+          this.snapTether(tether, health);
+        } else {
+          // REFINED FATIGUE PHYSICS: Violent Snap-Back
+          this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+            amplitude: 2.2, // Increased intensity for snap
+            duration: 0.75
+          });
 
-          if (tStrain.damageCount! >= 3) {
-            this.snapTether(tether, health);
-          } else {
-            this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-              amplitude: 1.6,
-              duration: 0.65
-            });
-            tether.tension = CANONICAL_UNITS.TETHER_STRAIN.TENSION_RESET_AFTER_DAMAGE;
+          // Reset tension to safe baseline to prevent immediate repeat damage
+          tether.tension = CANONICAL_UNITS.TETHER_STRAIN.TENSION_RESET_AFTER_DAMAGE;
+          this.context.runtime.tetherDamagePauseTimer = 0.8;
 
-            // PAUSE ELEVATOR SHAFT SCROLLING, WEAVER MOTION AND TRIGGER TUG SEQUENCE
-            this.context.runtime.tetherDamagePauseTimer = 0.8;
+          const pId = this.context.refs.player;
+          const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(pId);
+          const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(pId);
+          const pTarget = this.context.stores.get<KinematicTargetComponent>("target").get(pId);
 
-            // 1. Force the player off the wall immediately (No Fling)
-            const pId = this.context.refs.player;
-            const pTrav = this.context.stores.get<TraversalStateComponent>("traversal").get(pId);
-            if (pTrav) {
-              pTrav.state = "AIRBORNE";
-              pTrav.wallDir = 0;
-              pTrav.wallNormalX = 0;
-              pTrav.wallNormalY = 0;
-              pTrav.stickyEntityId = -1;
-            }
+          // 1. Force the player off the wall immediately
+          if (pTrav) {
+            pTrav.state = "AIRBORNE";
+            pTrav.wallDir = 0;
+            pTrav.stickyEntityId = -1;
+            pTrav.recoilTimer = 0.5; // Add recoil stun
+          }
 
-            // 2. Reduce current maximum allowed line length by exactly 50%
-            const targetLength = Math.max(GAMEPLAY_TUNING.REEL.MIN_LENGTH, tether.maxLength * 0.5);
-            tether.maxLength = targetLength;
-            tether.desiredLength = targetLength;
-            tether.currentLength = targetLength;
+          // 2. Halve the allowed thread capacity
+          const targetLength = Math.max(GAMEPLAY_TUNING.REEL.MIN_LENGTH, tether.maxLength * 0.5);
+          tether.maxLength = targetLength;
+          tether.desiredLength = targetLength;
 
-            const pTarget = this.context.stores.get<KinematicTargetComponent>("target").get(pId);
-            if (pTarget) {
-              const dx = pTarget.x - tether.anchorX;
-              const dy = pTarget.y - tether.anchorY;
-              const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-              pTarget.x = tether.anchorX + (dx / dist) * targetLength;
-              pTarget.y = tether.anchorY + (dy / dist) * targetLength;
+          // 3. APPLY KINETIC SNAP: Pull player violently toward anchor
+          if (pTarget && pVel) {
+            const dx = tether.anchorX - pTarget.x;
+            const dy = tether.anchorY - pTarget.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+            
+            // Whip the player toward the anchor at high velocity
+            const snapForce = 55.0; 
+            pVel.x = (dx / dist) * snapForce;
+            pVel.y = (dy / dist) * snapForce;
+          }
 
-              const pTrans = this.context.stores.get<TransformComponent>("transform").get(pId);
-              if (pTrans) {
-                pTrans.x = pTarget.x;
-                pTrans.y = pTarget.y;
-              }
-            }
-
-            const pVel = this.context.stores.get<KinematicVelocityComponent>("velocity").get(pId);
-            if (pVel) {
-              pVel.x = 0;
-              pVel.y = 0;
-            }
-
-            // 3. Elastic tug squash animation on the Weaver
-            const wId = this.context.refs.weaver;
-            const wTrans = this.context.stores.get<TransformComponent>("transform").get(wId);
-            const wCosmetic = this.context.stores.get<ActorCosmeticComponent>("cosmetic").get(wId);
-            if (wTrans && wCosmetic) {
-              wTrans.scaleVelY = -22.0;
-              wTrans.scaleVelX = 14.0;
-              wTrans.scaleVelZ = 14.0;
-              wCosmetic.emissiveHue = "#ef4444";
-            }
+          // 4. Elastic tug animation on Weaver
+          const wId = this.context.refs.weaver;
+          const wTrans = this.context.stores.get<TransformComponent>("transform").get(wId);
+          const wCosmetic = this.context.stores.get<ActorCosmeticComponent>("cosmetic").get(wId);
+          if (wTrans && wCosmetic) {
+            wTrans.scaleVelY = -28.0; // Harder squash
+            wTrans.scaleVelX = 18.0;
+            wCosmetic.emissiveHue = "#ef4444";
           }
         }
       }
@@ -145,8 +130,8 @@ export class TetherStrainSystem implements ISystem {
     this.context.broker.publish(GameEvent.PLAYER_HEALTH_CHANGED, { hp: 0, maxHp: health.max });
     this.context.broker.publish(GameEvent.PLAYER_DIED, undefined);
     this.context.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
-      amplitude: 1.5,
-      duration: 0.7
+      amplitude: 2.5,
+      duration: 1.0
     });
   }
 }
