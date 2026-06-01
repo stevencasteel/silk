@@ -11,7 +11,8 @@ import {
   HealthComponent,
   ParticleRequestComponent,
   InputIntentComponent,
-  WallBugComponent
+  WallBugComponent,
+  SpikeBugComponent
 } from "../../core/ecs/Components";
 import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -436,6 +437,34 @@ export class HealthBugSystem implements ISystem {
         }
 
         if (hitWallBugSpikes) {
+          this.popBug(pBug.entityId, true);
+          continue;
+        }
+      }
+
+      const spikeBugStore = this.context.stores.get<SpikeBugComponent>("spikeBug");
+      if (spikeBugStore) {
+        let hitSpikeBugSpikes = false;
+        for (const [sbId, sb] of spikeBugStore.entries()) {
+          const sbTrans = transforms.get(sbId);
+          if (!sbTrans) continue;
+
+          const halfW = sb.width / 2;
+          const halfH = sb.height / 2;
+          const bugRadius = 2.0;
+
+          const overlapX = Math.abs(bug.x - sbTrans.x) <= halfW + bugRadius;
+          const overlapY = Math.abs(bug.y - sbTrans.y) <= halfH + bugRadius;
+
+          if (overlapX && overlapY) {
+            if (!sb.spikesDisarmed) {
+              hitSpikeBugSpikes = true;
+              break;
+            }
+          }
+        }
+
+        if (hitSpikeBugSpikes) {
           this.popBug(pBug.entityId, true);
           continue;
         }
