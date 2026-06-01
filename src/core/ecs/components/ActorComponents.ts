@@ -141,3 +141,15 @@ export interface HealthBugComponent {
   rotorAngle: number;
   pauseThresholdY: number;
 }
+
+export interface SpikeBugComponent {
+  state: "WALKING_UP" | "STUCK_SCROLLING";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  gaitPhase: number;
+  spikedSide: "LEFT" | "RIGHT";
+  spikesDisarmed?: boolean;
+}

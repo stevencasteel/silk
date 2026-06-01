@@ -11,6 +11,7 @@ import {
   StickySurfaceComponent,
   WallBugComponent,
   HealthBugComponent,
+  SpikeBugComponent,
   CollisionStateComponent,
   InputIntentComponent,
   TraversalState
@@ -258,6 +259,7 @@ export class PlayerStateUtils {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
     const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
+    const spikeBugStore = ctx.stores.get<SpikeBugComponent>("spikeBug");
 
     if (!stickyStore || !bugTransStore) return null;
 
@@ -297,15 +299,18 @@ export class PlayerStateUtils {
 
           const bug = bugStore ? bugStore.get(bugId) : undefined;
           const hBug = hBugStore ? hBugStore.get(bugId) : undefined;
+      const sBug = spikeBugStore ? spikeBugStore.get(bugId) : undefined;
           const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
           const isPlayerTrapped = trav.isWebTrapped;
-          const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
+          const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : (sBug ? sBug.spikesDisarmed || isPlayerTrapped : isPlayerTrapped);
           const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
 
           let spikesActive = false;
           if (bug) {
             spikesActive = bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+          } else if (sBug) {
+            spikesActive = sBug.spikedSide === contactedSpikedSide && !sBug.spikesDisarmed;
           } else if (hBug) {
             if (!hBug.spikesDisarmed) {
               if (hBug.variant === "SPIKED_LEFT" && distToBugX < 0) {
@@ -406,12 +411,102 @@ export class PlayerStateUtils {
     vel: KinematicVelocityComponent,
     trav: TraversalStateComponent
   ): boolean {
+    const transforms = ctx.stores.get<TransformComponent>("transform");
+    const pTrans = transforms.get(ctx.refs.player);
+    const spikeBugStore = ctx.stores.get<SpikeBugComponent>("spikeBug");
+
+    if (pTrans && spikeBugStore) {
+      const pRadius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
+      const pHeight = ARENA_CONFIG.ENTITY.PLAYER_HALF_HEIGHT;
+      const playerBottomY = pTrans.y - pHeight;
+
+      for (const [sbId, sBug] of spikeBugStore.entries()) {
+        if (sBug.spikesDisarmed) continue;
+
+        const sbTrans = transforms.get(sbId);
+        if (!sbTrans) continue;
+
+        const contactDist = pRadius + sBug.width / 2 + 0.15;
+        if (Math.abs(pTrans.x - sbTrans.x) <= contactDist) {
+          const bugTopY = sbTrans.y + sBug.height / 2;
+
+          if (playerBottomY <= bugTopY + 0.45 && playerBottomY >= bugTopY - 0.7) {
+            const isPlayerTrapped = trav.isWebTrapped;
+
+            ctx.commands.dispatch({
+              type: "DAMAGE_REQUEST",
+              targetId: ctx.refs.player,
+              amount: 1,
+              source: "SPIKE_BUG_HEAD",
+              knockbackX: trav.wallNormalX * 12.0,
+              knockbackY: 15.0
+            });
+
+            if (isPlayerTrapped) {
+              trav.isWebTrapped = false;
+              trav.escapeProgress = 0;
+              trav.lastEscapeDirection = "";
+              trav.safeLaunchTimer = GAMEPLAY_TUNING.PLAYER.FLING.SAFE_LAUNCH_DURATION * 3.75;
+
+              const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+              if (reqStore) {
+                const reqId = ctx.world.create();
+                reqStore.add(reqId, {
+                  strategy: new WebSplatStrategy(),
+                  x: pTrans.x,
+                  y: pTrans.y,
+                  z: 0
+                });
+              }
+
+              ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: 0.8,
+                duration: 0.45
+              });
+
+              window.dispatchEvent(new CustomEvent("silk-web-break"));
+            } else {
+              ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
+                amplitude: 0.55,
+                duration: 0.25,
+                dirX: trav.wallNormalX,
+                dirY: 1.0
+              });
+            }
+
+            const reqStore = ctx.stores.get<ParticleRequestComponent>("particleRequest");
+            if (reqStore) {
+              const sparkReqId = ctx.world.create();
+              reqStore.add(sparkReqId, {
+                strategy: new WallSparksStrategy(trav.wallNormalX),
+                x: pTrans.x,
+                y: pTrans.y,
+                z: 0
+              });
+            }
+
+            pTrans.y = bugTopY + pHeight + 0.2;
+            vel.x = trav.wallNormalX * 12.0;
+            vel.y = 15.0;
+            trav.state = "AIRBORNE";
+            trav.wallDir = 0;
+            trav.stickyEntityId = -1;
+
+            return true;
+          }
+        }
+      }
+    }
+
+
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
+      const spikeBugStore = ctx.stores.get<SpikeBugComponent>("spikeBug");
 
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
       const hBug = hBugStore ? hBugStore.get(trav.stickyEntityId) : undefined;
+      const sBug = spikeBugStore ? spikeBugStore.get(trav.stickyEntityId) : undefined;
 
       const isPlayerTrapped = trav.isWebTrapped;
       const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
@@ -421,6 +516,10 @@ export class PlayerStateUtils {
         isSpikedOnClingSide =
           (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
           (trav.wallDir === 1 && bug.spikedSide === "LEFT");
+      } else if (sBug && !sBug.spikesDisarmed) {
+        isSpikedOnClingSide =
+          (trav.wallDir === -1 && sBug.spikedSide === "RIGHT") ||
+          (trav.wallDir === 1 && sBug.spikedSide === "LEFT");
       } else if (hBug && !hBug.spikesDisarmed) {
         isSpikedOnClingSide =
           (trav.wallDir === -1 && hBug.variant === "SPIKED_RIGHT") ||

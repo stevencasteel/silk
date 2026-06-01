@@ -33,7 +33,8 @@ import {
   HurtboxComponent,
   ParticleRequestComponent,
   BoundaryConstraintComponent,
-  HealthBugComponent
+  HealthBugComponent,
+  SpikeBugComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -64,6 +65,7 @@ import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem"
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
 import { HealthBugSystem } from "../gameplay/player/HealthBugSystem";
+import { SpikeBugSystem } from "../gameplay/player/SpikeBugSystem";
 import { TutorialSystem } from "../gameplay/player/TutorialSystem";
 import { TetherStrainSystem } from "../gameplay/player/TetherStrainSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
@@ -115,6 +117,7 @@ export class CompositionRoot {
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
     const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
     const healthBugs = new ComponentStore<HealthBugComponent>();
+    const spikeBugs = new ComponentStore<SpikeBugComponent>();
     const hitStops = new ComponentStore<HitStopComponent>();
 
     const tags = new ComponentStore<TagComponent>();
@@ -154,6 +157,7 @@ export class CompositionRoot {
     registerStore("particleRequest", particleRequests);
     registerStore("boundaryConstraint", boundaryConstraints);
     registerStore("healthBug", healthBugs);
+    registerStore("spikeBug", spikeBugs);
     registerStore("hitStop", hitStops);
 
     const visualRegistry = new VisualRegistry();
@@ -192,6 +196,7 @@ export class CompositionRoot {
     const strainCollision = new TetherStrainSystem(context);
     const wallBugSystem = new WallBugSystem(context);
     const healthBugSystem = new HealthBugSystem(context);
+    const spikeBugSystem = new SpikeBugSystem(context);
     const tutorialSystem = new TutorialSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
@@ -240,6 +245,7 @@ export class CompositionRoot {
     systemManager.register(strainCollision);
     systemManager.register(wallBugSystem);
     systemManager.register(healthBugSystem);
+    systemManager.register(spikeBugSystem);
     systemManager.register(tutorialSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);

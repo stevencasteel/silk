@@ -17,6 +17,7 @@ import {
   HurtboxComponent,
   HitboxComponent,
   WallBugComponent,
+  SpikeBugComponent,
   HealthBugComponent,
   HealthComponent,
   TetherComponent
@@ -567,6 +568,74 @@ export class ProjectileSystem implements ISystem {
             this.pool.release(projId);
             continue;
           }
+        }
+
+        const spikeBugStore = this.context.stores.get<SpikeBugComponent>("spikeBug");
+        if (spikeBugStore) {
+          let hitRegistered = false;
+          for (const [sbId, sb] of spikeBugStore.entries()) {
+            const sbTrans = transformStore.get(sbId);
+            if (!sbTrans) continue;
+
+            const halfW = sb.width / 2;
+            const halfH = sb.height / 2;
+            const projRadius = 0.9;
+
+            const overlapX = Math.abs(trans.x - sbTrans.x) <= halfW + projRadius;
+            const overlapY = Math.abs(trans.y - sbTrans.y) <= halfH + projRadius;
+
+            if (overlapX && overlapY) {
+              sb.spikesDisarmed = true;
+              sb.state = "STUCK_SCROLLING";
+
+              p.isStuck = true;
+              p.isStuckToBug = true;
+              p.stickyEntityId = sbId;
+              p.stickyOffsetX = trans.x < sbTrans.x ? -halfW : halfW;
+              p.stickyOffsetY = trans.y - sbTrans.y;
+
+              const vel = this.context.stores
+                .get<KinematicVelocityComponent>("velocity")
+                .get(projId);
+              if (vel) {
+                vel.x = 0;
+                vel.y = 0;
+              }
+
+              trans.qx = 0;
+              trans.qy = 0;
+              trans.qz = 0;
+              trans.qw = 1;
+              trans.prevQx = 0;
+              trans.prevQy = 0;
+              trans.prevQz = 0;
+              trans.prevQw = 1;
+
+              if (mesh.rotationQuaternion) {
+                mesh.rotationQuaternion.set(0, 0, 0, 1);
+              }
+
+              trans.scaleX = 0.24;
+              trans.scaleY = 1.45;
+              trans.scaleZ = 1.45;
+              mesh.scaling.set(0.24, 1.45, 1.45);
+
+              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              if (stuckMat) {
+                mesh.material = stuckMat;
+              }
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+
+              hitRegistered = true;
+              break;
+            }
+          }
+          if (hitRegistered) continue;
         }
 
         const bugStore = this.context.stores.get<WallBugComponent>("wallBug");

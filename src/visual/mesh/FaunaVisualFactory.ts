@@ -391,4 +391,154 @@ export class FaunaVisualFactory {
 
     return bugRoot;
   }
+
+  public static buildSpikeBug(
+    id: number,
+    scene: BABYLON.Scene,
+    spikedSide: "LEFT" | "RIGHT"
+  ): BABYLON.TransformNode {
+    const bugRoot = new BABYLON.TransformNode(`spike_bug_root_${id}`, scene);
+
+    const carapaceMat = new BABYLON.PBRMaterial(`spikeBugCarapace_${id}`, scene);
+    carapaceMat.metallic = 0.95;
+    carapaceMat.roughness = 0.15;
+    carapaceMat.albedoColor = new BABYLON.Color3(0.05, 0.05, 0.07);
+
+    const eyeMat = new BABYLON.StandardMaterial(`spikeBugEyes_${id}`, scene);
+    eyeMat.emissiveColor = new BABYLON.Color3(0.0, 0.95, 0.25);
+    eyeMat.disableLighting = true;
+
+    const stripeMat = new BABYLON.PBRMaterial(`spikeBugStripeMat_${id}`, scene);
+    stripeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+    stripeMat.emissiveColor = new BABYLON.Color3(0.95, 0.12, 0.12);
+    stripeMat.metallic = 0.0;
+    stripeMat.roughness = 1.0;
+
+    const bodyHeight = 5.5;
+    const bodyRadius = 0.52;
+    const capsule = BABYLON.MeshBuilder.CreateCapsule(
+      `spike_bug_capsule_${id}`,
+      { height: bodyHeight, radius: bodyRadius, subdivisions: 2 },
+      scene
+    );
+    capsule.material = carapaceMat;
+    capsule.parent = bugRoot;
+
+    for (let i = 0; i < 4; i++) {
+      const ring = BABYLON.MeshBuilder.CreateTorus(
+        `ring_${id}_${i}`,
+        { diameter: bodyRadius * 2 + 0.1, thickness: 0.1, tessellation: 10 },
+        scene
+      );
+      ring.position.y = -1.8 + i * 1.2;
+      ring.rotation.x = Math.PI / 2;
+      ring.material = stripeMat;
+      ring.parent = bugRoot;
+    }
+
+    const eyeL = BABYLON.MeshBuilder.CreateSphere(`eyeL_${id}`, { diameter: 0.18 }, scene);
+    eyeL.position.set(-0.25, 2.3, -0.38);
+    eyeL.material = eyeMat;
+    eyeL.parent = bugRoot;
+
+    const eyeR = BABYLON.MeshBuilder.CreateSphere(`eyeR_${id}`, { diameter: 0.18 }, scene);
+    eyeR.position.set(0.25, 2.3, -0.38);
+    eyeR.material = eyeMat;
+    eyeR.parent = bugRoot;
+
+    const spikeContainer = new BABYLON.TransformNode("spikes", scene);
+    spikeContainer.parent = bugRoot;
+
+    const spikeCount = 8;
+    const spikeSpacing = bodyHeight / spikeCount;
+    const spikeMat = new BABYLON.PBRMaterial(`spikeBugSpikeMat_${id}`, scene);
+    spikeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+    spikeMat.emissiveColor = new BABYLON.Color3(0.95, 0.05, 0.05);
+    spikeMat.metallic = 0.0;
+    spikeMat.roughness = 1.0;
+
+    for (let s = 0; s < spikeCount; s++) {
+      const spikeY = -2.0 + s * spikeSpacing * 0.85;
+      const spike = BABYLON.MeshBuilder.CreateCylinder(
+        `spike_${id}_${s}`,
+        {
+          height: 1.2,
+          diameterTop: 0.0,
+          diameterBottom: 0.35,
+          tessellation: 6
+        },
+        scene
+      );
+      spike.material = spikeMat;
+      spike.parent = spikeContainer;
+
+      if (spikedSide === "RIGHT") {
+        spike.position.set(0.85, spikeY, 0);
+        spike.rotation.z = -Math.PI / 2;
+      } else {
+        spike.position.set(-0.85, spikeY, 0);
+        spike.rotation.z = Math.PI / 2;
+      }
+    }
+
+    const headSpike = BABYLON.MeshBuilder.CreateCylinder(
+      `head_spike_${id}`,
+      {
+        height: 1.3,
+        diameterTop: 0.0,
+        diameterBottom: 0.48,
+        tessellation: 6
+      },
+      scene
+    );
+    headSpike.material = spikeMat;
+    headSpike.position.set(0, 2.75, 0);
+    headSpike.parent = spikeContainer;
+
+    const legSideSign = spikedSide === "RIGHT" ? -1 : 1;
+
+    for (let leg = 0; leg < 4; leg++) {
+      const legY = -1.6 + leg * 1.1;
+
+      const joint = new BABYLON.TransformNode(`leg_joint_${id}_${leg}`, scene);
+      joint.position.set(legSideSign * 0.45, legY, 0);
+      joint.parent = bugRoot;
+
+      const coxa = BABYLON.MeshBuilder.CreateCylinder(
+        `coxa_${id}_${leg}`,
+        { height: 0.65, diameterTop: 0.1, diameterBottom: 0.08, tessellation: 6 },
+        scene
+      );
+      coxa.position.set(legSideSign * 0.3, 0, 0);
+      coxa.rotation.z = (legSideSign * Math.PI) / 2;
+      coxa.material = carapaceMat;
+      coxa.parent = joint;
+
+      const tibiaJoint = new BABYLON.TransformNode(`tibia_joint_${id}_${leg}`, scene);
+      tibiaJoint.position.set(legSideSign * 0.6, 0, 0);
+      tibiaJoint.rotation.z = (legSideSign * Math.PI) / 4;
+      tibiaJoint.parent = joint;
+
+      const tibia = BABYLON.MeshBuilder.CreateCylinder(
+        `tibia_${id}_${leg}`,
+        { height: 0.55, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
+        scene
+      );
+      tibia.position.set(0, -0.25, 0);
+      tibia.material = carapaceMat;
+      tibia.parent = tibiaJoint;
+
+      const foot = BABYLON.MeshBuilder.CreateSphere(
+        `foot_${id}_${leg}`,
+        { diameterX: 0.12, diameterY: 0.16, diameterZ: 0.12 },
+        scene
+      );
+      foot.position.set(0, -0.5, 0);
+      foot.material = eyeMat;
+      foot.parent = tibiaJoint;
+    }
+
+    return bugRoot;
+  }
+
 }

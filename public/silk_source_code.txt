@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 5/31/2026, 9:02:51 PM
+ [SYSTEM] Generated: 5/31/2026, 9:34:53 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -18,6 +18,7 @@
 ├── node_modules/ (contents skipped)
 ├── public/
 │   ├── sfx/
+│   │   └── tether_ratchet.mp3
 │   ├── favicon.svg
 │   ├── HavokPhysics.wasm
 │   ├── silk_source_code.txt
@@ -111,6 +112,7 @@
 │   │   │   ├── PlayerAnimationSystem.ts
 │   │   │   ├── PlayerInputSystem.ts
 │   │   │   ├── PlayerKinematicsSystem.ts
+│   │   │   ├── SpikeBugSystem.ts
 │   │   │   ├── TetherReelingSystem.ts
 │   │   │   ├── TetherStrainSystem.ts
 │   │   │   ├── TutorialSystem.ts
@@ -1281,7 +1283,8 @@ import {
   HurtboxComponent,
   ParticleRequestComponent,
   BoundaryConstraintComponent,
-  HealthBugComponent
+  HealthBugComponent,
+  SpikeBugComponent
 } from "../core/ecs/Components";
 import { RenderSystem } from "../visual/scene/RenderSystem";
 import { KinematicIntegrationSystem } from "../physics/systems/KinematicIntegrationSystem";
@@ -1312,6 +1315,7 @@ import { PlayerAnimationSystem } from "../gameplay/player/PlayerAnimationSystem"
 import { VerticalBoundarySystem } from "../gameplay/player/VerticalBoundarySystem";
 import { WallBugSystem } from "../gameplay/player/WallBugSystem";
 import { HealthBugSystem } from "../gameplay/player/HealthBugSystem";
+import { SpikeBugSystem } from "../gameplay/player/SpikeBugSystem";
 import { TutorialSystem } from "../gameplay/player/TutorialSystem";
 import { TetherStrainSystem } from "../gameplay/player/TetherStrainSystem";
 import { HavokPhysicsSystem } from "../physics/havok/HavokPhysicsSystem";
@@ -1363,6 +1367,7 @@ export class CompositionRoot {
     const particleRequests = new ComponentStore<ParticleRequestComponent>();
     const boundaryConstraints = new ComponentStore<BoundaryConstraintComponent>();
     const healthBugs = new ComponentStore<HealthBugComponent>();
+    const spikeBugs = new ComponentStore<SpikeBugComponent>();
     const hitStops = new ComponentStore<HitStopComponent>();
 
     const tags = new ComponentStore<TagComponent>();
@@ -1402,6 +1407,7 @@ export class CompositionRoot {
     registerStore("particleRequest", particleRequests);
     registerStore("boundaryConstraint", boundaryConstraints);
     registerStore("healthBug", healthBugs);
+    registerStore("spikeBug", spikeBugs);
     registerStore("hitStop", hitStops);
 
     const visualRegistry = new VisualRegistry();
@@ -1440,6 +1446,7 @@ export class CompositionRoot {
     const strainCollision = new TetherStrainSystem(context);
     const wallBugSystem = new WallBugSystem(context);
     const healthBugSystem = new HealthBugSystem(context);
+    const spikeBugSystem = new SpikeBugSystem(context);
     const tutorialSystem = new TutorialSystem(context);
 
     const parallaxScroll = new ParallaxScrollSystem(context);
@@ -1488,6 +1495,7 @@ export class CompositionRoot {
     systemManager.register(strainCollision);
     systemManager.register(wallBugSystem);
     systemManager.register(healthBugSystem);
+    systemManager.register(spikeBugSystem);
     systemManager.register(tutorialSystem);
     systemManager.register(parallaxScroll);
     systemManager.register(interpolationSystem);
@@ -2300,6 +2308,18 @@ export interface HealthBugComponent {
   spikesDisarmed: boolean;
   rotorAngle: number;
   pauseThresholdY: number;
+}
+
+export interface SpikeBugComponent {
+  state: "WALKING_UP" | "STUCK_SCROLLING";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  gaitPhase: number;
+  spikedSide: "LEFT" | "RIGHT";
+  spikesDisarmed?: boolean;
 }
 
 
@@ -5664,6 +5684,7 @@ import {
   HurtboxComponent,
   HitboxComponent,
   WallBugComponent,
+  SpikeBugComponent,
   HealthBugComponent,
   HealthComponent,
   TetherComponent
@@ -6214,6 +6235,74 @@ export class ProjectileSystem implements ISystem {
             this.pool.release(projId);
             continue;
           }
+        }
+
+        const spikeBugStore = this.context.stores.get<SpikeBugComponent>("spikeBug");
+        if (spikeBugStore) {
+          let hitRegistered = false;
+          for (const [sbId, sb] of spikeBugStore.entries()) {
+            const sbTrans = transformStore.get(sbId);
+            if (!sbTrans) continue;
+
+            const halfW = sb.width / 2;
+            const halfH = sb.height / 2;
+            const projRadius = 0.9;
+
+            const overlapX = Math.abs(trans.x - sbTrans.x) <= halfW + projRadius;
+            const overlapY = Math.abs(trans.y - sbTrans.y) <= halfH + projRadius;
+
+            if (overlapX && overlapY) {
+              sb.spikesDisarmed = true;
+              sb.state = "STUCK_SCROLLING";
+
+              p.isStuck = true;
+              p.isStuckToBug = true;
+              p.stickyEntityId = sbId;
+              p.stickyOffsetX = trans.x < sbTrans.x ? -halfW : halfW;
+              p.stickyOffsetY = trans.y - sbTrans.y;
+
+              const vel = this.context.stores
+                .get<KinematicVelocityComponent>("velocity")
+                .get(projId);
+              if (vel) {
+                vel.x = 0;
+                vel.y = 0;
+              }
+
+              trans.qx = 0;
+              trans.qy = 0;
+              trans.qz = 0;
+              trans.qw = 1;
+              trans.prevQx = 0;
+              trans.prevQy = 0;
+              trans.prevQz = 0;
+              trans.prevQw = 1;
+
+              if (mesh.rotationQuaternion) {
+                mesh.rotationQuaternion.set(0, 0, 0, 1);
+              }
+
+              trans.scaleX = 0.24;
+              trans.scaleY = 1.45;
+              trans.scaleZ = 1.45;
+              mesh.scaling.set(0.24, 1.45, 1.45);
+
+              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              if (stuckMat) {
+                mesh.material = stuckMat;
+              }
+
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+
+              hitRegistered = true;
+              break;
+            }
+          }
+          if (hitRegistered) continue;
         }
 
         const bugStore = this.context.stores.get<WallBugComponent>("wallBug");
@@ -9571,6 +9660,292 @@ export class PlayerKinematicsSystem implements ISystem {
 
 
 
+● ./src/gameplay/player/SpikeBugSystem.ts
+────────────────────────────────────────────────────
+import { triggerMeshFadeIn } from "../../core/utils/EngineUtils";
+import { ISystem } from "../../contracts/ISystem";
+import { SubscriptionTracker } from "../../core/utils/EngineUtils";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import {
+  TransformComponent,
+  SpikeBugComponent,
+  StickySurfaceComponent,
+  ProjectileComponent,
+  HealthComponent
+} from "../../core/ecs/Components";
+import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
+import { GameEvent } from "../../core/events/GameEvents";
+import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
+import * as BABYLON from "@babylonjs/core";
+
+interface PooledSpikeBug {
+  entityId: number;
+  rootNode: BABYLON.TransformNode;
+  active: boolean;
+}
+
+export class SpikeBugSystem implements ISystem {
+  readonly phase = SystemPhase.Gameplay;
+  readonly initPhase = InitPhase.Gameplay;
+
+  private spawnTimer = 0.0;
+  private readonly spawnInterval = 1.0;
+  private spawnLeft = true;
+
+  private bugPool: PooledSpikeBug[] = [];
+  private readonly POOL_SIZE = 4;
+  private _tracker = new SubscriptionTracker();
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      const bugId = this.context.world.create();
+      const bugRoot = FaunaVisualFactory.buildSpikeBug(bugId, scene, "LEFT");
+      bugRoot.setEnabled(false);
+      bugRoot.position.set(0, -999, 0);
+
+      this.context.visualRegistration.registerTransformNode(bugId, bugRoot);
+
+      this.bugPool.push({
+        entityId: bugId,
+        rootNode: bugRoot,
+        active: false
+      });
+    }
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
+        this.clearAllBugs();
+        this.spawnTimer = 0.0;
+        this.spawnLeft = true;
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
+        this.clearAllBugs();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
+        this.clearAllBugs();
+      })
+    );
+  }
+
+  public update(dt: number): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    const healthStore = this.context.stores.get<HealthComponent>("health");
+    const wHealth = healthStore.get(this.context.refs.weaver);
+
+    if (this.context.runtime.gameStarted && wHealth && wHealth.current > 0) {
+      this.spawnTimer += dt;
+      const activeCount = this.bugPool.filter((p) => p.active).length;
+
+      if (this.spawnTimer >= this.spawnInterval && activeCount < this.POOL_SIZE) {
+        this.spawnTimer = 0.0;
+        this.spawnBugFromPool();
+      }
+    }
+
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+
+    const currentScrollSpeed = this.context.runtime.currentScrollSpeed;
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
+    const sBugStore = this.context.stores.get<SpikeBugComponent>("spikeBug");
+    const stickyStore = this.context.stores.get<StickySurfaceComponent>("stickySurface");
+
+    for (let i = 0; i < this.bugPool.length; i++) {
+      const pBug = this.bugPool[i];
+      if (!pBug.active) continue;
+
+      const bug = sBugStore.get(pBug.entityId);
+      const trans = transformStore.get(pBug.entityId);
+      const sticky = stickyStore.get(pBug.entityId);
+
+      if (!bug || !trans || !sticky) continue;
+
+      if (bug.state === "WALKING_UP") {
+        bug.y += bug.speed * dt;
+        sticky.speed = -bug.speed;
+      } else {
+        bug.y -= currentScrollSpeed * dt;
+        sticky.speed = 0;
+      }
+
+      if (bug.y > cameraY + 30.0 || bug.y < cameraY - 32.0) {
+        this.recycleBug(pBug);
+        continue;
+      }
+
+      trans.x = bug.x;
+      trans.y = bug.y;
+      pBug.rootNode.position.set(bug.x, bug.y, 0);
+
+      const legFrequency = 12.0;
+      bug.gaitPhase = (bug.gaitPhase + legFrequency * dt) % (Math.PI * 2.0);
+
+      pBug.rootNode.getChildren().forEach((child) => {
+        if (child.name.startsWith("leg_joint")) {
+          const legIdx = parseInt(child.name.substring(child.name.lastIndexOf("_") + 1)) || 0;
+          const swing = Math.sin(bug.gaitPhase + legIdx * 1.5) * 0.25;
+          (child as BABYLON.TransformNode).rotation.z = swing;
+        }
+
+        if (child.name === "spikes") {
+          if (bug.spikesDisarmed) {
+            child.setEnabled(false);
+          } else {
+            child.setEnabled(true);
+          }
+        }
+      });
+    }
+  }
+
+  private spawnBugFromPool(): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    const pBug = this.bugPool.find((p) => !p.active);
+    if (!pBug) return;
+
+    const cameraY = scene.activeCamera
+      ? scene.activeCamera.position.y
+      : POST_PROCESSING_PRESETS.CAMERA.DEFAULT_TARGET.y;
+
+    const startY = cameraY - 28.0;
+    const sideSign = this.spawnLeft ? -1 : 1;
+    const startX = sideSign * ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const spikedSide: "LEFT" | "RIGHT" = this.spawnLeft ? "RIGHT" : "LEFT";
+
+    this.spawnLeft = !this.spawnLeft;
+
+    this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
+    pBug.rootNode.dispose();
+
+    pBug.rootNode = FaunaVisualFactory.buildSpikeBug(pBug.entityId, scene, spikedSide);
+    this.context.visualRegistration.registerTransformNode(pBug.entityId, pBug.rootNode);
+
+    pBug.rootNode.position.set(startX, startY, 0);
+    pBug.rootNode.setEnabled(true);
+    triggerMeshFadeIn(pBug.rootNode, 0.4);
+
+    const bodyHeight = 5.5;
+    const bodyWidth = 1.1;
+
+    this.context.stores.get<TransformComponent>("transform").add(pBug.entityId, {
+      x: startX,
+      y: startY,
+      z: 0,
+      qx: 0,
+      qy: 0,
+      qz: 0,
+      qw: 1,
+      prevX: startX,
+      prevY: startY,
+      prevZ: 0,
+      prevQx: 0,
+      prevQy: 0,
+      prevQz: 0,
+      prevQw: 1,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      scaleZ: 1.0,
+      prevScaleX: 1.0,
+      prevScaleY: 1.0,
+      prevScaleZ: 1.0
+    });
+
+    this.context.stores.get<SpikeBugComponent>("spikeBug").add(pBug.entityId, {
+      state: "WALKING_UP",
+      x: startX,
+      y: startY,
+      width: bodyWidth,
+      height: bodyHeight,
+      speed: 4.25,
+      gaitPhase: 0.0,
+      spikedSide,
+      spikesDisarmed: false
+    });
+
+    this.context.stores.get<StickySurfaceComponent>("stickySurface").add(pBug.entityId, {
+      isActive: true,
+      width: bodyWidth,
+      height: bodyHeight,
+      speed: -4.25
+    });
+
+    pBug.active = true;
+  }
+
+  private recycleBug(pBug: PooledSpikeBug): void {
+    pBug.active = false;
+    pBug.rootNode.setEnabled(false);
+    pBug.rootNode.position.set(0, -999, 0);
+
+    this.context.stores.get<SpikeBugComponent>("spikeBug").remove(pBug.entityId);
+    this.context.stores.get<StickySurfaceComponent>("stickySurface").remove(pBug.entityId);
+
+    const projStore = this.context.stores.get<ProjectileComponent>("projectile");
+    if (projStore) {
+      for (const [projId, proj] of projStore.entries()) {
+        if (proj.isStuckToBug && proj.stickyEntityId === pBug.entityId) {
+          proj.isActive = false;
+          proj.isStuck = false;
+          proj.isStuckToBug = false;
+          proj.stickyEntityId = undefined;
+          const mesh = this.context.visualQuery.getTransformNode(projId);
+          if (mesh instanceof BABYLON.AbstractMesh) {
+            mesh.isVisible = false;
+            mesh.setEnabled(false);
+            mesh.position.set(0, -999, 0);
+            mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
+          }
+        }
+      }
+    }
+
+    const transformStore = this.context.stores.get<TransformComponent>("transform");
+    const trans = transformStore.get(pBug.entityId);
+    if (trans) {
+      trans.x = 0;
+      trans.y = -999;
+      trans.prevX = 0;
+      trans.prevY = -999;
+    }
+  }
+
+  private clearAllBugs(): void {
+    for (let i = 0; i < this.bugPool.length; i++) {
+      this.recycleBug(this.bugPool[i]);
+    }
+    this.spawnTimer = 0.0;
+    this.spawnLeft = true;
+  }
+
+  public dispose(): void {
+    this._tracker.clear();
+    for (let i = 0; i < this.bugPool.length; i++) {
+      const pBug = this.bugPool[i];
+      this.context.visualRegistration.unregisterTransformNode(pBug.entityId);
+    }
+    this.bugPool = [];
+  }
+}
+
+
+
 ● ./src/gameplay/player/TetherReelingSystem.ts
 ────────────────────────────────────────────────────
 import { ISystem, IInitializable, IDisposable } from "../../contracts/ISystem";
@@ -10675,6 +11050,7 @@ import {
   StickySurfaceComponent,
   WallBugComponent,
   HealthBugComponent,
+  SpikeBugComponent,
   CollisionStateComponent,
   InputIntentComponent,
   TraversalState
@@ -10922,6 +11298,7 @@ export class PlayerStateUtils {
     const bugTransStore = ctx.stores.get<TransformComponent>("transform");
     const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
     const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
+    const spikeBugStore = ctx.stores.get<SpikeBugComponent>("spikeBug");
 
     if (!stickyStore || !bugTransStore) return null;
 
@@ -10961,15 +11338,18 @@ export class PlayerStateUtils {
 
           const bug = bugStore ? bugStore.get(bugId) : undefined;
           const hBug = hBugStore ? hBugStore.get(bugId) : undefined;
+      const sBug = spikeBugStore ? spikeBugStore.get(bugId) : undefined;
           const contactedSpikedSide = distToBugX > 0 ? "RIGHT" : "LEFT";
 
           const isPlayerTrapped = trav.isWebTrapped;
-          const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
+          const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : (sBug ? sBug.spikesDisarmed || isPlayerTrapped : isPlayerTrapped);
           const inSafeWindow = trav.safeLaunchTimer !== undefined && trav.safeLaunchTimer > 0;
 
           let spikesActive = false;
           if (bug) {
             spikesActive = bug.spikedSide === contactedSpikedSide && !bug.spikesDisarmed;
+          } else if (sBug) {
+            spikesActive = sBug.spikedSide === contactedSpikedSide && !sBug.spikesDisarmed;
           } else if (hBug) {
             if (!hBug.spikesDisarmed) {
               if (hBug.variant === "SPIKED_LEFT" && distToBugX < 0) {
@@ -11073,9 +11453,11 @@ export class PlayerStateUtils {
     if (trav.stickyEntityId !== undefined && trav.stickyEntityId !== -1) {
       const bugStore = ctx.stores.get<WallBugComponent>("wallBug");
       const hBugStore = ctx.stores.get<HealthBugComponent>("healthBug");
+      const spikeBugStore = ctx.stores.get<SpikeBugComponent>("spikeBug");
 
       const bug = bugStore ? bugStore.get(trav.stickyEntityId) : undefined;
       const hBug = hBugStore ? hBugStore.get(trav.stickyEntityId) : undefined;
+      const sBug = spikeBugStore ? spikeBugStore.get(trav.stickyEntityId) : undefined;
 
       const isPlayerTrapped = trav.isWebTrapped;
       const isWebShieldActive = hBug ? hBug.isWebTrapped || isPlayerTrapped : isPlayerTrapped;
@@ -11085,6 +11467,10 @@ export class PlayerStateUtils {
         isSpikedOnClingSide =
           (trav.wallDir === -1 && bug.spikedSide === "RIGHT") ||
           (trav.wallDir === 1 && bug.spikedSide === "LEFT");
+      } else if (sBug && !sBug.spikesDisarmed) {
+        isSpikedOnClingSide =
+          (trav.wallDir === -1 && sBug.spikedSide === "RIGHT") ||
+          (trav.wallDir === 1 && sBug.spikedSide === "LEFT");
       } else if (hBug && !hBug.spikesDisarmed) {
         isSpikedOnClingSide =
           (trav.wallDir === -1 && hBug.variant === "SPIKED_RIGHT") ||
@@ -17908,6 +18294,156 @@ export class FaunaVisualFactory {
 
     return bugRoot;
   }
+
+  public static buildSpikeBug(
+    id: number,
+    scene: BABYLON.Scene,
+    spikedSide: "LEFT" | "RIGHT"
+  ): BABYLON.TransformNode {
+    const bugRoot = new BABYLON.TransformNode(`spike_bug_root_${id}`, scene);
+
+    const carapaceMat = new BABYLON.PBRMaterial(`spikeBugCarapace_${id}`, scene);
+    carapaceMat.metallic = 0.95;
+    carapaceMat.roughness = 0.15;
+    carapaceMat.albedoColor = new BABYLON.Color3(0.05, 0.05, 0.07);
+
+    const eyeMat = new BABYLON.StandardMaterial(`spikeBugEyes_${id}`, scene);
+    eyeMat.emissiveColor = new BABYLON.Color3(0.0, 0.95, 0.25);
+    eyeMat.disableLighting = true;
+
+    const stripeMat = new BABYLON.PBRMaterial(`spikeBugStripeMat_${id}`, scene);
+    stripeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+    stripeMat.emissiveColor = new BABYLON.Color3(0.95, 0.12, 0.12);
+    stripeMat.metallic = 0.0;
+    stripeMat.roughness = 1.0;
+
+    const bodyHeight = 5.5;
+    const bodyRadius = 0.52;
+    const capsule = BABYLON.MeshBuilder.CreateCapsule(
+      `spike_bug_capsule_${id}`,
+      { height: bodyHeight, radius: bodyRadius, subdivisions: 2 },
+      scene
+    );
+    capsule.material = carapaceMat;
+    capsule.parent = bugRoot;
+
+    for (let i = 0; i < 4; i++) {
+      const ring = BABYLON.MeshBuilder.CreateTorus(
+        `ring_${id}_${i}`,
+        { diameter: bodyRadius * 2 + 0.1, thickness: 0.1, tessellation: 10 },
+        scene
+      );
+      ring.position.y = -1.8 + i * 1.2;
+      ring.rotation.x = Math.PI / 2;
+      ring.material = stripeMat;
+      ring.parent = bugRoot;
+    }
+
+    const eyeL = BABYLON.MeshBuilder.CreateSphere(`eyeL_${id}`, { diameter: 0.18 }, scene);
+    eyeL.position.set(-0.25, 2.3, -0.38);
+    eyeL.material = eyeMat;
+    eyeL.parent = bugRoot;
+
+    const eyeR = BABYLON.MeshBuilder.CreateSphere(`eyeR_${id}`, { diameter: 0.18 }, scene);
+    eyeR.position.set(0.25, 2.3, -0.38);
+    eyeR.material = eyeMat;
+    eyeR.parent = bugRoot;
+
+    const spikeContainer = new BABYLON.TransformNode("spikes", scene);
+    spikeContainer.parent = bugRoot;
+
+    const spikeCount = 8;
+    const spikeSpacing = bodyHeight / spikeCount;
+    const spikeMat = new BABYLON.PBRMaterial(`spikeBugSpikeMat_${id}`, scene);
+    spikeMat.albedoColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+    spikeMat.emissiveColor = new BABYLON.Color3(0.95, 0.05, 0.05);
+    spikeMat.metallic = 0.0;
+    spikeMat.roughness = 1.0;
+
+    for (let s = 0; s < spikeCount; s++) {
+      const spikeY = -2.0 + s * spikeSpacing * 0.85;
+      const spike = BABYLON.MeshBuilder.CreateCylinder(
+        `spike_${id}_${s}`,
+        {
+          height: 1.2,
+          diameterTop: 0.0,
+          diameterBottom: 0.35,
+          tessellation: 6
+        },
+        scene
+      );
+      spike.material = spikeMat;
+      spike.parent = spikeContainer;
+
+      if (spikedSide === "RIGHT") {
+        spike.position.set(0.85, spikeY, 0);
+        spike.rotation.z = -Math.PI / 2;
+      } else {
+        spike.position.set(-0.85, spikeY, 0);
+        spike.rotation.z = Math.PI / 2;
+      }
+    }
+
+    const headSpike = BABYLON.MeshBuilder.CreateCylinder(
+      `head_spike_${id}`,
+      {
+        height: 0.65,
+        diameterTop: 0.0,
+        diameterBottom: 0.24,
+        tessellation: 6
+      },
+      scene
+    );
+    headSpike.material = spikeMat;
+    headSpike.position.set(0, 2.75, 0);
+    headSpike.parent = spikeContainer;
+
+    const legSideSign = spikedSide === "RIGHT" ? -1 : 1;
+
+    for (let leg = 0; leg < 4; leg++) {
+      const legY = -1.6 + leg * 1.1;
+
+      const joint = new BABYLON.TransformNode(`leg_joint_${id}_${leg}`, scene);
+      joint.position.set(legSideSign * 0.45, legY, 0);
+      joint.parent = bugRoot;
+
+      const coxa = BABYLON.MeshBuilder.CreateCylinder(
+        `coxa_${id}_${leg}`,
+        { height: 0.65, diameterTop: 0.1, diameterBottom: 0.08, tessellation: 6 },
+        scene
+      );
+      coxa.position.set(legSideSign * 0.3, 0, 0);
+      coxa.rotation.z = (legSideSign * Math.PI) / 2;
+      coxa.material = carapaceMat;
+      coxa.parent = joint;
+
+      const tibiaJoint = new BABYLON.TransformNode(`tibia_joint_${id}_${leg}`, scene);
+      tibiaJoint.position.set(legSideSign * 0.6, 0, 0);
+      tibiaJoint.rotation.z = (legSideSign * Math.PI) / 4;
+      tibiaJoint.parent = joint;
+
+      const tibia = BABYLON.MeshBuilder.CreateCylinder(
+        `tibia_${id}_${leg}`,
+        { height: 0.55, diameterTop: 0.08, diameterBottom: 0.05, tessellation: 6 },
+        scene
+      );
+      tibia.position.set(0, -0.25, 0);
+      tibia.material = carapaceMat;
+      tibia.parent = tibiaJoint;
+
+      const foot = BABYLON.MeshBuilder.CreateSphere(
+        `foot_${id}_${leg}`,
+        { diameterX: 0.12, diameterY: 0.16, diameterZ: 0.12 },
+        scene
+      );
+      foot.position.set(0, -0.5, 0);
+      foot.material = eyeMat;
+      foot.parent = tibiaJoint;
+    }
+
+    return bugRoot;
+  }
+
 }
 
 
