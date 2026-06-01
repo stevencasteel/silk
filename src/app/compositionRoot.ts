@@ -83,7 +83,6 @@ import { WeaverShatterSystem } from "../gameplay/juice/WeaverShatterSystem";
 import { HapticFeedbackSystem } from "../gameplay/juice/HapticFeedbackSystem";
 import { AudioSystem } from "../gameplay/juice/AudioSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
-import { DebugTelemetryOverlay } from "../core/diagnostics/DebugTelemetryOverlay";
 import { PerformanceClock } from "../core/clock/PerformanceClock";
 import { RafScheduler } from "../core/loop/RafScheduler";
 
@@ -225,7 +224,6 @@ export class CompositionRoot {
     const hudSystem = new HudSyncSystem(context);
     const persistenceSystem = new ProfilePersistenceSystem(context);
 
-    const debugTelemetry = new DebugTelemetryOverlay(profiler, context);
 
     systemManager.register(spawner);
     systemManager.register(renderSystem);
@@ -264,7 +262,6 @@ export class CompositionRoot {
     systemManager.register(lightingSystem);
     systemManager.register(hudSystem);
     systemManager.register(persistenceSystem);
-    systemManager.register(debugTelemetry);
 
     const clock = new PerformanceClock();
     const scheduler = new RafScheduler();
