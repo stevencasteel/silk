@@ -16,6 +16,9 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _filter: Tone.Filter | null = null;
   private _ratchetPlayer: Tone.Player | null = null;
   private _webStickPlayer: Tone.Player | null = null;
+  private _spiderSoundsPlayer: Tone.Player | null = null;
+  private _boingPlayer: Tone.Player | null = null;
+  private _webShotPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -94,6 +97,26 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         this.playWebStickSound();
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, () => {
+        this.playSpiderSounds();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
+        this.playBossBoing();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
+        if (payload && payload.isRelease) {
+          this.playWebShot();
+        }
+      })
+    );
   }
 
   private async initAudio(): Promise<void> {
@@ -124,6 +147,21 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
       this._webStickPlayer = new Tone.Player({
         url: "/sfx/stuck-in-web-shot_stick-to-surface.mp3",
+        autostart: false
+      }).toDestination();
+
+      this._spiderSoundsPlayer = new Tone.Player({
+        url: "/sfx/spider_sounds.mp3",
+        autostart: false
+      }).toDestination();
+
+      this._boingPlayer = new Tone.Player({
+        url: "/sfx/boss_boing.mp3",
+        autostart: false
+      }).toDestination();
+
+      this._webShotPlayer = new Tone.Player({
+        url: "/sfx/web_shot.mp3",
         autostart: false
       }).toDestination();
 
@@ -278,6 +316,42 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
+  private playSpiderSounds(): void {
+    if (!this._isInitialized || !this._spiderSoundsPlayer || !this._spiderSoundsPlayer.loaded) return;
+    try {
+      if (this._spiderSoundsPlayer.state === "started") {
+        this._spiderSoundsPlayer.stop();
+      }
+      this._spiderSoundsPlayer.start();
+    } catch {
+      // Defensive catch-all
+    }
+  }
+
+  private playBossBoing(): void {
+    if (!this._isInitialized || !this._boingPlayer || !this._boingPlayer.loaded) return;
+    try {
+      if (this._boingPlayer.state === "started") {
+        this._boingPlayer.stop();
+      }
+      this._boingPlayer.start();
+    } catch {
+      // Defensive catch-all
+    }
+  }
+
+  private playWebShot(): void {
+    if (!this._isInitialized || !this._webShotPlayer || !this._webShotPlayer.loaded) return;
+    try {
+      if (this._webShotPlayer.state === "started") {
+        this._webShotPlayer.stop();
+      }
+      this._webShotPlayer.start();
+    } catch {
+      // Defensive catch-all
+    }
+  }
+
   public dispose(): void {
     this._tracker.clear();
     this.stopRatchet();
@@ -300,6 +374,18 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._webStickPlayer) {
       this._webStickPlayer.dispose();
       this._webStickPlayer = null;
+    }
+    if (this._spiderSoundsPlayer) {
+      this._spiderSoundsPlayer.dispose();
+      this._spiderSoundsPlayer = null;
+    }
+    if (this._boingPlayer) {
+      this._boingPlayer.dispose();
+      this._boingPlayer = null;
+    }
+    if (this._webShotPlayer) {
+      this._webShotPlayer.dispose();
+      this._webShotPlayer = null;
     }
     this._isInitialized = false;
   }
