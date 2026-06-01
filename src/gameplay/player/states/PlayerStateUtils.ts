@@ -85,7 +85,10 @@ export class PlayerStateUtils {
     }
     trav.stickyEntityId = -1;
 
-    if (storedTension < reelConfig.SWEET_SPOT_MIN) {
+    // Use THRESHOLD_YELLOW (0.427) to align with Stage 2 beginning in the UI
+    const STAGE2_THRESHOLD = 0.427;
+
+    if (storedTension < STAGE2_THRESHOLD) {
       tether.tension = 0.0;
       trav.state = "AIRBORNE";
       trav.launchPower = 0.05;
@@ -109,6 +112,7 @@ export class PlayerStateUtils {
         pCosmetic.targetScaleY = 1.0;
         pCosmetic.targetScaleZ = 1.0;
       }
+      trav.chargeTimer = 0;
       return;
     }
 
@@ -116,28 +120,28 @@ export class PlayerStateUtils {
     const dy = tether.anchorY - target.y;
     const dist = getDistance2D(target.x, target.y, tether.anchorX, tether.anchorY);
 
-    const isSweetSpot =
-      storedTension >= reelConfig.SWEET_SPOT_MIN && storedTension <= reelConfig.SWEET_SPOT_MAX;
-    const isOverload = storedTension > reelConfig.SWEET_SPOT_MAX;
+    const isStage3 = storedTension >= 0.8;
+    const requiredHold = isStage3 ? 0.4 : 1.5;
+    const chargeRatio = Math.min(1.0, (trav.chargeTimer || 0) / requiredHold);
 
-    const minT = reelConfig.SWEET_SPOT_MIN;
-    const maxT = GAMEPLAY_TUNING.PLAYER.TENSION.MAX_ACHIEVABLE_TENSION;
-    const rangeFactor = Math.max(0, Math.min(1.0, (storedTension - minT) / (maxT - minT)));
+    // Refined launch speeds: Yellow (Stage 2) is 0.55, Red (Stage 3) is 0.90
+    const baseZonePower = isStage3 ? 0.90 : 0.55;
 
-    const minMult = GAMEPLAY_TUNING.PLAYER.FLING.MIN_MULTIPLIER;
-    const maxMult = GAMEPLAY_TUNING.PLAYER.FLING.MAX_MULTIPLIER;
-    const speedMultiplier = minMult + (maxMult - minMult) * Math.pow(rangeFactor, GAMEPLAY_TUNING.PLAYER.FLING.RANGE_POWER);
+    // Scale by tether length: longer tether = flings harder (scaled from 1.0 to 1.7)
+    const absoluteMin = GAMEPLAY_TUNING.REEL.MIN_LENGTH;
+    const absoluteMax = GAMEPLAY_TUNING.REEL.MAX_LENGTH;
+    const lengthRatio = (tether.maxLength - absoluteMin) / (absoluteMax - absoluteMin);
+    const lengthScalar = 1.0 + lengthRatio * 0.7;
 
     const bonusMultiplier = trav.hasFlingBonus ? GAMEPLAY_TUNING.PLAYER.FLING.BONUS_MULTIPLIER : 1.0;
-    const power = tuning.FLING_IMPULSE * speedMultiplier * bonusMultiplier;
-    const powerScale = storedTension;
+    const power = tuning.FLING_IMPULSE * baseZonePower * lengthScalar * chargeRatio * bonusMultiplier;
 
     vel.x = (dx / dist) * power;
     vel.y = (dy / dist) * power;
 
     trav.state = "LAUNCHING";
     trav.launchTimer = tuning.LAUNCH_DURATION;
-    trav.launchPower = powerScale;
+    trav.launchPower = baseZonePower * chargeRatio; // Save relative launch strength for validation
     trav.wallDir = 0;
 
     tether.tension = 0.0;
@@ -146,53 +150,42 @@ export class PlayerStateUtils {
     const pTrans = transforms.get(ctx.refs.player);
     const cosmeticConfig = GAMEPLAY_TUNING.PLAYER.COSMETIC;
     if (pTrans) {
-      if (isOverload) {
+      if (isStage3) {
         pTrans.scaleVelY = cosmeticConfig.OVERLOAD_SCALE_VEL_Y;
         pTrans.scaleVelX = cosmeticConfig.OVERLOAD_SCALE_VEL_X;
         pTrans.scaleVelZ = cosmeticConfig.OVERLOAD_SCALE_VEL_Z;
         const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
         if (hs) hs.timeRemaining = cosmeticConfig.HITSTOP_OVERLOAD;
-      } else if (isSweetSpot) {
-        pTrans.scaleVelY = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Y;
-        pTrans.scaleVelX = cosmeticConfig.SWEET_SPOT_SCALE_VEL_X;
-        pTrans.scaleVelZ = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Z;
-        ctx.runtime.hitLagTimer = cosmeticConfig.HITSTOP_SWEET_SPOT;
-        ctx.runtime.hitLagScale = cosmeticConfig.HITSTOP_SWEET_SPOT_SCALE;
       } else {
-        pTrans.scaleVelY = powerScale * 15.0;
-        pTrans.scaleVelX = -powerScale * 7.5;
-        pTrans.scaleVelZ = -powerScale * 7.5;
+        pTrans.scaleVelY = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Y * 0.8;
+        pTrans.scaleVelX = cosmeticConfig.SWEET_SPOT_SCALE_VEL_X * 0.8;
+        pTrans.scaleVelZ = cosmeticConfig.SWEET_SPOT_SCALE_VEL_Z * 0.8;
+        ctx.runtime.hitLagTimer = cosmeticConfig.HITSTOP_SWEET_SPOT * 0.8;
+        ctx.runtime.hitLagScale = cosmeticConfig.HITSTOP_SWEET_SPOT_SCALE;
       }
     }
 
     const cosmeticStore = ctx.stores.get<ActorCosmeticComponent>("cosmetic");
     const pCosmetic = cosmeticStore ? cosmeticStore.get(ctx.refs.player) : undefined;
     if (pCosmetic) {
-      if (isOverload) {
+      if (isStage3) {
         pCosmetic.emissiveR = 4.0;
         pCosmetic.emissiveG = 0.1;
         pCosmetic.emissiveB = 0.1;
         pCosmetic.targetScaleX = 0.45;
         pCosmetic.targetScaleY = 1.75;
         pCosmetic.targetScaleZ = 0.45;
-      } else if (isSweetSpot) {
-        pCosmetic.emissiveR = 3.5;
-        pCosmetic.emissiveG = 3.5;
-        pCosmetic.emissiveB = 3.5;
-        pCosmetic.targetScaleX = 0.55;
-        pCosmetic.targetScaleY = 1.65;
-        pCosmetic.targetScaleZ = 0.55;
       } else {
         pCosmetic.emissiveR = 0.1;
         pCosmetic.emissiveG = 0.4;
         pCosmetic.emissiveB = 0.8;
-        pCosmetic.targetScaleX = 0.95;
-        pCosmetic.targetScaleY = 1.05;
-        pCosmetic.targetScaleZ = 0.95;
+        pCosmetic.targetScaleX = 0.75;
+        pCosmetic.targetScaleY = 1.25;
+        pCosmetic.targetScaleZ = 0.75;
       }
     }
 
-    let shakeAmp = 0.25 + powerScale * 0.35;
+    let shakeAmp = 0.25 + (baseZonePower * chargeRatio) * 0.35;
     let shakeDur = 0.2;
 
     if (trav.hasFlingBonus) {
@@ -212,12 +205,12 @@ export class PlayerStateUtils {
           });
         }
       }
-    } else if (storedTension >= GAMEPLAY_TUNING.REEL.SWEET_SPOT_MAX) {
+    } else if (isStage3) {
       shakeAmp = 0.85;
       shakeDur = 0.45;
-    } else if (isSweetSpot) {
-      shakeAmp = 0.5;
-      shakeDur = 0.28;
+    } else {
+      shakeAmp = 0.4;
+      shakeDur = 0.25;
     }
 
     ctx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
@@ -226,6 +219,8 @@ export class PlayerStateUtils {
       dirX: dx / dist,
       dirY: dy / dist
     });
+
+    trav.chargeTimer = 0;
   }
 
   public static applyWallImpactSquash(ctx: SystemContext): void {

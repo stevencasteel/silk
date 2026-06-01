@@ -24,7 +24,10 @@ export class PlayerWallStickingState implements IPlayerState {
   private _sparksStrategy = new WallStickSparksStrategy(0, 0, 0);
 
   public enter(ctx: SystemContext): void {
-    void ctx;
+    const trav = ctx.stores.get<TraversalStateComponent>("traversal").get(ctx.refs.player);
+    if (trav) {
+      trav.chargeTimer = 0;
+    }
   }
 
   public exit(ctx: SystemContext): void {
@@ -41,6 +44,13 @@ export class PlayerWallStickingState implements IPlayerState {
     if (!target || !vel || !tether || !input || !trav) return null;
 
     const isTrapped = !!trav.isWebTrapped;
+
+    // Accumulate hold duration when clinging under tension (Stage 2 & 3)
+    if (tether.tension >= 0.427) {
+      trav.chargeTimer = (trav.chargeTimer || 0) + dt;
+    } else {
+      trav.chargeTimer = 0;
+    }
 
     const hitSpike = PlayerStateUtils.handleActiveWallBugSpikeCheck(ctx, vel, trav);
     if (hitSpike) {

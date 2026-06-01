@@ -51,6 +51,7 @@ export interface TraversalStateComponent {
   lastStickyEntityId?: number;
   webMass?: number;
   recoilVelocityY?: number;
+  chargeTimer?: number;
 }
 
 export interface WeaverTraversalComponent {
