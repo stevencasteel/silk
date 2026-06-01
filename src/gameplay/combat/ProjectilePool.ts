@@ -28,11 +28,11 @@ export class ProjectilePool {
   private nextPoolIndex = 0;
   private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
 
-  public projMatActive: BABYLON.PBRMaterial;
-  public projMatActiveRed: BABYLON.PBRMaterial;
-  public projMatStuck: BABYLON.PBRMaterial;
-  public projMatStuckRed: BABYLON.PBRMaterial;
-  public projMatTrapped: BABYLON.PBRMaterial;
+  public webMatActive: BABYLON.PBRMaterial;
+  public webMatActiveRed: BABYLON.PBRMaterial;
+  public webMatStuck: BABYLON.PBRMaterial;
+  public webMatStuckRed: BABYLON.PBRMaterial;
+  public webMatTrapped: BABYLON.PBRMaterial;
 
   constructor(
     private context: SystemContext,
@@ -40,27 +40,27 @@ export class ProjectilePool {
     private onBoundaryHitCallback: (id: number, side: "LEFT" | "RIGHT", currentX: number) => void,
     private onOverlapCallback: (otherId: number, projId: number) => void
   ) {
-    this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive");
-    const noisePlugin = new SilkMaterialPlugin(this.projMatActive, { noise: true });
+    this.webMatActive = this.createBaseProjectileMaterial("webMatActive");
+    const noisePlugin = new SilkMaterialPlugin(this.webMatActive, { noise: true });
     (
-      this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      this.webMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
     )._noisePlugin = noisePlugin;
 
-    this.projMatActiveRed = this.createBaseProjectileMaterial("projectileMatActiveRed");
-    this.projMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
-    const noisePluginRed = new SilkMaterialPlugin(this.projMatActiveRed, { noise: true });
+    this.webMatActiveRed = this.createBaseProjectileMaterial("webMatActiveRed");
+    this.webMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
+    const noisePluginRed = new SilkMaterialPlugin(this.webMatActiveRed, { noise: true });
     (
-      this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      this.webMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
     )._noisePlugin = noisePluginRed;
 
-    this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck");
-    this.projMatStuckRed = this.createBaseProjectileMaterial("projectileMatStuckRed");
-    this.projMatStuckRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
+    this.webMatStuck = this.createBaseProjectileMaterial("webMatStuck");
+    this.webMatStuckRed = this.createBaseProjectileMaterial("webMatStuckRed");
+    this.webMatStuckRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
 
-    this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped");
-    const trappedNoise = new SilkMaterialPlugin(this.projMatTrapped, { noise: true });
+    this.webMatTrapped = this.createBaseProjectileMaterial("webMatTrapped");
+    const trappedNoise = new SilkMaterialPlugin(this.webMatTrapped, { noise: true });
     (
-      this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      this.webMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
     )._noisePlugin = trappedNoise;
 
     if (this.scene.isPhysicsEnabled()) {
@@ -96,7 +96,7 @@ export class ProjectilePool {
         this.scene
       );
       sphere.position.set(0, -999, 0);
-      sphere.material = this.projMatActive;
+      sphere.material = this.webMatActive;
       sphere.isVisible = false;
       sphere.setEnabled(false);
 
@@ -248,7 +248,7 @@ export class ProjectilePool {
 
       mesh.position.set(x, y, 0);
       mesh.scaling.set(0.001, 0.001, 0.001);
-      mesh.material = isRed ? this.projMatActiveRed : this.projMatActive;
+      mesh.material = isRed ? this.webMatActiveRed : this.webMatActive;
       mesh.isVisible = true;
       mesh.setEnabled(true);
       triggerMeshFadeIn(mesh, 0.22);
@@ -331,7 +331,7 @@ export class ProjectilePool {
       mesh.position.set(0, -999, 0);
       mesh.scaling.set(1.0, 1.0, 1.0);
       mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-      mesh.material = this.projMatActive;
+      mesh.material = this.webMatActive;
     }
 
     const body = this.bodiesMap.get(projId);
@@ -386,10 +386,10 @@ export class ProjectilePool {
     });
     this.projectileEntities = [];
 
-    this.projMatActive.dispose();
-    this.projMatActiveRed.dispose();
-    this.projMatStuck.dispose();
-    this.projMatStuckRed.dispose();
-    this.projMatTrapped.dispose();
+    this.webMatActive.dispose();
+    this.webMatActiveRed.dispose();
+    this.webMatStuck.dispose();
+    this.webMatStuckRed.dispose();
+    this.webMatTrapped.dispose();
   }
 }

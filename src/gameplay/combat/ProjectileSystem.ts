@@ -127,7 +127,7 @@ export class ProjectileSystem implements ISystem {
           mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
           const stuckMat = mesh
             .getScene()
-            .getMaterialByName(pComp.isRed ? "projectileMatStuckRed" : "projectileMatStuck");
+            .getMaterialByName(pComp.isRed ? "webMatStuckRed" : "webMatStuck");
           if (stuckMat) {
             mesh.material = stuckMat;
           }
@@ -484,21 +484,21 @@ export class ProjectileSystem implements ISystem {
       if (pHurt) pHurt.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
       if (pHit) pHit.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
     }
-    if (this.pool.projMatActive) {
+    if (this.pool.webMatActive) {
       const noisePlugin = (
-        this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+        this.pool.webMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
       )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
-    if (this.pool.projMatActiveRed) {
+    if (this.pool.webMatActiveRed) {
       const noisePluginRed = (
-        this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+        this.pool.webMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
       )._noisePlugin;
       if (noisePluginRed) noisePluginRed.time = this.noiseTime;
     }
-    if (this.pool.projMatTrapped) {
+    if (this.pool.webMatTrapped) {
       const noisePlugin = (
-        this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+        this.pool.webMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
       )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
@@ -620,7 +620,7 @@ export class ProjectileSystem implements ISystem {
               trans.scaleZ = 1.45;
               mesh.scaling.set(0.24, 1.45, 1.45);
 
-              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              const stuckMat = mesh.getScene().getMaterialByName("webMatStuck");
               if (stuckMat) {
                 mesh.material = stuckMat;
               }
@@ -695,7 +695,7 @@ export class ProjectileSystem implements ISystem {
               trans.scaleZ = 1.45;
               mesh.scaling.set(0.24, 1.45, 1.45);
 
-              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              const stuckMat = mesh.getScene().getMaterialByName("webMatStuck");
               if (stuckMat) {
                 mesh.material = stuckMat;
               }
@@ -767,10 +767,10 @@ export class ProjectileSystem implements ISystem {
           bVal = bVal * (1.0 - flashAlpha) + flashB * flashAlpha;
         }
 
-        if (this.pool.projMatTrapped) {
-          this.pool.projMatTrapped.albedoColor.set(rVal, gVal, bVal);
+        if (this.pool.webMatTrapped) {
+          this.pool.webMatTrapped.albedoColor.set(rVal, gVal, bVal);
           const emissiveScale = 0.18 * (1.0 - flashAlpha);
-          this.pool.projMatTrapped.emissiveColor.set(rVal * emissiveScale, gVal * emissiveScale, bVal * emissiveScale);
+          this.pool.webMatTrapped.emissiveColor.set(rVal * emissiveScale, gVal * emissiveScale, bVal * emissiveScale);
         }
 
         const addedSize = Math.min(10.0, ((pTrav.webMass || 1) - 1) * 1.2);
@@ -837,8 +837,8 @@ export class ProjectileSystem implements ISystem {
           trans.prevY = pTrans.prevY + offsetY;
           trans.prevZ = pTrans.prevZ;
 
-          if (mesh.material !== this.pool.projMatTrapped) {
-            mesh.material = this.pool.projMatTrapped;
+          if (mesh.material !== this.pool.webMatTrapped) {
+            mesh.material = this.pool.webMatTrapped;
           }
         } else {
           targetScaleX += scaleModX;
@@ -863,8 +863,8 @@ export class ProjectileSystem implements ISystem {
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(trans.qx, trans.qy, trans.qz, trans.qw);
 
-          if (mesh.material !== this.pool.projMatTrapped) {
-            mesh.material = this.pool.projMatTrapped;
+          if (mesh.material !== this.pool.webMatTrapped) {
+            mesh.material = this.pool.webMatTrapped;
           }
         }
 

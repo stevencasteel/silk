@@ -15,7 +15,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _noise: Tone.Noise | null = null;
   private _filter: Tone.Filter | null = null;
   private _ratchetPlayer: Tone.Player | null = null;
-  private _webStickPlayer: Tone.Player | null = null;
+  private _webImpactPlayer: Tone.Player | null = null;
   private _spiderSoundsPlayer: Tone.Player | null = null;
   private _boingPlayer: Tone.Player | null = null;
   private _webShotPlayer: Tone.Player | null = null;
@@ -92,13 +92,13 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
-        this.playWebStickSound();
+        this.playWebImpactSound();
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
-        this.playWebStickSound();
+        this.playWebImpactSound();
       })
     );
 
@@ -194,8 +194,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         fadeOut: 0.05
       }).toDestination();
 
-      this._webStickPlayer = new Tone.Player({
-        url: "sfx/stuck-in-web-shot_stick-to-surface.mp3",
+      this._webImpactPlayer = new Tone.Player({
+        url: "sfx/web_impact.mp3",
         autostart: false
       }).toDestination();
 
@@ -289,8 +289,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
-  private playWebStickSound(): void {
-    if (!this._isInitialized || !this._webStickPlayer || !this._webStickPlayer.loaded) return;
+  private playWebImpactSound(): void {
+    if (!this._isInitialized || !this._webImpactPlayer || !this._webImpactPlayer.loaded) return;
 
     const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
     const pTrav = travStore.get(this.context.refs.player);
@@ -298,10 +298,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     if (isWebTrapped) {
       try {
-        if (this._webStickPlayer.state === "started") {
-          this._webStickPlayer.stop();
+        if (this._webImpactPlayer.state === "started") {
+          this._webImpactPlayer.stop();
         }
-        this._webStickPlayer.start();
+        this._webImpactPlayer.start();
       } catch {
         // Defensive catch-all
       }
@@ -488,9 +488,9 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._ratchetPlayer.dispose();
       this._ratchetPlayer = null;
     }
-    if (this._webStickPlayer) {
-      this._webStickPlayer.dispose();
-      this._webStickPlayer = null;
+    if (this._webImpactPlayer) {
+      this._webImpactPlayer.dispose();
+      this._webImpactPlayer = null;
     }
     if (this._spiderSoundsPlayer) {
       this._spiderSoundsPlayer.dispose();

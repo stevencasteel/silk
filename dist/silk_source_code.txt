@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/1/2026, 3:07:35 PM
+ [SYSTEM] Generated: 6/1/2026, 5:45:52 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -19,20 +19,14 @@
 ├── public/
 │   ├── sfx/
 │   │   ├── audacity/
-│   │   │   ├── ANMLAmph-One_short_frog_tongu-Elevenlabs.mp3
-│   │   │   ├── ANMLFarm-Sudden_wet_cow_lick_-Elevenlabs.mp3
 │   │   │   ├── boss_boing.aup3
-│   │   │   ├── FEETHmn-Duration_3-5_seconds-Elevenlabs.mp3
-│   │   │   ├── FOLYMisc-A_large,_wet_bubble_-Elevenlabs.mp3
-│   │   │   ├── FOLYMisc-High-quality_foley_s-Elevenlabs.mp3
-│   │   │   ├── GOREBlood-A_short,_heavy_blood-Elevenlabs.mp3
-│   │   │   ├── GORESqsh-Wet_slimy_squelching-Elevenlabs.mp3
-│   │   │   ├── GOREStab-Parasitic_injection_-Elevenlabs.mp3
-│   │   │   ├── HMNMisc-Gross,_wet,_and_mess-Elevenlabs.mp3
-│   │   │   ├── HMNMisc-Loud_juicy_swallowin-Elevenlabs.mp3
-│   │   │   └── Wet_dragging_sound_w_#2-1780244629790.mp3
+│   │   │   ├── crowd_defeat.aup3
+│   │   │   ├── crowd_win.aup3
+│   │   │   └── web_shot.aup3
 │   │   ├── boss_boing.mp3
 │   │   ├── boss_death.mp3
+│   │   ├── crowd_defeat.mp3
+│   │   ├── crowd_win.mp3
 │   │   ├── fling.mp3
 │   │   ├── health_bug_rupture.mp3
 │   │   ├── spider_sounds.mp3
@@ -1095,7 +1089,7 @@ console.log('Manifest and dynamic source assets compiled successfully.');
   }
 }
 
-/* Web Snag struggle styles */
+/* Web Struggle styles */
 .hud-struggle-bar-track {
   width: 100px;
   height: 4px;
@@ -5188,11 +5182,11 @@ export class ProjectilePool {
   private nextPoolIndex = 0;
   private sharedShape: BABYLON.PhysicsShapeSphere | null = null;
 
-  public projMatActive: BABYLON.PBRMaterial;
-  public projMatActiveRed: BABYLON.PBRMaterial;
-  public projMatStuck: BABYLON.PBRMaterial;
-  public projMatStuckRed: BABYLON.PBRMaterial;
-  public projMatTrapped: BABYLON.PBRMaterial;
+  public webMatActive: BABYLON.PBRMaterial;
+  public webMatActiveRed: BABYLON.PBRMaterial;
+  public webMatStuck: BABYLON.PBRMaterial;
+  public webMatStuckRed: BABYLON.PBRMaterial;
+  public webMatTrapped: BABYLON.PBRMaterial;
 
   constructor(
     private context: SystemContext,
@@ -5200,27 +5194,27 @@ export class ProjectilePool {
     private onBoundaryHitCallback: (id: number, side: "LEFT" | "RIGHT", currentX: number) => void,
     private onOverlapCallback: (otherId: number, projId: number) => void
   ) {
-    this.projMatActive = this.createBaseProjectileMaterial("projectileMatActive");
-    const noisePlugin = new SilkMaterialPlugin(this.projMatActive, { noise: true });
+    this.webMatActive = this.createBaseProjectileMaterial("webMatActive");
+    const noisePlugin = new SilkMaterialPlugin(this.webMatActive, { noise: true });
     (
-      this.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      this.webMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
     )._noisePlugin = noisePlugin;
 
-    this.projMatActiveRed = this.createBaseProjectileMaterial("projectileMatActiveRed");
-    this.projMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
-    const noisePluginRed = new SilkMaterialPlugin(this.projMatActiveRed, { noise: true });
+    this.webMatActiveRed = this.createBaseProjectileMaterial("webMatActiveRed");
+    this.webMatActiveRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
+    const noisePluginRed = new SilkMaterialPlugin(this.webMatActiveRed, { noise: true });
     (
-      this.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      this.webMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
     )._noisePlugin = noisePluginRed;
 
-    this.projMatStuck = this.createBaseProjectileMaterial("projectileMatStuck");
-    this.projMatStuckRed = this.createBaseProjectileMaterial("projectileMatStuckRed");
-    this.projMatStuckRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
+    this.webMatStuck = this.createBaseProjectileMaterial("webMatStuck");
+    this.webMatStuckRed = this.createBaseProjectileMaterial("webMatStuckRed");
+    this.webMatStuckRed.albedoColor = new BABYLON.Color3(0.95, 0.05, 0.05);
 
-    this.projMatTrapped = this.createBaseProjectileMaterial("projectileMatTrapped");
-    const trappedNoise = new SilkMaterialPlugin(this.projMatTrapped, { noise: true });
+    this.webMatTrapped = this.createBaseProjectileMaterial("webMatTrapped");
+    const trappedNoise = new SilkMaterialPlugin(this.webMatTrapped, { noise: true });
     (
-      this.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+      this.webMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
     )._noisePlugin = trappedNoise;
 
     if (this.scene.isPhysicsEnabled()) {
@@ -5256,7 +5250,7 @@ export class ProjectilePool {
         this.scene
       );
       sphere.position.set(0, -999, 0);
-      sphere.material = this.projMatActive;
+      sphere.material = this.webMatActive;
       sphere.isVisible = false;
       sphere.setEnabled(false);
 
@@ -5408,7 +5402,7 @@ export class ProjectilePool {
 
       mesh.position.set(x, y, 0);
       mesh.scaling.set(0.001, 0.001, 0.001);
-      mesh.material = isRed ? this.projMatActiveRed : this.projMatActive;
+      mesh.material = isRed ? this.webMatActiveRed : this.webMatActive;
       mesh.isVisible = true;
       mesh.setEnabled(true);
       triggerMeshFadeIn(mesh, 0.22);
@@ -5491,7 +5485,7 @@ export class ProjectilePool {
       mesh.position.set(0, -999, 0);
       mesh.scaling.set(1.0, 1.0, 1.0);
       mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
-      mesh.material = this.projMatActive;
+      mesh.material = this.webMatActive;
     }
 
     const body = this.bodiesMap.get(projId);
@@ -5546,11 +5540,11 @@ export class ProjectilePool {
     });
     this.projectileEntities = [];
 
-    this.projMatActive.dispose();
-    this.projMatActiveRed.dispose();
-    this.projMatStuck.dispose();
-    this.projMatStuckRed.dispose();
-    this.projMatTrapped.dispose();
+    this.webMatActive.dispose();
+    this.webMatActiveRed.dispose();
+    this.webMatStuck.dispose();
+    this.webMatStuckRed.dispose();
+    this.webMatTrapped.dispose();
   }
 }
 
@@ -5687,7 +5681,7 @@ export class ProjectileSystem implements ISystem {
           mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
           const stuckMat = mesh
             .getScene()
-            .getMaterialByName(pComp.isRed ? "projectileMatStuckRed" : "projectileMatStuck");
+            .getMaterialByName(pComp.isRed ? "webMatStuckRed" : "webMatStuck");
           if (stuckMat) {
             mesh.material = stuckMat;
           }
@@ -6044,21 +6038,21 @@ export class ProjectileSystem implements ISystem {
       if (pHurt) pHurt.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
       if (pHit) pHit.radius = ARENA_CONFIG.ENTITY.PLAYER_RADIUS;
     }
-    if (this.pool.projMatActive) {
+    if (this.pool.webMatActive) {
       const noisePlugin = (
-        this.pool.projMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+        this.pool.webMatActive as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
       )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
-    if (this.pool.projMatActiveRed) {
+    if (this.pool.webMatActiveRed) {
       const noisePluginRed = (
-        this.pool.projMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+        this.pool.webMatActiveRed as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
       )._noisePlugin;
       if (noisePluginRed) noisePluginRed.time = this.noiseTime;
     }
-    if (this.pool.projMatTrapped) {
+    if (this.pool.webMatTrapped) {
       const noisePlugin = (
-        this.pool.projMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
+        this.pool.webMatTrapped as BABYLON.PBRMaterial & { _noisePlugin?: SilkMaterialPlugin }
       )._noisePlugin;
       if (noisePlugin) noisePlugin.time = this.noiseTime;
     }
@@ -6180,7 +6174,7 @@ export class ProjectileSystem implements ISystem {
               trans.scaleZ = 1.45;
               mesh.scaling.set(0.24, 1.45, 1.45);
 
-              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              const stuckMat = mesh.getScene().getMaterialByName("webMatStuck");
               if (stuckMat) {
                 mesh.material = stuckMat;
               }
@@ -6255,7 +6249,7 @@ export class ProjectileSystem implements ISystem {
               trans.scaleZ = 1.45;
               mesh.scaling.set(0.24, 1.45, 1.45);
 
-              const stuckMat = mesh.getScene().getMaterialByName("projectileMatStuck");
+              const stuckMat = mesh.getScene().getMaterialByName("webMatStuck");
               if (stuckMat) {
                 mesh.material = stuckMat;
               }
@@ -6327,10 +6321,10 @@ export class ProjectileSystem implements ISystem {
           bVal = bVal * (1.0 - flashAlpha) + flashB * flashAlpha;
         }
 
-        if (this.pool.projMatTrapped) {
-          this.pool.projMatTrapped.albedoColor.set(rVal, gVal, bVal);
+        if (this.pool.webMatTrapped) {
+          this.pool.webMatTrapped.albedoColor.set(rVal, gVal, bVal);
           const emissiveScale = 0.18 * (1.0 - flashAlpha);
-          this.pool.projMatTrapped.emissiveColor.set(rVal * emissiveScale, gVal * emissiveScale, bVal * emissiveScale);
+          this.pool.webMatTrapped.emissiveColor.set(rVal * emissiveScale, gVal * emissiveScale, bVal * emissiveScale);
         }
 
         const addedSize = Math.min(10.0, ((pTrav.webMass || 1) - 1) * 1.2);
@@ -6397,8 +6391,8 @@ export class ProjectileSystem implements ISystem {
           trans.prevY = pTrans.prevY + offsetY;
           trans.prevZ = pTrans.prevZ;
 
-          if (mesh.material !== this.pool.projMatTrapped) {
-            mesh.material = this.pool.projMatTrapped;
+          if (mesh.material !== this.pool.webMatTrapped) {
+            mesh.material = this.pool.webMatTrapped;
           }
         } else {
           targetScaleX += scaleModX;
@@ -6423,8 +6417,8 @@ export class ProjectileSystem implements ISystem {
           if (!mesh.rotationQuaternion) mesh.rotationQuaternion = new BABYLON.Quaternion();
           mesh.rotationQuaternion.set(trans.qx, trans.qy, trans.qz, trans.qw);
 
-          if (mesh.material !== this.pool.projMatTrapped) {
-            mesh.material = this.pool.projMatTrapped;
+          if (mesh.material !== this.pool.webMatTrapped) {
+            mesh.material = this.pool.webMatTrapped;
           }
         }
 
@@ -6638,7 +6632,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _noise: Tone.Noise | null = null;
   private _filter: Tone.Filter | null = null;
   private _ratchetPlayer: Tone.Player | null = null;
-  private _webStickPlayer: Tone.Player | null = null;
+  private _webImpactPlayer: Tone.Player | null = null;
   private _spiderSoundsPlayer: Tone.Player | null = null;
   private _boingPlayer: Tone.Player | null = null;
   private _webShotPlayer: Tone.Player | null = null;
@@ -6715,13 +6709,13 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
-        this.playWebStickSound();
+        this.playWebImpactSound();
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
-        this.playWebStickSound();
+        this.playWebImpactSound();
       })
     );
 
@@ -6817,8 +6811,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         fadeOut: 0.05
       }).toDestination();
 
-      this._webStickPlayer = new Tone.Player({
-        url: "sfx/stuck-in-web-shot_stick-to-surface.mp3",
+      this._webImpactPlayer = new Tone.Player({
+        url: "sfx/web_impact.mp3",
         autostart: false
       }).toDestination();
 
@@ -6912,8 +6906,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
-  private playWebStickSound(): void {
-    if (!this._isInitialized || !this._webStickPlayer || !this._webStickPlayer.loaded) return;
+  private playWebImpactSound(): void {
+    if (!this._isInitialized || !this._webImpactPlayer || !this._webImpactPlayer.loaded) return;
 
     const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
     const pTrav = travStore.get(this.context.refs.player);
@@ -6921,10 +6915,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     if (isWebTrapped) {
       try {
-        if (this._webStickPlayer.state === "started") {
-          this._webStickPlayer.stop();
+        if (this._webImpactPlayer.state === "started") {
+          this._webImpactPlayer.stop();
         }
-        this._webStickPlayer.start();
+        this._webImpactPlayer.start();
       } catch {
         // Defensive catch-all
       }
@@ -7111,9 +7105,9 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._ratchetPlayer.dispose();
       this._ratchetPlayer = null;
     }
-    if (this._webStickPlayer) {
-      this._webStickPlayer.dispose();
-      this._webStickPlayer = null;
+    if (this._webImpactPlayer) {
+      this._webImpactPlayer.dispose();
+      this._webImpactPlayer = null;
     }
     if (this._spiderSoundsPlayer) {
       this._spiderSoundsPlayer.dispose();
