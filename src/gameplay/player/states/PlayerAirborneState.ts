@@ -12,6 +12,7 @@ import { VISUAL_JUICE_CONFIG } from "../../../core/engine/ArenaConfig";
 import { SystemContext } from "../../../core/engine/SystemContext";
 import { GAMEPLAY_TUNING, CANONICAL_UNITS, ARENA_CONFIG } from "../../../core/engine/ArenaConfig";
 import { PlayerStateUtils } from "./PlayerStateUtils";
+import { GameEvent } from "../../../core/events/GameEvents";
 
 export class PlayerAirborneState implements IPlayerState {
   public readonly type: TraversalState = "AIRBORNE";
@@ -108,6 +109,12 @@ export class PlayerAirborneState implements IPlayerState {
         target.y = nextY;
         vel.x = 0;
         vel.y = -9.0;
+
+        ctx.broker.publish(GameEvent.PLAYER_WALL_HIT, {
+          x: target.x,
+          y: target.y,
+          wallNormalX: -wallDir
+        });
 
         return "WALL_STICKING";
       } else {

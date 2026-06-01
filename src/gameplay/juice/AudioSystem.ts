@@ -3,7 +3,7 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
-import { TetherComponent } from "../../core/ecs/Components";
+import { TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
 import * as Tone from "tone";
 
 export class AudioSystem implements ISystem, IUpdateable, IDisposable {
@@ -15,6 +15,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _noise: Tone.Noise | null = null;
   private _filter: Tone.Filter | null = null;
   private _ratchetPlayer: Tone.Player | null = null;
+  private _webStickPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -81,6 +82,18 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         }
       })
     );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_WALL_HIT, () => {
+        this.playWebStickSound();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_LANDED, () => {
+        this.playWebStickSound();
+      })
+    );
   }
 
   private async initAudio(): Promise<void> {
@@ -107,6 +120,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
         autostart: false,
         fadeIn: 0.05,
         fadeOut: 0.05
+      }).toDestination();
+
+      this._webStickPlayer = new Tone.Player({
+        url: "/sfx/stuck-in-web-shot_stick-to-surface.mp3",
+        autostart: false
       }).toDestination();
 
       this._isInitialized = true;
@@ -161,6 +179,25 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this._isReeling = false;
     if (this._ratchetPlayer && this._ratchetPlayer.state === "started") {
       this._ratchetPlayer.stop();
+    }
+  }
+
+  private playWebStickSound(): void {
+    if (!this._isInitialized || !this._webStickPlayer || !this._webStickPlayer.loaded) return;
+
+    const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
+    const pTrav = travStore.get(this.context.refs.player);
+    const isWebTrapped = pTrav ? pTrav.isWebTrapped : false;
+
+    if (isWebTrapped) {
+      try {
+        if (this._webStickPlayer.state === "started") {
+          this._webStickPlayer.stop();
+        }
+        this._webStickPlayer.start();
+      } catch {
+        // Defensive catch-all
+      }
     }
   }
 
@@ -259,6 +296,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._ratchetPlayer) {
       this._ratchetPlayer.dispose();
       this._ratchetPlayer = null;
+    }
+    if (this._webStickPlayer) {
+      this._webStickPlayer.dispose();
+      this._webStickPlayer = null;
     }
     this._isInitialized = false;
   }
