@@ -11,7 +11,7 @@ import {
   HealthComponent
 } from "../../core/ecs/Components";
 
-import { POST_PROCESSING_PRESETS, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
 import * as BABYLON from "@babylonjs/core";
@@ -108,9 +108,9 @@ export class WallBugSystem implements ISystem {
     const wHealth = healthStore.get(this.context.refs.weaver);
 
     const isSpawningEnabled = this.context.runtime.wallBugsSpawningAllowed &&
-      this.context.runtime.weaverDamageCount >= 2 &&
+      this.context.runtime.weaverDamageCount >= 1 &&
       wHealth &&
-      (wHealth.current / wHealth.max) <= GAMEPLAY_TUNING.SPAWN_THRESHOLDS.WALL_BUG_HEALTH_RATIO;
+      wHealth.current > 0;
 
     if (isSpawningEnabled) {
       this.spawnTimer += dt;
@@ -220,7 +220,7 @@ export class WallBugSystem implements ISystem {
 
     const rand = Math.random();
     
-    const isSpikedAllowed = this.context.runtime.weaverDamageCount >= 2;
+    const isSpikedAllowed = this.context.runtime.weaverDamageCount >= 3;
     const spikedSide: "LEFT" | "RIGHT" | "NONE" = isSpikedAllowed
       ? (rand < 0.45 ? "LEFT" : rand < 0.9 ? "RIGHT" : "NONE")
       : "NONE";

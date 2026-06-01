@@ -13,7 +13,7 @@ import {
   InputIntentComponent,
   WallBugComponent
 } from "../../core/ecs/Components";
-import { POST_PROCESSING_PRESETS, ARENA_CONFIG, GAMEPLAY_TUNING } from "../../core/engine/ArenaConfig";
+import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
@@ -79,9 +79,9 @@ export class HealthBugSystem implements ISystem {
     const wHealth = healthStore.get(this.context.refs.weaver);
 
     const isSpawningEnabled = this.context.runtime.healthBugsSpawningAllowed &&
-      this.context.runtime.weaverDamageCount >= 1 &&
+      this.context.runtime.weaverDamageCount >= 0 &&
       wHealth &&
-      (wHealth.current / wHealth.max) <= GAMEPLAY_TUNING.SPAWN_THRESHOLDS.HEALTH_BUG_HEALTH_RATIO;
+      wHealth.current > 0;
 
     if (isSpawningEnabled) {
       this.spawnTimer += dt;
@@ -498,7 +498,7 @@ export class HealthBugSystem implements ISystem {
     const startY = cameraY - 28.0;
     const startX = this.getNextLane();
 
-    const isSpikedAllowed = this.context.runtime.weaverDamageCount >= 1;
+    const isSpikedAllowed = this.context.runtime.weaverDamageCount >= 2;
     const variants: ("NORMAL" | "SPIKED_TOP" | "SPIKED_RIGHT" | "SPIKED_BOTTOM" | "SPIKED_LEFT")[] = isSpikedAllowed
       ? ["NORMAL", "SPIKED_TOP", "SPIKED_RIGHT", "SPIKED_BOTTOM", "SPIKED_LEFT"]
       : ["NORMAL"];

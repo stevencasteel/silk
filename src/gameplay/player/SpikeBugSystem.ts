@@ -36,10 +36,10 @@ export class SpikeBugSystem implements ISystem {
 
   private getSpawnInterval(): number {
     const hits = this.context.runtime.weaverDamageCount;
-    if (hits === 0) return 1.0;
-    if (hits === 1) return 1.6;
-    if (hits === 2) return 2.4;
-    return 3.5; // Density dialed down as other hazards crowd the playfield
+    if (hits === 0) return 3.5;
+    if (hits === 1) return 7.0;
+    if (hits === 2) return 15.0;
+    return 120.0; // Almost no spike bugs once other hazards crowd the playfield
   }
 
   public init(): void {
