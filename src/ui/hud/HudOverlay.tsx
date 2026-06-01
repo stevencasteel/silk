@@ -1033,6 +1033,7 @@ export const HudOverlay: React.FC = () => {
                   }}
                 />
 
+                {/* Explicit dividing boundaries between Stages 1, 2, and 3 */}
                 <div
                   style={{
                     position: "absolute",
@@ -1040,14 +1041,15 @@ export const HudOverlay: React.FC = () => {
                     width: "37.3%",
                     top: 0,
                     bottom: 0,
-                    background: "rgba(234, 179, 8, 0.05)",
-                    borderLeft: "1px solid rgba(234, 179, 8, 0.25)",
-                    borderRight: "1px solid rgba(234, 179, 8, 0.25)",
+                    background: "rgba(234, 179, 8, 0.02)",
+                    borderLeft: "2px dashed rgba(234, 179, 8, 0.38)",
+                    borderRight: "2px dashed rgba(239, 68, 68, 0.38)",
                     zIndex: 1,
                     pointerEvents: "none"
                   }}
                 />
 
+                {/* Highly legible stage identifiers centered in each zone */}
                 <div
                   style={{
                     position: "absolute",
@@ -1056,16 +1058,17 @@ export const HudOverlay: React.FC = () => {
                     pointerEvents: "none",
                     display: "flex",
                     alignItems: "center",
-                    fontSize: "8px",
-                    fontWeight: "900",
-                    color: "rgba(255,255,255,0.22)"
+                    fontSize: "11px",
+                    fontWeight: "950",
+                    letterSpacing: "normal"
                   }}
                 >
                   <span
                     style={{
                       position: "absolute",
-                      left: "5%",
-                      color: "rgba(34,197,94,0.45)"
+                      left: "21.35%",
+                      transform: "translateX(-50%)",
+                      color: "rgba(16, 185, 129, 0.65)"
                     }}
                   >
                     1
@@ -1073,8 +1076,9 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "42.7%",
-                      color: "rgba(234,179,8,0.45)"
+                      left: "61.35%",
+                      transform: "translateX(-50%)",
+                      color: "rgba(234, 179, 8, 0.65)"
                     }}
                   >
                     2
@@ -1082,8 +1086,9 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      left: "80%",
-                      color: "rgba(239,68,68,0.45)"
+                      left: "90.0%",
+                      transform: "translateX(-50%)",
+                      color: "rgba(239, 68, 68, 0.65)"
                     }}
                   >
                     3
@@ -1091,8 +1096,9 @@ export const HudOverlay: React.FC = () => {
                   <span
                     style={{
                       position: "absolute",
-                      right: "5%",
-                      color: "rgba(239,68,68,0.75)"
+                      right: "6px",
+                      color: "rgba(239, 68, 68, 0.85)",
+                      fontSize: "13px"
                     }}
                   >
                     💀
