@@ -150,9 +150,9 @@ export class PlayerStateUtils {
     const cosmeticConfig = GAMEPLAY_TUNING.PLAYER.COSMETIC;
     if (pTrans) {
       if (isStage3) {
-        pTrans.scaleVelY = cosmeticConfig.OVERLOAD_SCALE_VEL_Y;
-        pTrans.scaleVelX = cosmeticConfig.OVERLOAD_SCALE_VEL_X;
-        pTrans.scaleVelZ = cosmeticConfig.OVERLOAD_SCALE_VEL_Z;
+        pTrans.scaleVelY = cosmeticConfig.OVERLOAD_SCALE_VEL_Y * 0.65;
+        pTrans.scaleVelX = cosmeticConfig.OVERLOAD_SCALE_VEL_X * 0.65;
+        pTrans.scaleVelZ = cosmeticConfig.OVERLOAD_SCALE_VEL_Z * 0.65;
         const hs = ctx.stores.get<HitStopComponent>("hitStop").get(ctx.refs.player);
         if (hs) hs.timeRemaining = cosmeticConfig.HITSTOP_OVERLOAD;
       } else {
@@ -171,9 +171,9 @@ export class PlayerStateUtils {
         pCosmetic.emissiveR = 4.0;
         pCosmetic.emissiveG = 0.1;
         pCosmetic.emissiveB = 0.1;
-        pCosmetic.targetScaleX = 0.45;
-        pCosmetic.targetScaleY = 1.75;
-        pCosmetic.targetScaleZ = 0.45;
+        pCosmetic.targetScaleX = 0.65;
+        pCosmetic.targetScaleY = 1.45;
+        pCosmetic.targetScaleZ = 0.65;
       } else {
         pCosmetic.emissiveR = 0.1;
         pCosmetic.emissiveG = 0.4;
