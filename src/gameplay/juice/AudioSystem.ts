@@ -134,7 +134,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
-        if (payload && payload.isRelease) {
+        if (payload && !payload.isRelease) {
           this.playWebShot();
         }
       })

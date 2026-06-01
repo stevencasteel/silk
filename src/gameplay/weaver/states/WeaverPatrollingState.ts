@@ -18,12 +18,15 @@ export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";
   public readonly name = "PATROLLING CEILING";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+
   private shootTimer = 0.0;
   private hasTelegraphed = false;
+  private telegraphDelay = 1.4;
 
   public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
     this.hasTelegraphed = false;
+    this.telegraphDelay = Math.random() * 3.0;
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (ai) {
@@ -80,7 +83,7 @@ export class WeaverPatrollingState implements IWeaverState {
     }
 
     this.shootTimer += dt;
-    const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
+    const telegraphThreshold = this.telegraphDelay;
 
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
@@ -114,9 +117,10 @@ export class WeaverPatrollingState implements IWeaverState {
       }
     }
 
-    if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
+    if (this.shootTimer >= this.telegraphDelay + 1.0) {
       this.shootTimer = 0.0;
       this.hasTelegraphed = false;
+      this.telegraphDelay = Math.random() * 3.0;
       aiComp.hue = this.hue;
 
       const transforms = ctx.stores.get<TransformComponent>("transform");

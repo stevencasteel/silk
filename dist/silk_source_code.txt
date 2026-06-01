@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/1/2026, 12:20:08 PM
+ [SYSTEM] Generated: 6/1/2026, 3:07:35 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -18,6 +18,19 @@
 ├── node_modules/ (contents skipped)
 ├── public/
 │   ├── sfx/
+│   │   ├── audacity/
+│   │   │   ├── ANMLAmph-One_short_frog_tongu-Elevenlabs.mp3
+│   │   │   ├── ANMLFarm-Sudden_wet_cow_lick_-Elevenlabs.mp3
+│   │   │   ├── boss_boing.aup3
+│   │   │   ├── FEETHmn-Duration_3-5_seconds-Elevenlabs.mp3
+│   │   │   ├── FOLYMisc-A_large,_wet_bubble_-Elevenlabs.mp3
+│   │   │   ├── FOLYMisc-High-quality_foley_s-Elevenlabs.mp3
+│   │   │   ├── GOREBlood-A_short,_heavy_blood-Elevenlabs.mp3
+│   │   │   ├── GORESqsh-Wet_slimy_squelching-Elevenlabs.mp3
+│   │   │   ├── GOREStab-Parasitic_injection_-Elevenlabs.mp3
+│   │   │   ├── HMNMisc-Gross,_wet,_and_mess-Elevenlabs.mp3
+│   │   │   ├── HMNMisc-Loud_juicy_swallowin-Elevenlabs.mp3
+│   │   │   └── Wet_dragging_sound_w_#2-1780244629790.mp3
 │   │   ├── boss_boing.mp3
 │   │   ├── boss_death.mp3
 │   │   ├── fling.mp3
@@ -6744,7 +6757,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_SHOOT, (payload) => {
-        if (payload && payload.isRelease) {
+        if (payload && !payload.isRelease) {
           this.playWebShot();
         }
       })
@@ -12992,12 +13005,15 @@ export class WeaverPatrollingState implements IWeaverState {
   public readonly type: WeaverStateType = "PATROLLING";
   public readonly name = "PATROLLING CEILING";
   public readonly hue = HASH_PREFIX + VISUAL_JUICE_CONFIG.WEAVER_COLORS.SWEEPING;
+
   private shootTimer = 0.0;
   private hasTelegraphed = false;
+  private telegraphDelay = 1.4;
 
   public enter(ctx: SystemContext): void {
     this.shootTimer = 0.0;
     this.hasTelegraphed = false;
+    this.telegraphDelay = Math.random() * 3.0;
 
     const ai = ctx.stores.get<WeaverAIComponent>("weaverAI").get(ctx.refs.weaver);
     if (ai) {
@@ -13054,7 +13070,7 @@ export class WeaverPatrollingState implements IWeaverState {
     }
 
     this.shootTimer += dt;
-    const telegraphThreshold = WEAVER_AI_TUNING.SHOOT.TELEGRAPH_TIME;
+    const telegraphThreshold = this.telegraphDelay;
 
     if (this.shootTimer >= telegraphThreshold && !this.hasTelegraphed) {
       this.hasTelegraphed = true;
@@ -13088,9 +13104,10 @@ export class WeaverPatrollingState implements IWeaverState {
       }
     }
 
-    if (this.shootTimer >= WEAVER_AI_TUNING.SHOOT.RELOAD_TIME) {
+    if (this.shootTimer >= this.telegraphDelay + 1.0) {
       this.shootTimer = 0.0;
       this.hasTelegraphed = false;
+      this.telegraphDelay = Math.random() * 3.0;
       aiComp.hue = this.hue;
 
       const transforms = ctx.stores.get<TransformComponent>("transform");
