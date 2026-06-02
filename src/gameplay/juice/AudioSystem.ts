@@ -45,7 +45,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     const urls = [
       "sfx/tether_ratchet.mp3",
       "sfx/web_impact.mp3",
-      "sfx/spider_sounds.mp3",
+      "sfx/boss_hit_spider_sounds.mp3",
       "sfx/boss_boing.mp3",
       "sfx/web_shot.mp3",
       "sfx/boss_death.mp3",
@@ -272,7 +272,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
       this._ratchetPlayer = getPlayer("sfx/tether_ratchet.mp3", true, 0.05, 0.05);
       this._webImpactPlayer = getPlayer("sfx/web_impact.mp3");
-      this._spiderSoundsPlayer = getPlayer("sfx/spider_sounds.mp3");
+      this._spiderSoundsPlayer = getPlayer("sfx/boss_hit_spider_sounds.mp3");
       this._boingPlayer = getPlayer("sfx/boss_boing.mp3");
       this._webShotPlayer = getPlayer("sfx/web_shot.mp3");
       this._bossDeathPlayer = getPlayer("sfx/boss_death.mp3");
