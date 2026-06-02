@@ -1,6 +1,8 @@
 
 This is a submission to Token Game Jam 1
+
 https://itch.io/jam/token-jam-1/rate/4632624
+
 
 
 Suspended in a narrowing vertical elevator shaft, you are tethered to
@@ -26,6 +28,7 @@ Unreel tether by pressing against the wall until tightening enough tension to fl
 ▲ - Reel In Tether
 
 
+
 My Stack:
   - Framework: React
   - Language: TypeScript
@@ -41,6 +44,7 @@ My Stack:
   - Runtime Environment: Node.js
 
 
+
 Custom Tooling:
 
   - create_source_context.js script to programmatically bundle code into a single .txt file for LLM chat interfaces.
@@ -48,9 +52,11 @@ Custom Tooling:
   - ProceduralTextureGenerator.ts to  programmatically generate PBR texture maps.
 
 
+
 Deployment & CI/CD Pipeline
 
   - GitHub Actions (deploy.yml)
+
 
 
 AI: [All free except for ElevenLabs]
@@ -90,5 +96,8 @@ AI: [All free except for ElevenLabs]
 
        sfx
 
+
+
 Personal Website:
+
 https://www.stevencasteel.com/
