@@ -159,7 +159,7 @@ export class GameDirectorSystem implements ISystem {
 
   private handleKeyDown = (e: KeyboardEvent): void => {
     if (e.key.toLowerCase() === "r" && this.gameState !== "PLAYING") {
-      this.resetRequested = true;
+      this.resetGame();
     }
 
     if (
@@ -260,9 +260,10 @@ export class GameDirectorSystem implements ISystem {
     this.activeCinematic = "NONE";
     this.cinematicTimer = 0.0;
     this.adrenalineTimer = 0.0;
-    this.context.runtime.timeScale = 1.0;
+    
+    // Full match state reset (including weaverDamageCount and altitude)
+    this.context.runtime.reset();
     this.context.runtime.gameStarted = true;
-    this.context.runtime.gameFinished = false;
 
     this.cleanupGameEnd();
 

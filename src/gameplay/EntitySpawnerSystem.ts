@@ -43,16 +43,7 @@ export class EntitySpawnerSystem implements ISystem {
 
     
 
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
-        this.despawnAll();
-        Promise.all([
-          this.spawnWeaver(),
-          this.spawnPlayer()
-        ]).then(() => {
-        });
-      })
-    );
+
   }
 
   
@@ -106,17 +97,7 @@ await EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedP
     return playerId;
   }
 
-  private despawnAll(): void {
-    const weaverId = this.context.refs.weaver;
-    const playerId = this.context.refs.player;
 
-    if (weaverId !== -1) {
-      this.context.world.clearEntityComponents(weaverId);
-    }
-    if (playerId !== -1) {
-      this.context.world.clearEntityComponents(playerId);
-    }
-  }
 
   public dispose(): void {
     if (this.sharedPlayerShape) this.sharedPlayerShape.dispose();
