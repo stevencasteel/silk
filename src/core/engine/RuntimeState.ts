@@ -18,6 +18,7 @@ export class RuntimeState {
   public healthBugsSpawningAllowed: boolean = true;
   public tetherDamagePauseTimer: number = 0.0;
   public weaverDamageCount: number = 0;
+  public gameFinished: boolean = false;
 
   public get activeTimeScale(): number {
     if (this.hitLagTimer > 0) {
@@ -47,5 +48,6 @@ export class RuntimeState {
     this.healthBugsSpawningAllowed = true;
     this.tetherDamagePauseTimer = 0.0;
     this.weaverDamageCount = 0;
+    this.gameFinished = false;
   }
 }

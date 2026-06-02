@@ -143,12 +143,14 @@ export class GameDirectorSystem implements ISystem {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
         this.cleanupGameEnd();
+        this.context.runtime.gameFinished = true;
       })
     );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.cleanupGameEnd();
+        this.context.runtime.gameFinished = true;
       })
     );
 
@@ -260,6 +262,7 @@ export class GameDirectorSystem implements ISystem {
     this.adrenalineTimer = 0.0;
     this.context.runtime.timeScale = 1.0;
     this.context.runtime.gameStarted = true;
+    this.context.runtime.gameFinished = false;
 
     this.cleanupGameEnd();
 
