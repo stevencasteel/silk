@@ -3,7 +3,7 @@ This is a submission to Token Game Jam 1
 
 https://itch.io/jam/token-jam-1/rate/4632624
 
-
+---
 
 Suspended in a narrowing vertical elevator shaft, you are tethered to
 
@@ -15,7 +15,7 @@ Swing, slide, and sling to charge elastic tension, flinging yourself at the boss
 
 while dodging web-traps and wall hazards.
 
-
+---
 
 Controls:
 
@@ -27,7 +27,7 @@ Unreel tether by pressing against the wall until tightening enough tension to fl
 
 ▲ - Reel In Tether
 
-
+---
 
 My Stack:
   - Framework: React
@@ -43,7 +43,7 @@ My Stack:
   - Code Quality & Formatting: ESLint & Prettier
   - Runtime Environment: Node.js
 
-
+---
 
 Custom Tooling:
 
@@ -51,13 +51,13 @@ Custom Tooling:
  
   - ProceduralTextureGenerator.ts to  programmatically generate PBR texture maps.
 
-
+---
 
 Deployment & CI/CD Pipeline
 
   - GitHub Actions (deploy.yml)
 
-
+---
 
 AI: [All free except for ElevenLabs]
   
@@ -90,13 +90,14 @@ AI: [All free except for ElevenLabs]
        refine procedural 3D elements
   
   - ChatGPT 5.5 [https://chatgpt.com/codex/]
+  
        refine procedural 3D elements
 
   - ElevenLabs [https://elevenlabs.io/]
 
        sfx
 
-
+---
 
 Personal Website:
 
