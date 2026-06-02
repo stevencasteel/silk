@@ -32,6 +32,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _bossHitPlayer: Tone.Player | null = null;
   private _playerDeathSlowmoPlayer: Tone.Player | null = null;
   private _playerDeathRumblePlayer: Tone.Player | null = null;
+  private _webSplatPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -60,7 +61,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/web_hit_player.mp3",
       "sfx/boss_hit.mp3",
       "sfx/player_death_slowmo.mp3",
-      "sfx/player_death_rumble.mp3"
+      "sfx/player_death_rumble.mp3",
+      "sfx/web_splat.mp3"
     ];
 
     await Promise.all(
@@ -129,6 +131,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.playVictorySound();
         this.stopRatchet();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PROJECTILE_IMPACT, (payload) => {
+        if (payload && !payload.hitPlayer) {
+          this.playWebSplat();
+        }
       })
     );
 
@@ -296,6 +306,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._bossHitPlayer = getPlayer("sfx/boss_hit.mp3");
       this._playerDeathSlowmoPlayer = getPlayer("sfx/player_death_slowmo.mp3");
       this._playerDeathRumblePlayer = getPlayer("sfx/player_death_rumble.mp3");
+      this._webSplatPlayer = getPlayer("sfx/web_splat.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -515,6 +526,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
 
+  private playWebSplat(): void {
+    this.playWithVariance(this._webSplatPlayer, 120, 1.5);
+  }
+
   private playPlayerDeathSounds(): void {
     this.playWithVariance(this._playerDeathSlowmoPlayer, 50, 1.0);
     this.playWithVariance(this._playerDeathRumblePlayer, 50, 1.0);
@@ -602,6 +617,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._webBreakListener) {
       window.removeEventListener("silk-web-break", this._webBreakListener);
       this._webBreakListener = null;
+    }
+    if (this._webSplatPlayer) {
+      this._webSplatPlayer.dispose();
+      this._webSplatPlayer = null;
     }
     if (this._playerDeathSlowmoPlayer) {
       this._playerDeathSlowmoPlayer.dispose();

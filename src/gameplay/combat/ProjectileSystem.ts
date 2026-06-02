@@ -266,7 +266,8 @@ export class ProjectileSystem implements ISystem {
       sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
         x: trans.x,
         y: trans.y,
-        isWall: false
+        isWall: false,
+        hitPlayer: true
       });
 
       sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
@@ -368,7 +369,8 @@ export class ProjectileSystem implements ISystem {
     sysCtx.broker.publish(GameEvent.PROJECTILE_IMPACT, {
       x: trans.x,
       y: trans.y,
-      isWall: false
+      isWall: false,
+      hitPlayer: true
     });
 
     sysCtx.broker.publish(GameEvent.CAMERA_SHAKE_TRIGGERED, {
@@ -578,6 +580,12 @@ vel.y = (dy / dist) * speed;
             const combinedRadius = 0.9 + 2.0;
 
             if (dist < combinedRadius) {
+              this.context.broker.publish(GameEvent.PROJECTILE_IMPACT, {
+                x: trans.x,
+                y: trans.y,
+                isWall: false
+              });
+
               if (p.isRed) {
                 hBug.state = "DEAD";
                 hitRedBug = true;

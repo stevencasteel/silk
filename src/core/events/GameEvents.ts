@@ -65,7 +65,7 @@ export interface GameEventMap {
   [GameEvent.PLAYER_LANDED]: { x: number; y: number };
   [GameEvent.PLAYER_WALL_HIT]: { x: number; y: number; wallNormalX: number };
   [GameEvent.WEAVER_WALL_HIT]: { x: number; y: number; wallNormalX: number };
-  [GameEvent.PROJECTILE_IMPACT]: { x: number; y: number; isWall: boolean };
+  [GameEvent.PROJECTILE_IMPACT]: { x: number; y: number; isWall: boolean; hitPlayer?: boolean };
   [GameEvent.PLAYER_INPUT_KEY_STATE_CHANGED]: { key: string; code: string; pressed: boolean };
   [GameEvent.UI_CALIBRATION_STEP_CHANGED]: { step: number };
   [GameEvent.WEAVER_BOUNCED]: void;
