@@ -91,7 +91,6 @@ const MenuButton: React.FC<MenuButtonProps> = ({
   const isDefeat = theme === "DEFEATED";
   const activeColorClass = isDefeat ? "led-red" : "led-green";
   const focusBorderColor = isDefeat ? "border-red-500/80" : "border-emerald-500/80";
-  const focusTextColor = isDefeat ? "text-red-400" : "text-emerald-400";
   const focusShadow = isDefeat
     ? "0 0 15px rgba(239, 68, 68, 0.15), inset 0 0 8px rgba(239, 68, 68, 0.1), 6px 6px 18px rgba(0, 0, 0, 0.95)"
     : "0 0 15px rgba(16, 185, 129, 0.15), inset 0 0 8px rgba(16, 185, 129, 0.1), 6px 6px 18px rgba(0, 0, 0, 0.95)";
