@@ -1,5 +1,5 @@
 ===========================================================================
-  STEVEN CASTEEL // PROJECT SILK ENGINE
+  STEVEN CASTEEL // SILK
   AI Terminal Execution & Development Guidelines
 ===========================================================================
 

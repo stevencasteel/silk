@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayerStore, useWeaverStore, useOverlayStore, useInputStore } from "./hudStore";
 import { useShallow } from "zustand/react/shallow";
-import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Package, Layers, Loader2, Lock, Unlock, Check, Monitor } from "lucide-react";
+import { Trophy, Skull, RotateCcw, Trash2, Heart, ShieldAlert, Cpu, Package, Layers, Loader2, Lock, Unlock, Check, Monitor, Download } from "lucide-react";
 import { useCursorStore } from "../cursor/useCursorStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -52,6 +52,87 @@ const LOADING_STEPS = [
   { id: 3, label: "Render Pipeline", sub: "Compiling shaders and UI", icon: Monitor }
 ];
 
+function GithubIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      stroke="currentColor"
+      strokeWidth="2.5"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+    </svg>
+  );
+}
+
+interface MenuButtonProps {
+  isFocused: boolean;
+  onClick: () => void;
+  onMouseEnter: () => void;
+  leftIcon: React.ReactNode;
+  mainLabel: string;
+  theme: "VICTORY" | "DEFEATED";
+  style?: React.CSSProperties;
+}
+
+const MenuButton: React.FC<MenuButtonProps> = ({
+  isFocused,
+  onClick,
+  onMouseEnter,
+  leftIcon,
+  mainLabel,
+  theme,
+  style
+}) => {
+  const isDefeat = theme === "DEFEATED";
+  const activeColorClass = isDefeat ? "led-red" : "led-green";
+  const focusBorderColor = isDefeat ? "border-red-500/80" : "border-emerald-500/80";
+  const focusTextColor = isDefeat ? "text-red-400" : "text-emerald-400";
+  const focusShadow = isDefeat
+    ? "0 0 15px rgba(239, 68, 68, 0.15), inset 0 0 8px rgba(239, 68, 68, 0.1), 6px 6px 18px rgba(0, 0, 0, 0.95)"
+    : "0 0 15px rgba(16, 185, 129, 0.15), inset 0 0 8px rgba(16, 185, 129, 0.1), 6px 6px 18px rgba(0, 0, 0, 0.95)";
+
+  return (
+    <motion.button
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={() => useCursorStore.getState().setCursorType("default")}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      animate={isFocused ? { scale: 1.02 } : { scale: 1.0 }}
+      transition={{ type: "spring", stiffness: 450, damping: 14 }}
+      className={`flex items-center justify-start bg-[#0f1218] border border-white/[0.03] py-3.5 px-5 rounded-xl cursor-pointer outline-none transition-all duration-150 ${
+        isFocused 
+          ? `bg-[#0c0e12] ${focusBorderColor}` 
+          : "hover:bg-[#141922] hover:border-white/[0.08]"
+      }`}
+      style={{
+        ...style,
+        boxShadow: isFocused ? focusShadow : "none"
+      }}
+    >
+      <div 
+        className={`w-2 h-2 rounded-full mr-4 border border-black/50 transition-all duration-150 flex-shrink-0 ${
+          isFocused ? activeColorClass : "bg-[#1e2430]"
+        }`}
+      />
+
+      <div className="flex items-center gap-2.5 flex-grow overflow-hidden select-none">
+        <span className={`text-[12px] font-extrabold tracking-widest uppercase transition-colors duration-150 flex items-center gap-2.5 ${
+          isFocused ? "text-white" : "text-zinc-400"
+        }`}>
+          {leftIcon}
+          <span>{mainLabel}</span>
+        </span>
+      </div>
+    </motion.button>
+  );
+};
+
 export const HudOverlay: React.FC = () => {
   const [isWebBreaking, setIsWebBreaking] = useState<boolean>(false);
 
@@ -68,6 +149,7 @@ export const HudOverlay: React.FC = () => {
       window.removeEventListener("silk-web-break", handleWebBreak);
     };
   }, []);
+
   const playerState = usePlayerStore(
     useShallow((s) => ({
       playerHp: s.playerHp,
@@ -75,8 +157,7 @@ export const HudOverlay: React.FC = () => {
       tetherDamage: s.tetherDamage
     }))
   );
-  const { playerHp, isWebTrapped, tetherDamage } =
-    playerState;
+  const { playerHp, isWebTrapped, tetherDamage } = playerState;
 
   const weaverState = useWeaverStore(
     useShallow((s) => ({
@@ -137,6 +218,7 @@ export const HudOverlay: React.FC = () => {
       publishEvent(GameEvent.UI_SFX_REVEAL, undefined);
     }
   }, [staggerPhase, overlayVisible, publishEvent]);
+
   const [tickerWins, setTickerWins] = useState<number>(0);
   const [tickerLosses, setTickerLosses] = useState<number>(0);
 
@@ -204,6 +286,16 @@ export const HudOverlay: React.FC = () => {
     setTickerWins(0);
     setTickerLosses(0);
   }, []);
+
+  const handleDownloadSource = useCallback(() => {
+    playConfirmSynth();
+    const link = document.createElement("a");
+    link.href = "./silk_source_code.txt";
+    link.download = "silk_source_code.txt";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [playConfirmSynth]);
 
   useEffect(() => {
     if (calibrationStep > displayedStep) {
@@ -326,7 +418,6 @@ export const HudOverlay: React.FC = () => {
     }
   }, [bootStatus, awaitingGesture, playConfirmSynth, publishEvent]);
 
-  // Handle specific keys to progress once fully loaded
   useEffect(() => {
     if (bootStatus === "READY" && awaitingGesture) {
       const handleStartOnKey = (e: KeyboardEvent) => {
@@ -354,19 +445,23 @@ export const HudOverlay: React.FC = () => {
       if (isMoveLeft || isMoveUp) {
         e.preventDefault();
         playTickSynth();
-        setMenuIndex((menuIndex - 1 + 2) % 2);
+        setMenuIndex((menuIndex - 1 + 4) % 4);
       } else if (isMoveRight || isMoveDown) {
         e.preventDefault();
         playTickSynth();
-        setMenuIndex((menuIndex + 1) % 2);
+        setMenuIndex((menuIndex + 1) % 4);
       } else if (code === "Enter") {
         e.preventDefault();
         playConfirmSynth();
         if (menuIndex === 0) {
           handleProceed();
           handleRetryClick();
-        } else {
+        } else if (menuIndex === 1) {
           handleClearStats();
+        } else if (menuIndex === 2) {
+          window.open("https://github.com/stevencasteel/silk", "_blank");
+        } else if (menuIndex === 3) {
+          handleDownloadSource();
         }
       }
     };
@@ -381,7 +476,8 @@ export const HudOverlay: React.FC = () => {
     playConfirmSynth,
     handleRetryClick,
     handleClearStats,
-    handleProceed
+    handleProceed,
+    handleDownloadSource
   ]);
 
   useEffect(() => {
@@ -585,7 +681,6 @@ export const HudOverlay: React.FC = () => {
       {showBootScreen ? (
         <div className="overlay-root backdrop-blur-active font-mono pointer-events-auto flex flex-col justify-between items-center p-6 sm:p-8">
           
-          {/* Top Section: Description */}
           <div className="w-full max-w-sm flex flex-col items-center text-center mt-4">
             <div className="p-4 rounded-xl border border-white/5 bg-[#0c0e12]/60 backdrop-blur-sm shadow-lg">
               <p className="text-[10px] sm:text-xs text-zinc-400 tracking-wide leading-relaxed select-none">
@@ -618,7 +713,6 @@ export const HudOverlay: React.FC = () => {
             </div>
           </div>
 
-          {/* Middle Section: Loading Subsystems List & Progress */}
           <div className="w-full max-w-sm flex flex-col gap-4 my-6 p-6 rounded-2xl bg-[#0c0e12] border border-white/5 shadow-2xl"
                style={{ boxShadow: "-8px -8px 24px rgba(255,255,255,0.02), 12px 12px 36px rgba(0,0,0,0.85)" }}>
             <h2 className="text-zinc-500 font-bold uppercase tracking-[0.25em] text-[10px] text-center select-none">
@@ -642,7 +736,6 @@ export const HudOverlay: React.FC = () => {
                     }`}
                     style={isActive ? { boxShadow: "inset 2px 2px 5px rgba(0,0,0,0.5), 0 0 10px rgba(16,185,129,0.1)" } : {}}>
                       
-                      {/* Icon Switcher Layer */}
                       <div className="relative w-4 h-4 flex items-center justify-center">
                         <AnimatePresence mode="wait">
                           {isActive ? (
@@ -658,7 +751,6 @@ export const HudOverlay: React.FC = () => {
                             </motion.div>
                           ) : isCompleted ? (
                             <div className="relative w-4 h-4 flex items-center justify-center">
-                              {/* Swish Checkmark Overlay */}
                               <motion.div
                                 key="checkmark-swish"
                                 initial={{ scale: 0, opacity: 0 }}
@@ -675,7 +767,6 @@ export const HudOverlay: React.FC = () => {
                               >
                                 <Check size={16} className="stroke-[3]" />
                               </motion.div>
-                              {/* Final Default Icon Reveal */}
                               <motion.div
                                 key="revealed-icon"
                                 initial={{ scale: 0, opacity: 0 }}
@@ -704,7 +795,6 @@ export const HudOverlay: React.FC = () => {
                         </AnimatePresence>
                       </div>
 
-                      {/* Ping LED - active only during loading of that step */}
                       {isActive && (
                         <div className="absolute -top-1 -right-1 flex items-center justify-center w-2.5 h-2.5">
                           <div className="absolute w-full h-full rounded-full bg-emerald-500 animate-ping opacity-75" />
@@ -726,7 +816,6 @@ export const HudOverlay: React.FC = () => {
               })}
             </div>
 
-            {/* Kinetic Spring Progress Bar */}
             <div className="relative w-full h-2 rounded-full bg-[#07080b] border border-white/[0.02] p-0.5 overflow-hidden shadow-inner mt-2">
               <motion.div
                 className="h-full rounded-full bg-emerald-500"
@@ -744,7 +833,6 @@ export const HudOverlay: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Section: Action Gate Button (Locked / Unlocked) */}
           <div className="w-full max-w-sm mb-6 px-2">
             {isFullyLoaded ? (
               <motion.button
@@ -1111,7 +1199,6 @@ export const HudOverlay: React.FC = () => {
                   }}
                 />
 
-                {/* Explicit dividing boundaries between Stages 1, 2, and 3 */}
                 <div
                   style={{
                     position: "absolute",
@@ -1127,7 +1214,6 @@ export const HudOverlay: React.FC = () => {
                   }}
                 />
 
-                {/* Highly legible stage identifiers centered in each zone */}
                 <div
                   style={{
                     position: "absolute",
@@ -1229,9 +1315,9 @@ export const HudOverlay: React.FC = () => {
 
       <AnimatePresence>
         {overlayVisible && (
-          <div className="overlay-root backdrop-wipe-active pointer-events-auto overflow-hidden">
-            {/* Confetti canvas layered above the dark blur but below the card */}
+          <div className="overlay-root backdrop-wipe-active pointer-events-auto overflow-hidden flex flex-col justify-center items-center gap-4">
             <canvas id="confetti-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }} />
+            
             <motion.div
               layout
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1386,6 +1472,46 @@ export const HudOverlay: React.FC = () => {
                 </>
               )}
             </motion.div>
+
+            {staggerPhase >= 3 && (
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 15 }}
+                transition={{ type: "spring", stiffness: 220, damping: 26, delay: 0.1 }}
+                className={`overlay-modal relative z-10 !p-3 sm:!p-4 ${overlayTitle === "DEFEATED" ? "defeat-border" : "victory-border"}`}
+              >
+                <div className="gameover-btn-container w-full flex flex-row gap-4">
+                  <MenuButton
+                    isFocused={menuIndex === 2}
+                    onClick={() => window.open("https://github.com/stevencasteel/silk", "_blank")}
+                    onMouseEnter={() => {
+                      setMenuIndex(2);
+                      playTickSynth();
+                      useCursorStore.getState().setCursorType("button");
+                    }}
+                    leftIcon={<GithubIcon />}
+                    mainLabel="GITHUB"
+                    theme={overlayTitle as "VICTORY" | "DEFEATED"}
+                    style={{ flex: "0 0 calc(40% - 8px)" }}
+                  />
+
+                  <MenuButton
+                    isFocused={menuIndex === 3}
+                    onClick={handleDownloadSource}
+                    onMouseEnter={() => {
+                      setMenuIndex(3);
+                      playTickSynth();
+                      useCursorStore.getState().setCursorType("button");
+                    }}
+                    leftIcon={<Download size={14} strokeWidth={2.5} />}
+                    mainLabel="DOWNLOAD .TXT"
+                    theme={overlayTitle as "VICTORY" | "DEFEATED"}
+                    style={{ flex: "0 0 calc(60% - 8px)" }}
+                  />
+                </div>
+              </motion.div>
+            )}
           </div>
         )}
       </AnimatePresence>
