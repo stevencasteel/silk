@@ -30,6 +30,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _webBreakListener: (() => void) | null = null;
   private _webHitPlayerPlayer: Tone.Player | null = null;
   private _bossHitPlayer: Tone.Player | null = null;
+  private _playerDeathSlowmoPlayer: Tone.Player | null = null;
+  private _playerDeathRumblePlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -56,7 +58,9 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/crowd_defeat.mp3",
       "sfx/web_break.mp3",
       "sfx/web_hit_player.mp3",
-      "sfx/boss_hit.mp3"
+      "sfx/boss_hit.mp3",
+      "sfx/player_death_slowmo.mp3",
+      "sfx/player_death_rumble.mp3"
     ];
 
     await Promise.all(
@@ -125,6 +129,12 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.playVictorySound();
         this.stopRatchet();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        this.playPlayerDeathSounds();
       })
     );
 
@@ -284,6 +294,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._webBreakPlayer = getPlayer("sfx/web_break.mp3");
       this._webHitPlayerPlayer = getPlayer("sfx/web_hit_player.mp3");
       this._bossHitPlayer = getPlayer("sfx/boss_hit.mp3");
+      this._playerDeathSlowmoPlayer = getPlayer("sfx/player_death_slowmo.mp3");
+      this._playerDeathRumblePlayer = getPlayer("sfx/player_death_rumble.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -503,6 +515,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
 
+  private playPlayerDeathSounds(): void {
+    this.playWithVariance(this._playerDeathSlowmoPlayer, 50, 1.0);
+    this.playWithVariance(this._playerDeathRumblePlayer, 50, 1.0);
+  }
+
   private playBossHit(): void {
     this.playWithVariance(this._bossHitPlayer, 120, 1.5);
   }
@@ -585,6 +602,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._webBreakListener) {
       window.removeEventListener("silk-web-break", this._webBreakListener);
       this._webBreakListener = null;
+    }
+    if (this._playerDeathSlowmoPlayer) {
+      this._playerDeathSlowmoPlayer.dispose();
+      this._playerDeathSlowmoPlayer = null;
+    }
+    if (this._playerDeathRumblePlayer) {
+      this._playerDeathRumblePlayer.dispose();
+      this._playerDeathRumblePlayer = null;
     }
     if (this._bossHitPlayer) {
       this._bossHitPlayer.dispose();

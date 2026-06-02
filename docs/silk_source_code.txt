@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/2/2026, 12:29:14 PM
+ [SYSTEM] Generated: 6/2/2026, 12:55:31 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -26,6 +26,8 @@
 │   │   ├── crowd_victory.mp3
 │   │   ├── fling.mp3
 │   │   ├── health_bug_rupture.mp3
+│   │   ├── player_death_rumble.mp3
+│   │   ├── player_death_slowmo.mp3
 │   │   ├── stuck-in-web-shot_stick-to-surface.mp3
 │   │   ├── tether_ratchet.mp3
 │   │   ├── touched_spike.mp3
@@ -39,9 +41,11 @@
 ├── raw_assets/
 │   └── audacity/
 │       ├── boss_boing.aup3
+│       ├── boss_death.aup3
 │       ├── boss_hit.aup3
 │       ├── crowd_defeat.aup3
 │       ├── crowd_victory.aup3
+│       ├── player_death_rumble.mp3
 │       ├── web_break.aup3
 │       ├── web_hit_player.aup3
 │       └── web_shot.aup3
@@ -6920,6 +6924,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _webBreakListener: (() => void) | null = null;
   private _webHitPlayerPlayer: Tone.Player | null = null;
   private _bossHitPlayer: Tone.Player | null = null;
+  private _playerDeathSlowmoPlayer: Tone.Player | null = null;
+  private _playerDeathRumblePlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -6946,7 +6952,9 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/crowd_defeat.mp3",
       "sfx/web_break.mp3",
       "sfx/web_hit_player.mp3",
-      "sfx/boss_hit.mp3"
+      "sfx/boss_hit.mp3",
+      "sfx/player_death_slowmo.mp3",
+      "sfx/player_death_rumble.mp3"
     ];
 
     await Promise.all(
@@ -7015,6 +7023,12 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.playVictorySound();
         this.stopRatchet();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
+        this.playPlayerDeathSounds();
       })
     );
 
@@ -7174,6 +7188,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._webBreakPlayer = getPlayer("sfx/web_break.mp3");
       this._webHitPlayerPlayer = getPlayer("sfx/web_hit_player.mp3");
       this._bossHitPlayer = getPlayer("sfx/boss_hit.mp3");
+      this._playerDeathSlowmoPlayer = getPlayer("sfx/player_death_slowmo.mp3");
+      this._playerDeathRumblePlayer = getPlayer("sfx/player_death_rumble.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -7393,6 +7409,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
 
+  private playPlayerDeathSounds(): void {
+    this.playWithVariance(this._playerDeathSlowmoPlayer, 50, 1.0);
+    this.playWithVariance(this._playerDeathRumblePlayer, 50, 1.0);
+  }
+
   private playBossHit(): void {
     this.playWithVariance(this._bossHitPlayer, 120, 1.5);
   }
@@ -7475,6 +7496,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._webBreakListener) {
       window.removeEventListener("silk-web-break", this._webBreakListener);
       this._webBreakListener = null;
+    }
+    if (this._playerDeathSlowmoPlayer) {
+      this._playerDeathSlowmoPlayer.dispose();
+      this._playerDeathSlowmoPlayer = null;
+    }
+    if (this._playerDeathRumblePlayer) {
+      this._playerDeathRumblePlayer.dispose();
+      this._playerDeathRumblePlayer = null;
     }
     if (this._bossHitPlayer) {
       this._bossHitPlayer.dispose();
