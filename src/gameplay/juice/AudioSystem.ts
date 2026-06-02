@@ -54,7 +54,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/boss_death.mp3",
       "sfx/health_bug_rupture.mp3",
       "sfx/touched_spike.mp3",
-      "sfx/fling.mp3",
+      "sfx/player_fling.mp3",
       "sfx/crowd_victory.mp3",
       "sfx/crowd_defeat.mp3",
       "sfx/web_break.mp3",
@@ -298,7 +298,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._bossDeathPlayer = getPlayer("sfx/boss_death.mp3");
       this._healthBugRupturePlayer = getPlayer("sfx/health_bug_rupture.mp3");
       this._touchedSpikePlayer = getPlayer("sfx/touched_spike.mp3");
-      this._flingPlayer = getPlayer("sfx/fling.mp3");
+      this._flingPlayer = getPlayer("sfx/player_fling.mp3");
       this._crowdVictoryPlayer = getPlayer("sfx/crowd_victory.mp3", false, 0, 1.0);
       this._crowdDefeatPlayer = getPlayer("sfx/crowd_defeat.mp3", false, 0, 1.0);
       this._webBreakPlayer = getPlayer("sfx/web_break.mp3");
