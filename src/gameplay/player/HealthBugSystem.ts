@@ -19,6 +19,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
+import { MaterializeImplosionStrategy } from "../juice/ParticleStrategies";
 import { HealthBugPool } from "./HealthBugPool";
 import * as BABYLON from "@babylonjs/core";
 
@@ -590,9 +591,23 @@ export class HealthBugSystem implements ISystem {
     const chosenVariant = variants[Math.floor(Math.random() * variants.length)];
     const calculatedPauseY = cameraY - 4.0 + Math.random() * 12.0;
 
-    const bugId = this.pool.acquire(startX, startY, calculatedPauseY, chosenVariant);
+const bugId = this.pool.acquire(startX, startY, calculatedPauseY, chosenVariant);
     if (bugId !== -1) {
       this.lastSpawnedX = startX;
+
+      const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+      if (reqStore) {
+        const reqId = this.context.world.create();
+        const color = chosenVariant === "NORMAL" 
+          ? new BABYLON.Color3(0.0, 1.0, 0.05)
+          : new BABYLON.Color3(0.95, 0.12, 0.12);
+        reqStore.add(reqId, {
+          strategy: new MaterializeImplosionStrategy(color),
+          x: startX,
+          y: startY,
+          z: 1.5
+        });
+      }
     }
   }
 

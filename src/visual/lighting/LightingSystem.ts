@@ -17,8 +17,11 @@ export class LightingSystem implements ISystem {
   private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0);
   private currentColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
-  private flashTimer = 0.0;
+private flashTimer = 0.0;
   private isFlashing = false;
+
+  private duckIntensity = 1.0;
+  private sceneLights: { light: BABYLON.Light; baseIntensity: number }[] = [];
 
   constructor(private context: SystemContext) {}
 
@@ -58,6 +61,13 @@ export class LightingSystem implements ISystem {
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.3, 0.3, 0.3);
 
+    // Cache all other existing environment lights
+    scene.lights.forEach((light) => {
+      if (light !== this.weaverLight && light !== this.weaverKeyLight && light !== this.weaverKeyLight) {
+        this.sceneLights.push({ light, baseIntensity: light.intensity });
+      }
+    });
+
     // Add fill lights distributed throughout the arena for uniform lighting
     const fillLightPositions = [
       new BABYLON.Vector3(-8, 20, -8),
@@ -83,9 +93,25 @@ export class LightingSystem implements ISystem {
       this.fillLights.push(fillLight);
     }
 
-    this._tracker.add(
+this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         this.setWeaverPhaseHue(payload.hue);
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, (payload) => {
+        if (payload && payload.amount >= 25) {
+          this.duckIntensity = 0.15;
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, (payload) => {
+        if (payload && payload.amount > 0 && payload.source !== "TETHER_SNAP") {
+          this.duckIntensity = 0.15;
+        }
       })
     );
 
@@ -103,7 +129,25 @@ export class LightingSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    if (!this.weaverLight) return;
+if (!this.weaverLight) return;
+
+    if (this.duckIntensity < 1.0) {
+      this.duckIntensity = Math.min(1.0, this.duckIntensity + dt * 5.0);
+    }
+
+    // Duck PBR Environment intensity
+    const scene = this.context.visualQuery.getScene();
+    if (scene) {
+      scene.environmentIntensity = 1.45 * this.duckIntensity;
+    }
+
+    // Duck direct lights
+    for (let i = 0; i < this.sceneLights.length; i++) {
+      const item = this.sceneLights[i];
+      if (item.light && !item.light.isDisposed) {
+        item.light.intensity = item.baseIntensity * this.duckIntensity;
+      }
+    }
 
     const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
     if (weaverNode) {

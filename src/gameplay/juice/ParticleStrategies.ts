@@ -245,3 +245,33 @@ export class MuzzleFlashStrategy implements IParticleEmitterStrategy {
     }
   }
 }
+
+export class MaterializeImplosionStrategy implements IParticleEmitterStrategy {
+  constructor(private color: BABYLON.Color3 = new BABYLON.Color3(1, 1, 1)) {}
+
+  public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
+    const tempVel = new BABYLON.Vector3();
+    const count = 24;
+    const duration = 0.45;
+
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * Math.random() - 1.0);
+      const radius = 3.0 + Math.random() * 1.5;
+
+      const sx = Math.sin(phi) * Math.cos(theta) * radius;
+      const sy = Math.sin(phi) * Math.sin(theta) * radius;
+      const sz = Math.cos(phi) * radius;
+
+      const startPos = new BABYLON.Vector3(position.x + sx, position.y + sy, position.z + sz);
+
+      const vx = -sx / duration;
+      const vy = -sy / duration;
+      const vz = -sz / duration;
+
+      tempVel.set(vx, vy, vz);
+
+      context.emitRawParticle(startPos, tempVel, duration, this.color);
+    }
+  }
+}

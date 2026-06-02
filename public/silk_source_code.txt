@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/2/2026, 11:21:17 AM
+ [SYSTEM] Generated: 6/2/2026, 11:32:01 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -4685,6 +4685,8 @@ import { EntityId } from "../core/ecs/Entity";
 import { SystemContext } from "../core/engine/SystemContext";
 import { ARENA_CONFIG } from "../core/engine/ArenaConfig";
 import { EntityAssembler } from "./EntityAssembler";
+import { ParticleRequestComponent } from "../core/ecs/Components";
+import { MaterializeImplosionStrategy } from "./juice/ParticleStrategies";
 import { GameEvent } from "../core/events/GameEvents";
 import { SubscriptionTracker } from "../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
@@ -4743,8 +4745,19 @@ export class EntitySpawnerSystem implements ISystem {
     const weaverId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(weaverId);
 
-    await EntityAssembler.assembleWeaver(this.context, weaverId, scene);
+await EntityAssembler.assembleWeaver(this.context, weaverId, scene);
     this.context.refs.weaver = weaverId;
+
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      const reqId = this.context.world.create();
+      reqStore.add(reqId, {
+        strategy: new MaterializeImplosionStrategy(new BABYLON.Color3(1.0, 0.0, 0.5)),
+        x: 0,
+        y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
+        z: 0
+      });
+    }
 
     return weaverId;
   }
@@ -4756,8 +4769,20 @@ export class EntitySpawnerSystem implements ISystem {
     const playerId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(playerId);
 
-    await EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedPlayerShape);
+await EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedPlayerShape);
     this.context.refs.player = playerId;
+
+    const initialY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - ARENA_CONFIG.TETHER.INITIAL_LENGTH;
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      const reqId = this.context.world.create();
+      reqStore.add(reqId, {
+        strategy: new MaterializeImplosionStrategy(new BABYLON.Color3(0.9, 0.95, 1.0)),
+        x: 0,
+        y: initialY,
+        z: 0
+      });
+    }
 
     return playerId;
   }
@@ -7887,6 +7912,36 @@ export class MuzzleFlashStrategy implements IParticleEmitterStrategy {
   }
 }
 
+export class MaterializeImplosionStrategy implements IParticleEmitterStrategy {
+  constructor(private color: BABYLON.Color3 = new BABYLON.Color3(1, 1, 1)) {}
+
+  public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
+    const tempVel = new BABYLON.Vector3();
+    const count = 24;
+    const duration = 0.45;
+
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * Math.random() - 1.0);
+      const radius = 3.0 + Math.random() * 1.5;
+
+      const sx = Math.sin(phi) * Math.cos(theta) * radius;
+      const sy = Math.sin(phi) * Math.sin(theta) * radius;
+      const sz = Math.cos(phi) * radius;
+
+      const startPos = new BABYLON.Vector3(position.x + sx, position.y + sy, position.z + sz);
+
+      const vx = -sx / duration;
+      const vy = -sy / duration;
+      const vz = -sz / duration;
+
+      tempVel.set(vx, vy, vz);
+
+      context.emitRawParticle(startPos, tempVel, duration, this.color);
+    }
+  }
+}
+
 
 
 ● ./src/gameplay/juice/ProceduralAmbienceEngine.ts
@@ -9127,6 +9182,7 @@ import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
 import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
 import { PlayerStateUtils } from "./states/PlayerStateUtils";
+import { MaterializeImplosionStrategy } from "../juice/ParticleStrategies";
 import { HealthBugPool } from "./HealthBugPool";
 import * as BABYLON from "@babylonjs/core";
 
@@ -9698,9 +9754,23 @@ export class HealthBugSystem implements ISystem {
     const chosenVariant = variants[Math.floor(Math.random() * variants.length)];
     const calculatedPauseY = cameraY - 4.0 + Math.random() * 12.0;
 
-    const bugId = this.pool.acquire(startX, startY, calculatedPauseY, chosenVariant);
+const bugId = this.pool.acquire(startX, startY, calculatedPauseY, chosenVariant);
     if (bugId !== -1) {
       this.lastSpawnedX = startX;
+
+      const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+      if (reqStore) {
+        const reqId = this.context.world.create();
+        const color = chosenVariant === "NORMAL" 
+          ? new BABYLON.Color3(0.0, 1.0, 0.05)
+          : new BABYLON.Color3(0.95, 0.12, 0.12);
+        reqStore.add(reqId, {
+          strategy: new MaterializeImplosionStrategy(color),
+          x: startX,
+          y: startY,
+          z: 1.5
+        });
+      }
     }
   }
 
@@ -10447,8 +10517,10 @@ import {
   SpikeBugComponent,
   StickySurfaceComponent,
   ProjectileComponent,
-  HealthComponent
+  HealthComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
+import { MaterializeImplosionStrategy } from "../juice/ParticleStrategies";
 import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
@@ -10679,7 +10751,18 @@ export class SpikeBugSystem implements ISystem {
           speed: -4.25
         });
 
-        pBug.active = true;
+pBug.active = true;
+
+        const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+        if (reqStore) {
+          const reqId = this.context.world.create();
+          reqStore.add(reqId, {
+            strategy: new MaterializeImplosionStrategy(new BABYLON.Color3(0.95, 0.12, 0.12)),
+            x: startX,
+            y: startY,
+            z: 0
+          });
+        }
       }
 
       private recycleBug(pBug: PooledSpikeBug): void {
@@ -11163,8 +11246,10 @@ import {
   WallBugComponent,
   StickySurfaceComponent,
   ProjectileComponent,
-  HealthComponent
+  HealthComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
+import { MaterializeImplosionStrategy } from "../juice/ParticleStrategies";
 
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -11436,10 +11521,24 @@ export class WallBugSystem implements ISystem {
       }
     });
 
-    pBug.active = true;
+pBug.active = true;
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
     triggerMeshFadeIn(pBug.rootNode, 0.4);
+
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      const reqId = this.context.world.create();
+      const color = spikedSide === "NONE"
+        ? new BABYLON.Color3(0.027, 0.431, 0.749)
+        : new BABYLON.Color3(0.95, 0.12, 0.12);
+      reqStore.add(reqId, {
+        strategy: new MaterializeImplosionStrategy(color),
+        x: startX,
+        y: startY,
+        z: 0
+      });
+    }
   }
 
   private recycleBug(pBug: PooledBug): void {
@@ -18035,8 +18134,11 @@ export class LightingSystem implements ISystem {
   private targetColor = new BABYLON.Color3(1.0, 1.0, 1.0);
   private currentColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
-  private flashTimer = 0.0;
+private flashTimer = 0.0;
   private isFlashing = false;
+
+  private duckIntensity = 1.0;
+  private sceneLights: { light: BABYLON.Light; baseIntensity: number }[] = [];
 
   constructor(private context: SystemContext) {}
 
@@ -18076,6 +18178,13 @@ export class LightingSystem implements ISystem {
     this.rimLight.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
     this.rimLight.specular = new BABYLON.Color3(0.3, 0.3, 0.3);
 
+    // Cache all other existing environment lights
+    scene.lights.forEach((light) => {
+      if (light !== this.weaverLight && light !== this.weaverKeyLight && light !== this.weaverKeyLight) {
+        this.sceneLights.push({ light, baseIntensity: light.intensity });
+      }
+    });
+
     // Add fill lights distributed throughout the arena for uniform lighting
     const fillLightPositions = [
       new BABYLON.Vector3(-8, 20, -8),
@@ -18101,9 +18210,25 @@ export class LightingSystem implements ISystem {
       this.fillLights.push(fillLight);
     }
 
-    this._tracker.add(
+this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, (payload) => {
         this.setWeaverPhaseHue(payload.hue);
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, (payload) => {
+        if (payload && payload.amount >= 25) {
+          this.duckIntensity = 0.15;
+        }
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, (payload) => {
+        if (payload && payload.amount > 0 && payload.source !== "TETHER_SNAP") {
+          this.duckIntensity = 0.15;
+        }
       })
     );
 
@@ -18121,7 +18246,25 @@ export class LightingSystem implements ISystem {
   }
 
   public update(dt: number): void {
-    if (!this.weaverLight) return;
+if (!this.weaverLight) return;
+
+    if (this.duckIntensity < 1.0) {
+      this.duckIntensity = Math.min(1.0, this.duckIntensity + dt * 5.0);
+    }
+
+    // Duck PBR Environment intensity
+    const scene = this.context.visualQuery.getScene();
+    if (scene) {
+      scene.environmentIntensity = 1.45 * this.duckIntensity;
+    }
+
+    // Duck direct lights
+    for (let i = 0; i < this.sceneLights.length; i++) {
+      const item = this.sceneLights[i];
+      if (item.light && !item.light.isDisposed) {
+        item.light.intensity = item.baseIntensity * this.duckIntensity;
+      }
+    }
 
     const weaverNode = this.context.visualQuery.getTransformNode(this.context.refs.weaver);
     if (weaverNode) {

@@ -4,6 +4,8 @@ import { EntityId } from "../core/ecs/Entity";
 import { SystemContext } from "../core/engine/SystemContext";
 import { ARENA_CONFIG } from "../core/engine/ArenaConfig";
 import { EntityAssembler } from "./EntityAssembler";
+import { ParticleRequestComponent } from "../core/ecs/Components";
+import { MaterializeImplosionStrategy } from "./juice/ParticleStrategies";
 import { GameEvent } from "../core/events/GameEvents";
 import { SubscriptionTracker } from "../core/utils/EngineUtils";
 import * as BABYLON from "@babylonjs/core";
@@ -62,8 +64,19 @@ export class EntitySpawnerSystem implements ISystem {
     const weaverId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(weaverId);
 
-    await EntityAssembler.assembleWeaver(this.context, weaverId, scene);
+await EntityAssembler.assembleWeaver(this.context, weaverId, scene);
     this.context.refs.weaver = weaverId;
+
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      const reqId = this.context.world.create();
+      reqStore.add(reqId, {
+        strategy: new MaterializeImplosionStrategy(new BABYLON.Color3(1.0, 0.0, 0.5)),
+        x: 0,
+        y: ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y,
+        z: 0
+      });
+    }
 
     return weaverId;
   }
@@ -75,8 +88,20 @@ export class EntitySpawnerSystem implements ISystem {
     const playerId = existingId ?? this.context.world.create();
     this.context.world.clearEntityComponents(playerId);
 
-    await EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedPlayerShape);
+await EntityAssembler.assemblePlayer(this.context, playerId, scene, this.sharedPlayerShape);
     this.context.refs.player = playerId;
+
+    const initialY = ARENA_CONFIG.VERTICAL.WEAVER_SPAWN_Y - ARENA_CONFIG.TETHER.INITIAL_LENGTH;
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      const reqId = this.context.world.create();
+      reqStore.add(reqId, {
+        strategy: new MaterializeImplosionStrategy(new BABYLON.Color3(0.9, 0.95, 1.0)),
+        x: 0,
+        y: initialY,
+        z: 0
+      });
+    }
 
     return playerId;
   }

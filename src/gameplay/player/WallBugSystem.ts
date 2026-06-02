@@ -8,8 +8,10 @@ import {
   WallBugComponent,
   StickySurfaceComponent,
   ProjectileComponent,
-  HealthComponent
+  HealthComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
+import { MaterializeImplosionStrategy } from "../juice/ParticleStrategies";
 
 import { POST_PROCESSING_PRESETS } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -281,10 +283,24 @@ export class WallBugSystem implements ISystem {
       }
     });
 
-    pBug.active = true;
+pBug.active = true;
     pBug.rootNode.position.set(startX, startY, 0);
     pBug.rootNode.setEnabled(true);
     triggerMeshFadeIn(pBug.rootNode, 0.4);
+
+    const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+    if (reqStore) {
+      const reqId = this.context.world.create();
+      const color = spikedSide === "NONE"
+        ? new BABYLON.Color3(0.027, 0.431, 0.749)
+        : new BABYLON.Color3(0.95, 0.12, 0.12);
+      reqStore.add(reqId, {
+        strategy: new MaterializeImplosionStrategy(color),
+        x: startX,
+        y: startY,
+        z: 0
+      });
+    }
   }
 
   private recycleBug(pBug: PooledBug): void {

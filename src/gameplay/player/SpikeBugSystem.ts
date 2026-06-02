@@ -8,8 +8,10 @@ import {
   SpikeBugComponent,
   StickySurfaceComponent,
   ProjectileComponent,
-  HealthComponent
+  HealthComponent,
+  ParticleRequestComponent
 } from "../../core/ecs/Components";
+import { MaterializeImplosionStrategy } from "../juice/ParticleStrategies";
 import { POST_PROCESSING_PRESETS, ARENA_CONFIG } from "../../core/engine/ArenaConfig";
 import { GameEvent } from "../../core/events/GameEvents";
 import { FaunaVisualFactory } from "../../visual/mesh/FaunaVisualFactory";
@@ -240,7 +242,18 @@ export class SpikeBugSystem implements ISystem {
           speed: -4.25
         });
 
-        pBug.active = true;
+pBug.active = true;
+
+        const reqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+        if (reqStore) {
+          const reqId = this.context.world.create();
+          reqStore.add(reqId, {
+            strategy: new MaterializeImplosionStrategy(new BABYLON.Color3(0.95, 0.12, 0.12)),
+            x: startX,
+            y: startY,
+            z: 0
+          });
+        }
       }
 
       private recycleBug(pBug: PooledSpikeBug): void {
