@@ -18,7 +18,7 @@ export class EnvironmentClampingSystem implements ISystem {
     const collisionStore = this.context.stores.get<CollisionStateComponent>("collisionState");
     const constraints = this.context.stores.get<BoundaryConstraintComponent>("boundaryConstraint");
 
-    for (const [id] of transforms.entries()) {
+    transforms.forEach((id) => {
       if (!collisionStore.has(id)) {
         collisionStore.add(id, {
           isGrounded: false,
@@ -30,13 +30,13 @@ export class EnvironmentClampingSystem implements ISystem {
           hitPointY: 0
         });
       }
-    }
+    });
 
-    for (const [id, constraint] of constraints.entries()) {
-      if (!constraint.isActive) continue;
+    constraints.forEach((id, constraint) => {
+      if (!constraint.isActive) return;
 
       const trans = transforms.get(id);
-      if (!trans) continue;
+      if (!trans) return;
 
       const hitRight = trans.x >= constraint.limitX;
       const hitLeft = trans.x <= -constraint.limitX;
@@ -59,6 +59,6 @@ export class EnvironmentClampingSystem implements ISystem {
           }
         }
       }
-    }
+    });
   }
 }

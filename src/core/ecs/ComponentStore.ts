@@ -24,6 +24,12 @@ export class ComponentStore<T> implements IComponentStore<T> {
     return this.data.entries();
   }
 
+  public forEach(callback: (id: EntityId, component: T) => void): void {
+    this.data.forEach((value, key) => {
+      callback(key, value);
+    });
+  }
+
   public clear(): void {
     this.data.clear();
   }

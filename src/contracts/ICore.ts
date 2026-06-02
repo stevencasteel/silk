@@ -32,6 +32,7 @@ export interface IComponentStore<T> extends IComponentStoreBase {
   get(id: EntityId): T | undefined;
   has(id: EntityId): boolean;
   entries(): IterableIterator<[EntityId, T]>;
+  forEach(callback: (id: EntityId, component: T) => void): void;
 }
 
 export interface IStoreContainer {

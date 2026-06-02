@@ -15,9 +15,9 @@ export class KinematicIntegrationSystem implements ISystem {
   public update(dt: number): void {
     const transforms = this.context.stores.get<TransformComponent>("transform");
     const velocities = this.context.stores.get<KinematicVelocityComponent>("velocity");
-
     const hitStops = this.context.stores.get<HitStopComponent>("hitStop");
-    for (const [id, trans] of transforms.entries()) {
+
+    transforms.forEach((id, trans) => {
       trans.z = 0.0;
       trans.prevZ = 0.0;
 
@@ -27,15 +27,15 @@ export class KinematicIntegrationSystem implements ISystem {
       }
 
       const hs = hitStops.get(id);
-      if (hs && hs.timeRemaining > 0) continue;
+      if (hs && hs.timeRemaining > 0) return;
       if (id === this.context.refs.player || id === this.context.refs.weaver) {
-        continue;
+        return;
       }
 
       if (vel) {
         trans.x += vel.x * dt;
         trans.y += vel.y * dt;
       }
-    }
+    });
   }
 }

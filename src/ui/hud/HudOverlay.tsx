@@ -478,8 +478,8 @@ export const HudOverlay: React.FC = () => {
           
           // Sequenced lane rainfall for perfectly uniform horizontal distribution
           const intervalId = setInterval(() => {
-            for (let k = 0; k < 3; k++) {
-              const currentLane = (laneIndex + k * 3) % NUM_LANES;
+            for (let k = 0; k < 15; k++) {
+              const currentLane = (laneIndex + k) % NUM_LANES;
               const xCoord = (currentLane / (NUM_LANES - 1)) * 0.9 + 0.05 + (Math.random() - 0.5) * 0.05;
               
               myConfetti({
@@ -502,8 +502,8 @@ export const HudOverlay: React.FC = () => {
                 ]
               });
             }
-            laneIndex = (laneIndex + 1) % NUM_LANES;
-          }, 24); // High frequency interval for dense, continuous streaming rainfall
+            laneIndex = (laneIndex + 3) % NUM_LANES;
+          }, 120); // Performant frequency interval for dense, continuous streaming rainfall
 
           return () => {
             clearInterval(intervalId);

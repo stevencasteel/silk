@@ -1,10 +1,8 @@
 import { GameEvent, GameEventMap } from "./GameEvents";
 import { IEventBroker, EventCallback } from "../../contracts/ICore";
-import { EventTrafficTracker } from "./EventTrafficTracker";
 
 export class EventBroker implements IEventBroker {
   private listeners: { [K in GameEvent]?: Set<EventCallback<unknown>> } = {};
-  private trafficTracker: EventTrafficTracker = new EventTrafficTracker();
 
   public subscribe<K extends GameEvent>(event: K, cb: EventCallback<GameEventMap[K]>): () => void {
     if (!this.listeners[event]) {
@@ -17,7 +15,6 @@ export class EventBroker implements IEventBroker {
   }
 
   public publish<K extends GameEvent>(event: K, payload: GameEventMap[K]): void {
-    this.trafficTracker.record(event);
     const set = this.listeners[event];
     if (set) {
       set.forEach((cb) => {
@@ -27,15 +24,12 @@ export class EventBroker implements IEventBroker {
   }
 
   public getTraffic(): Map<string, number> {
-    return this.trafficTracker.getTraffic();
+    return new Map<string, number>();
   }
 
-  public clearTraffic(): void {
-    this.trafficTracker.clear();
-  }
+  public clearTraffic(): void {}
 
   public clear(): void {
     this.listeners = {};
-    this.trafficTracker.clear();
   }
 }

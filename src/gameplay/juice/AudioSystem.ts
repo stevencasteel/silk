@@ -33,10 +33,39 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
   private _ambienceEngine = new ProceduralAmbienceEngine();
   private _gestureCleanup: (() => void) | null = null;
+  private _preloadedBuffers = new Map<string, Tone.ToneAudioBuffer>();
 
   constructor(private context: SystemContext) {}
 
-  public init(): void {
+  public async init(): Promise<void> {
+    const urls = [
+      "sfx/tether_ratchet.mp3",
+      "sfx/web_impact.mp3",
+      "sfx/spider_sounds.mp3",
+      "sfx/boss_boing.mp3",
+      "sfx/web_shot.mp3",
+      "sfx/boss_death.mp3",
+      "sfx/health_bug_rupture.mp3",
+      "sfx/touched_spike.mp3",
+      "sfx/fling.mp3",
+      "sfx/crowd_victory.mp3",
+      "sfx/crowd_defeat.mp3"
+    ];
+
+    await Promise.all(
+      urls.map((url) => {
+        return new Promise<void>((resolve) => {
+          const buf = new Tone.ToneAudioBuffer();
+          buf.load(url).then(() => {
+            this._preloadedBuffers.set(url, buf);
+            resolve();
+          }).catch(() => {
+            resolve();
+          });
+        });
+      })
+    );
+
     const startOnGesture = () => {
       this.initAudio();
       if (this._isInitialized && this._gestureCleanup) {
@@ -102,6 +131,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.stopRatchet();
+        this.stopCrowdSounds();
       })
     );
 
@@ -209,63 +239,28 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
       this._noise = new Tone.Noise("white").connect(this._filter);
 
-      this._ratchetPlayer = new Tone.Player({
-        url: "sfx/tether_ratchet.mp3",
-        loop: true,
-        autostart: false,
-        fadeIn: 0.05,
-        fadeOut: 0.05
-      }).toDestination();
+      const getPlayer = (url: string, loop = false, fadeIn = 0, fadeOut = 0) => {
+        const preloaded = this._preloadedBuffers.get(url);
+        return new Tone.Player({
+          url: preloaded || url,
+          loop,
+          autostart: false,
+          fadeIn,
+          fadeOut
+        }).toDestination();
+      };
 
-      this._webImpactPlayer = new Tone.Player({
-        url: "sfx/web_impact.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._spiderSoundsPlayer = new Tone.Player({
-        url: "sfx/spider_sounds.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._boingPlayer = new Tone.Player({
-        url: "sfx/boss_boing.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._webShotPlayer = new Tone.Player({
-        url: "sfx/web_shot.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._bossDeathPlayer = new Tone.Player({
-        url: "sfx/boss_death.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._healthBugRupturePlayer = new Tone.Player({
-        url: "sfx/health_bug_rupture.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._touchedSpikePlayer = new Tone.Player({
-        url: "sfx/touched_spike.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._flingPlayer = new Tone.Player({
-        url: "sfx/fling.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._crowdVictoryPlayer = new Tone.Player({
-        url: "sfx/crowd_victory.mp3",
-        autostart: false
-      }).toDestination();
-
-      this._crowdDefeatPlayer = new Tone.Player({
-        url: "sfx/crowd_defeat.mp3",
-        autostart: false
-      }).toDestination();
+      this._ratchetPlayer = getPlayer("sfx/tether_ratchet.mp3", true, 0.05, 0.05);
+      this._webImpactPlayer = getPlayer("sfx/web_impact.mp3");
+      this._spiderSoundsPlayer = getPlayer("sfx/spider_sounds.mp3");
+      this._boingPlayer = getPlayer("sfx/boss_boing.mp3");
+      this._webShotPlayer = getPlayer("sfx/web_shot.mp3");
+      this._bossDeathPlayer = getPlayer("sfx/boss_death.mp3");
+      this._healthBugRupturePlayer = getPlayer("sfx/health_bug_rupture.mp3");
+      this._touchedSpikePlayer = getPlayer("sfx/touched_spike.mp3");
+      this._flingPlayer = getPlayer("sfx/fling.mp3");
+      this._crowdVictoryPlayer = getPlayer("sfx/crowd_victory.mp3", false, 0, 1.0);
+      this._crowdDefeatPlayer = getPlayer("sfx/crowd_defeat.mp3", false, 0, 1.0);
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -324,6 +319,17 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this._isReeling = false;
     if (this._ratchetPlayer && this._ratchetPlayer.state === "started") {
       this._ratchetPlayer.stop();
+    }
+  }
+
+  private stopCrowdSounds(): void {
+    if (this._isInitialized) {
+      if (this._crowdVictoryPlayer && this._crowdVictoryPlayer.state === "started") {
+        this._crowdVictoryPlayer.stop();
+      }
+      if (this._crowdDefeatPlayer && this._crowdDefeatPlayer.state === "started") {
+        this._crowdDefeatPlayer.stop();
+      }
     }
   }
 
@@ -590,6 +596,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._crowdDefeatPlayer.dispose();
       this._crowdDefeatPlayer = null;
     }
+    this._preloadedBuffers.forEach((buf) => buf.dispose());
+    this._preloadedBuffers.clear();
     this._isInitialized = false;
   }
 }
