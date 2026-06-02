@@ -26,6 +26,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _flingPlayer: Tone.Player | null = null;
   private _crowdVictoryPlayer: Tone.Player | null = null;
   private _crowdDefeatPlayer: Tone.Player | null = null;
+  private _webBreakPlayer: Tone.Player | null = null;
+  private _webBreakListener: (() => void) | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -49,7 +51,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/touched_spike.mp3",
       "sfx/fling.mp3",
       "sfx/crowd_victory.mp3",
-      "sfx/crowd_defeat.mp3"
+      "sfx/crowd_defeat.mp3",
+      "sfx/web_break.mp3"
     ];
 
     await Promise.all(
@@ -208,6 +211,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       })
     );
 
+    this._webBreakListener = () => {
+      this.playWebBreak();
+    };
+    window.addEventListener("silk-web-break", this._webBreakListener);
+
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
         if (
@@ -261,6 +269,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._flingPlayer = getPlayer("sfx/fling.mp3");
       this._crowdVictoryPlayer = getPlayer("sfx/crowd_victory.mp3", false, 0, 1.0);
       this._crowdDefeatPlayer = getPlayer("sfx/crowd_defeat.mp3", false, 0, 1.0);
+      this._webBreakPlayer = getPlayer("sfx/web_break.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -479,6 +488,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this.playWithVariance(this._touchedSpikePlayer, 100, 1.5);
   }
 
+
+  private playWebBreak(): void {
+    this.playWithVariance(this._webBreakPlayer, 120, 1.5);
+  }
+
   private playFling(): void {
     this.playWithVariance(this._flingPlayer, 100, 1.5);
   }
@@ -545,6 +559,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._crowdDefeatPlayer) {
       this._crowdDefeatPlayer.dispose();
       this._crowdDefeatPlayer = null;
+    }
+    if (this._webBreakListener) {
+      window.removeEventListener("silk-web-break", this._webBreakListener);
+      this._webBreakListener = null;
+    }
+    if (this._webBreakPlayer) {
+      this._webBreakPlayer.dispose();
+      this._webBreakPlayer = null;
     }
     this._preloadedBuffers.forEach((buf) => buf.dispose());
     this._preloadedBuffers.clear();

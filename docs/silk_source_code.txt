@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/2/2026, 11:32:01 AM
+ [SYSTEM] Generated: 6/2/2026, 11:53:41 AM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -28,18 +28,19 @@
 │   │   ├── stuck-in-web-shot_stick-to-surface.mp3
 │   │   ├── tether_ratchet.mp3
 │   │   ├── touched_spike.mp3
+│   │   ├── web_break.mp3
 │   │   └── web_shot.mp3
 │   ├── favicon.svg
 │   ├── HavokPhysics.wasm
 │   ├── silk_source_code.txt
 │   └── source_code_manifest.json
 ├── raw_assets/
-│   └── sfx/
-│       └── audacity/
-│           ├── boss_boing.aup3
-│           ├── crowd_defeat.aup3
-│           ├── crowd_victory.aup3
-│           └── web_shot.aup3
+│   └── audacity/
+│       ├── boss_boing.aup3
+│       ├── crowd_defeat.aup3
+│       ├── crowd_victory.aup3
+│       ├── web_break.aup3
+│       └── web_shot.aup3
 ├── scripts/
 │   ├── create_source_context.command
 │   ├── create_source_context.js
@@ -115,7 +116,8 @@
 │   │   │   ├── ParticleStrategies.ts
 │   │   │   ├── ProceduralAmbienceEngine.ts
 │   │   │   ├── TetherVisualizerSystem.ts
-│   │   │   └── WeaverShatterSystem.ts
+│   │   │   ├── WeaverShatterSystem.ts
+│   │   │   └── WebShatterSystem.ts
 │   │   ├── player/
 │   │   │   ├── states/
 │   │   │   │   ├── PlayerAirborneState.ts
@@ -1534,6 +1536,7 @@ import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
 import { ProjectileSystem } from "../gameplay/combat/ProjectileSystem";
 import { JuiceSystem } from "../gameplay/juice/JuiceSystem";
 import { WeaverShatterSystem } from "../gameplay/juice/WeaverShatterSystem";
+import { WebShatterSystem } from "../gameplay/juice/WebShatterSystem";
 import { HapticFeedbackSystem } from "../gameplay/juice/HapticFeedbackSystem";
 import { AudioSystem } from "../gameplay/juice/AudioSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
@@ -1631,6 +1634,7 @@ export class CompositionRoot {
     const tetherVisualizer = new TetherVisualizerSystem(context);
     const juiceSystem = new JuiceSystem(context);
     const shatterSystem = new WeaverShatterSystem(context);
+    const webShatterSystem = new WebShatterSystem(context);
     const hapticSystem = new HapticFeedbackSystem(context);
     const audioSystem = new AudioSystem(context);
 
@@ -1710,6 +1714,7 @@ export class CompositionRoot {
     systemManager.register(projectileSystem);
     systemManager.register(juiceSystem);
     systemManager.register(shatterSystem);
+    systemManager.register(webShatterSystem);
     systemManager.register(hapticSystem);
     systemManager.register(audioSystem);
     systemManager.register(gameDirector);
@@ -6907,6 +6912,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _flingPlayer: Tone.Player | null = null;
   private _crowdVictoryPlayer: Tone.Player | null = null;
   private _crowdDefeatPlayer: Tone.Player | null = null;
+  private _webBreakPlayer: Tone.Player | null = null;
+  private _webBreakListener: (() => void) | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -6930,7 +6937,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/touched_spike.mp3",
       "sfx/fling.mp3",
       "sfx/crowd_victory.mp3",
-      "sfx/crowd_defeat.mp3"
+      "sfx/crowd_defeat.mp3",
+      "sfx/web_break.mp3"
     ];
 
     await Promise.all(
@@ -7089,6 +7097,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       })
     );
 
+    this._webBreakListener = () => {
+      this.playWebBreak();
+    };
+    window.addEventListener("silk-web-break", this._webBreakListener);
+
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
         if (
@@ -7142,6 +7155,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._flingPlayer = getPlayer("sfx/fling.mp3");
       this._crowdVictoryPlayer = getPlayer("sfx/crowd_victory.mp3", false, 0, 1.0);
       this._crowdDefeatPlayer = getPlayer("sfx/crowd_defeat.mp3", false, 0, 1.0);
+      this._webBreakPlayer = getPlayer("sfx/web_break.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -7360,6 +7374,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this.playWithVariance(this._touchedSpikePlayer, 100, 1.5);
   }
 
+
+  private playWebBreak(): void {
+    this.playWithVariance(this._webBreakPlayer, 120, 1.5);
+  }
+
   private playFling(): void {
     this.playWithVariance(this._flingPlayer, 100, 1.5);
   }
@@ -7426,6 +7445,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._crowdDefeatPlayer) {
       this._crowdDefeatPlayer.dispose();
       this._crowdDefeatPlayer = null;
+    }
+    if (this._webBreakListener) {
+      window.removeEventListener("silk-web-break", this._webBreakListener);
+      this._webBreakListener = null;
+    }
+    if (this._webBreakPlayer) {
+      this._webBreakPlayer.dispose();
+      this._webBreakPlayer = null;
     }
     this._preloadedBuffers.forEach((buf) => buf.dispose());
     this._preloadedBuffers.clear();
@@ -8974,6 +9001,189 @@ export class WeaverShatterSystem implements ISystem {
       p.mesh.dispose();
     });
     this.pooledDebris = [];
+    if (this.debrisMat) {
+      this.debrisMat.dispose();
+      this.debrisMat = null;
+    }
+  }
+}
+
+
+
+● ./src/gameplay/juice/WebShatterSystem.ts
+────────────────────────────────────────────────────
+import { ISystem } from "../../contracts/ISystem";
+import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
+import { SystemContext } from "../../core/engine/SystemContext";
+import { TransformComponent } from "../../core/ecs/Components";
+import { ARENA_CONFIG, CANONICAL_UNITS } from "../../core/engine/ArenaConfig";
+import * as BABYLON from "@babylonjs/core";
+
+interface ActiveWebDebris {
+  mesh: BABYLON.Mesh;
+  velocity: BABYLON.Vector3;
+  angularVelocity: BABYLON.Vector3;
+  lifeRemaining: number;
+  initialScale: BABYLON.Vector3;
+}
+
+export class WebShatterSystem implements ISystem {
+  readonly phase = SystemPhase.RenderSync;
+  readonly initPhase = InitPhase.Gameplay;
+
+  private activeDebrisList: ActiveWebDebris[] = [];
+  private pooledMeshes: BABYLON.Mesh[] = [];
+  private debrisMat: BABYLON.PBRMaterial | null = null;
+  private onWebBreakListener: (() => void) | null = null;
+
+  private readonly MAX_DEBRIS = 12;
+  private readonly LIFESPAN = 1.2;
+
+  constructor(private context: SystemContext) {}
+
+  public init(): void {
+    const scene = this.context.visualQuery.getScene();
+    if (!scene) return;
+
+    this.debrisMat = new BABYLON.PBRMaterial("webShatterMat", scene);
+    this.debrisMat.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.98);
+    this.debrisMat.metallic = 0.1;
+    this.debrisMat.roughness = 0.65;
+    this.debrisMat.sheen.isEnabled = true;
+    this.debrisMat.sheen.intensity = 0.85;
+
+    for (let i = 0; i < this.MAX_DEBRIS; i++) {
+      const name = `web_shatter_debris_${i}`;
+      let mesh: BABYLON.Mesh;
+
+      if (i % 2 === 0) {
+        mesh = BABYLON.MeshBuilder.CreateSphere(name, { diameter: 0.35, segments: 1 }, scene);
+      } else {
+        mesh = BABYLON.MeshBuilder.CreateBox(name, { size: 0.32 }, scene);
+      }
+
+      mesh.material = this.debrisMat;
+      mesh.setEnabled(false);
+      mesh.isVisible = false;
+      this.context.visualRegistration.registerShadowCaster(mesh);
+      this.pooledMeshes.push(mesh);
+    }
+
+    this.onWebBreakListener = () => {
+      this.spawnDebris();
+    };
+
+    window.addEventListener("silk-web-break", this.onWebBreakListener);
+  }
+
+  private spawnDebris(): void {
+    const pId = this.context.refs.player;
+    const transforms = this.context.stores.get<TransformComponent>("transform");
+    const pTrans = transforms.get(pId);
+    if (!pTrans) return;
+
+    this.clearDebris();
+
+    for (let i = 0; i < this.MAX_DEBRIS; i++) {
+      const mesh = this.pooledMeshes[i];
+      mesh.position.set(
+        pTrans.x + (Math.random() - 0.5) * 0.4,
+        pTrans.y + (Math.random() - 0.5) * 0.8,
+        pTrans.z + (Math.random() - 0.5) * 0.2
+      );
+
+      const rScaleX = 0.75 + Math.random() * 0.6;
+      const rScaleY = 0.75 + Math.random() * 0.6;
+      const rScaleZ = 0.75 + Math.random() * 0.6;
+      mesh.scaling.set(rScaleX, rScaleY, rScaleZ);
+      mesh.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+      );
+
+      mesh.setEnabled(true);
+      mesh.isVisible = true;
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 4.0 + Math.random() * 6.0;
+      const vx = Math.cos(angle) * speed;
+      const vy = (Math.random() - 0.2) * 4.0 - 5.0; 
+      const vz = (Math.random() - 0.5) * 1.5;
+
+      const rotVelX = (Math.random() - 0.5) * 12.0;
+      const rotVelY = (Math.random() - 0.5) * 12.0;
+      const rotVelZ = (Math.random() - 0.5) * 12.0;
+
+      this.activeDebrisList.push({
+        mesh,
+        velocity: new BABYLON.Vector3(vx, vy, vz),
+        angularVelocity: new BABYLON.Vector3(rotVelX, rotVelY, rotVelZ),
+        lifeRemaining: this.LIFESPAN * (0.8 + Math.random() * 0.4),
+        initialScale: new BABYLON.Vector3(rScaleX, rScaleY, rScaleZ)
+      });
+    }
+  }
+
+  public update(dt: number): void {
+    const wallLimit = ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X;
+    const drag = Math.pow(0.94, dt * 60.0);
+
+    for (let i = this.activeDebrisList.length - 1; i >= 0; i--) {
+      const d = this.activeDebrisList[i];
+      d.lifeRemaining -= dt;
+
+      if (d.lifeRemaining <= 0) {
+        d.mesh.setEnabled(false);
+        d.mesh.isVisible = false;
+        this.activeDebrisList.splice(i, 1);
+      } else {
+        const ratio = Math.max(0, d.lifeRemaining / this.LIFESPAN);
+        d.mesh.scaling.set(
+          d.initialScale.x * ratio,
+          d.initialScale.y * ratio,
+          d.initialScale.z * ratio
+        );
+
+        d.velocity.y += CANONICAL_UNITS.GRAVITY.PLAYER_KINEMATIC * dt * 0.8;
+        d.velocity.x *= drag;
+        d.velocity.z *= drag;
+
+        d.mesh.position.x += d.velocity.x * dt;
+        d.mesh.position.y += d.velocity.y * dt;
+        d.mesh.position.z += d.velocity.z * dt;
+
+        d.mesh.rotation.x += d.angularVelocity.x * dt;
+        d.mesh.rotation.y += d.angularVelocity.y * dt;
+        d.mesh.rotation.z += d.angularVelocity.z * dt;
+
+        if (d.mesh.position.x < -wallLimit) {
+          d.mesh.position.x = -wallLimit;
+          d.velocity.x *= -0.55;
+        } else if (d.mesh.position.x > wallLimit) {
+          d.mesh.position.x = wallLimit;
+          d.velocity.x *= -0.55;
+        }
+      }
+    }
+  }
+
+  private clearDebris(): void {
+    this.activeDebrisList.forEach((d) => {
+      d.mesh.setEnabled(false);
+      d.mesh.isVisible = false;
+    });
+    this.activeDebrisList = [];
+  }
+
+  public dispose(): void {
+    if (this.onWebBreakListener) {
+      window.removeEventListener("silk-web-break", this.onWebBreakListener);
+      this.onWebBreakListener = null;
+    }
+    this.clearDebris();
+    this.pooledMeshes.forEach((mesh) => mesh.dispose());
+    this.pooledMeshes = [];
     if (this.debrisMat) {
       this.debrisMat.dispose();
       this.debrisMat = null;

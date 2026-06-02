@@ -80,6 +80,7 @@ import { GameDirectorSystem } from "../gameplay/combat/GameDirectorSystem";
 import { ProjectileSystem } from "../gameplay/combat/ProjectileSystem";
 import { JuiceSystem } from "../gameplay/juice/JuiceSystem";
 import { WeaverShatterSystem } from "../gameplay/juice/WeaverShatterSystem";
+import { WebShatterSystem } from "../gameplay/juice/WebShatterSystem";
 import { HapticFeedbackSystem } from "../gameplay/juice/HapticFeedbackSystem";
 import { AudioSystem } from "../gameplay/juice/AudioSystem";
 import { Profiler } from "../core/diagnostics/Profiler";
@@ -177,6 +178,7 @@ export class CompositionRoot {
     const tetherVisualizer = new TetherVisualizerSystem(context);
     const juiceSystem = new JuiceSystem(context);
     const shatterSystem = new WeaverShatterSystem(context);
+    const webShatterSystem = new WebShatterSystem(context);
     const hapticSystem = new HapticFeedbackSystem(context);
     const audioSystem = new AudioSystem(context);
 
@@ -256,6 +258,7 @@ export class CompositionRoot {
     systemManager.register(projectileSystem);
     systemManager.register(juiceSystem);
     systemManager.register(shatterSystem);
+    systemManager.register(webShatterSystem);
     systemManager.register(hapticSystem);
     systemManager.register(audioSystem);
     systemManager.register(gameDirector);
