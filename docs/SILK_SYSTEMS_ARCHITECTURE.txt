@@ -5,7 +5,7 @@
 ║   Systems Architecture & Technical Specification                                 ║
 ║                                                                                  ║
 ║   Version  :  6.0                                                                ║
-║   Runtime  :  React 19 · TypeScript 6 · Babylon.js 7 · Havok V2 · Tone.js 15   ║
+║   Runtime  :  React 19 · TypeScript 6 · Babylon.js 7 · Havok V2 · Tone.js 15     ║
 ║   Build    :  Vite 8 · ESBuild · GitHub Actions → GitHub Pages / Itch.io         ║
 ║                                                                                  ║
 ╚══════════════════════════════════════════════════════════════════════════════════╝
@@ -57,18 +57,18 @@ document, onboarding reference, and design record.
 
   This file exports five immutable const objects (all typed as const):
 
-    CANONICAL_UNITS        Physical constants and unit-space mappings.
-    ARENA_CONFIG           Geometric and spawn positions.
-    GAMEPLAY_TUNING        Player, combat, and reel mechanics.
-    WEAVER_AI_TUNING       Boss behavioral parameters.
-    VISUAL_JUICE_CONFIG    Material, particle, tether, and emissive values.
-    CAMERA_TUNING          Comfort zone bounds and scroll limits.
+    CANONICAL_UNITS          Physical constants and unit-space mappings.
+    ARENA_CONFIG             Geometric and spawn positions.
+    GAMEPLAY_TUNING          Player, combat, and reel mechanics.
+    WEAVER_AI_TUNING         Boss behavioral parameters.
+    VISUAL_JUICE_CONFIG      Material, particle, tether, and emissive values.
+    CAMERA_TUNING            Comfort zone bounds and scroll limits.
     POST_PROCESSING_PRESETS  Bloom, ACES, vignette, lighting, and camera presets.
 
   Dependency stack:
 
     Babylon.js 7.47.0          WebGL2 renderer with WebGPU preset support.
-    @babylonjs/havok            Havok Physics V2 (WebAssembly C++ solver).
+    @babylonjs/havok           Havok Physics V2 (WebAssembly C++ solver).
     Tone.js 15.1.22            Web Audio API wrapper with sample scheduling.
     Zustand 5.0.13             ECS-to-React state bridge.
     Framer Motion              HUD and overlay animation.
@@ -91,30 +91,30 @@ document, onboarding reference, and design record.
   order. Systems declare their initPhase; the CompositionRoot respects ordering.
 
   ┌─────────────────────────────────────────────────────────────────────┐
-  │  Phase 0 : InitPhase.Bootstrap                                       │
+  │  Phase 0 : InitPhase.Bootstrap                                      │
   │                                                                     │
   │  · Spawns RafScheduler (requestAnimationFrame loop wrapper).        │
   │  · Mounts PerformanceClock (high-precision timer).                  │
   │  · Instantiates EventBroker and CommandBus.                         │
   │  · Loads HavokPhysics.wasm with a 3000ms timeout race.              │
   │    Fallback: local directory → Cloudflare CDN.                      │
-  │  · Configures global gravity vector: G = [0, -9.81, 0] m/s².       │
+  │  · Configures global gravity vector: G = [0, -9.81, 0] m/s².        │
   └─────────────────────────────────────────────────────────────────────┘
   ┌─────────────────────────────────────────────────────────────────────┐
-  │  Phase 1 : InitPhase.World                                           │
+  │  Phase 1 : InitPhase.World                                          │
   │                                                                     │
-  │  · RenderSystem creates the Babylon.js Engine and Scene.           │
+  │  · RenderSystem creates the Babylon.js Engine and Scene.            │
   │  · CameraSystem acquires the active FreeCamera.                     │
-  │  · Loads prefiltered environment specular map from BabylonJS CDN.  │
-  │  · Builds all static elevator shaft geometry (ArenaGeometry.ts).   │
+  │  · Loads prefiltered environment specular map from BabylonJS CDN.   │
+  │  · Builds all static elevator shaft geometry (ArenaGeometry.ts).    │
   │  · Compiles PBR materials; generates procedural textures            │
   │    (ProceduralTextureGenerator.ts) on HTML5 Canvas contexts.        │
-  │  · Configures DefaultRenderingPipeline (bloom, FXAA, ACES, etc.).  │
-  │  · Sets up directional + point + spot lights and shadow generator. │
+  │  · Configures DefaultRenderingPipeline (bloom, FXAA, ACES, etc.).   │
+  │  · Sets up directional + point + spot lights and shadow generator.  │
   │  · Force-compiles all shaders via forceCompilationAsync().          │
   └─────────────────────────────────────────────────────────────────────┘
   ┌─────────────────────────────────────────────────────────────────────┐
-  │  Phase 2 : InitPhase.Gameplay                                        │
+  │  Phase 2 : InitPhase.Gameplay                                       │
   │                                                                     │
   │  · EntitySpawnerSystem spawns Player and Weaver entities.           │
   │  · EntityAssembler constructs all ECS component stores.             │
@@ -122,13 +122,13 @@ document, onboarding reference, and design record.
   │  · ProjectilePool and HealthBugPool pre-allocated at capacity.      │
   └─────────────────────────────────────────────────────────────────────┘
   ┌─────────────────────────────────────────────────────────────────────┐
-  │  Phase 3 : InitPhase.UI                                              │
+  │  Phase 3 : InitPhase.UI                                             │
   │                                                                     │
-  │  · HudOverlay.tsx mounts in React; ErrorBoundary wraps it.         │
-  │  · PlayerInputSystem binds keyboard and pointer event listeners.   │
-  │  · AudioSystem preloads all Web Audio buffers into Tone.js Players.│
-  │  · ProceduralAmbienceEngine constructs the wind synthesis graph.   │
-  │  · GAME_INITIALIZED event published; loader dismissed on gesture.  │
+  │  · HudOverlay.tsx mounts in React; ErrorBoundary wraps it.          │
+  │  · PlayerInputSystem binds keyboard and pointer event listeners.    │
+  │  · AudioSystem preloads all Web Audio buffers into Tone.js Players. │
+  │  · ProceduralAmbienceEngine constructs the wind synthesis graph.    │
+  │  · GAME_INITIALIZED event published; loader dismissed on gesture.   │
   └─────────────────────────────────────────────────────────────────────┘
 
   Boot progress is exposed to the HUD via GameEvent.GAME_BOOT_PROGRESS events
@@ -149,26 +149,26 @@ document, onboarding reference, and design record.
 
   ┌──────────────────────────────────────────────────────────────────────┐
   │  EntityId                                                            │
-  │  32-bit unsigned integer key (EntityId = number).                   │
-  │  EcsWorld.ts manages the active entity set via ES6 Set.             │
-  │  EntityRefs.ts holds named aliases: player / weaver.                │
+  │  32-bit unsigned integer key (EntityId = number).                    │
+  │  EcsWorld.ts manages the active entity set via ES6 Set.              │
+  │  EntityRefs.ts holds named aliases: player / weaver.                 │
   └──────────────────────────────────────────────────────────────────────┘
   ┌──────────────────────────────────────────────────────────────────────┐
   │  ComponentStore<T>                                                   │
-  │  Typed key-value map from EntityId → component data struct.         │
-  │  Zero logic inside components; all behavior lives in systems.       │
-  │  StoreContainer.ts aggregates all stores under one accessor.        │
+  │  Typed key-value map from EntityId → component data struct.          │
+  │  Zero logic inside components; all behavior lives in systems.        │
+  │  StoreContainer.ts aggregates all stores under one accessor.         │
   └──────────────────────────────────────────────────────────────────────┘
   ┌──────────────────────────────────────────────────────────────────────┐
   │  SystemContext                                                       │
-  │  Dependency-injection bag passed to every system. Contains:         │
-  │    .world        EcsWorld                                           │
-  │    .stores       StoreContainer                                     │
-  │    .refs         EntityRefs (player / weaver aliases)               │
-  │    .broker       EventBroker                                        │
-  │    .commands     CommandBus                                         │
-  │    .runtime      RuntimeState                                       │
-  │    .visualQuery  IVisualRegistry (mesh/node lookups)               │
+  │  Dependency-injection bag passed to every system. Contains:          │
+  │    .world        EcsWorld                                            │
+  │    .stores       StoreContainer                                      │
+  │    .refs         EntityRefs (player / weaver aliases)                │
+  │    .broker       EventBroker                                         │
+  │    .commands     CommandBus                                          │
+  │    .runtime      RuntimeState                                        │
+  │    .visualQuery  IVisualRegistry (mesh/node lookups)                 │
   └──────────────────────────────────────────────────────────────────────┘
 
   Component files:
@@ -247,7 +247,7 @@ document, onboarding reference, and design record.
   │ Phase│ System                         │ Responsibility                         │
   ├──────┼────────────────────────────────┼────────────────────────────────────────┤
   │  0   │ PlayerInputSystem              │ Poll keyboard/touch; write             │
-  │      │                               │ InputIntentComponent.                  │
+  │      │                                │ InputIntentComponent.                  │
   ├──────┼────────────────────────────────┼────────────────────────────────────────┤
   │  1   │ WeaverBrainSystem              │ Tick active Weaver behavioral state.   │
   │      │ EntitySpawnerSystem            │ Spawn hazards at HP thresholds.        │
@@ -519,12 +519,12 @@ document, onboarding reference, and design record.
   In berserk mode, patrol speed doubles and dash speed increases by ~29%.
 
   ┌──────────────────────┐
-  │      PATROLLING      │◄──────────────────────────────────────────┐
-  └──────────┬───────────┘                                           │
+  │      PATROLLING      │◄─────────────────────────────────────────┐
+  └──────────┬───────────┘                                          │
              │ Player lands a fling hit  ──or──                     │
              │ player physically contacts Weaver                    │
-             │                                                       │
-             ▼                                                       │
+             │                                                      │
+             ▼                                                      │
   ┌──────────────────────┐  player contact          ┌───────────────┤
   │       STRIKING       │─────────────────────────►│   SHOCKWAVE   │
   └──────────┬───────────┘  (shockwave branch)      └───────┬───────┘
