@@ -34,12 +34,13 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _playerDeathRumblePlayer: Tone.Player | null = null;
   private _webSplatPlayer: Tone.Player | null = null;
   private _tetherStretchPlayer: Tone.Player | null = null;
-  private _lastTension = 0.0;
-  private _lastStretchPlayTime = 0;
   private _generalStretchPlayer: Tone.Player | null = null;
   private _isUnreelingGeneral = false;
   private _generalStretchOffset = 0.0;
   private _generalStretchStartTime = 0.0;
+  private _tetherStretchOffset = 0.0;
+  private _tetherStretchStartTime = 0.0;
+  private _isUnreelingTetherStage3 = false;
   private _bugVolumeBus: Tone.Volume | null = null;
   private _activeBugSounds = new Map<number, { player: Tone.Player; soundIndex: number }>();
   private _bugSpawnCounter = 0;
@@ -109,17 +110,6 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       window.removeEventListener("pointerdown", startOnGesture);
       window.removeEventListener("keydown", startOnGesture);
     };
-
-    this._tracker.add(
-      this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
-        const now = performance.now();
-        if (tension >= 0.8 && tension > this._lastTension && now - this._lastStretchPlayTime > 1200) {
-          this._lastStretchPlayTime = now;
-          this.playTetherStretch();
-        }
-        this._lastTension = tension;
-      })
-    );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
@@ -351,7 +341,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._playerDeathSlowmoPlayer = getPlayer("sfx/player_death_slowmo.mp3");
       this._playerDeathRumblePlayer = getPlayer("sfx/player_death_rumble.mp3");
       this._webSplatPlayer = getPlayer("sfx/web_splat.mp3");
-      this._tetherStretchPlayer = getPlayer("sfx/stage3_tether_stretch.mp3", false, 0, 0.25);
+      this._tetherStretchPlayer = getPlayer("sfx/stage3_tether_stretch.mp3", true, 0.05, 0.05);
       this._generalStretchPlayer = getPlayer("sfx/stage1-3_tether_stretch.mp3", true, 0.05, 0.05);
       this._bugVolumeBus = new Tone.Volume(-20).toDestination();
       this._bossAnnoyedPlayer = getPlayer("sfx/boss_annoyed.mp3");
@@ -416,16 +406,36 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       const isCurrentlyReeling = velocityActive || lengthChangeActive;
 
       const isCurrentlyUnreeling = playerTether.maxLength > this._lastMaxLength + 0.005;
+      const isStage3Tension = playerTether.tension >= 0.8;
 
       if (isCurrentlyUnreeling) {
-        if (!this._isUnreelingGeneral) {
-          this._isUnreelingGeneral = true;
-          this.startGeneralStretch();
+        if (isStage3Tension) {
+          if (this._isUnreelingGeneral) {
+            this._isUnreelingGeneral = false;
+            this.stopGeneralStretch();
+          }
+          if (!this._isUnreelingTetherStage3) {
+            this._isUnreelingTetherStage3 = true;
+            this.startTetherStage3Stretch();
+          }
+        } else {
+          if (this._isUnreelingTetherStage3) {
+            this._isUnreelingTetherStage3 = false;
+            this.stopTetherStage3Stretch();
+          }
+          if (!this._isUnreelingGeneral) {
+            this._isUnreelingGeneral = true;
+            this.startGeneralStretch();
+          }
         }
       } else {
         if (this._isUnreelingGeneral) {
           this._isUnreelingGeneral = false;
           this.stopGeneralStretch();
+        }
+        if (this._isUnreelingTetherStage3) {
+          this._isUnreelingTetherStage3 = false;
+          this.stopTetherStage3Stretch();
         }
       }
 
@@ -450,6 +460,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       if (this._isUnreelingGeneral) {
         this._isUnreelingGeneral = false;
         this.stopGeneralStretch();
+      }
+      if (this._isUnreelingTetherStage3) {
+        this._isUnreelingTetherStage3 = false;
+        this.stopTetherStage3Stretch();
       }
     }
   }
@@ -635,8 +649,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this.playWithVariance(this._touchedSpikePlayer, 100, 1.5);
   }
 
-
   private stopTetherStretch(): void {
+    this._isUnreelingTetherStage3 = false;
     if (this._tetherStretchPlayer && this._tetherStretchPlayer.state === "started") {
       this._tetherStretchPlayer.stop();
     }
@@ -662,6 +676,26 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
+  private startTetherStage3Stretch(): void {
+    if (this._isInitialized && this._tetherStretchPlayer && this._tetherStretchPlayer.loaded) {
+      if (this._tetherStretchPlayer.state !== "started") {
+        this._tetherStretchStartTime = Tone.now();
+        const duration = this._tetherStretchPlayer.buffer.duration || 1.0;
+        const startOffset = this._tetherStretchOffset % duration;
+        this._tetherStretchPlayer.start(undefined, startOffset);
+      }
+    }
+  }
+
+  private stopTetherStage3Stretch(): void {
+    if (this._tetherStretchPlayer && this._tetherStretchPlayer.state === "started") {
+      const elapsed = Tone.now() - this._tetherStretchStartTime;
+      const duration = this._tetherStretchPlayer.buffer.duration || 1.0;
+      this._tetherStretchOffset = (this._tetherStretchOffset + elapsed) % duration;
+      this._tetherStretchPlayer.stop();
+    }
+  }
+
   private clearActiveBugSounds(): void {
     this._activeBugSounds.forEach(({ player }) => {
       player.stop();
@@ -669,10 +703,6 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       player.dispose();
     });
     this._activeBugSounds.clear();
-  }
-
-  private playTetherStretch(): void {
-    this.playWithVariance(this._tetherStretchPlayer, 80, 1.2);
   }
 
   private playWebSplat(): void {
