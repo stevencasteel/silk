@@ -3,7 +3,7 @@ import { SystemPhase, InitPhase } from "../../contracts/SystemPhase";
 import { SystemContext } from "../../core/engine/SystemContext";
 import { GameEvent } from "../../core/events/GameEvents";
 import { SubscriptionTracker } from "../../core/utils/EngineUtils";
-import { TetherComponent, TraversalStateComponent } from "../../core/ecs/Components";
+import { TetherComponent, TraversalStateComponent, HealthBugComponent } from "../../core/ecs/Components";
 import * as Tone from "tone";
 import { ProceduralAmbienceEngine } from "./ProceduralAmbienceEngine";
 
@@ -40,6 +40,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _isUnreelingGeneral = false;
   private _generalStretchOffset = 0.0;
   private _generalStretchStartTime = 0.0;
+  private _bugVolumeBus: Tone.Volume | null = null;
+  private _activeBugSounds = new Map<number, { player: Tone.Player; soundIndex: number }>();
+  private _bugSpawnCounter = 0;
+  private _bossAnnoyedPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -71,7 +75,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/player_death_rumble.mp3",
       "sfx/web_splat.mp3",
       "sfx/stage3_tether_stretch.mp3",
-      "sfx/stage1-3_tether_stretch.mp3"
+      "sfx/stage1-3_tether_stretch.mp3",
+      "sfx/health_bug_fly_1.mp3",
+      "sfx/health_bug_fly_2.mp3",
+      "sfx/health_bug_fly_3.mp3",
+      "sfx/boss_annoyed.mp3"
     ];
 
     await Promise.all(
@@ -151,6 +159,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this.context.broker.subscribe(GameEvent.GAME_WIN, () => {
         this.playVictorySound();
         this.stopRatchet();
+        this.clearActiveBugSounds();
       })
     );
 
@@ -165,6 +174,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DIED, () => {
         this.playPlayerDeathSounds();
+        this.clearActiveBugSounds();
       })
     );
 
@@ -172,6 +182,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this.context.broker.subscribe(GameEvent.GAME_OVER, () => {
         this.playDefeatSound();
         this.stopRatchet();
+        this.clearActiveBugSounds();
       })
     );
 
@@ -179,6 +190,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this.context.broker.subscribe(GameEvent.GAME_RESET, () => {
         this.stopRatchet();
         this.stopCrowdSounds();
+        this.clearActiveBugSounds();
       })
     );
 
@@ -237,6 +249,15 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_BOUNCED, () => {
         this.playBossBoing();
+        this.playBossAnnoyed();
+      })
+    );
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.WEAVER_STATE_CHANGE, ({ state }) => {
+        if (state.startsWith("SHOCKWAVE")) {
+          this.playBossAnnoyed();
+        }
       })
     );
 
@@ -332,6 +353,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._webSplatPlayer = getPlayer("sfx/web_splat.mp3");
       this._tetherStretchPlayer = getPlayer("sfx/stage3_tether_stretch.mp3", false, 0, 0.25);
       this._generalStretchPlayer = getPlayer("sfx/stage1-3_tether_stretch.mp3", true, 0.05, 0.05);
+      this._bugVolumeBus = new Tone.Volume(-20).toDestination();
+      this._bossAnnoyedPlayer = getPlayer("sfx/boss_annoyed.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -347,6 +370,42 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   public update(dt: number): void {
     void dt;
     if (!this._isInitialized || !this._ratchetPlayer) return;
+
+    // Process Health Bug Loops
+    const hBugStore = this.context.stores.get<HealthBugComponent>("healthBug");
+    if (hBugStore) {
+      const activeIds = new Set<number>();
+      for (const [id, hBug] of hBugStore.entries()) {
+        if (hBug.state !== "DEAD") {
+          activeIds.add(id);
+          if (!this._activeBugSounds.has(id)) {
+            const soundIndex = (this._bugSpawnCounter % 3) + 1;
+            this._bugSpawnCounter++;
+            const buffer = this._preloadedBuffers.get(`sfx/health_bug_fly_${soundIndex}.mp3`);
+            if (buffer && this._bugVolumeBus) {
+              const player = new Tone.Player(buffer);
+              player.loop = true;
+              player.connect(this._bugVolumeBus);
+              player.start();
+              this._activeBugSounds.set(id, { player, soundIndex });
+            }
+          }
+        }
+      }
+
+      // Clean up recycled or dead bug loops
+      for (const id of this._activeBugSounds.keys()) {
+        if (!activeIds.has(id)) {
+          const soundInfo = this._activeBugSounds.get(id);
+          if (soundInfo) {
+            soundInfo.player.stop();
+            soundInfo.player.disconnect();
+            soundInfo.player.dispose();
+          }
+          this._activeBugSounds.delete(id);
+        }
+      }
+    }
 
     const tethers = this.context.stores.get<TetherComponent>("tether");
     const playerTether = tethers.get(this.context.refs.player);
@@ -548,6 +607,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this.playWithVariance(this._spiderSoundsPlayer, 150, 1.5);
   }
 
+  private playBossAnnoyed(): void {
+    setTimeout(() => {
+      if (this._isInitialized && this._bossAnnoyedPlayer) {
+        this.playWithVariance(this._bossAnnoyedPlayer, 120, 1.5);
+      }
+    }, 500);
+  }
+
   private playBossBoing(): void {
     this.playWithVariance(this._boingPlayer, 200, 2);
   }
@@ -595,6 +662,15 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
+  private clearActiveBugSounds(): void {
+    this._activeBugSounds.forEach(({ player }) => {
+      player.stop();
+      player.disconnect();
+      player.dispose();
+    });
+    this._activeBugSounds.clear();
+  }
+
   private playTetherStretch(): void {
     this.playWithVariance(this._tetherStretchPlayer, 80, 1.2);
   }
@@ -628,6 +704,11 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this._tracker.clear();
     this.stopRatchet();
     this._ambienceEngine.stop();
+    this.clearActiveBugSounds();
+    if (this._bugVolumeBus) {
+      this._bugVolumeBus.dispose();
+      this._bugVolumeBus = null;
+    }
     if (this._gestureCleanup) {
       this._gestureCleanup();
     }
@@ -654,6 +735,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._spiderSoundsPlayer) {
       this._spiderSoundsPlayer.dispose();
       this._spiderSoundsPlayer = null;
+    }
+    if (this._bossAnnoyedPlayer) {
+      this._bossAnnoyedPlayer.dispose();
+      this._bossAnnoyedPlayer = null;
     }
     if (this._boingPlayer) {
       this._boingPlayer.dispose();
