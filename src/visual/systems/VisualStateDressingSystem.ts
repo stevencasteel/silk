@@ -42,7 +42,16 @@ export class VisualStateDressingSystem implements ISystem {
       .get<WeaverAIComponent>("weaverAI")
       .get(this.context.refs.weaver);
     const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
-    const transformStore = this.context.stores.get<TransformComponent>("transform");
+const transformStore = this.context.stores.get<TransformComponent>("transform");
+
+    const playerCosmetic = cosmetics.get(this.context.refs.player);
+    if (playerCosmetic && playerCosmetic.hitFlashTimer !== undefined && playerCosmetic.hitFlashTimer > 0) {
+      playerCosmetic.hitFlashTimer = Math.max(0, playerCosmetic.hitFlashTimer - dt);
+    }
+    const weaverCosmetic = cosmetics.get(this.context.refs.weaver);
+    if (weaverCosmetic && weaverCosmetic.hitFlashTimer !== undefined && weaverCosmetic.hitFlashTimer > 0) {
+      weaverCosmetic.hitFlashTimer = Math.max(0, weaverCosmetic.hitFlashTimer - dt);
+    }
 
     if (wAI) {
       wAI.damageShearTime += dt;
@@ -174,7 +183,9 @@ export class VisualStateDressingSystem implements ISystem {
             baseAlbedoB = 1.0;
           }
 
-          if (flashAlpha > 0) {
+if (pCosmetic.hitFlashTimer !== undefined && pCosmetic.hitFlashTimer > 0) {
+            mat.emissiveColor.set(4.0, 4.0, 4.0);
+          } else if (flashAlpha > 0) {
             const flashR = 0.01;
             const flashG = 0.01;
             const flashB = 0.01;
@@ -236,11 +247,15 @@ export class VisualStateDressingSystem implements ISystem {
             scale *= 0.24;
           }
 
-          pbrMat.emissiveColor.set(
-            matColor.r * scale + pulse * 0.12,
-            matColor.g * scale,
-            matColor.b * scale
-          );
+if (wCosmetic.hitFlashTimer !== undefined && wCosmetic.hitFlashTimer > 0) {
+            pbrMat.emissiveColor.set(4.0, 4.0, 4.0);
+          } else {
+            pbrMat.emissiveColor.set(
+              matColor.r * scale + pulse * 0.12,
+              matColor.g * scale,
+              matColor.b * scale
+            );
+          }
 
           if (wAI) {
             const shearPlugin = (

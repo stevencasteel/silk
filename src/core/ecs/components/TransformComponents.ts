@@ -49,4 +49,5 @@ export interface ActorCosmeticComponent {
   gaitAmplitude?: number;
   gaitFrequency?: number;
   gaitTuck?: number;
+  hitFlashTimer?: number;
 }

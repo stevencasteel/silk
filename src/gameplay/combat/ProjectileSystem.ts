@@ -1,4 +1,4 @@
-import { WEB_SPLAT_STRATEGY } from "../juice/ParticleStrategies";
+import { WEB_SPLAT_STRATEGY, MuzzleFlashStrategy } from "../juice/ParticleStrategies";
 import { SilkMaterialPlugin } from "../../visual/lighting/SilkMaterialPlugin";
 import { ISystem } from "../../contracts/ISystem";
 import { SystemPhase } from "../../contracts/SystemPhase";
@@ -405,7 +405,31 @@ export class ProjectileSystem implements ISystem {
         const speed = WEAVER_AI_TUNING.SHOOT.SPEED;
 
         vel.x = (dx / dist) * speed;
-        vel.y = (dy / dist) * speed;
+vel.y = (dy / dist) * speed;
+
+        const scene = this.context.visualQuery.getScene();
+        if (scene) {
+          const muzzleLight = new BABYLON.PointLight("muzzleFlashLight", new BABYLON.Vector3(trans.x, trans.y, 0), scene);
+          muzzleLight.intensity = 12.0;
+          muzzleLight.range = 16.0;
+          muzzleLight.diffuse = new BABYLON.Color3(0.95, 0.98, 1.0);
+          setTimeout(() => {
+            if (!scene.isDisposed) {
+              muzzleLight.dispose();
+            }
+          }, 35);
+        }
+
+        const muzzleReqStore = this.context.stores.get<ParticleRequestComponent>("particleRequest");
+        if (muzzleReqStore) {
+          const reqId = this.context.world.create();
+          muzzleReqStore.add(reqId, {
+            strategy: new MuzzleFlashStrategy(dx / dist, dy / dist),
+            x: trans.x,
+            y: trans.y,
+            z: 0
+          });
+        }
 
         pComp.fallbackX = vel.x;
         pComp.fallbackY = vel.y;

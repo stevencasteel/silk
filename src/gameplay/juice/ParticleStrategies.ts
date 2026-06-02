@@ -219,3 +219,29 @@ export const WEAVER_SPARK_STRATEGY = new WeaverSparkStrategy();
 export const LANDING_DUST_STRATEGY = new LandingDustStrategy();
 export const WEB_SPLAT_STRATEGY = new WebSplatStrategy();
 export const LAUNCH_TRAIL_STRATEGY = new LaunchTrailStrategy();
+
+export class MuzzleFlashStrategy implements IParticleEmitterStrategy {
+  constructor(private dirX: number, private dirY: number) {}
+
+  public emit(context: IParticleEmitContext, position: BABYLON.Vector3): void {
+    const color = new BABYLON.Color3(0.9, 0.95, 1.0);
+    const tempVel = new BABYLON.Vector3();
+    const count = 15;
+
+    for (let i = 0; i < count; i++) {
+      const angleOffset = (Math.random() - 0.5) * 0.6;
+      const speed = 14.0 + Math.random() * 12.0;
+      
+      const cos = Math.cos(angleOffset);
+      const sin = Math.sin(angleOffset);
+      const vx = (this.dirX * cos - this.dirY * sin) * speed;
+      const vy = (this.dirX * sin + this.dirY * cos) * speed;
+      const vz = (Math.random() - 0.5) * 4.0;
+
+      tempVel.set(vx, vy, vz);
+      const life = 0.15 + Math.random() * 0.2;
+
+      context.emitRawParticle(position, tempVel, life, color);
+    }
+  }
+}

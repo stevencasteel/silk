@@ -6,7 +6,8 @@ import {
   HealthComponent,
   InvulnerabilityComponent,
   TransformComponent,
-  ParticleRequestComponent
+  ParticleRequestComponent,
+  ActorCosmeticComponent
 } from "../../core/ecs/Components";
 import { DamageRequestCommand } from "./CombatCommands";
 import { GameEvent } from "../../core/events/GameEvents";
@@ -55,7 +56,14 @@ export class HealthSystem implements ISystem {
         return;
       }
 
-      health.current = Math.max(0, health.current - cmd.amount);
+health.current = Math.max(0, health.current - cmd.amount);
+
+      // Arcade Hit-Flash
+      const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
+      const cosmetic = cosmetics.get(cmd.targetId);
+      if (cosmetic && cmd.amount > 0) {
+        cosmetic.hitFlashTimer = 0.06;
+      }
 
       // Only trigger a new iframe window if actual health damage is taken
       if (iframe && cmd.amount > 0) {
@@ -82,7 +90,14 @@ export class HealthSystem implements ISystem {
         health.max
       );
     } else {
-      health.current = Math.max(0, health.current - cmd.amount);
+health.current = Math.max(0, health.current - cmd.amount);
+
+      // Arcade Hit-Flash
+      const cosmetics = this.context.stores.get<ActorCosmeticComponent>("cosmetic");
+      const cosmetic = cosmetics.get(cmd.targetId);
+      if (cosmetic && cmd.amount > 0) {
+        cosmetic.hitFlashTimer = 0.06;
+      }
 
       this.publishDamageEvents(
         GameEvent.WEAVER_DAMAGED,
