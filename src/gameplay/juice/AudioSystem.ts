@@ -28,6 +28,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _crowdDefeatPlayer: Tone.Player | null = null;
   private _webBreakPlayer: Tone.Player | null = null;
   private _webBreakListener: (() => void) | null = null;
+  private _webHitPlayerPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -52,7 +53,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/fling.mp3",
       "sfx/crowd_victory.mp3",
       "sfx/crowd_defeat.mp3",
-      "sfx/web_break.mp3"
+      "sfx/web_break.mp3",
+      "sfx/web_hit_player.mp3"
     ];
 
     await Promise.all(
@@ -160,12 +162,19 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_DAMAGED, (payload) => {
-        if (payload && (
-          payload.source === "BUG_SPIKES" ||
-          payload.source === "SPIKE_BUG_HEAD" ||
-          payload.source === "HEALTH_BUG_SPIKES"
-        )) {
-          this.playTouchedSpike();
+        if (payload) {
+          if (
+            payload.source === "BUG_SPIKES" ||
+            payload.source === "SPIKE_BUG_HEAD" ||
+            payload.source === "HEALTH_BUG_SPIKES"
+          ) {
+            this.playTouchedSpike();
+          } else if (
+            payload.source === "PROJECTILE" ||
+            payload.source === "PROJECTILE_STACK"
+          ) {
+            this.playWebHitPlayer();
+          }
         }
       })
     );
@@ -270,6 +279,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._crowdVictoryPlayer = getPlayer("sfx/crowd_victory.mp3", false, 0, 1.0);
       this._crowdDefeatPlayer = getPlayer("sfx/crowd_defeat.mp3", false, 0, 1.0);
       this._webBreakPlayer = getPlayer("sfx/web_break.mp3");
+      this._webHitPlayerPlayer = getPlayer("sfx/web_hit_player.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -489,6 +499,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
 
+  private playWebHitPlayer(): void {
+    this.playWithVariance(this._webHitPlayerPlayer, 120, 1.5);
+  }
+
   private playWebBreak(): void {
     this.playWithVariance(this._webBreakPlayer, 120, 1.5);
   }
@@ -563,6 +577,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._webBreakListener) {
       window.removeEventListener("silk-web-break", this._webBreakListener);
       this._webBreakListener = null;
+    }
+    if (this._webHitPlayerPlayer) {
+      this._webHitPlayerPlayer.dispose();
+      this._webHitPlayerPlayer = null;
     }
     if (this._webBreakPlayer) {
       this._webBreakPlayer.dispose();
