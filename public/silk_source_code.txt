@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/2/2026, 2:02:02 PM
+ [SYSTEM] Generated: 6/2/2026, 2:32:30 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -28,6 +28,8 @@
 │   │   ├── player_death_rumble.mp3
 │   │   ├── player_death_slowmo.mp3
 │   │   ├── player_fling.mp3
+│   │   ├── stage1-3_tether_stretch.mp3
+│   │   ├── stage3_tether_stretch.mp3
 │   │   ├── stuck-in-web-shot_stick-to-surface.mp3
 │   │   ├── tether_ratchet.mp3
 │   │   ├── touched_spike.mp3
@@ -49,6 +51,8 @@
 │       ├── health_bug_rupture.aup3
 │       ├── player_death_rumble.mp3
 │       ├── player_fling.aup3
+│       ├── stage2_tether_stretch.aup3
+│       ├── stage3_tether_stretch.aup3
 │       ├── web_break.aup3
 │       ├── web_hit_player.aup3
 │       ├── web_shot.aup3
@@ -6939,6 +6943,13 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _playerDeathSlowmoPlayer: Tone.Player | null = null;
   private _playerDeathRumblePlayer: Tone.Player | null = null;
   private _webSplatPlayer: Tone.Player | null = null;
+  private _tetherStretchPlayer: Tone.Player | null = null;
+  private _lastTension = 0.0;
+  private _lastStretchPlayTime = 0;
+  private _generalStretchPlayer: Tone.Player | null = null;
+  private _isUnreelingGeneral = false;
+  private _generalStretchOffset = 0.0;
+  private _generalStretchStartTime = 0.0;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -6968,7 +6979,9 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/boss_hit.mp3",
       "sfx/player_death_slowmo.mp3",
       "sfx/player_death_rumble.mp3",
-      "sfx/web_splat.mp3"
+      "sfx/web_splat.mp3",
+      "sfx/stage3_tether_stretch.mp3",
+      "sfx/stage1-3_tether_stretch.mp3"
     ];
 
     await Promise.all(
@@ -6998,6 +7011,17 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       window.removeEventListener("pointerdown", startOnGesture);
       window.removeEventListener("keydown", startOnGesture);
     };
+
+    this._tracker.add(
+      this.context.broker.subscribe(GameEvent.TETHER_TENSION_CHANGE, ({ tension }) => {
+        const now = performance.now();
+        if (tension >= 0.8 && tension > this._lastTension && now - this._lastStretchPlayTime > 1200) {
+          this._lastStretchPlayTime = now;
+          this.playTetherStretch();
+        }
+        this._lastTension = tension;
+      })
+    );
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.USER_GESTURE_REGISTERED, () => {
@@ -7156,6 +7180,9 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
 
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.PLAYER_STATE_CHANGE, (payload) => {
+        if (payload.state !== "WALL_STICKING") {
+          this.stopTetherStretch();
+        }
         if (
           payload.state === "LAUNCHING" &&
           payload.flingStage !== undefined &&
@@ -7213,6 +7240,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._playerDeathSlowmoPlayer = getPlayer("sfx/player_death_slowmo.mp3");
       this._playerDeathRumblePlayer = getPlayer("sfx/player_death_rumble.mp3");
       this._webSplatPlayer = getPlayer("sfx/web_splat.mp3");
+      this._tetherStretchPlayer = getPlayer("sfx/stage3_tether_stretch.mp3", false, 0, 0.25);
+      this._generalStretchPlayer = getPlayer("sfx/stage1-3_tether_stretch.mp3", true, 0.05, 0.05);
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -7237,6 +7266,20 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       const lengthChangeActive = Math.abs(playerTether.maxLength - this._lastMaxLength) > 0.001;
       const isCurrentlyReeling = velocityActive || lengthChangeActive;
 
+      const isCurrentlyUnreeling = playerTether.maxLength > this._lastMaxLength + 0.005;
+
+      if (isCurrentlyUnreeling) {
+        if (!this._isUnreelingGeneral) {
+          this._isUnreelingGeneral = true;
+          this.startGeneralStretch();
+        }
+      } else {
+        if (this._isUnreelingGeneral) {
+          this._isUnreelingGeneral = false;
+          this.stopGeneralStretch();
+        }
+      }
+
       this._lastMaxLength = playerTether.maxLength;
 
       if (isCurrentlyReeling) {
@@ -7254,6 +7297,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       if (this._isReeling) {
         this._isReeling = false;
         this.stopRatchet();
+      }
+      if (this._isUnreelingGeneral) {
+        this._isUnreelingGeneral = false;
+        this.stopGeneralStretch();
       }
     }
   }
@@ -7432,6 +7479,36 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
 
+  private stopTetherStretch(): void {
+    if (this._tetherStretchPlayer && this._tetherStretchPlayer.state === "started") {
+      this._tetherStretchPlayer.stop();
+    }
+  }
+
+  private startGeneralStretch(): void {
+    if (this._isInitialized && this._generalStretchPlayer && this._generalStretchPlayer.loaded) {
+      if (this._generalStretchPlayer.state !== "started") {
+        this._generalStretchStartTime = Tone.now();
+        const duration = this._generalStretchPlayer.buffer.duration || 1.0;
+        const startOffset = this._generalStretchOffset % duration;
+        this._generalStretchPlayer.start(undefined, startOffset);
+      }
+    }
+  }
+
+  private stopGeneralStretch(): void {
+    if (this._generalStretchPlayer && this._generalStretchPlayer.state === "started") {
+      const elapsed = Tone.now() - this._generalStretchStartTime;
+      const duration = this._generalStretchPlayer.buffer.duration || 1.0;
+      this._generalStretchOffset = (this._generalStretchOffset + elapsed) % duration;
+      this._generalStretchPlayer.stop();
+    }
+  }
+
+  private playTetherStretch(): void {
+    this.playWithVariance(this._tetherStretchPlayer, 80, 1.2);
+  }
+
   private playWebSplat(): void {
     this.playWithVariance(this._webSplatPlayer, 120, 1.5);
   }
@@ -7523,6 +7600,14 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._webBreakListener) {
       window.removeEventListener("silk-web-break", this._webBreakListener);
       this._webBreakListener = null;
+    }
+    if (this._generalStretchPlayer) {
+      this._generalStretchPlayer.dispose();
+      this._generalStretchPlayer = null;
+    }
+    if (this._tetherStretchPlayer) {
+      this._tetherStretchPlayer.dispose();
+      this._tetherStretchPlayer = null;
     }
     if (this._webSplatPlayer) {
       this._webSplatPlayer.dispose();
