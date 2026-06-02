@@ -29,6 +29,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   private _webBreakPlayer: Tone.Player | null = null;
   private _webBreakListener: (() => void) | null = null;
   private _webHitPlayerPlayer: Tone.Player | null = null;
+  private _bossHitPlayer: Tone.Player | null = null;
   private _isInitialized = false;
 
   private _isReeling = false;
@@ -54,7 +55,8 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       "sfx/crowd_victory.mp3",
       "sfx/crowd_defeat.mp3",
       "sfx/web_break.mp3",
-      "sfx/web_hit_player.mp3"
+      "sfx/web_hit_player.mp3",
+      "sfx/boss_hit.mp3"
     ];
 
     await Promise.all(
@@ -182,6 +184,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     this._tracker.add(
       this.context.broker.subscribe(GameEvent.WEAVER_DAMAGED, (payload) => {
         this.playSpiderSounds();
+        this.playBossHit();
         if (payload && (
           payload.source === "HEALTH_BUG_SPIKES" ||
           payload.source === "HEALTH_BUG_PINBALL_SPIKES"
@@ -280,6 +283,7 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
       this._crowdDefeatPlayer = getPlayer("sfx/crowd_defeat.mp3", false, 0, 1.0);
       this._webBreakPlayer = getPlayer("sfx/web_break.mp3");
       this._webHitPlayerPlayer = getPlayer("sfx/web_hit_player.mp3");
+      this._bossHitPlayer = getPlayer("sfx/boss_hit.mp3");
 
       const rawCtx = Tone.context.rawContext as AudioContext;
       if (rawCtx) {
@@ -499,6 +503,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
 
+  private playBossHit(): void {
+    this.playWithVariance(this._bossHitPlayer, 120, 1.5);
+  }
+
   private playWebHitPlayer(): void {
     this.playWithVariance(this._webHitPlayerPlayer, 120, 1.5);
   }
@@ -577,6 +585,10 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     if (this._webBreakListener) {
       window.removeEventListener("silk-web-break", this._webBreakListener);
       this._webBreakListener = null;
+    }
+    if (this._bossHitPlayer) {
+      this._bossHitPlayer.dispose();
+      this._bossHitPlayer = null;
     }
     if (this._webHitPlayerPlayer) {
       this._webHitPlayerPlayer.dispose();
