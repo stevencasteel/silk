@@ -1,534 +1,1348 @@
-===============================================================================
-PROJECT SILK — SYSTEMS ARCHITECTURE & TECHNICAL SPECIFICATION
-Version: 5.0 (Extensive Technical Edition)
-Target Environment: React 19 + TypeScript 6 + Zustand 5 + Babylon.js 7 + Havok V2 + Tone.js 15
-===============================================================================
-
-This technical document serves as the comprehensive architectural specification for
-Project Silk. It maps physical formulas, rendering equations, system phases, and
-data topologies directly to the production source code.
-
--------------------------------------------------------------------------------
-1. SYSTEM STACK & BOOTSTRAP PIPELINE
--------------------------------------------------------------------------------
-Project Silk is built upon a decoupled, web-native architecture utilizing a 3D
-graphics engine, a rigid-body physics solver, a web-audio synthesizer, and a
-state-synchronization layer.
-
-1.1 Runtime Dependency Stack
-    - Render Pipeline: Babylon.js 7.47.0 (WebGPUPreset / WebGL2 Fallback)
-    - Physics Engine: Havok Physics V2 (via @babylonjs/havok WebAssembly compiled C++ solver)
-    - Audio Engine: Tone.js 15.1.22 (Web Audio API graph wrapper)
-    - State Management: Zustand 5.0.13 (Decoupled React-to-Engine bridge)
-    - Build System: Vite 8.0.12 + ESBuild + TypeScript 6.0.2 compiler
-
-1.2 Bootstrap Pipeline (`src/app/bootstrap.ts` & `CompositionRoot.ts`)
-    The engine initializes asynchronously across four distinct phases defined in 
-    `SystemPhase.ts` (`InitPhase` enum):
-
-    - Phase 0: InitPhase.Bootstrap
-      * Spawns core event loop scheduler (`RafScheduler.ts`).
-      * Mounts high-precision performance clock (`PerformanceClock.ts`).
-      * Instantiates system event broker (`EventBroker.ts`) and command bus (`CommandBus.ts`).
-      * Preloads WebAssembly binaries (`HavokPhysics.wasm`) with a 3000ms timeout race 
-        condition. Fallback maps from local directory to Cloudflare CDN if local loading fails.
-      * Instantiates `HavokPhysicsSystem.ts` and configures the global gravity vector:
-        G = [0, -9.81, 0] m/s²
-
-    - Phase 1: InitPhase.World
-      * Builds camera rigs and rendering pipelines (`RenderSystem.ts`).
-      * Loads prefiltered environment specular map (`environmentSpecular.env`).
-      * Spawns static elevator shaft geometry (`ArenaGeometry.ts`).
-      * Compiles PBR materials and generates procedural textures (`ProceduralTextureGenerator.ts`).
-
-    - Phase 2: InitPhase.Gameplay
-      * Spawns Player and Weaver entities (`EntitySpawnerSystem.ts`).
-      * Assembles ECS component stores and registers shadow casters.
-      * Pre-allocates object pools for projectiles and hazards.
-
-    - Phase 3: InitPhase.UI
-      * Mounts React HUD overlays (`HudOverlay.tsx`).
-      * Binds window resize, keyboard, and pointer event listeners (`PlayerInputSystem.ts`).
-      * Preloads Web Audio buffers into Tone.js players (`AudioSystem.ts`).
-      * Publishes global `READY` state to dismiss bootstrap blockers on user gesture.
-
-
--------------------------------------------------------------------------------
-2. ENGINE PIPELINE, SCHEDULING, & DATA TOPOLOGY
--------------------------------------------------------------------------------
-Project Silk implements a custom Entity Component System (ECS) to enforce cache
-locality and maintain strict decoupling between data schemas and behavioral execution.
-
-2.1 Data Topology
-    - Entities (`src/core/ecs/Entity.ts`):
-      Represented as simple 32-bit unsigned integer keys (`EntityId = number`).
-      Managed by `EntityRegistry.ts` which tracks active allocations with an ES6 Set.
-    - Components (`src/core/ecs/ComponentStore.ts` & `Components.ts`):
-      Pure data containers containing zero logic.
-      Stored inside type-safe `ComponentStore<T>` collections mapping `EntityId` keys
-      directly to component schemas.
-    - System Context (`src/core/engine/SystemContext.ts`):
-      A dependency-injection container passing references to EcsWorld, EventBroker,
-      CommandBus, EntityRefs, StoreContainer, and RuntimeState.
-
-2.2 Core Loop & Timestep Integration (`src/core/loop/GameLoop.ts`)
-    The engine implements a semi-fixed timestep integration model to decouple physics
-    updates from variable display refresh rates (Hz).
-    - Fixed update timestep: dt = 1 / 60 seconds (16.66ms per step).
-    - Maximum accumulator ceiling: 100ms (0.1s) to prevent "spiral of death" lockups on slow devices.
-    - Variable rendering pass: Calculates interpolation alpha ratio:
-      alpha = accumulator / fixedStep
-      This alpha value is propagated to `EntityInterpolationSystem.ts` and 
-      `ParallaxScrollSystem.ts` to solve rendering positions smoothly between the current
-      and previous physics frames.
-
-2.3 Execution Pipeline (`src/core/systems/SystemManager.ts`)
-    Systems are updated sequentially in an 8-phase chronological pipeline.
-    Below is the complete execution order:
-
-    Phase | System Class Name             | Primary Operations & Inter-system Dependencies
-    ------+-------------------------------+---------------------------------------------------------
-    0     | PlayerInputSystem             | Polls keys/touch coordinates, sets `InputIntentComponent`.
-    ------+-------------------------------+---------------------------------------------------------
-    1     | WeaverBrainSystem             | Updates active behavioral states of the Weaver AI.
-          | EntitySpawnerSystem           | Instantiates dynamic hazards based on combat thresholds.
-    ------+-------------------------------+---------------------------------------------------------
-    2     | PlayerKinematicsSystem        | Integrates player movement vectors, resolves pendulums.
-          | TetherReelingSystem           | Updates tether target boundaries and reeling offsets.
-          | WeaverTraversalSystem         | Resolves Weaver horizontal sweeps and ceiling bounds.
-          | ParallaxScrollSystem          | Steps global Y scroll offsets; tracks player altitude.
-    ------+-------------------------------+---------------------------------------------------------
-    3     | VerticalBoundarySystem        | Clamps player to viewport limits; fires impact squash.
-          | TetherStrainSystem            | Evaluates cable stress, processes snap-back recoil.
-          | WallBugSystem                 | Moves crawling wall hazards; steps gait phase cycles.
-          | SpikeBugSystem                | Resolves crawling spike bugs; updates hazard bounds.
-          | HealthBugSystem               | Coordinates flying health bugs and recovery tracking.
-    ------+-------------------------------+---------------------------------------------------------
-    4     | HavokPhysicsSystem            | Synchronizes ECS transforms with Havok rigid-body states.
-    ------+-------------------------------+---------------------------------------------------------
-    5     | CombatSystem                  | Evaluates Player-to-Weaver proximity, resolves overlaps.
-          | HealthSystem                  | Processes damage pipelines and iframe cooldown timers.
-          | ProjectileSystem              | Steps flying projectile trajectories, triggers impacts.
-          | GameDirectorSystem            | Evaluates match progression, slomo states, and win/loss.
-    ------+-------------------------------+---------------------------------------------------------
-    6     | CameraSystem                  | Updates viewport focal points; calculates camera shakes.
-          | TetherVisualizerSystem        | Re-triangulates dynamic Bezier tube geometry.
-          | LightingSystem                | Updates moving point lights and flash/damage intensity.
-          | HudSyncSystem                 | Unifies engine states with Zustand stores.
-    ------+-------------------------------+---------------------------------------------------------
-    7     | ProfilePersistenceSystem      | Commits game-over metrics to client-side LocalStorage.
-
-
--------------------------------------------------------------------------------
-3. PHYSICS ENGINE & COPLANAR SANDWICHING
--------------------------------------------------------------------------------
-Project Silk implements a custom architectural paradigm called "Coplanar Physics
-Sandwiching" to resolve 2D simulation logic natively within a 3D rigid-body solver.
-
-3.1 Rigid Body Configuration
-    The player capsule and Weaver icosphere are initialized as `BABYLON.PhysicsMotionType.ANIMATED`
-    rigid bodies within the Havok WebAssembly solver. Kinematic integration is solved
-    by the ECS, and target coordinates are synchronised with the physics thread every
-    step using `body.setTargetTransform()` in `HavokPhysicsSystem.ts`.
-
-3.2 Coplanar Sandwiching Geometry
-    To prevent Z-axis drift or rotational torque deviations from explosive forces,
-    the play area is sandwiched between two static, invisible box barriers parallel
-    to the XY plane:
-
-    Barrier Name | Thickness / Scale             | Global Coordinates (Center) | Physical Material
-    -------------+-------------------------------+-----------------------------+-----------------------
-    physFloor    | [W: 32.4, H: 1.0, D: 16.0]    | [0.0, -9.0, 0.0]            | Fric: 0.5, Rest: 0.25
-    physLeft     | [W: 1.0, H: 140.0, D: 16.0]   | [-14.7, 14.0, 0.0]          | Fric: 0.3, Rest: 0.40
-    physRight    | [W: 1.0, H: 140.0, D: 16.0]   | [14.7, 14.0, 0.0]           | Fric: 0.3, Rest: 0.40
-    physFront    | [W: 32.4, H: 140.0, D: 1.0]   | [0.0, 14.0, -3.5]           | Fric: 0.1, Rest: 0.50
-    physBack     | [W: 32.4, H: 140.0, D: 1.0]   | [0.0, 14.0, 3.5]            | Fric: 0.1, Rest: 0.50
-
-    By restricting translation to the depth interval of Z ∈ [-3.5, 3.5], the solver
-    absorbs depth forces into physical wall friction, maintaining coplanar stability.
-
-
--------------------------------------------------------------------------------
-4. TRAVERSAL KINEMATICS & PLAYER STATE MACHINE
--------------------------------------------------------------------------------
-Player locomotion and coordinate translation are governed by `PlayerKinematicsSystem.ts`,
-interacting with three separate concrete state classes implementing `IPlayerState.ts`.
-
-
-              +-------------------+
-              |     AIRBORNE      |
-              +---------+---------+
-                        |
-       Wall collision & | Input release /
-       Pressing into wall | Fling launch
-                        v
-              +---------+---------+
-              |   WALL_STICKING   |
-              +---------+---------+
-                        |
-       Fling transition | Timer expiry /
-       with tension >= 0.427 | Launch completed
-                        v
-              +---------+---------+
-              |    LAUNCHING      |
-              +-------------------+
-
-
-4.1 Airborne State (`PlayerAirborneState.ts`)
-    - Integration:
-      ```
-      V_y(t) = V_y(t-1) + G_kinematic * dt
-      V_x(t) = V_x(t-1) + Input_x * F_swing * dt
-      ```
-      Where `G_kinematic = -24.0 m/s²` and `F_swing = 36.0 m/s²`.
-    - Drag:
-      ```
-      V(t) = V(t) * (D_drag)^(dt * 60.0)
-      ```
-      Where `D_drag = 0.99`.
-    - Wall Cling Evaluation: Spawns horizontal raycasts of length 0.15m. If the player
-      intersects a wall boundary (X = +/- 14.2) and inputs a lateral steering vector
-      towards that wall, they enter the `WALL_STICKING` state.
-
-4.2 Wall Sticking State (`PlayerWallStickingState.ts`)
-    - The player grips a static wall or crawling hazard. Lateral velocity is locked to zero.
-    - Slide Velocity: Clamped to:
-      ```
-      V_y = -V_slide + V_recoil
-      ```
-      Where `V_slide = 5.0 m/s` (base slide speed) and `V_recoil` represents residual recoil forces.
-    - If sticking to a crawling minion, the slide velocity is conformed to the hazard's speed:
-      ```
-      V_y = -(V_slide + V_hazard_speed)
-      ```
-    - Charging Fling: The player charges a launch vector. The duration of charging is tracked 
-      by `trav.chargeTimer` once tension exceeds `0.427`.
-
-4.3 Launching State (`PlayerLaunchingState.ts`)
-    - Gravity is scaled down to allow linear trajectories:
-      ```
-      G_launch = G_kinematic * 0.22 = -5.28 m/s²
-      ```
-    - Steering correction:
-      ```
-      V_x(t) = V_x(t-1) + Input_x * F_launch_steer * dt
-      ```
-      Where `F_launch_steer = 16.0 m/s²`.
-    - Exits automatically to `AIRBORNE` when the launch timer expires (`0.7` seconds).
-
-4.4 Tension & Length-Capping Mechanics
-    - Tautness Ratio ($R_{taut}$):
-      $$R_{taut} = \frac{L_{current}}{L_{max}}$$
-    - Elastic Tension Formula ($T$):
-      $$T = \text{clamp}\left(0.0, T_{max}, \frac{R_{taut} - 0.85}{0.15}\right)$$
-      Where `0.85` is the tautness threshold. Tension remains `0` inside the slack zone ($R_{taut} < 0.85$).
-    - Dynamic Tension Limit ($T_{max}$):
-      To prevent immediate cord snaps when reeled close, the ceiling of maximum achievable
-      tension is scaled dynamically by the current rope length:
-      $$T_{max} = \text{clamp}\left(0.15, 1.0, \frac{L_{max} - L_{min\_limit}}{L_{max\_limit} - L_{min\_limit}}\right)$$
-      Where $L_{min\_limit} = 5.4$ and $L_{max\_limit} = 38.0$.
-
-4.5 Tension Release & Fling Trajectories
-    When releasing the wall, the launch trajectory is calculated based on tension stages:
-    - Stage 1: Slack Zone ($T < 0.427$):
-      The player drops into a falling trajectory with a gentle horizontal nudge:
-      $$V_{launch} = [N_{wall} \cdot 5.5, \max(V_y, -3.0), 0] \text{ m/s}$$
-      Where $N_{wall}$ is the wall normal.
-    - Stage 2: Taut Zone ($0.427 \le T < 0.8$):
-      Launches the player towards the stinger tip:
-      $$V_{launch} = \vec{D}_{anchor} \cdot I_{fling} \cdot 0.55 \cdot S_{length\_scalar} \cdot R_{charge} \cdot B_{bonus}$$
-      Where $I_{fling} = 76.0 \text{ m/s}$, $S_{length\_scalar}$ scales power based on extended rope length,
-      $R_{charge}$ is the charge ratio, and $B_{bonus}$ is the web-struggle bonus multiplier (1.15).
-    - Stage 3: Overloaded Zone ($T \ge 0.8$):
-      Maximum kinetic release. The base power ratio is set to $0.90$. Triggers custom chromatic 
-      aberrations and hitstop time-dilation.
-
-4.6 Reeling Dynamics (`TetherReelingSystem.ts`)
-    - Manual Reel-In: Activated by pressing UP. Contracts the tether's maximum limit at a
-      rate of `-16.0 m/s`.
-    - Rope Length Solver:
-      The maximum length ($L_{max}$) is interpolated towards the desired length ($L_{desired}$)
-      using an analytical spring-damper solver:
-      ```
-      [L_max, V_reel] = solveSpringDamper(L_max, L_desired, V_reel, dt, K_stiffness, D_damping)
-      ```
-      Where `K_stiffness = 180.0` and `D_damping = 15.0`.
-
-4.7 Violent Snap-Back recoil (`TetherStrainSystem.ts`)
-    If tension reaches $1.0$ (SNAP_LIMIT), the system registers a damage strike.
-    To prevent instant player death, the system triggers a Violent Snap-Back:
-    1. Forces the player off the wall into `AIRBORNE` with a $0.5$s control stun.
-    2. Cuts the allowed thread capacity immediately in half ($L_{max} \leftarrow L_{max} \cdot 0.5$).
-    3. Whips the player towards the stinger tip at high velocity:
-       $$V_{snap} = \vec{D}_{anchor} \cdot 55.0 \text{ m/s}$$
-    4. Applies a hard squash animation to the Weaver: $ScaleVel = [-28.0, 18.0, 0]$.
-    5. The third consecutive strike snaps the thread completely, causing instant death.
-
-
--------------------------------------------------------------------------------
-5. WEAVER BOSS AI & COMBAT PIPELINE
--------------------------------------------------------------------------------
-The Weaver's behavioral AI is modeled as a state machine processing five operational states:
-
-
-        +-------------------+
-        |    PATROLLING     | <-------------------------+
-        +---------+---------+                           |
-                  |                                     |
-Damaged / Bounced | Return ceiling                      | Arrived at
-by player         | condition                           | ceiling Y
-                  v                                     |
-        +---------+---------+   Strike recovery /       |
-        |     STRIKING      | +---------------------+   |
-        +---------+---------+ | Contract tether &   |   |
-                  |           | Fire web projectile |   |
-         Weaver   |           v                     |   |
-         bounced  |     +-----+-------------+       |   |
-                  |     |     SHOCKWAVE     |       |   |
-                  |     +-----+-------------+       |   |
-                  v           |                     |   |
-        +---------+---------+ | Blast complete      |   |
-        |    ASCENDING      | <---------------------+---+
-        +---------+---------+
-
-
-
-5.1 Patrolling State (`WeaverPatrollingState.ts`)
-    - Moves horizontally along the ceiling ($Y = 34.0$) between the left and right walls ($X = \pm 14.2$).
-    - Sweep Logic:
-      Translates at speed $V_{patrol} = 4.5 \text{ m/s}$ (normal) or $V_{patrol} = 9.0 \text{ m/s}$ (berserk).
-      Upon hitting a wall, the Weaver pauses for a 0.22s hold period, reverses direction, and launches
-      with a temporary 2.0x velocity boost.
-    - Web Projectile Telegraph:
-      The Weaver pauses horizontal movement and glows yellow for $1.4$s (telegraph duration).
-      On expiry, it launches a target web projectile.
-
-5.2 Striking State (`WeaverStrikingState.ts`)
-    - Prep Phase:
-      The Weaver halts and squashes its body ($ScaleY = 0.82$, $ScaleX = 1.15$). It shivers for $0.6$s
-      while drawing back along the thrust line.
-    - Thrust Phase:
-      Lunges directly towards the player's last registered coordinates at high velocity:
-      $$V_{thrust} = 28.0 \text{ m/s (normal) or } 36.0 \text{ m/s (berserk)}$$
-    - Recover Phase:
-      The Weaver pauses for $0.5$s, stretches on impact, contracts the player's tether capacity by 25%,
-      and fires a target web projectile.
-
-5.3 Shockwave State (`WeaverShockwaveState.ts`)
-    - Triggered if the player collides with the Weaver during its normal patrol.
-    - Telegraph Phase:
-      The Weaver glows gold, shivers, and expands its scale to $1.25$ for $0.85$s.
-    - Blast Phase:
-      Releases a circular shockwave (radius: $6.8$m). It spawns 3 concentric torus meshes
-      expanding at $22.0 \text{ m/s}$.
-    - On contact, the player takes 1 HP damage, experiences a heavy knockback, and has their
-      unreeled thread reeled back to the default baseline ($5.4$m).
-
-5.4 Ascending State (`WeaverAscendingState.ts`)
-    - Climbs vertically back to its ceiling altitude ($Y = 34.0$) at a rate of $12.0 \text{ m/s}$.
-    - Continuously reels the player's thread back to the starting baseline of $5.4$m at a fast
-      reeling rate of $22.0 \text{ m/s}$.
-
-5.5 Defeated State (`WeaverDefeatedState.ts`)
-    - Scale drops to $0.2$. The legs collapse ($GaitTuck = 0.82$). The boss drops out of play
-      under gravity.
-
-
--------------------------------------------------------------------------------
-6. PROCEDURAL SHADER PIPELINE & TEXTURE GENERATION
--------------------------------------------------------------------------------
-Project Silk implements a custom material pipeline leveraging vertex-displacement 
-and fragment shaders to render organic damage deformations and dynamic textures.
-
-6.1 Dynamic Vertex Shear Displacement (`SilkMaterialPlugin.ts`)
-    When the Weaver is damaged, its mesh is deformed in real-time along the horizontal
-    plane using a vertex-shear shader.
-    - Displacement Equation ($D_{shear}$):
-      $$D_{shear} = \text{floor}\left(\frac{P_y}{T_{size}}\right) \cdot T_{size} \cdot \sin\left(\text{floor}\left(\frac{P_y}{T_{size}}\right) \cdot T_{size} \cdot 20.0 + t \cdot 75.0\right) \cdot E(y, t) \cdot I_{damage}$$
-      Where $P_y$ is the vertex local Y position, $T_{size} = 0.16$ is the quantization tile size,
-      $I_{damage}$ is the damage intensity, and $E(y, t)$ is a Gaussian shiver envelope:
-      $$E(y, t) = \max\left(0.0, 1.0 - \frac{|P_y - (2.5 - t \cdot 10.0)|}{1.8}\right)$$
-    - Normal Vector Reconstruction:
-      To maintain correct specular lighting, normal vectors are reconstructed in the vertex shader
-      via finite differences using an epsilon step ($\epsilon = 0.02$):
-      $$N_{sheared} = \text{normalize}\left(\vec{N} - \left[\frac{D_{shear}(P + \epsilon_y) - D_{shear}(P)}{\epsilon}, 0, 0\right] \cdot 0.35\right)$$
-
-6.2 Vertex Noise Displacement (Cocoon Web Shading)
-    Used to deform projectile meshes and web-trapped cocoons.
-    - Displacement value ($D_{noise}$):
-      $$D_{noise} = \left(\sin(P_x \cdot 2.0 + t \cdot 5.0) \cdot \cos(P_y \cdot 2.3 + t \cdot 6.3) \cdot \sin(P_z \cdot 2.6 + t \cdot 4.1) + \sin(P_y \cdot 5.0 - t \cdot 11.0) \cdot 0.35\right) \cdot 0.24$$
-    - Vertices are displaced along their normal vectors:
-      $$P_{new} = P + \vec{N} \cdot D_{noise}$$
-    - Normal vectors are re-calculated using a 3D finite difference gradient:
-      $$\vec{G} = \frac{1}{\epsilon} \left[ D_{noise}(P + \epsilon_x) - D_{noise}(P), D_{noise}(P + \epsilon_y) - D_{noise}(P), D_{noise}(P + \epsilon_z) - D_{noise}(P) \right]$$
-      $$\vec{N}_{new} = \text{normalize}(\vec{N} - \vec{G} \cdot 0.5)$$
-
-6.3 Fragment Abdomen Under-Glow Shading
-    A fragment shader maps a soft bioluminescent under-glow along the Weaver's lower abdomen.
-    - Gradient Factor ($F_{glow}$):
-      $$F_{glow} = \text{smoothstep}(0.0, 3.4, -P_{y\_local})^{2.5}$$
-    - Color Blend:
-      $$C_{final} = C_{base} + C_{emissive} \cdot F_{glow}$$
-
-6.4 Procedural PBR Texture Generation (`ProceduralTextureGenerator.ts`)
-    Textures are generated programmatically at boot on dynamic HTML5 canvas contexts using 
-    Fractional Brownian Motion (fBm) noise.
-    - fBm noise function ($f(x, y)$):
-      $$f(x, y) = \sum_{i=0}^{3} A_i \cdot \text{noise}(x \cdot F_i, y \cdot F_i)$$
-      Where $A_0 = 0.5$, $F_0 = 1.0$, $A_{i+1} = A_i \cdot 0.5$, and $F_{i+1} = F_i \cdot 2.0$.
-    - Normal Map: Generated by calculating horizontal and vertical gradients on the
-      displacement height map, and storing them in the RGB channels:
-      $$\text{Color}_{normal} = \left[ (dx \cdot 0.5 + 0.5), (dy \cdot 0.5 + 0.5), dz \right] \cdot 255$$
-    - ORM Map: Packs three channels:
-      * Red: Ambient Occlusion ($AO = 1.0 - (1.0 - height) \cdot 0.3$)
-      * Green: Roughness ($R_{rough} = R_{min} + (1.0 - height) \cdot (R_{max} - R_{min})$)
-      * Blue: Metalness ($M_{metallic} = 0.95 \cdot 255$)
-
-
--------------------------------------------------------------------------------
-7. TETHER ROPE & DOUBLE-STRAND SNAPPING MODEL
--------------------------------------------------------------------------------
-The tether rope is rendered as a dynamic cylinder tube mesh re-triangulated every
-frame using a quadratic Bezier curve solver.
-
-7.1 Bezier Curve Geometry
-    The rope curve is defined by an anchor point ($\vec{A}$), a player attachment
-    point ($\vec{P}$), and a control point ($\vec{C}$) that determines the rope sag:
-    $$\vec{B}(t) = (1-t)^2\vec{A} + 2(1-t)t\vec{C} + t^2\vec{P}$$
-    Where $t \in [0, 1]$ represents the segment index along $24$ segments.
-
-7.2 Control Point & Sag Solver
-    The control point coordinates are calculated dynamically to represent gravity sag
-    and reeling tension:
-    $$\vec{C} = \left[\frac{\vec{A} + \vec{P}}{2}\right] - [0, S_{sag}, -0.35]$$
-    - Sag height ($S_{sag}$):
-      $$S_{sag} = S_{max\_sag} \cdot (1.0 - T_{tension}) + \text{Osc}_{vibe}$$
-      Where $S_{max\_sag} = 3.8$m.
-    - Cable Vibration Offset ($\text{Osc}_{vibe}$):
-      If tension exceeds $0.7$, the rope vibrates at high frequency:
-      $$\text{Osc}_{vibe} = \sin(\text{time} \cdot \omega_{vib}) \cdot (T_{tension} - 0.7) \cdot A_{vib}$$
-      Where $A_{vib} = 0.35$ and $\omega_{vib} = 0.025$. If tension reaches $0.95$, the frequency
-      and amplitude are amplified by $3.5$x and $2.5$x respectively.
-
-7.3 Wind Wave Disturbances
-    To simulate continuous motion, a low-amplitude, high-frequency wave is applied
-    to the rope's depth coordinates:
-    $$P_z = P_z + \sin(t \cdot 2.5 + \text{time} \cdot 0.005 + \phi_{reel}) \cdot A_{wave}$$
-    Where $A_{wave} = 0.12$m, and $\phi_{reel}$ is a phase offset proportional to the reeling speed.
-
-7.4 Double-Strand Snapping model
-    When the tether breaks, the rope splits into two separate strands, simulating tension recoil
-    over a $1.5$-second decay period:
-    - Anchor Strand ($\vec{B}_{anchor}$):
-      Formed by the first $12$ segments of the curve. The free end snaps away from the break 
-      point with a high-frequency sine-wave whip offset:
-      $$\text{Whip}_{anchor} = \sin(t_{snap} \cdot 5\pi) \cdot (1 - t_{snap}) \cdot 1.8 \text{ meters}$$
-    - Player Strand ($\vec{B}_{player}$):
-      Formed by the remaining $12$ segments of the curve. The free end snaps back towards the
-      player, falling under gravity as the recoil decays:
-      $$\text{Fall}_{player} = t_{snap}^2 \cdot G_{gravity} \cdot 0.8$$
-
-
--------------------------------------------------------------------------------
-8. JUICE, IMPACT DEFORMATION, & SHATTER MECHANICS
--------------------------------------------------------------------------------
-Project Silk implements several dynamic visual features to enhance game feel,
-including procedural mesh shattering, spring-damper squash animations, and object pools.
-
-8.1 Spring-Damper Squash & Stretch (`EngineUtils.ts`)
-    Visual models deform on wall impacts, launches, and landings. Deformations are
-    solved using an analytical spring-damper formula:
-    $$f(t) = \text{solveSpringDamper}(x_{current}, x_{target}, v_{velocity}, dt, K_{stiffness}, D_{damping})$$
-    - Player Spring Constants: $K = 220.0, D = 14.0$.
-    - Weaver Spring Constants: $K = 120.0, D = 22.0$.
-    - Wall Impact Squash: When colliding with a wall, the player's scale instantly squashes:
-      $$ScaleX = \max(0.3, 0.72 - I_{speed} \cdot 0.35)$$
-      $$ScaleY = \min(2.0, 1.22 + I_{speed} \cdot 0.50)$$
-      And then bounces back to a neutral $1.0$ scale over time.
-
-8.2 Runtime Mesh Shattering (`WeaverShatterSystem.ts`)
-    When the Weaver dies, its icosphere mesh is procedurally shattered at runtime:
-    - Shard Generation:
-      Calculates the centroids of the 20 triangular faces of the icosphere shell,
-      and spawns individual 3-vertex triangular meshes centered at those points.
-    - Core Pyramids:
-      Generates 8 inner triangular pyramids (4-vertex meshes) from the core coordinates
-      facing outwards.
-    - Shard Physics:
-      Each shard is assigned an initial linear velocity directed outwards from the centroid:
-      $$V_{shard} = \vec{D}_{outward} \cdot V_{speed} + \vec{V}_{variance}$$
-      Where $V_{speed} \in [5.0, 19.0] \text{ m/s}$. Air drag ($D_{drag} = 0.95$) and gravity
-      ($G_y = -38.4 \text{ m/s²}$) are integrated every frame.
-    - Collision Handling:
-      Shards bounce off the side walls and push away from each other on intersection:
-      $$P_{offset} = \vec{D}_{normal} \cdot \left( (R_1 + R_2) - \text{distance} \right) \cdot 0.5$$
-
-8.3 Dynamic Projectile Splatting (`WebShatterSystem.ts`)
-    Similar to the Weaver shatter system, breaking free from a web cocoon triggers a
-    splat animation. It spawns $12$ procedural shards (alternating spheres and boxes) that
-    recoil away from the player with randomized angular velocities ($\omega_{var} = \pm 6.0 \text{ rad/s}$)
-    and scale down to zero over $1.2$ seconds.
-
-8.4 Object Pools
-    To prevent garbage collection stutter, dynamic hazards and projectiles are managed
-    using pre-allocated pools:
-    - Projectiles: Pool size = $16$ (`ProjectilePool.ts`).
-    - Flying Health Bugs: Pool size = $2$ (`HealthBugPool.ts`).
-    - Spike Bugs: Pool size = $4$ (`SpikeBugSystem.ts`).
-    - Wall Bugs: Pool size = $2$ (`WallBugSystem.ts`).
-    All instances are created at boot, hidden out of bounds, and reset/re-allocated via index cycling.
-
-
--------------------------------------------------------------------------------
-9. AUDIO PIPELINE & SYNTHESIS SPECS
--------------------------------------------------------------------------------
-The audio engine (`AudioSystem.ts`) manages spatial sound effects and background
-ambience using Tone.js and raw Web Audio nodes.
-
-9.1 Atmospheric Wind Synthesis (`ProceduralAmbienceEngine.ts`)
-    Generates dynamic wind sound effects programmatically without using audio files.
-    - Web Audio Graph Design:
-      ```
-      [White Noise Source] -> [Lowpass Filter 1 (800Hz)] -> [Lowpass Filter 2 (300Hz)] -> [Gain] -> [Destination]
-                                                                  ^
-                                                                  | Cutoff Frequency
-                                                            [LFO (0.2Hz)] -> [LFO Gain (10)]
-      ```
-    - The LFO modulates the cutoff frequency of the second low-pass filter, creating
-      procedural wind gusts.
-    - The gain is smoothed over 2.0s during startup using a linear ramp.
-
-9.2 Auditory Fatigue Mitigation (Pitch/Gain Variance)
-    To keep repetitive sound effects from sounding monotonous, sample playback rates
-    and volumes are randomized slightly on every trigger:
-    - Playback Rate Correction (detune):
-      $$Rate_{playback} = 2^{\frac{\Delta_{cents}}{1200}}$$
-      Where $\Delta_{cents}$ is a random detune offset between $\pm 50$ and $\pm 250$ cents.
-    - Volume Gain Offset: Randomized within a range of $\pm 2.5$ dB.
-
-
--------------------------------------------------------------------------------
-10. USER INTERFACE & STATE SYNCHRONIZATION
--------------------------------------------------------------------------------
-The UI layer is written in React 19, synchronized with the ECS system loop using
-Zustand stores.
-
-10.1 Synchronization Bridge (`HudSyncSystem.ts`)
-     Coordinates state updates between React and the ECS:
-     - Component stores are read at the end of every frame (Phase 7: `PostRender`), and
-       changes in health, tension, state, and calibration are dispatched to the Zustand store.
-     - To avoid React render cycles during high-frequency updates (such as the tension bar),
-       the ECS bypasses React state entirely, writing width, color, and glow shadows
-       directly to DOM elements using vanilla JS ref handles on a custom `silk-tension-render-tick`
-       event.
-
-10.2 Web Trap Cocoon Mechanics (`PlayerStateUtils.ts`)
-     - Accumulating Traps:
-       Every web projectile impact increases the player's web mass ($W_{mass} \leftarrow W_{mass} + 1$).
-       This scales the visual size of the cocoon, slows player acceleration, and increases
-       the required struggle inputs:
-       $$Inputs_{required} = 5 + (W_{mass} - 1) \cdot 3$$
-     - Web Struggle Resolution:
-       To break free, the player must alternate directional inputs ($A/D/W/S$ or arrows).
-       Each successful direction change advances their progress ($P_{escape} \leftarrow P_{escape} + 1$)
-       and triggers a camera shake. Upon reaching the target threshold, the cocoon breaks.
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                  ║
+║   P R O J E C T   S I L K                                                        ║
+║   Systems Architecture & Technical Specification                                 ║
+║                                                                                  ║
+║   Version  :  6.0                                                                ║
+║   Runtime  :  React 19 · TypeScript 6 · Babylon.js 7 · Havok V2 · Tone.js 15   ║
+║   Build    :  Vite 8 · ESBuild · GitHub Actions → GitHub Pages / Itch.io         ║
+║                                                                                  ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+This document is the authoritative architectural reference for Project Silk. It maps
+physical formulas, rendering equations, system phases, data topologies, and design
+decisions directly to the production source code. It is intended as an AI handoff
+document, onboarding reference, and design record.
+
+───────────────────────────────────────────────────────────────────────────────────
+
+  TABLE OF CONTENTS
+
+    1.  Runtime Stack & Configuration
+    2.  Bootstrap Pipeline
+    3.  ECS Data Topology
+    4.  Engine Loop & Timestep Model
+    5.  System Execution Pipeline (Full Phase Table)
+    6.  Physics Architecture & Coplanar Sandwiching
+    7.  Player State Machine & Traversal Kinematics
+    8.  Tether Mechanics: Tension, Reeling & Snap-Back
+    9.  Weaver Boss AI
+   10.  Combat & Damage Pipeline
+   11.  Vertical Scroll & Altitude System
+   12.  Visual Pipeline
+        12a. Render System & Post-Processing
+        12b. Camera System
+        12c. Lighting Architecture
+        12d. Procedural Shader Plugins (SilkMaterialPlugin)
+        12e. Procedural Texture Generation
+        12f. Tether Rope Geometry
+        12g. Fauna Visual Factories & IK Leg Animation
+        12h. Visual State Dressing & Entity Interpolation
+   13.  Juice, Impact Deformation & Shatter
+   14.  Enemy Hazard Systems
+   15.  Audio Pipeline
+   16.  UI Architecture & React–ECS Bridge
+   17.  Event System & Command Bus
+   18.  Deployment Pipeline
+   19.  Debug & Development Utilities
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  1.  RUNTIME STACK & CONFIGURATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+  All tuning values live in a single configuration module:
+  src/core/engine/ArenaConfig.ts
+
+  This file exports five immutable const objects (all typed as const):
+
+    CANONICAL_UNITS        Physical constants and unit-space mappings.
+    ARENA_CONFIG           Geometric and spawn positions.
+    GAMEPLAY_TUNING        Player, combat, and reel mechanics.
+    WEAVER_AI_TUNING       Boss behavioral parameters.
+    VISUAL_JUICE_CONFIG    Material, particle, tether, and emissive values.
+    CAMERA_TUNING          Comfort zone bounds and scroll limits.
+    POST_PROCESSING_PRESETS  Bloom, ACES, vignette, lighting, and camera presets.
+
+  Dependency stack:
+
+    Babylon.js 7.47.0          WebGL2 renderer with WebGPU preset support.
+    @babylonjs/havok            Havok Physics V2 (WebAssembly C++ solver).
+    Tone.js 15.1.22            Web Audio API wrapper with sample scheduling.
+    Zustand 5.0.13             ECS-to-React state bridge.
+    Framer Motion              HUD and overlay animation.
+    canvas-confetti            Victory screen particle burst.
+    Vite 8 + TypeScript 6      Build system. Strict mode; no explicit `any`.
+
+  TypeScript compiler constraints enforced:
+    - noUnusedLocals, noUnusedParameters
+    - no explicit `any` types anywhere
+    - All dynamically resolved types cast through `unknown` + type guards
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  2.  BOOTSTRAP PIPELINE
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Entry points:  src/app/bootstrap.ts  →  src/app/compositionRoot.ts
+
+  InitPhase enum (src/contracts/SystemPhase.ts) controls async initialization
+  order. Systems declare their initPhase; the CompositionRoot respects ordering.
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Phase 0 : InitPhase.Bootstrap                                       │
+  │                                                                     │
+  │  · Spawns RafScheduler (requestAnimationFrame loop wrapper).        │
+  │  · Mounts PerformanceClock (high-precision timer).                  │
+  │  · Instantiates EventBroker and CommandBus.                         │
+  │  · Loads HavokPhysics.wasm with a 3000ms timeout race.              │
+  │    Fallback: local directory → Cloudflare CDN.                      │
+  │  · Configures global gravity vector: G = [0, -9.81, 0] m/s².       │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Phase 1 : InitPhase.World                                           │
+  │                                                                     │
+  │  · RenderSystem creates the Babylon.js Engine and Scene.           │
+  │  · CameraSystem acquires the active FreeCamera.                     │
+  │  · Loads prefiltered environment specular map from BabylonJS CDN.  │
+  │  · Builds all static elevator shaft geometry (ArenaGeometry.ts).   │
+  │  · Compiles PBR materials; generates procedural textures            │
+  │    (ProceduralTextureGenerator.ts) on HTML5 Canvas contexts.        │
+  │  · Configures DefaultRenderingPipeline (bloom, FXAA, ACES, etc.).  │
+  │  · Sets up directional + point + spot lights and shadow generator. │
+  │  · Force-compiles all shaders via forceCompilationAsync().          │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Phase 2 : InitPhase.Gameplay                                        │
+  │                                                                     │
+  │  · EntitySpawnerSystem spawns Player and Weaver entities.           │
+  │  · EntityAssembler constructs all ECS component stores.             │
+  │  · VisualRegistry registers shadow casters.                         │
+  │  · ProjectilePool and HealthBugPool pre-allocated at capacity.      │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Phase 3 : InitPhase.UI                                              │
+  │                                                                     │
+  │  · HudOverlay.tsx mounts in React; ErrorBoundary wraps it.         │
+  │  · PlayerInputSystem binds keyboard and pointer event listeners.   │
+  │  · AudioSystem preloads all Web Audio buffers into Tone.js Players.│
+  │  · ProceduralAmbienceEngine constructs the wind synthesis graph.   │
+  │  · GAME_INITIALIZED event published; loader dismissed on gesture.  │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  Boot progress is exposed to the HUD via GameEvent.GAME_BOOT_PROGRESS events
+  with a status string. The loading screen in HudOverlay.tsx maps to four
+  labeled steps (Core Engine / World Data / Game Entities / Render Pipeline)
+  and reflects InitPhase numerically via hudStore.bootPhase.
+
+  Web Audio requires a user gesture before the AudioContext can be resumed.
+  The loader overlay persists until the user clicks or taps (awaitingGesture
+  flag). On gesture, USER_GESTURE_REGISTERED is published and audio starts.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  3.  ECS DATA TOPOLOGY
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/core/ecs/
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  EntityId                                                            │
+  │  32-bit unsigned integer key (EntityId = number).                   │
+  │  EcsWorld.ts manages the active entity set via ES6 Set.             │
+  │  EntityRefs.ts holds named aliases: player / weaver.                │
+  └──────────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  ComponentStore<T>                                                   │
+  │  Typed key-value map from EntityId → component data struct.         │
+  │  Zero logic inside components; all behavior lives in systems.       │
+  │  StoreContainer.ts aggregates all stores under one accessor.        │
+  └──────────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  SystemContext                                                       │
+  │  Dependency-injection bag passed to every system. Contains:         │
+  │    .world        EcsWorld                                           │
+  │    .stores       StoreContainer                                     │
+  │    .refs         EntityRefs (player / weaver aliases)               │
+  │    .broker       EventBroker                                        │
+  │    .commands     CommandBus                                         │
+  │    .runtime      RuntimeState                                       │
+  │    .visualQuery  IVisualRegistry (mesh/node lookups)               │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  Component files:
+
+    ActorComponents.ts      TraversalStateComponent, WeaverAIComponent,
+                            ActorCosmeticComponent, HitStopComponent,
+                            InvulnerabilityComponent
+
+    CombatComponents.ts     HealthComponent, DamageComponent,
+                            CollisionResponseComponent
+
+    KinematicComponents.ts  KinematicVelocityComponent
+
+    PhysicsComponents.ts    PhysicsBodyComponent, BoundaryConstraintComponent,
+                            ProjectileComponent
+
+    TransformComponents.ts  TransformComponent (x, y, z, qx, qy, qz, qw,
+                            scaleX/Y/Z, prev* variants for interpolation)
+
+    VisualComponents.ts     ParticleRequestComponent
+
+  RuntimeState (src/core/engine/RuntimeState.ts) holds mutable per-frame
+  game state that does not belong in the ECS:
+
+    timeScale               Global simulation speed multiplier (slomo/adrenaline).
+    currentScrollSpeed      Live scroll speed for use by all systems.
+    altitude                Accumulated upward travel distance.
+    tetherDamagePauseTimer  Scroll-pause timer after snap damage.
+    hitLagTimer / hitLagScale   Procedural lag freeze on landing.
+    gameFinished / gameStarted  Match lifecycle flags.
+    weaverDamageCount       Hit counter; used for berserk trigger.
+    wallBugsSpawningAllowed / healthBugsSpawningAllowed   Debug overrides.
+    activeProfile           Scroll speed and difficulty profile object.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  4.  ENGINE LOOP & TIMESTEP MODEL
+═══════════════════════════════════════════════════════════════════════════════════
+
+  File:  src/core/loop/GameLoop.ts
+
+  Silk uses a semi-fixed timestep integration model to decouple physics updates
+  from variable display refresh rates.
+
+  Constants:
+    Fixed update step     dt = 1/60 s (16.67 ms)
+    Accumulator ceiling   100 ms — prevents "spiral of death" on slow devices
+
+  Each tick:
+    1. Advance accumulator by real elapsed time.
+    2. While accumulator >= fixedStep:
+         · Apply timeScale from RuntimeState (slomo / adrenaline).
+         · Run all update-phase systems with scaled dt.
+         · Decrement accumulator by fixedStep.
+    3. Compute interpolation alpha:
+         alpha = accumulator / fixedStep
+    4. Run all render-phase systems with alpha (sub-frame interpolation).
+
+  The alpha value is passed to EntityInterpolationSystem and ParallaxScrollSystem
+  so entity positions and scroll offsets render smoothly between physics frames.
+
+  Scheduler:  RafScheduler.ts wraps requestAnimationFrame with clamped delta.
+  Clock:      PerformanceClock.ts uses performance.now() for sub-millisecond accuracy.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  5.  SYSTEM EXECUTION PIPELINE
+═══════════════════════════════════════════════════════════════════════════════════
+
+  File:  src/core/systems/SystemManager.ts
+
+  Systems register a SystemPhase enum value. The SystemManager calls update()
+  and render() in strict chronological order each frame.
+
+  ┌──────┬────────────────────────────────┬────────────────────────────────────────┐
+  │ Phase│ System                         │ Responsibility                         │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  0   │ PlayerInputSystem              │ Poll keyboard/touch; write             │
+  │      │                               │ InputIntentComponent.                  │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  1   │ WeaverBrainSystem              │ Tick active Weaver behavioral state.   │
+  │      │ EntitySpawnerSystem            │ Spawn hazards at HP thresholds.        │
+  │      │ TutorialSystem                 │ Track wall-stick calibration step.     │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  2   │ PlayerKinematicsSystem         │ Integrate player velocity; pendulum.   │
+  │      │ TetherReelingSystem            │ Update rope length limits and offsets. │
+  │      │ WeaverTraversalSystem          │ Weaver horizontal sweep integration.   │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  3   │ VerticalBoundarySystem         │ Clamp player to viewport; squash.      │
+  │      │ TetherStrainSystem             │ Evaluate cable stress; snap-back.      │
+  │      │ WallBugSystem                  │ Step wall-crawling hazards; gait.      │
+  │      │ SpikeBugSystem                 │ Step spike variants; hazard bounds.    │
+  │      │ HealthBugSystem                │ Coordinate flying health pickups.      │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  4   │ HavokPhysicsSystem             │ Sync ECS transforms with Havok.        │
+  │      │ CollisionResolutionSystem      │ Resolve broadphase overlap callbacks.  │
+  │      │ KinematicIntegrationSystem     │ Push positions into physics bodies.    │
+  │      │ EnvironmentClampingSystem      │ Clamp entities to arena boundaries.    │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  5   │ CombatSystem                   │ Player–Weaver proximity; fling damage. │
+  │      │ HealthSystem                   │ Damage pipeline; iframes; death.       │
+  │      │ ProjectileSystem               │ Step projectile trajectories; impacts. │
+  │      │ GameDirectorSystem             │ Match lifecycle; cinematic slomo.      │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  6   │ CameraSystem                   │ Comfort-zone pan; shake integration.   │
+  │      │ TetherVisualizerSystem         │ Re-triangulate Bezier tube mesh.       │
+  │      │ LightingSystem                 │ Animate point lights; flash/damage.    │
+  │      │ HudSyncSystem                  │ Write Zustand stores from ECS state.   │
+  │      │ VisualStateDressingSystem      │ Emissive, squash-stretch, shear FX.    │
+  │      │ LegJointAnimationSystem        │ IK leg gait for Weaver and WallBugs.   │
+  │      │ JuiceSystem                    │ Step particle lifetimes; debris.       │
+  │      │ WeaverShatterSystem            │ Step shatter shard physics on death.   │
+  │      │ WebShatterSystem               │ Step web-break splat shards.           │
+  │      │ AudioSystem                    │ Trigger/schedule SFX from game events. │
+  │      │ HapticFeedbackSystem           │ Vibration on mobile devices.           │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  7   │ ProfilePersistenceSystem       │ Commit match metrics to LocalStorage.  │
+  ├──────┼────────────────────────────────┼────────────────────────────────────────┤
+  │  R   │ ParallaxScrollSystem           │ Scroll arena geometry; wrap offset.    │
+  │      │ EntityInterpolationSystem      │ Sub-frame visual position smoothing.   │
+  │      │ TransformHistorySystem         │ Copy current transforms to prev*.      │
+  │      │ RenderSystem                   │ Babylon scene.render() call.           │
+  └──────┴────────────────────────────────┴────────────────────────────────────────┘
+
+  Phase R = SystemPhase.RenderSync — runs after all update phases; receives alpha.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  6.  PHYSICS ARCHITECTURE & COPLANAR SANDWICHING
+═══════════════════════════════════════════════════════════════════════════════════
+
+  File:  src/physics/havok/HavokPhysicsSystem.ts
+         src/physics/systems/
+
+  Project Silk runs 2D gameplay logic inside a 3D rigid-body solver using a
+  technique called "Coplanar Physics Sandwiching."
+
+  6.1  Rigid Body Configuration
+  ─────────────────────────────
+  The player capsule and Weaver icosphere are both ANIMATED-type rigid bodies
+  (BABYLON.PhysicsMotionType.ANIMATED). Their positions are driven by the ECS
+  kinematics systems, not by solver forces. Each frame, the ECS writes target
+  coordinates and orientations to the physics body via body.setTargetTransform().
+  This lets game code own the motion math while the Havok solver handles collision
+  geometry detection and event broadcasting.
+
+  6.2  Coplanar Sandwiching Geometry
+  ───────────────────────────────────
+  To prevent Z-axis drift or rotational torque from explosive forces, five static
+  box colliders sandwich the play area:
+
+    Name         Dimensions [W, H, D]       Center [X, Y, Z]    Friction  Restitution
+    ─────────────────────────────────────────────────────────────────────────────────
+    physFloor    [32.4, 1.0, 16.0]          [0.0, -9.0, 0.0]    0.50      0.25
+    physLeft     [1.0, 140.0, 16.0]         [-14.7, 14.0, 0.0]  0.30      0.40
+    physRight    [1.0, 140.0, 16.0]         [14.7, 14.0, 0.0]   0.30      0.40
+    physFront    [32.4, 140.0, 1.0]         [0.0, 14.0, -3.5]   0.10      0.50
+    physBack     [32.4, 140.0, 1.0]         [0.0, 14.0, 3.5]    0.10      0.50
+
+  All Z-motion is constrained to Z ∈ [-3.5, 3.5]. Residual depth forces are
+  absorbed into physFront/physBack wall friction, maintaining coplanar stability.
+
+  6.3  Spatial Query Service
+  ──────────────────────────
+  File:  src/physics/systems/SpatialQueryService.ts
+
+  Provides raycasting and broadphase overlap queries against the Havok solver.
+  Used by PlayerKinematicsSystem (wall-cling raycasts at length 0.15m),
+  CombatSystem (player–Weaver proximity), and ProjectileSystem.
+
+  6.4  Environment Clamping
+  ─────────────────────────
+  File:  src/physics/systems/EnvironmentClampingSystem.ts
+
+  Runs post-physics as a hard-override guard. Clamps entity X positions to
+  ARENA_CONFIG.HORIZONTAL.WALL_LIMIT_X (±14.2) and Y positions to floor bounds.
+  Ensures the solver cannot produce positions outside the visual arena geometry
+  even under extreme impulses.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  7.  PLAYER STATE MACHINE & TRAVERSAL KINEMATICS
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/gameplay/player/PlayerKinematicsSystem.ts
+          src/gameplay/player/states/
+
+  The player has three concrete states implementing IPlayerState.ts:
+  AIRBORNE · WALL_STICKING · LAUNCHING
+
+  ┌──────────────────────────┐
+  │         AIRBORNE         │◄─────────────────────────┐
+  └────────────┬─────────────┘                          │
+               │ Wall contact +                         │
+               │ lateral input toward wall              │ Launch timer expires
+               ▼                                        │ (0.7 s) or control
+  ┌──────────────────────────┐                          │ returns
+  │      WALL_STICKING       │                          │
+  └────────────┬─────────────┘                          │
+               │ Tension ≥ 0.427 +                      │
+               │ charge input released                  │
+               ▼                                        │
+  ┌──────────────────────────┐                          │
+  │        LAUNCHING         ├──────────────────────────┘
+  └──────────────────────────┘
+
+  7.1  Airborne State  (PlayerAirborneState.ts)
+  ─────────────────────────────────────────────
+  Gravity:     G_kinematic = -24.0 m/s²
+  Swing force: F_swing = 36.0 m/s²
+  Drag:        V(t) = V(t) * (0.99)^(dt * 60)
+
+  Velocity integration:
+    V_y(t) = V_y(t-1) + G_kinematic * dt
+    V_x(t) = V_x(t-1) + Input_x * F_swing * dt
+
+  Wall-cling evaluation: Horizontal raycasts of length 0.15m. If the player
+  position.x exceeds ±13.6 (WALL_CLING_THRESHOLD_X) and input steers toward that
+  wall, the player transitions to WALL_STICKING.
+
+  7.2  Wall Sticking State  (PlayerWallStickingState.ts)
+  ───────────────────────────────────────────────────────
+  Lateral velocity is zeroed. Vertical slide:
+    V_y = -(V_slide + V_hazard_speed)
+
+  Where V_slide = 5.0 m/s base, and V_hazard_speed is non-zero when sticking
+  to a moving WallBug or SpikeBug (conforms the slide to the hazard's velocity).
+
+  Charge phase begins when the player holds the wall. chargeTimer begins
+  accumulating once tension exceeds 0.427 (TETHER_UI.THRESHOLD_YELLOW). The
+  charge ratio clamps to a normalized [0, 1] value used to scale fling power.
+
+  7.3  Launching State  (PlayerLaunchingState.ts)
+  ─────────────────────────────────────────────────
+  Gravity is scaled during launch to enable linear trajectories:
+    G_launch = G_kinematic * 0.22 = -5.28 m/s²
+
+  Lateral steering during launch:
+    V_x(t) = V_x(t-1) + Input_x * 16.0 * dt
+
+  Auto-exits to AIRBORNE after 0.7 s (GAMEPLAY_TUNING.PLAYER.LAUNCH_DURATION).
+
+  7.4  Fling Launch Vector (3 Tension Stages)
+  ────────────────────────────────────────────
+  File:  src/gameplay/player/states/PlayerStateUtils.ts
+
+  Stage 1 — Slack Zone (T < 0.427):
+    Player drops with a gentle nudge away from the wall.
+    V_launch = [N_wall * 5.5,  max(V_y, -3.0),  0]
+
+  Stage 2 — Taut Zone (0.427 ≤ T < 0.8):
+    Launches toward the Weaver anchor tip.
+    V_launch = D_anchor * I_fling * 0.55 * S_length * R_charge * B_bonus
+    Where:
+      I_fling  = 76.0 m/s (FLING_IMPULSE)
+      S_length = length scalar based on current rope extension
+      R_charge = charge timer ratio [0, 1]
+      B_bonus  = 1.15 (web-struggle bonus multiplier)
+
+  Stage 3 — Overloaded Zone (T ≥ 0.8):
+    Maximum kinetic release. Base power ratio = 0.90.
+    Triggers chromatic aberration pulse and hitstop time-dilation.
+
+  7.5  Squash-Stretch on Launch
+  ──────────────────────────────
+  File:  src/gameplay/player/PlayerAnimationSystem.ts
+
+  On fling:
+    Sweet-spot launch:   ScaleVel_Y = +22.0, ScaleVel_X = -11.0
+    Overloaded launch:   ScaleVel_Y = +36.0, ScaleVel_X = -18.0
+
+  On wall landing:
+    ScaleX = 0.72, ScaleY = 1.22 (squash toward wall)
+  On floor landing (V_y < -1.0):
+    ScaleX = 1.22, ScaleY = 0.72 (squash downward)
+
+  All scale deformations are spring-damper resolved each frame (see Section 13).
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  8.  TETHER MECHANICS: TENSION, REELING & SNAP-BACK
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/gameplay/player/TetherReelingSystem.ts
+          src/gameplay/player/TetherStrainSystem.ts
+
+  The tether is the primary game mechanic. Its length can be reeled in/out
+  manually and is punished by the Weaver's attacks.
+
+  8.1  Rope Length Solver  (TetherReelingSystem.ts)
+  ──────────────────────────────────────────────────
+  Manual reel-in speed (UP key): -16.0 m/s (REEL.MANUAL_IN_SPEED)
+  Min length: 5.4 m     Max length: 38.0 m
+
+  The maximum allowed length (L_max) is spring-damper interpolated toward
+  the desired length (L_desired) to produce smooth reeling dynamics:
+
+    [L_max, V_reel] = solveSpringDamper(L_max, L_desired, V_reel, dt,
+                                        K=180.0, D=15.0)
+
+  8.2  Tautness Ratio
+  ────────────────────
+    R_taut = L_current / L_max
+
+  8.3  Elastic Tension Formula
+  ─────────────────────────────
+  Tension is zero inside the slack zone (R_taut < 0.85):
+
+    T = clamp(0, T_max,  (R_taut - 0.85) / 0.15)
+
+  Dynamic tension ceiling (prevents instant snaps when reeled short):
+
+    T_max = clamp(0.15, 1.0,  (L_max - 5.4) / (38.0 - 5.4))
+
+  8.4  Tension HUD Color Thresholds
+  ───────────────────────────────────
+    Green   : T < 0.427
+    Yellow  : 0.427 ≤ T < 0.8      (threshold to enter LAUNCHING)
+    Red     : T ≥ 0.8              (overload zone; max fling power)
+
+  The HUD tension bar bypasses React state entirely for performance-critical
+  updates. HudSyncSystem writes width, color, and glow CSS box-shadow directly
+  to DOM element refs via a custom `silk-tension-render-tick` event.
+
+  8.5  Violent Snap-Back Recoil  (TetherStrainSystem.ts)
+  ────────────────────────────────────────────────────────
+  Triggered when T reaches 1.0 (SNAP_LIMIT). Sequence:
+
+    1. Forces player into AIRBORNE with a 0.5 s control stun.
+    2. Halves the max tether capacity: L_max *= 0.5.
+    3. Whips the player toward the Weaver at 55.0 m/s:
+         V_snap = D_anchor_unit * 55.0
+    4. Applies hard squash to the Weaver: ScaleVel = [-28.0, 18.0, 0].
+    5. On the 3rd consecutive snap hit, the thread is fully cut → instant death.
+    6. A scroll pause is applied for visual weight (tetherDamagePauseTimer).
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  9.  WEAVER BOSS AI
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/gameplay/weaver/
+          src/gameplay/weaver/states/
+
+  The Weaver is a state machine with five concrete states implementing IWeaverState.
+
+  Berserk threshold:  HP < 50% of maximum (WEAVER_AI_TUNING.BERSERK_HP_THRESHOLD).
+  In berserk mode, patrol speed doubles and dash speed increases by ~29%.
+
+  ┌──────────────────────┐
+  │      PATROLLING      │◄──────────────────────────────────────────┐
+  └──────────┬───────────┘                                           │
+             │ Player lands a fling hit  ──or──                     │
+             │ player physically contacts Weaver                    │
+             │                                                       │
+             ▼                                                       │
+  ┌──────────────────────┐  player contact          ┌───────────────┤
+  │       STRIKING       │─────────────────────────►│   SHOCKWAVE   │
+  └──────────┬───────────┘  (shockwave branch)      └───────┬───────┘
+             │ Dash/recover complete                        │ Blast resolved
+             │                                              │
+             └──────────────────►┌──────────────────────┐◄─┘
+                                 │      ASCENDING       │
+                                 └──────────┬───────────┘
+                                            │ Ceiling reached
+                                            │ (Y = 34.0)
+                                            └──────────────► PATROLLING
+
+  9.1  Patrolling State  (WeaverPatrollingState.ts)
+  ──────────────────────────────────────────────────
+  Ceiling Y: 34.0. Patrol X range: ±14.2.
+  Speed:     4.5 m/s normal  |  9.0 m/s berserk
+
+  On wall reversal: pause 0.22 s → reverse direction → 2.0× velocity burst.
+
+  Web Projectile Telegraph:
+    - Weaver halts and glows yellow (emissiveHue → #dffe00).
+    - Telegraph duration: 1.4 s (TELEGRAPH_TIME).
+    - On expiry: fires a homing web projectile toward the player's position.
+    - Reload cooldown after firing: 2.4 s (RELOAD_TIME).
+
+  9.2  Striking State  (WeaverStrikingState.ts)
+  ───────────────────────────────────────────────
+  Triggered when the player lands a valid fling hit on the Weaver.
+
+  Prep phase (0.6 s):  Body squash: ScaleY=0.82, ScaleX=1.15. Body shivers.
+  Thrust phase:        Lunges at player's last coordinates.
+                         Speed: 28.0 m/s normal  |  36.0 m/s berserk
+  Recover phase (0.5 s):  Stretch on impact.
+                           Contracts player tether capacity by 25%.
+                           Fires a secondary web projectile.
+
+  9.3  Shockwave State  (WeaverShockwaveState.ts)
+  ─────────────────────────────────────────────────
+  Triggered when the player physically collides with the Weaver during patrol.
+
+  Telegraph (0.85 s):   Glow gold; shiver; expand scale to 1.25.
+  Blast:                Spawns 3 concentric expanding torus meshes (radius 6.8 m,
+                        expanding at 22.0 m/s). On contact: 1 HP damage + heavy
+                        knockback + tether reeled back to 5.4 m baseline.
+
+  9.4  Ascending State  (WeaverAscendingState.ts)
+  ─────────────────────────────────────────────────
+  Climbs back to ceiling Y=34.0 at 12.0 m/s (RETURN.SPEED).
+  Continuously reels the player's tether back to 5.4 m at 22.0 m/s.
+
+  9.5  Defeated State  (WeaverDefeatedState.ts)
+  ───────────────────────────────────────────────
+  Body scale collapses to 0.2. Legs tuck (gaitTuck → 0.82). Boss drops under
+  gravity. Triggers WeaverShatterSystem shard explosion (see Section 13.2).
+
+  9.6  Brain & Sweep System
+  ──────────────────────────
+  WeaverBrainSystem.ts:   Per-frame state tick dispatcher. Routes to the
+                          correct state's update() method.
+  WeaverTraversalSystem.ts: Integrates Weaver horizontal position each frame.
+  WeaverSweepHelper.ts:   Shared utility for wall-bounce reversal logic.
+  WeaverActionSystem.ts:  Handles combat action triggers (shoot, charge, etc.)
+                          from within active behavioral states.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  10.  COMBAT & DAMAGE PIPELINE
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/gameplay/combat/
+
+  10.1  Combat System  (CombatSystem.ts)
+  ───────────────────────────────────────
+  Evaluates broadphase proximity between the player and the Weaver each frame.
+  Collision margin: BROADPHASE_MARGIN = 0.4 m added to sum of radii.
+
+  Fling damage:  Player must be in LAUNCHING state with tension ≥ 0.72 at contact.
+    PLAYER_FLING_DAMAGE = 35 HP.
+    Knockback applied to Weaver: [16.0, 16.0] m/s + REBOUND_FORCE = 22.0 m/s.
+    BOUNCE_ELASTICITY_MULT = 1.3.
+
+  Contact damage (Weaver to Player): WEAVER_CONTACT_DAMAGE = 1 HP.
+
+  10.2  Health System  (HealthSystem.ts)
+  ───────────────────────────────────────
+  Manages damage pipelines and invulnerability frames.
+
+  Player max HP: 5 (GAMEPLAY_TUNING.PLAYER.MAX_INTEGRITY).
+  Weaver max HP: Assembled by EntityAssembler.ts at spawn (200 in dev).
+
+  Player iframe duration: 1.2 s (PLAYER_IFRAME_DURATION) after taking damage.
+  Published events: PLAYER_DAMAGED, PLAYER_HEALTH_CHANGED, PLAYER_DIED,
+                    WEAVER_DAMAGED, WEAVER_HEALTH_CHANGED, WEAVER_DIED.
+
+  10.3  Projectile System  (ProjectileSystem.ts + ProjectilePool.ts)
+  ──────────────────────────────────────────────────────────────────
+  Pool size: 16 web-sphere projectiles (WEAVER_AI_TUNING.SHOOT.POOL_SIZE).
+  All instances created at boot and hidden below the arena floor (Y = -999).
+  Allocation via next-index cycling; no runtime GC allocations.
+
+  Projectile stats:
+    Diameter: 1.8 m.  Speed: 15.0 m/s.  Max lifespan: 8.0 s.
+  
+  Visual state variants (via ProjectilePool material slots):
+    webMatActive        — white, noise-displaced, in flight.
+    webMatActiveRed     — red variant (spiked/berserk shots).
+    webMatStuck         — static; projectile landed on wall.
+    webMatTrapped       — wrapping cocoon appearance when player is caught.
+
+  Wall bounce: On hitting left or right wall, the projectile X-velocity reverses
+  and the visual material swaps to webMatStuck.
+
+  Player trapping:  Hit player increments web mass (W_mass += 1).
+    Escape threshold:  Inputs_required = 5 + (W_mass - 1) * 3
+    Player must alternate directional inputs (A/D/W/S). Each direction change
+    advances escape progress. Cocoon scales visually with W_mass.
+    Web impact applies knockback and increases rope slack by 6.0 m.
+
+  10.4  Game Director System  (GameDirectorSystem.ts)
+  ─────────────────────────────────────────────────────
+  Manages match lifecycle and cinematic time-dilation events.
+
+  Cinematic slomo on death:
+    Player death:  timeScale → 0.20 for 0.6 s, then GAME_OVER published.
+    Weaver death:  timeScale → 0.25 for 0.875 s, then GAME_WIN published.
+
+  Adrenaline Surge:  When player HP drops to 1, timeScale ramps to 0.45
+  and then lerps back to 1.0 over 1.2 s (_adrenalineSurgeDuration).
+
+  Hitstop:
+    PLAYER hit:  HitStopComponent.timeRemaining = 0.08 s.
+    WEAVER hit:  HitStopComponent.timeRemaining = 0.15 s.
+    Landing:     hitLagTimer = 0.18 s, hitLagScale = 0.2.
+
+  Hazard spawning (via EntitySpawnerSystem):
+    Wall bugs:    Spawned when Weaver HP drops below 80% of max.
+    Health bugs:  Spawned when Weaver HP drops below 60% of max.
+    Thresholds are checked via GAMEPLAY_TUNING.SPAWN_THRESHOLDS.
+
+  Debug cheat key:  K — instantly kills the Weaver (dev/testing only).
+
+  10.5  Hazard Summary  (Damage Sources)
+  ───────────────────────────────────────
+    Weaver contact:     1 HP, knockback [16, 16] m/s.
+    Weaver dash thrust: 1 HP, knockback + tether reduction.
+    Weaver shockwave:   1 HP, heavy knockback + tether reel.
+    Weaver projectile:  Web-trap + knockback; no direct HP on first hit.
+    Snap-back recoil:   1 HP per snap; 3rd consecutive snap = instant death.
+    Spike bug:          1 HP, SPIKE_KNOCKBACK [20.0, 8.0] m/s.
+    Vertical boundary:  Handled by VerticalBoundarySystem; triggers squash.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  11.  VERTICAL SCROLL & ALTITUDE SYSTEM
+═══════════════════════════════════════════════════════════════════════════════════
+
+  File:  src/visual/systems/ParallaxScrollSystem.ts
+
+  The entire arena scrolls upward continuously during active gameplay, creating
+  the illusion of a vertical elevator shaft. The player is not scrolled — instead
+  all world geometry moves downward relative to the static camera viewport.
+
+  Scroll speed (base): 6.75 m/s      (ARENA_CONFIG.SCROLL_SPEED.BASE)
+  Scroll speed (berserk): 11.25 m/s  (SCROLL_SPEED.BERSERK, i.e. BASE * 1.5)
+  Scroll speed (dash):     0.0 m/s   — scroll paused during Weaver strike/shockwave.
+
+  The current scroll speed is lerped toward the target each frame (factor 0.15),
+  preventing jarring speed changes. It is also zeroed during hitstop and tether
+  damage pause timers.
+
+  Altitude accumulation:
+    runtime.altitude += scrollSpeed * dt  (only when scrollSpeed > 0)
+  This value is used by ProfilePersistenceSystem at match end.
+
+  Geometry wrapping:
+    Arena scrollable meshes (tagged metadata.type = "scrolling_*") are tracked in
+    a cached array. Each frame their Y positions are recalculated:
+
+      wrappedOffset = currentScrollOffset % TOTAL_RANGE (140.0 m)
+      element.Y = initialY - wrappedOffset
+      while Y < BOTTOM_BOUNDARY (-56.0): Y += 140.0
+      while Y > TOP_BOUNDARY   (+84.0): Y -= 140.0
+
+    This creates seamless infinite-loop scrolling across the 140 m scroll domain.
+
+  Camera Y offset compensation: Wall and backdrop meshes are additionally offset
+  by the camera's Y pan (from CameraSystem) to track the viewport during boss
+  engagement scrolling.
+
+  InterpolatedOffset = prevOffset + (currentOffset - prevOffset) * alpha
+  ensures sub-frame smooth rendering without judder.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  12.  VISUAL PIPELINE
+═══════════════════════════════════════════════════════════════════════════════════
+
+  ─────────────────────────────────────
+  12a.  Render System & Post-Processing
+  ─────────────────────────────────────
+  File:  src/visual/scene/RenderSystem.ts
+
+  Babylon.js Engine is created with preserveDrawingBuffer and stencil enabled.
+  Scene clear color: RGBA(0.015, 0.005, 0.025, 1.0) — deep violet-black.
+
+  DefaultRenderingPipeline settings:
+
+    FXAA:              Enabled.
+    Bloom threshold:   0.45
+    Bloom weight:      1.35
+    Bloom kernel:      64
+    Vignette weight:   3.2    (vignetteColor: near-black violet)
+    Exposure:          1.05
+    Contrast:          1.45
+    Tone mapping:      ACES (TONEMAPPING_ACES)
+    Samples (MSAA):    4
+
+  Chromatic aberration:
+    aberrationAmount decays at 110.0/s each frame toward 0.
+    Triggered by: PLAYER_DAMAGED (+45.0), WEAVER_DAMAGED (+25.0),
+    and PLAYER_STATE_CHANGE LAUNCHING with launchPower ≥ 0.72 (×20 × power).
+
+  Camera default position: [0, 14, -38]. Target: [0, 14, 0].
+  Camera FOV mode: FOVMODE_HORIZONTAL_FIXED.
+
+  Environment texture: BabylonJS CDN environmentSpecular.env (PBR IBL).
+  Environment intensity: 1.45. All light specular channels are zeroed to
+  prevent double-specular on PBR materials (IBL handles specular).
+
+  Shadow generator: PCF (Percentage Closer Filtering), QUALITY_MEDIUM.
+  Shadow map size: 1024. Shadow darkness: 0.65.
+ 
+  ─────────────────────────────────
+  12b.  Camera System
+  ─────────────────────────────────
+  File:  src/visual/cameras/CameraSystem.ts
+
+  The camera is a static observational viewport with two dynamic behaviors:
+  comfort-zone tracking and noise-based shake.
+
+  Comfort zone scroll:
+    LOWER_COMFORT_Y = -11.5  (relative to base Y=14)
+    UPPER_COMFORT_Y = +8.0
+
+    When the boss is in STRIKING/SHOCKWAVE/ASCENDING and the player falls
+    below LOWER_COMFORT_Y, the camera smoothly pans down to keep the player
+    in frame. Recovery lerp rate: exp(-dt * 5.0).
+
+  Camera shake:
+    Triggered by CAMERA_SHAKE_TRIGGERED events (amplitude + duration).
+    Decay: quadratic falloff over duration.
+    Noise function: sin-sum (3 octaves at 17.1, 31.7, 7.3 Hz).
+    Directional shake supported (dirX, dirY payload): the shake is projected
+    85% parallel and 15% perpendicular to the specified direction vector.
+
+  Continuous strain tremor:
+    When tension ≥ 0.8, the camera applies a low-amplitude continuous noise
+    offset scaled by (tension - 0.8) / 0.2. This communicates overload state
+    visually without needing a discrete event.
+
+  ─────────────────────────────────
+  12c.  Lighting Architecture
+  ─────────────────────────────────
+  File:  src/visual/scene/RenderSystem.ts + LightingSystem.ts
+
+  Static lights (initialized in RenderSystem):
+
+    ambientLight    Hemispheric, intensity 0.08, direction Y+.
+    dirLight        Directional [-0.35, -0.75,  0.55], intensity 1.65.
+    dirFillLight    Directional [+0.35, -0.75,  0.55], intensity 1.35.
+    leftPointLight  Point at [-13.5, 14, -1], range 34, yellow-green (0.87, 0.99, 0).
+    rightPointLight Point at [+13.5, 14, -1], range 34, white.
+    shaftLowerBackUplight  SpotLight pointing up at [0, -8.5, -7.5]; purple (0.1, 0, 0.25),
+                           intensity 3.8, range 58, cone angle π*0.42.
+    leftShaftUplight   Point at [-10.5, -9, -4.2], intensity 1.95, range 32, white.
+    rightShaftUplight  Point at [+10.5, -9, -4.2], intensity 1.95, range 32, white.
+
+  Dynamic lights (managed by LightingSystem.ts):
+    Tracks player and Weaver positions to reposition point lights each frame.
+    Responds to PLAYER_DAMAGED and WEAVER_DAMAGED for flash effects.
+
+  ─────────────────────────────────────────────────────────
+  12d.  Procedural Shader Plugins  (SilkMaterialPlugin.ts)
+  ─────────────────────────────────────────────────────────
+  File:  src/visual/lighting/SilkMaterialPlugin.ts
+
+  A Babylon.js MaterialPlugin injected onto PBR materials at runtime.
+  Supports two independent shader modes, both using vertex-displacement
+  and custom normal reconstruction.
+
+  Mode 1 — Damage Shear Displacement (Weaver body on hit):
+
+    Quantized tile sin-wave applied horizontally to vertex Y slices:
+
+      D_shear = floor(P_y / 0.16) * 0.16
+              * sin(floor(P_y / 0.16) * 0.16 * 20 + t * 75)
+              * E(y, t)
+              * I_damage
+
+    Gaussian shiver envelope:
+      E(y, t) = max(0, 1 - |P_y - (2.5 - t * 10.0)| / 1.8)
+
+    Normal reconstruction via finite-difference (ε = 0.02):
+      N_sheared = normalize(N - [(D_shear(P + ε_y) - D_shear(P)) / ε, 0, 0] * 0.35)
+
+  Mode 2 — Noise Displacement (Projectile / Cocoon web shading):
+
+    Trig-noise sine product displaced along mesh normals:
+      D_noise = (sin(Px*2 + t*5) * cos(Py*2.3 + t*6.3) * sin(Pz*2.6 + t*4.1)
+               + sin(Py*5 - t*11) * 0.35) * 0.24
+
+    P_new = P + N * D_noise
+
+    3D finite-difference gradient for normal update:
+      G = (1/ε) * [D(P+εx)-D(P), D(P+εy)-D(P), D(P+εz)-D(P)]
+      N_new = normalize(N - G * 0.5)
+
+  Abdomen Under-Glow (fragment shader — Weaver):
+
+    Bioluminescent emission along the Weaver's lower abdomen:
+      F_glow = smoothstep(0, 3.4, -P_y_local)^2.5
+      C_final = C_base + C_emissive * F_glow
+
+  ─────────────────────────────────────────────
+  12e.  Procedural Texture Generation
+  ─────────────────────────────────────────────
+  File:  src/visual/scene/ProceduralTextureGenerator.ts
+
+  All arena surface textures are generated at boot via HTML5 Canvas 2D contexts.
+  No external texture files loaded for arena geometry. Mobile devices receive
+  reduced resolution (256–512 px) vs. desktop (512–1024 px).
+
+  fBm noise (4 octaves):
+    f(x, y) = Σ_{i=0}^{3} A_i * noise(x * F_i, y * F_i)
+    A_0 = 0.5, A_{i+1} = A_i * 0.5
+    F_0 = 1.0, F_{i+1} = F_i * 2.0
+
+  Output textures per material set:
+
+    Albedo map:    fBm-perturbed color with colorVariation parameter.
+    Normal map:    Horizontal (dx) and vertical (dy) gradients packed into RGB.
+                   Color_normal = [(dx*0.5+0.5), (dy*0.5+0.5), dz] * 255
+    ORM map:       Packed AO / Roughness / Metalness per-pixel:
+                     R: AO = 1 - (1 - height) * 0.3
+                     G: Roughness = R_min + (1-height) * (R_max - R_min)
+                     B: Metalness = 0.95 * 255 (constant)
+    Ridge detail:  Optional ridge-variation pass for concrete backwall.
+
+  Texture cache:  ProceduralTextureGenerator.clearCache() is called on
+  RenderSystem.dispose() to release VRAM.
+
+  ─────────────────────────────────────────────
+  12f.  Tether Rope Geometry
+  ─────────────────────────────────────────────
+  File:  src/gameplay/juice/TetherVisualizerSystem.ts
+
+  The tether is rendered as a dynamic cylinder tube re-triangulated every frame.
+  24 segments (TETHER_ROPE.SEGMENTS).
+
+  Quadratic Bezier curve:
+    B(t) = (1-t)² * A  +  2(1-t)t * C  +  t² * P
+    t ∈ [0, 1], 24 steps. A = anchor point, P = player attachment, C = control.
+
+  Control point (sag calculation):
+    C = midpoint(A, P) - [0, S_sag, -0.35]
+    S_sag = S_max * (1 - T_tension) + Osc_vibe
+    S_max = 3.8 m
+
+  Cable vibration at high tension:
+    If T > 0.7:
+      Osc_vibe = sin(time * 0.025) * (T - 0.7) * 0.35
+    If T > 0.95:
+      Amplitude *= 2.5, frequency *= 3.5
+
+  Tube radius varies by tension state:
+    Slack:         BASE_RADIUS * 0.85  = ~0.06 m
+    Sweet spot:    MAX_RADIUS * 1.1    = ~0.14 m
+    Plus a slow pulse: sin(time * 0.03) * 0.015 to simulate strand life.
+
+  Wind wave depth disturbance:
+    P_z += sin(segIndex * 2.5 + time * 0.005 + φ_reel) * 0.12
+    φ_reel = phase offset proportional to current reeling speed.
+
+  Double-strand snap model (on tether break, 1.5 s decay):
+    Anchor strand (first 12 segs):
+      Free end whips:  Whip = sin(t_snap * 5π) * (1 - t_snap) * 1.8 m
+    Player strand (remaining 12 segs):
+      Free end falls:  Fall = t_snap² * G_gravity * 0.8
+
+  ──────────────────────────────────────────────────────────────────────────
+  12g.  Fauna Visual Factories & IK Leg Animation
+  ──────────────────────────────────────────────────────────────────────────
+  Files:  src/visual/mesh/WeaverVisualFactory.ts
+          src/visual/mesh/FaunaVisualFactory.ts
+          src/visual/mesh/PlayerSilkVisualFactory.ts
+          src/visual/systems/LegJointAnimationSystem.ts
+
+  Weaver mesh:  Procedurally assembled icosphere body (subdivisions=5, radius=4.4m)
+  with child transform nodes: weaver_abdomen, weaver_cephalothorax, weaver_head.
+  Leg hierarchy: leg_root_N → coxa_N → tibia_N (cached in mesh.metadata.cachedParts).
+
+  Player mesh:  Capsule-shaped geometry with inner/outer shell components
+  (playerInnerMat, playerBandMat, playerKnotMat). Trail mesh child node
+  (trailMesh) fades in to alpha 0.85 during LAUNCHING state.
+
+  WallBug / SpikeBug:  Generated by FaunaVisualFactory.ts.
+  Leg joints: leg_joint_left_N → tibia_joint_left_N (simple sine gait, no IK).
+
+  IK Leg Animation (LegJointAnimationSystem.ts):
+
+    Weaver gait cycle:  Driven by gaitClock (accumulated dt * gaitFreq).
+    gaitFreq is derived from Weaver's relative speed vs. scroll speed.
+    Diagonal alternating phase offset per leg pair for natural gait.
+
+    Two-level solver:
+      Level 1 — Fallback (no base foot data):  Pure trigonometric sine/cosine
+        sweep applied to coxa and tibia rotation.z.
+      Level 2 — Full IK (with base foot data):  Analytic 2-bone IK resolves
+        foot placement in Weaver-local space after world transform inversion.
+        Foot targets are clamped to arena bounds (±15m X, -8 to 38 Y) before
+        being projected back to local space.
+
+    2-Bone IK solver:
+      Input: target local position, coxa length L1, tibia length L2, side sign.
+      Output: coxaZ rotation angle, tibiaZ rotation angle.
+
+        d = length(target_local.xy), clamped to [|L1-L2|+ε, L1+L2-ε]
+        β = acos((L1² + d² - L2²) / (2*L1*d))   [elbow bend angle]
+        γ = acos((L1² + L2² - d²) / (2*L1*L2))  [knee angle]
+        coxaZ  = atan2(-x, y) ± β  (sign by side)
+        tibiaZ = ±(π - γ)
+
+  Body sway (VisualStateDressingSystem.ts):
+    abdomen, cephalothorax, and head nodes undergo idle sway each frame:
+      bodySway = sin(clock * 4.0) * 0.05 * 0.16
+      bodyBob  = cos(clock * 8.0) * 1.5 * 0.008
+    Each part receives a scaled fraction with position and rotation offsets
+    stored in node.metadata.baseX/Y/Z on first execution.
+
+  ─────────────────────────────────────────────────────
+  12h.  Visual State Dressing & Entity Interpolation
+  ─────────────────────────────────────────────────────
+  Files:  src/visual/systems/VisualStateDressingSystem.ts
+          src/visual/systems/EntityInterpolationSystem.ts
+          src/visual/systems/TransformHistorySystem.ts
+
+  VisualStateDressingSystem manages per-frame emissive color updates on all
+  PBR materials. Uses ColorCache (EngineUtils.ts) to avoid re-allocating
+  Color3 objects on hot paths.
+
+  Player emissive states:
+    Default:    (0.1, 0.0, 0.2)  — dim purple.
+    Wall-stick: Lerps toward (0.9+slide_ratio, 0.0, slide_ratio * 0.5) — hot pink.
+    Launching:  (0.95, 0.95, 0.95) — near-white bloom burst.
+    Hit flash:  Emissive forced to (4.0, 4.0, 4.0) for hitFlashTimer duration.
+    Web trap:   Albedo lerped toward near-black; emissive suppressed.
+    Launch trail: trailMesh alpha lerped toward 0.85 during LAUNCHING.
+
+  Weaver emissive states (keyed on VISUAL_JUICE_CONFIG.WEAVER_COLORS):
+    Sweeping:   #121212 (near-black)
+    Dash prep:  #dffe00 (yellow — telegraph signal)
+    Dash thrust: #ff007f (magenta)
+    Recovering: #ff007f
+    Ascending:  #ff007f
+    Defeated:   #000000
+
+  Weaver eye material ("weaverEyeMat") and leg material ("legMat") receive
+  separate scale overrides — eyes glow pure red at full intensity; legs at 0.24×.
+
+  EntityInterpolationSystem.ts reads prev*/current transform pairs from
+  TransformComponent and applies alpha-weighted interpolation to all
+  Babylon TransformNode positions/scales each render frame.
+
+  TransformHistorySystem.ts copies current to prev each update tick.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  13.  JUICE, IMPACT DEFORMATION & SHATTER
+═══════════════════════════════════════════════════════════════════════════════════
+
+  13.1  Spring-Damper Squash & Stretch
+  ──────────────────────────────────────
+  File:  src/core/utils/EngineUtils.ts  (solveSpringDamper, solveScaleSpring)
+
+  All mesh scale deformations are analytically spring-damper resolved:
+    [value, velocity] = solveSpringDamper(x, x_target, v, dt, K, D)
+
+  Player constants:   K=220.0, D=14.0
+  Weaver constants:   K=120.0, D=22.0
+
+  13.2  Weaver Death Shatter  (WeaverShatterSystem.ts)
+  ──────────────────────────────────────────────────────
+  On WEAVER_DIED: Procedurally shatters the icosphere mesh at runtime.
+
+  20 triangle centroids from icosphere surface → spawns individual tri meshes.
+  8 inner triangular pyramids (4-vertex) from core coordinates.
+
+  Shard physics (integrated manually, no Havok):
+    V_shard = D_outward * V_speed + V_variance
+    V_speed ∈ [5.0, 19.0] m/s.  Air drag D=0.95.  Gravity G_y=-38.4 m/s².
+  Wall bounce: X-velocity reversed on ±15m boundary.
+  Shard-shard separation:
+    P_offset = D_normal * ((R1+R2) - distance) * 0.5
+
+  13.3  Web Splat Shatter  (WebShatterSystem.ts)
+  ────────────────────────────────────────────────
+  On cocoon break: 12 shards (alternating spheres and boxes) recoil from
+  player position with randomized angular velocities (±6.0 rad/s).
+  Scale decays to zero over 1.2 seconds.
+
+  13.4  Particle System  (JuiceSystem.ts + ParticleStrategies.ts)
+  ────────────────────────────────────────────────────────────────
+  Strategies (defined in ParticleStrategies.ts) are plain data objects
+  describing burst behavior for each event type. JuiceSystem.ts interprets
+  them and manages particle lifetime, physics, and mesh pooling.
+
+  Strategy catalog:
+    PLAYER_SPARK_STRATEGY     White sparks on player damage.
+    WEAVER_SPARK_STRATEGY     Hot-pink sparks on Weaver damage.
+    LANDING_DUST_STRATEGY     Yellow-green dust puff on floor landing.
+    WALL_SPARK_STRATEGY       Hot-pink sparks on wall collision.
+    PROJECTILE_SPLAT_STRATEGY White burst on web impact.
+
+  Particle drag: VISUAL_JUICE_CONFIG.PARTICLES.DRAG = 0.92 per frame.
+  Debris physics: mass=3, friction=0.5, restitution=0.2, life=5.0 s,
+  Z-force clamped to 0.01 to maintain near-coplanar motion.
+
+  13.5  Object Pools
+  ────────────────────
+  All dynamic hazards and projectiles use pre-allocated pools to prevent GC.
+
+    Projectiles:    16  (ProjectilePool.ts)
+    Flying health bugs: 2  (HealthBugPool.ts)
+    Spike bugs:      4  (SpikeBugSystem.ts internal)
+    Wall bugs:       2  (WallBugSystem.ts internal)
+
+  All instances created at boot, parked off-screen, and recycled via index.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  14.  ENEMY HAZARD SYSTEMS
+═══════════════════════════════════════════════════════════════════════════════════
+
+  14.1  Wall Bugs  (WallBugSystem.ts)
+  ─────────────────────────────────────
+  Spawned at 80% Weaver HP. Wall bugs crawl vertically on arena walls.
+  Pool size: 2. Base variant: BLUE_STRIPE (0.027, 0.431, 0.749).
+  Damage on player contact: SPIKE_DAMAGE = 1 HP.
+  Knockback: [20.0, 8.0] m/s.
+
+  Gait phase per bug: gaitPhase accumulates dt * gaitFrequency.
+  Leg animation driven by LegJointAnimationSystem (simple sinusoidal, no IK).
+
+  14.2  Spike Bugs  (SpikeBugSystem.ts)
+  ───────────────────────────────────────
+  Spiked variant of WallBug with higher collision radius.
+  Normal collision radius: 2.4 m. Spiked collision radius: 3.4 m.
+  Visual: SPIKE_RED color (0.95, 0.12, 0.12).
+  Damage identical to Wall Bug but collision area is ~41% larger.
+
+  14.3  Health Bugs  (HealthBugSystem.ts + HealthBugPool.ts)
+  ─────────────────────────────────────────────────────────────
+  Spawned at 60% Weaver HP. Fly slowly downward from the upper arena.
+  Pool size: 2.
+
+  When the player contacts a health bug, it ruptures and grants +1 HP recovery
+  (capped at player MAX_INTEGRITY). Publishes HEALTH_BUG_RUPTURED event.
+  SFX: health_bug_rupture.mp3.
+
+  Health bugs can also be destroyed by spiked hazards (HEALTH_BUG_RUPTURED
+  with bySpikes=true payload) — they break without granting HP.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  15.  AUDIO PIPELINE
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/gameplay/juice/AudioSystem.ts
+          src/gameplay/juice/ProceduralAmbienceEngine.ts
+
+  15.1  Sound Effect System  (AudioSystem.ts)
+  ─────────────────────────────────────────────
+  All SFX are pre-loaded Tone.js Player instances pointed at /public/sfx/*.mp3.
+  Playback is triggered by subscribing to GameEvents.
+
+  SFX roster:
+    boss_annoyed.mp3       boss_boing.mp3         boss_death.mp3
+    boss_hit.mp3           boss_hit_spider_sounds.mp3
+    crowd_defeat.mp3       crowd_victory.mp3
+    health_bug_fly_1/2/3.mp3  health_bug_rupture.mp3
+    player_death_rumble.mp3   player_death_slowmo.mp3
+    player_fling.mp3
+    stage1-3_tether_stretch.mp3   stage3_tether_stretch.mp3
+    stuck-in-web-shot_stick-to-surface.mp3
+    tether_ratchet.mp3     touched_spike.mp3
+    web_break.mp3          web_hit_player.mp3
+    web_shot.mp3           web_splat.mp3
+
+  Auditory fatigue mitigation (pitch + gain variance per trigger):
+
+    Detune (cents):  Rate_playback = 2^(Δ_cents / 1200)
+    Δ_cents ∈ ±50 to ±250 cents (random per play).
+    Gain offset:  ±2.5 dB random per play.
+
+  15.2  Procedural Wind Synthesis  (ProceduralAmbienceEngine.ts)
+  ──────────────────────────────────────────────────────────────
+  Generates atmospheric background wind without audio files.
+
+  Web Audio graph:
+
+    [White Noise]
+         ↓
+    [Lowpass Filter 1 — 800 Hz cutoff]
+         ↓
+    [Lowpass Filter 2 — 300 Hz base cutoff]
+         ↓                          ↑ modulated by
+    [Gain]                    [LFO 0.2 Hz × LFO Gain 10]
+         ↓
+    [AudioContext Destination]
+
+  LFO modulates Filter 2 cutoff frequency, creating natural wind gust rhythm.
+  Gain smoothed over 2.0 s on startup via linearRampToValueAtTime.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  16.  UI ARCHITECTURE & REACT–ECS BRIDGE
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/ui/hud/
+          src/ui/cursor/
+
+  16.1  Zustand Store Topology
+  ──────────────────────────────
+  File:  src/ui/hud/hudStore.ts
+
+  Four stores maintained:
+
+    usePlayerStore     playerHp, currentState, isWebTrapped, escapeProgress,
+                       escapeRequired, webMass, tetherDamage.
+
+    useWeaverStore     weaverHp, weaverMaxHp, weaverState, weaverHue.
+
+    useOverlayStore    Boot progress (phase, status, logs, loadingProgress),
+                       traversalHint (text/color/opacity), match overlays
+                       (title/color/subtitle), isPaused, awaitingGesture,
+                       wins/losses counters, calibrationStep, publishEvent bridge.
+
+    useInputStore      keysPressed: Record<string, boolean> (for calibration UI).
+
+  All setters include referential equality guards — returns {} if unchanged —
+  preventing unnecessary React renders on high-frequency ECS updates.
+
+  resetAllStores() resets all four stores to initial state; called by
+  GameDirectorSystem on GAME_RESET. wins/losses persist across resets.
+
+  16.2  HudSyncSystem  (ECS → React Bridge)
+  ───────────────────────────────────────────
+  File:  src/ui/hud/HudSyncSystem.ts
+
+  Runs in Phase 6 (RenderSync). Reads ECS component stores each frame and
+  calls Zustand store setters. Only updates that produce actual state changes
+  propagate into React.
+
+  High-frequency exception — tension bar bypass:
+    Rather than route the tension value through Zustand → React → DOM,
+    HudSyncSystem writes the tension bar width, background-color, and
+    box-shadow directly to DOM refs via a custom `silk-tension-render-tick`
+    CustomEvent, avoiding React reconciliation on every frame.
+
+  16.3  HUD Overlay  (HudOverlay.tsx)
+  ─────────────────────────────────────
+  File:  src/ui/hud/HudOverlay.tsx
+
+  React component tree (all animated via Framer Motion + AnimatePresence):
+
+    Boot sequence:   4-step loading screen with phase-locked step icons.
+    Gesture gate:    Locked overlay released on first user interaction.
+    Gameplay HUD:    HP pips (5 hearts), Weaver HP bar, tension bar, traversal hint.
+    Web trap UI:     Cocoon scale indicator + directional struggle prompt.
+    Pause overlay:   Pause state display.
+    End screens:     VICTORY (emerald) / DEFEATED (red) with MenuButton options
+                     (Replay / Clear Data), animated stagger reveal.
+    Win/loss ticker: Persistent per-session counter.
+    Calibration:     Step 0 — "Stick to Wall" tutorial prompt with animated keycap UI.
+                     Step 1 — fling instruction displayed on first successful stick.
+
+  Custom cursor system (src/ui/cursor/):
+    CursorLayer.tsx provides a canvas-based software cursor.
+    useCursorStore.ts (Zustand) tracks cursor type.
+    CursorVariants.ts defines cursor appearance per interaction state.
+
+  Error boundary (ErrorBoundary.tsx) wraps HudOverlay to prevent HUD crashes
+  from propagating to the Babylon.js engine.
+
+  16.4  Tutorial System  (TutorialSystem.ts)
+  ─────────────────────────────────────────────
+  Tracks wall-stick calibration. Two steps:
+    Step 0:  Player successfully sticks to a wall with tension ≥ 0.555.
+             Publishes UI_CALIBRATION_STEP_CHANGED {step: 1} + UI_SFX_DING.
+    Step 1:  Displayed after step 0 success. Not yet gated by an additional action.
+
+  Resets to step 0 on GAME_RESET.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  17.  EVENT SYSTEM & COMMAND BUS
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Files:  src/core/events/EventBroker.ts
+          src/core/events/GameEvents.ts
+          src/core/commands/CommandBus.ts
+          src/core/utils/EngineUtils.ts  (SubscriptionTracker)
+
+  17.1  Event Broker
+  ──────────────────
+  Typed publish/subscribe model. All events are defined in GameEvent enum with
+  corresponding GameEventMap interface for payload type safety.
+
+  Full event catalog:
+
+    Lifecycle:         GAME_INITIALIZED, GAME_BOOT_PROGRESS, GAME_STARTED,
+                       USER_GESTURE_REGISTERED, GAME_OVER, GAME_WIN, GAME_RESET,
+                       GAME_PAUSED.
+
+    Player:            PLAYER_HEALTH_CHANGED, PLAYER_DAMAGED, PLAYER_DIED,
+                       PLAYER_STATE_CHANGE, PLAYER_LANDED, PLAYER_WALL_HIT.
+
+    Tether:            TETHER_TENSION_CHANGE, TETHER_LENGTH_CHANGE.
+
+    Weaver:            WEAVER_STATE_CHANGE, WEAVER_DAMAGED, WEAVER_HEALTH_CHANGED,
+                       WEAVER_DIED, WEAVER_SHOOT, WEAVER_WALL_HIT, WEAVER_BOUNCED.
+
+    Projectile:        PROJECTILE_IMPACT.
+
+    Camera:            CAMERA_SHAKE_TRIGGERED.
+
+    Input:             PLAYER_INPUT_KEY_STATE_CHANGED.
+
+    Hazards:           HEALTH_BUG_RUPTURED.
+
+    UI:                UI_CALIBRATION_STEP_CHANGED, UI_SFX_TICK, UI_SFX_CONFIRM,
+                       UI_SFX_REVEAL, UI_SFX_DING.
+
+  EventTrafficTracker.ts provides optional per-event frequency monitoring
+  (debug/profiling use only).
+
+  17.2  SubscriptionTracker
+  ──────────────────────────
+  Utility class (EngineUtils.ts) that accumulates subscription unsubscribe
+  callbacks and releases them all in a single tracker.clear() call.
+  Used in every system that subscribes to events to ensure leak-free disposal.
+
+  17.3  Command Bus  (CommandBus.ts)
+  ────────────────────────────────────
+  Separate channel for imperative one-way commands (e.g. PhysicsCommands.ts).
+  Used where a system needs to issue a side-effecting operation (like applying
+  an impulse to a physics body) without routing through the event pub/sub graph.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  18.  DEPLOYMENT PIPELINE
+═══════════════════════════════════════════════════════════════════════════════════
+
+  File:  .github/workflows/deploy.yml
+
+  Trigger: push to `main` or `master` branch.
+
+  Steps:
+    1. Checkout repository.
+    2. Setup Node 20 with npm cache.
+    3. `npm ci` — clean install.
+    4. `npm run build` — Vite production build → /dist.
+    5. Configure GitHub Pages artifact.
+    6. Upload /dist as Pages artifact.
+    7. Deploy to GitHub Pages (id-token write permission).
+    8. Setup Butler (remarkablegames/setup-butler@v3).
+    9. `butler push dist stevencasteel/silk:html5`
+       Deploys to itch.io via BUTLER_API_KEY secret.
+
+  Both deployment targets receive the same /dist build artifact simultaneously.
+  Vite base path should be configured correctly for GitHub Pages subdirectory
+  routing if needed.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+  19.  DEBUG & DEVELOPMENT UTILITIES
+═══════════════════════════════════════════════════════════════════════════════════
+
+  Profiler  (src/core/diagnostics/Profiler.ts + IProfiler.ts)
+    Per-system timing measurement. Wraps system update() calls with
+    performance.now() brackets. Used to identify frame time hotspots.
+
+  PauseHandler  (src/core/engine/PauseHandler.ts)
+    Responds to GAME_PAUSED events and the Page Visibility API (tab blur).
+    Publishes GAME_PAUSED {isPaused: true/false} to pause/resume the game loop.
+
+  ProfilePersistenceSystem  (src/core/systems/ProfilePersistenceSystem.ts)
+    On match end, writes altitude, kill count, and time-to-kill to localStorage.
+    Visible on the end screen.
+
+  Runtime debug console API (exposed on window by GameDirectorSystem.init()):
+    window.silkSetWallBugsAllowed(boolean)    — enable/disable wall bug spawns.
+    window.silkSetHealthBugsAllowed(boolean)  — enable/disable health bug spawns.
+
+  Cheat key (K): Instantly kills the Weaver during active play for testing.
+
+  Source context script:
+    scripts/create_source_context.js / .command
+    Generates /docs/silk_source_code.txt — a compiled single-file codebase
+    context for AI-assisted development sessions. Also produces
+    /public/source_code_manifest.json for manifest tracking.
+
+  AI_INSTRUCTIONS.txt  (docs/AI_INSTRUCTIONS.txt)
+    Terminal workflow conventions for AI-assisted development including:
+    heredoc quoting rules, ESM-only Node scripts, surgical patch scripts,
+    Zsh shell escaping rules, TypeScript strict compliance requirements,
+    and step-by-step phase-based workflow protocols.
+
+───────────────────────────────────────────────────────────────────────────────────
+  End of Document — Project Silk Systems Architecture v6.0
+───────────────────────────────────────────────────────────────────────────────────
