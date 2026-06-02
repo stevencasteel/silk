@@ -32,6 +32,18 @@ export async function createPlayerVisualMesh(
   pMesh.material = pMat;
 
   await decoratePlayerSilkVisual(scene, pMesh, height, radius);
+
+  const trail = new BABYLON.TrailMesh("playerTrail", pMesh, scene, radius * 1.2, 45, true);
+  const trailMat = new BABYLON.StandardMaterial("playerTrailMat", scene);
+  const launchEmissive = VISUAL_JUICE_CONFIG.EMISSIVE.PLAYER_EMISSIVE_LAUNCH;
+  trailMat.emissiveColor = new BABYLON.Color3(launchEmissive.R, launchEmissive.G, launchEmissive.B);
+  trailMat.disableLighting = true;
+  trailMat.alpha = 0.0; 
+  trail.material = trailMat;
+  
+  if (!pMesh.metadata) pMesh.metadata = {};
+  pMesh.metadata.trailMesh = trail;
+
   return pMesh;
 }
 

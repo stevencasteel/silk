@@ -333,22 +333,28 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
     }
   }
 
-  private playWebImpactSound(): void {
-    if (!this._isInitialized || !this._webImpactPlayer || !this._webImpactPlayer.loaded) return;
+  private playWithVariance(player: Tone.Player | null, detuneVar: number, volVar: number): void {
+    if (!this._isInitialized || !player || !player.loaded) return;
+    try {
+      if (player.state === "started") {
+        player.stop();
+      }
+      const cents = (Math.random() - 0.5) * 2 * detuneVar * 0.75;
+      player.playbackRate = Math.pow(2, cents / 1200);
+      player.volume.value = (Math.random() - 0.5) * 2 * volVar;
+      player.start();
+    } catch {
+      // Defensive
+    }
+  }
 
+  private playWebImpactSound(): void {
     const travStore = this.context.stores.get<TraversalStateComponent>("traversal");
     const pTrav = travStore.get(this.context.refs.player);
     const isWebTrapped = pTrav ? pTrav.isWebTrapped : false;
 
     if (isWebTrapped) {
-      try {
-        if (this._webImpactPlayer.state === "started") {
-          this._webImpactPlayer.stop();
-        }
-        this._webImpactPlayer.start();
-      } catch {
-        // Defensive catch-all
-      }
+      this.playWithVariance(this._webImpactPlayer, 200, 2);
     }
   }
 
@@ -450,87 +456,31 @@ export class AudioSystem implements ISystem, IUpdateable, IDisposable {
   }
 
   private playSpiderSounds(): void {
-    if (!this._isInitialized || !this._spiderSoundsPlayer || !this._spiderSoundsPlayer.loaded) return;
-    try {
-      if (this._spiderSoundsPlayer.state === "started") {
-        this._spiderSoundsPlayer.stop();
-      }
-      this._spiderSoundsPlayer.start();
-    } catch {
-      // Defensive catch-all
-    }
+    this.playWithVariance(this._spiderSoundsPlayer, 150, 1.5);
   }
 
   private playBossBoing(): void {
-    if (!this._isInitialized || !this._boingPlayer || !this._boingPlayer.loaded) return;
-    try {
-      if (this._boingPlayer.state === "started") {
-        this._boingPlayer.stop();
-      }
-      this._boingPlayer.start();
-    } catch {
-      // Defensive catch-all
-    }
+    this.playWithVariance(this._boingPlayer, 200, 2);
   }
 
   private playWebShot(): void {
-    if (!this._isInitialized || !this._webShotPlayer || !this._webShotPlayer.loaded) return;
-    try {
-      if (this._webShotPlayer.state === "started") {
-        this._webShotPlayer.stop();
-      }
-      this._webShotPlayer.start();
-    } catch {
-      // Defensive catch-all
-    }
+    this.playWithVariance(this._webShotPlayer, 250, 2.5);
   }
 
   private playBossDeath(): void {
-    if (!this._isInitialized || !this._bossDeathPlayer || !this._bossDeathPlayer.loaded) return;
-    try {
-      if (this._bossDeathPlayer.state === "started") {
-        this._bossDeathPlayer.stop();
-      }
-      this._bossDeathPlayer.start();
-    } catch {
-      // Defensive catch-all
-    }
+    this.playWithVariance(this._bossDeathPlayer, 50, 1);
   }
 
   private playHealthBugRupture(): void {
-    if (!this._isInitialized || !this._healthBugRupturePlayer || !this._healthBugRupturePlayer.loaded) return;
-    try {
-      if (this._healthBugRupturePlayer.state === "started") {
-        this._healthBugRupturePlayer.stop();
-      }
-      this._healthBugRupturePlayer.start();
-    } catch {
-      // Defensive catch-all
-    }
+    this.playWithVariance(this._healthBugRupturePlayer, 150, 2);
   }
 
   private playTouchedSpike(): void {
-    if (!this._isInitialized || !this._touchedSpikePlayer || !this._touchedSpikePlayer.loaded) return;
-    try {
-      if (this._touchedSpikePlayer.state === "started") {
-        this._touchedSpikePlayer.stop();
-      }
-      this._touchedSpikePlayer.start();
-    } catch {
-      // Defensive catch-all
-    }
+    this.playWithVariance(this._touchedSpikePlayer, 100, 1.5);
   }
 
   private playFling(): void {
-    if (!this._isInitialized || !this._flingPlayer || !this._flingPlayer.loaded) return;
-    try {
-      if (this._flingPlayer.state === "started") {
-        this._flingPlayer.stop();
-      }
-      this._flingPlayer.start();
-    } catch {
-      // Defensive catch-all
-    }
+    this.playWithVariance(this._flingPlayer, 100, 1.5);
   }
 
   public dispose(): void {

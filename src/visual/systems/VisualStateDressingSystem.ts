@@ -129,6 +129,13 @@ export class VisualStateDressingSystem implements ISystem {
 
         const travs = this.context.stores.get<TraversalStateComponent>("traversal");
         const pTrav = travs ? travs.get(pId) : undefined;
+        
+        if (pNode.metadata && pNode.metadata.trailMesh) {
+            const trailMat = pNode.metadata.trailMesh.material as BABYLON.StandardMaterial;
+            const targetAlpha = (pTrav && pTrav.state === "LAUNCHING") ? 0.85 : 0.0;
+            trailMat.alpha += (targetAlpha - trailMat.alpha) * (1.0 - Math.exp(-dt * 15.0));
+        }
+
         const flashMax = 0.35;
         const flashAlpha = (pTrav && pTrav.isWebTrapped && pTrav.webFlashTimer !== undefined)
           ? Math.min(1.0, pTrav.webFlashTimer / flashMax)
