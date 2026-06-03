@@ -106,9 +106,14 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
     const normalTex = new BABYLON.DynamicTexture(`${name}_normal`, res, scene, true);
     const ormTex = new BABYLON.DynamicTexture(`${name}_orm`, res, scene, true);
 
-    const albedoCtx = albedoTex.getContext() as unknown as CanvasRenderingContext2D;
-    const normalCtx = normalTex.getContext() as unknown as CanvasRenderingContext2D;
-    const ormCtx = ormTex.getContext() as unknown as CanvasRenderingContext2D;
+    const albedoCtx = albedoTex.getContext() as unknown as CanvasRenderingContext2D | null;
+    const normalCtx = normalTex.getContext() as unknown as CanvasRenderingContext2D | null;
+    const ormCtx = ormTex.getContext() as unknown as CanvasRenderingContext2D | null;
+
+    if (!albedoCtx || !normalCtx || !ormCtx) {
+      console.warn(`ProceduralTextureGenerator: 2D Canvas context unavailable for ${name}. Skipping custom map rendering.`);
+      return { albedo: albedoTex, normal: normalTex, orm: ormTex };
+    }
 
     const albedoImg = albedoCtx.createImageData(res, res);
     const normalImg = normalCtx.createImageData(res, res);

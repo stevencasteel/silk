@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/2/2026, 7:12:45 PM
+ [SYSTEM] Generated: 6/3/2026, 2:59:00 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -20359,7 +20359,25 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
         { name: "u_shearIntensity", size: 1, type: "float" },
         { name: "u_shearTime", size: 1, type: "float" },
         { name: "u_noiseTime", size: 1, type: "float" }
-      ]
+      ],
+      vertex: `
+        #ifdef SHEAR
+        uniform float u_shearIntensity;
+        uniform float u_shearTime;
+        #endif
+        #ifdef NOISE
+        uniform float u_noiseTime;
+        #endif
+      `,
+      fragment: `
+        #ifdef SHEAR
+        uniform float u_shearIntensity;
+        uniform float u_shearTime;
+        #endif
+        #ifdef NOISE
+        uniform float u_noiseTime;
+        #endif
+      `
     };
   }
 
@@ -20386,9 +20404,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
         return {
           CUSTOM_VERTEX_DEFINITIONS: `
             #ifdef SHEAR
-            uniform float u_shearIntensity;
-            uniform float u_shearTime;
-
             float getShearDisplacement(vec3 pos, float intensity, float time) {
                 float tileSize = 0.16;
                 float quantizedY = floor(pos.y / tileSize) * tileSize;
@@ -20407,7 +20422,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
             #endif
 
             #ifdef NOISE
-            uniform float u_noiseTime;
             varying vec3 vLocalPos;
 
             float getNoiseVal(vec3 pos, float time) {
@@ -20479,7 +20493,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
         return {
           CUSTOM_FRAGMENT_DEFINITIONS: `
             #ifdef NOISE
-            uniform float u_noiseTime;
             varying vec3 vLocalPos;
             #endif
 
@@ -20505,7 +20518,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
           `,
           CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `
             #ifdef ABDOMEN_GRADIENT
-            #ifdef EMISSIVE
             if (vEmissiveColor.g > 0.3) {
                 float distFromEquator = max(0.0, -vAbdomenLocalY);
                 float gradientFactor = smoothstep(0.0, 3.4, distFromEquator);
@@ -20514,7 +20526,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
                 finalColor.rgb -= finalEmissive;
                 finalColor.rgb += finalEmissive * gradientFactor;
             }
-            #endif
             #endif
           `
         };
@@ -22345,9 +22356,14 @@ export class ProceduralTextureGenerator implements IProceduralTextureGenerator {
     const normalTex = new BABYLON.DynamicTexture(`${name}_normal`, res, scene, true);
     const ormTex = new BABYLON.DynamicTexture(`${name}_orm`, res, scene, true);
 
-    const albedoCtx = albedoTex.getContext() as unknown as CanvasRenderingContext2D;
-    const normalCtx = normalTex.getContext() as unknown as CanvasRenderingContext2D;
-    const ormCtx = ormTex.getContext() as unknown as CanvasRenderingContext2D;
+    const albedoCtx = albedoTex.getContext() as unknown as CanvasRenderingContext2D | null;
+    const normalCtx = normalTex.getContext() as unknown as CanvasRenderingContext2D | null;
+    const ormCtx = ormTex.getContext() as unknown as CanvasRenderingContext2D | null;
+
+    if (!albedoCtx || !normalCtx || !ormCtx) {
+      console.warn(`ProceduralTextureGenerator: 2D Canvas context unavailable for ${name}. Skipping custom map rendering.`);
+      return { albedo: albedoTex, normal: normalTex, orm: ormTex };
+    }
 
     const albedoImg = albedoCtx.createImageData(res, res);
     const normalImg = normalCtx.createImageData(res, res);
@@ -22668,7 +22684,12 @@ export class RenderSystem implements ISystem {
       const activeMeshes = this.scene!.meshes.filter((m) => m.material === material);
       activeMeshes.forEach((mesh) => {
         if (typeof material.forceCompilationAsync === "function") {
-          compilePromises.push(material.forceCompilationAsync(mesh));
+          const compilePromise = material.forceCompilationAsync(mesh);
+          const compileWithTimeout = Promise.race([
+            compilePromise,
+            new Promise<void>((resolve) => setTimeout(resolve, 4000))
+          ]);
+          compilePromises.push(compileWithTimeout);
         }
       });
     });

@@ -194,7 +194,12 @@ export class RenderSystem implements ISystem {
       const activeMeshes = this.scene!.meshes.filter((m) => m.material === material);
       activeMeshes.forEach((mesh) => {
         if (typeof material.forceCompilationAsync === "function") {
-          compilePromises.push(material.forceCompilationAsync(mesh));
+          const compilePromise = material.forceCompilationAsync(mesh);
+          const compileWithTimeout = Promise.race([
+            compilePromise,
+            new Promise<void>((resolve) => setTimeout(resolve, 4000))
+          ]);
+          compilePromises.push(compileWithTimeout);
         }
       });
     });

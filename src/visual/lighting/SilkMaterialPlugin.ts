@@ -56,7 +56,25 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
         { name: "u_shearIntensity", size: 1, type: "float" },
         { name: "u_shearTime", size: 1, type: "float" },
         { name: "u_noiseTime", size: 1, type: "float" }
-      ]
+      ],
+      vertex: `
+        #ifdef SHEAR
+        uniform float u_shearIntensity;
+        uniform float u_shearTime;
+        #endif
+        #ifdef NOISE
+        uniform float u_noiseTime;
+        #endif
+      `,
+      fragment: `
+        #ifdef SHEAR
+        uniform float u_shearIntensity;
+        uniform float u_shearTime;
+        #endif
+        #ifdef NOISE
+        uniform float u_noiseTime;
+        #endif
+      `
     };
   }
 
@@ -83,9 +101,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
         return {
           CUSTOM_VERTEX_DEFINITIONS: `
             #ifdef SHEAR
-            uniform float u_shearIntensity;
-            uniform float u_shearTime;
-
             float getShearDisplacement(vec3 pos, float intensity, float time) {
                 float tileSize = 0.16;
                 float quantizedY = floor(pos.y / tileSize) * tileSize;
@@ -104,7 +119,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
             #endif
 
             #ifdef NOISE
-            uniform float u_noiseTime;
             varying vec3 vLocalPos;
 
             float getNoiseVal(vec3 pos, float time) {
@@ -176,7 +190,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
         return {
           CUSTOM_FRAGMENT_DEFINITIONS: `
             #ifdef NOISE
-            uniform float u_noiseTime;
             varying vec3 vLocalPos;
             #endif
 
@@ -202,7 +215,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
           `,
           CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `
             #ifdef ABDOMEN_GRADIENT
-            #ifdef EMISSIVE
             if (vEmissiveColor.g > 0.3) {
                 float distFromEquator = max(0.0, -vAbdomenLocalY);
                 float gradientFactor = smoothstep(0.0, 3.4, distFromEquator);
@@ -211,7 +223,6 @@ export class SilkMaterialPlugin extends MaterialPluginBase {
                 finalColor.rgb -= finalEmissive;
                 finalColor.rgb += finalEmissive * gradientFactor;
             }
-            #endif
             #endif
           `
         };
