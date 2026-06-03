@@ -40,6 +40,22 @@ export class RenderSystem implements ISystem {
       status: "Loading environment textures and lights..."
     });
 
+    const engineAny = this.engine as unknown as { _gl: WebGLRenderingContext | null };
+    const gl = engineAny ? engineAny._gl : null;
+    if (gl) {
+      const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+      if (debugInfo) {
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) as string | null;
+        if (renderer && (renderer.toLowerCase().includes("llvmpipe") || renderer.toLowerCase().includes("swiftshader"))) {
+          console.warn("Software rendering detected:", renderer);
+          this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
+            status: "PERFORMANCE ALERT: This game is running with slow CPU rendering (no GPU acceleration) and will experience severe lag. To fix this, enable 'Hardware Acceleration' in your browser settings, or try switching to another browser (like Chrome) or a different device."
+          });
+          await new Promise<void>((resolve) => setTimeout(resolve, 6000));
+        }
+      }
+    }
+
     const preset = POST_PROCESSING_PRESETS;
 
     const camera = new BABYLON.FreeCamera(

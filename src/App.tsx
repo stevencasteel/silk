@@ -19,6 +19,18 @@ export default function App() {
   const showBlur = awaitingGesture || overlayVisible || isPaused || bootStatus !== "READY";
 
   useEffect(() => {
+    const handleFocus = () => {
+      if (canvasRef.current) {
+        canvasRef.current.focus();
+      }
+    };
+    window.addEventListener("pointerdown", handleFocus, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", handleFocus);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!canvasRef.current) return;
 
     let cancelled = false;
