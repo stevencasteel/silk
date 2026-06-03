@@ -1342,14 +1342,16 @@ export const HudOverlay: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <Trophy
-                      size={48}
-                      className="victory-icon-anim"
-                      style={{
-                        color: "var(--accent-success)",
-                        filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))"
-                      }}
-                    />
+                    <motion.div className="victory-icon-anim">
+                      <Trophy
+                        size={48}
+                        className="trophy-shake-loop"
+                        style={{
+                          color: "var(--accent-success)",
+                          filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.45))"
+                        }}
+                      />
+                    </motion.div>
                   )}
                   <h1
                     className={`overlay-title ${overlayTitle === "DEFEATED" ? "defeat-title-anim" : "victory-title-anim"}`}
@@ -1492,7 +1494,7 @@ export const HudOverlay: React.FC = () => {
                     leftIcon={<GithubIcon />}
                     mainLabel="GITHUB"
                     theme={overlayTitle as "VICTORY" | "DEFEATED"}
-                    style={{ flex: "0 0 calc(40% - 8px)" }}
+                    style={{ flex: "0 0 calc(44% - 8px)" }}
                   />
 
                   <MenuButton
@@ -1506,7 +1508,7 @@ export const HudOverlay: React.FC = () => {
                     leftIcon={<Download size={14} strokeWidth={2.5} />}
                     mainLabel="DOWNLOAD .TXT"
                     theme={overlayTitle as "VICTORY" | "DEFEATED"}
-                    style={{ flex: "0 0 calc(60% - 8px)" }}
+                    style={{ flex: "0 0 calc(56% - 8px)" }}
                   />
                 </div>
               </motion.div>

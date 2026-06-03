@@ -193,15 +193,15 @@ document, onboarding reference, and design record.
   RuntimeState (src/core/engine/RuntimeState.ts) holds mutable per-frame
   game state that does not belong in the ECS:
 
-    timeScale               Global simulation speed multiplier (slomo/adrenaline).
-    currentScrollSpeed      Live scroll speed for use by all systems.
-    altitude                Accumulated upward travel distance.
-    tetherDamagePauseTimer  Scroll-pause timer after snap damage.
+    timeScale                   Global simulation speed multiplier (slomo/adrenaline).
+    currentScrollSpeed          Live scroll speed for use by all systems.
+    altitude                    Accumulated upward travel distance.
+    tetherDamagePauseTimer      Scroll-pause timer after snap damage.
     hitLagTimer / hitLagScale   Procedural lag freeze on landing.
     gameFinished / gameStarted  Match lifecycle flags.
-    weaverDamageCount       Hit counter; used for berserk trigger.
-    wallBugsSpawningAllowed / healthBugsSpawningAllowed   Debug overrides.
-    activeProfile           Scroll speed and difficulty profile object.
+    weaverDamageCount           Hit counter; used for berserk trigger.
+    wallBugsSpawningAllowed / healthBugsSpawningAllowed      Debug overrides.
+    activeProfile               Scroll speed and difficulty profile object.
 
 
 ═══════════════════════════════════════════════════════════════════════════════════
@@ -530,7 +530,7 @@ document, onboarding reference, and design record.
   └──────────┬───────────┘  (shockwave branch)      └───────┬───────┘
              │ Dash/recover complete                        │ Blast resolved
              │                                              │
-             └──────────────────►┌──────────────────────┐◄─┘
+             └──────────────────►┌──────────────────────┐◄──┘
                                  │      ASCENDING       │
                                  └──────────┬───────────┘
                                             │ Ceiling reached
@@ -582,12 +582,12 @@ document, onboarding reference, and design record.
 
   9.6  Brain & Sweep System
   ──────────────────────────
-  WeaverBrainSystem.ts:   Per-frame state tick dispatcher. Routes to the
-                          correct state's update() method.
+  WeaverBrainSystem.ts:     Per-frame state tick dispatcher. Routes to the
+                            correct state's update() method.
   WeaverTraversalSystem.ts: Integrates Weaver horizontal position each frame.
-  WeaverSweepHelper.ts:   Shared utility for wall-bounce reversal logic.
-  WeaverActionSystem.ts:  Handles combat action triggers (shoot, charge, etc.)
-                          from within active behavioral states.
+  WeaverSweepHelper.ts:     Shared utility for wall-bounce reversal logic.
+  WeaverActionSystem.ts:    Handles combat action triggers (shoot, charge, etc.)
+                            from within active behavioral states.
 
 
 ═══════════════════════════════════════════════════════════════════════════════════
@@ -984,12 +984,12 @@ document, onboarding reference, and design record.
     Launch trail: trailMesh alpha lerped toward 0.85 during LAUNCHING.
 
   Weaver emissive states (keyed on VISUAL_JUICE_CONFIG.WEAVER_COLORS):
-    Sweeping:   #121212 (near-black)
-    Dash prep:  #dffe00 (yellow — telegraph signal)
+    Sweeping:    #121212 (near-black)
+    Dash prep:   #dffe00 (yellow — telegraph signal)
     Dash thrust: #ff007f (magenta)
-    Recovering: #ff007f
-    Ascending:  #ff007f
-    Defeated:   #000000
+    Recovering:  #ff007f
+    Ascending:   #ff007f
+    Defeated:    #000000
 
   Weaver eye material ("weaverEyeMat") and leg material ("legMat") receive
   separate scale overrides — eyes glow pure red at full intensity; legs at 0.24×.
@@ -1056,10 +1056,10 @@ document, onboarding reference, and design record.
   ────────────────────
   All dynamic hazards and projectiles use pre-allocated pools to prevent GC.
 
-    Projectiles:    16  (ProjectilePool.ts)
+    Projectiles:        16 (ProjectilePool.ts)
     Flying health bugs: 2  (HealthBugPool.ts)
-    Spike bugs:      4  (SpikeBugSystem.ts internal)
-    Wall bugs:       2  (WallBugSystem.ts internal)
+    Spike bugs:         4  (SpikeBugSystem.ts internal)
+    Wall bugs:          2  (WallBugSystem.ts internal)
 
   All instances created at boot, parked off-screen, and recycled via index.
 
@@ -1111,17 +1111,17 @@ document, onboarding reference, and design record.
   Playback is triggered by subscribing to GameEvents.
 
   SFX roster:
-    boss_annoyed.mp3       boss_boing.mp3         boss_death.mp3
-    boss_hit.mp3           boss_hit_spider_sounds.mp3
-    crowd_defeat.mp3       crowd_victory.mp3
-    health_bug_fly_1/2/3.mp3  health_bug_rupture.mp3
-    player_death_rumble.mp3   player_death_slowmo.mp3
-    player_fling.mp3
-    stage1-3_tether_stretch.mp3   stage3_tether_stretch.mp3
+    boss_annoyed.mp3            boss_boing.mp3         
+    boss_hit.mp3                boss_hit_spider_sounds.mp3
+    crowd_defeat.mp3            crowd_victory.mp3
+    health_bug_fly_1/2/3.mp3    health_bug_rupture.mp3
+    player_death_rumble.mp3     player_death_slowmo.mp3
+    player_fling.mp3            boss_death.mp3
+    stage1-3_tether_stretch.mp3 stage3_tether_stretch.mp3
     stuck-in-web-shot_stick-to-surface.mp3
-    tether_ratchet.mp3     touched_spike.mp3
-    web_break.mp3          web_hit_player.mp3
-    web_shot.mp3           web_splat.mp3
+    tether_ratchet.mp3         touched_spike.mp3
+    web_break.mp3              web_hit_player.mp3
+    web_shot.mp3               web_splat.mp3
 
   Auditory fatigue mitigation (pitch + gain variance per trigger):
 
