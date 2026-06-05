@@ -104,7 +104,7 @@ const MenuButton: React.FC<MenuButtonProps> = ({
       whileTap={{ scale: 0.98 }}
       animate={isFocused ? { scale: 1.02 } : { scale: 1.0 }}
       transition={{ type: "spring", stiffness: 450, damping: 14 }}
-      className={`flex items-center justify-start bg-[#0f1218] border border-white/[0.03] py-3.5 px-5 rounded-xl cursor-pointer outline-none transition-all duration-150 ${
+      className={`flex items-center justify-start bg-[#0f1218] border border-white/[0.03] py-2.5 px-3 rounded-lg cursor-pointer outline-none transition-all duration-150 ${
         isFocused 
           ? `bg-[#0c0e12] ${focusBorderColor}` 
           : "hover:bg-[#141922] hover:border-white/[0.08]"
@@ -115,13 +115,13 @@ const MenuButton: React.FC<MenuButtonProps> = ({
       }}
     >
       <div 
-        className={`w-2 h-2 rounded-full mr-4 border border-black/50 transition-all duration-150 flex-shrink-0 ${
+        className={`w-2 h-2 rounded-full mr-3 border border-black/50 transition-all duration-150 flex-shrink-0 ${
           isFocused ? activeColorClass : "bg-[#1e2430]"
         }`}
       />
 
-      <div className="flex items-center gap-2.5 flex-grow overflow-hidden select-none">
-        <span className={`text-[12px] font-extrabold tracking-widest uppercase transition-colors duration-150 flex items-center gap-2.5 ${
+      <div className="flex items-center gap-2 flex-grow overflow-hidden select-none">
+        <span className={`text-[11px] font-black tracking-wider uppercase transition-colors duration-150 flex items-center gap-2 ${
           isFocused ? "text-white" : "text-zinc-400"
         }`}>
           {leftIcon}

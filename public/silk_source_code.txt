@@ -2,7 +2,7 @@
 │                    PROJECT SILK                  │
 │               Vite + React + Babylon             │
 └──────────────────────────────────────────────────┘
- [SYSTEM] Generated: 6/3/2026, 3:21:15 PM
+ [SYSTEM] Generated: 6/5/2026, 3:31:45 PM
  [BASELINE]: React 19, TypeScript 6, Babylon.js, Rapier 3D, Tone.js
 
 ─── ABRIDGED DIRECTORY STRUCTURE ───────────────────
@@ -46,21 +46,26 @@
 │   ├── silk_source_code.txt
 │   └── source_code_manifest.json
 ├── raw_assets/
-│   └── audacity/
-│       ├── boss_boing.aup3
-│       ├── boss_death.aup3
-│       ├── boss_hit.aup3
-│       ├── crowd_defeat.aup3
-│       ├── crowd_victory.aup3
-│       ├── health_bug_rupture.aup3
-│       ├── player_death_rumble.mp3
-│       ├── player_fling.aup3
-│       ├── stage2_tether_stretch.aup3
-│       ├── stage3_tether_stretch.aup3
-│       ├── web_break.aup3
-│       ├── web_hit_player.aup3
-│       ├── web_shot.aup3
-│       └── web_splat.aup3
+│   ├── audacity/
+│   │   └── player_death_rumble.mp3
+│   └── branding/
+│       ├── ChatGPT Image Jun 1, 2026, 11_21_20 AM.png
+│       ├── ChatGPT Image May 22, 2026, 03_04_34 PM.png
+│       ├── ChatGPT Image May 24, 2026, 04_38_39 PM.png
+│       ├── ChatGPT Image May 24, 2026, 04_39_51 PM.png
+│       ├── ChatGPT Image May 31, 2026, 10_33_14 PM.png
+│       ├── Gemini_Generated_Image_4sw8xq4sw8xq4sw8.png
+│       ├── Gemini_Generated_Image_62v6vn62v6vn62v6.png
+│       ├── Gemini_Generated_Image_lze0tylze0tylze0 (1).png
+│       ├── Gemini_Generated_Image_lze0tylze0tylze0.png
+│       ├── Screenshot 2026-05-31 at 10.23.49 PM.jpg
+│       ├── SILK icon.png
+│       ├── silk thumbnail.jpg
+│       ├── silk_screenshot_v1.0_1.jpg
+│       ├── silk_screenshot_v1.0_2.jpg
+│       ├── silk_screenshot_v1.0_3.jpg
+│       ├── silk_screenshot_v1.0_4.jpg
+│       └── silk_screenshot_v1.0_5.jpg
 ├── scripts/
 │   ├── create_source_context.command
 │   ├── create_source_context.js
@@ -225,8 +230,6 @@
 ├── package.json
 ├── phase2_patch.js
 ├── README.md
-├── refine_warning.js
-├── silk-v1.0.0.zip
 ├── spider-visual-check.png
 ├── tsconfig.app.json
 ├── tsconfig.json
@@ -2194,31 +2197,6 @@ dressingContent = dressingContent.replace(
 fs.writeFileSync('src/visual/systems/VisualStateDressingSystem.ts', dressingContent);
 
 console.log("Phase 2 patch script executed successfully.");
-
-
-
-● ./refine_warning.js
-────────────────────────────────────────────────────
-import fs from 'fs';
-
-const renderPath = 'src/visual/scene/RenderSystem.ts';
-let renderContent = fs.readFileSync(renderPath, 'utf8');
-
-const targetRenderCode = `          this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-            status: "PERFORMANCE ALERT: Your browser is currently running without GPU Graphics Acceleration. The game will run with extreme lag. To fix this, please turn on 'Use graphics acceleration when available' in your browser settings and restart."
-          });`;
-
-const replacementRenderCode = `          this.broker.publish(GameEvent.GAME_BOOT_PROGRESS, {
-            status: "PERFORMANCE ALERT: This game is running with slow CPU rendering (no GPU acceleration) and will experience severe lag. To fix this, enable 'Hardware Acceleration' in your browser settings, or try switching to another browser (like Chrome) or a different device."
-          });`;
-
-if (renderContent.includes(targetRenderCode)) {
-  renderContent = renderContent.replace(targetRenderCode, replacementRenderCode);
-  fs.writeFileSync(renderPath, renderContent, 'utf8');
-  console.log('Successfully refined the warning message in RenderSystem.ts');
-} else {
-  console.error('Failed to locate target code in RenderSystem.ts');
-}
 
 
 
@@ -16096,7 +16074,9 @@ body,
 
 .cabinet-header-panel {
   width: 100%;
-  height: 70px;
+  height: 8.5vmin;
+  min-height: 48px;
+  max-height: 72px;
   background: linear-gradient(180deg, #10121a 0%, #06080c 100%);
   border-bottom: 2px solid #1c202d;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65);
@@ -16187,7 +16167,9 @@ body,
 
 .cabinet-footer-panel {
   width: 100%;
-  height: 48px;
+  height: 8.5vmin;
+  min-height: 48px;
+  max-height: 72px;
   background: linear-gradient(180deg, #06080c 0%, #10121a 100%);
   border-top: 2px solid #1c202d;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.65);
@@ -16220,7 +16202,7 @@ body,
 
 .hud-bottom {
   position: absolute;
-  bottom: 60px;
+  bottom: clamp(56px, 8.5vmin + 12px, 84px);
   left: 0;
   right: 0;
   display: flex;
@@ -18059,7 +18041,7 @@ const MenuButton: React.FC<MenuButtonProps> = ({
       whileTap={{ scale: 0.98 }}
       animate={isFocused ? { scale: 1.02 } : { scale: 1.0 }}
       transition={{ type: "spring", stiffness: 450, damping: 14 }}
-      className={`flex items-center justify-start bg-[#0f1218] border border-white/[0.03] py-3.5 px-5 rounded-xl cursor-pointer outline-none transition-all duration-150 ${
+      className={`flex items-center justify-start bg-[#0f1218] border border-white/[0.03] py-2.5 px-3 rounded-lg cursor-pointer outline-none transition-all duration-150 ${
         isFocused 
           ? `bg-[#0c0e12] ${focusBorderColor}` 
           : "hover:bg-[#141922] hover:border-white/[0.08]"
@@ -18070,13 +18052,13 @@ const MenuButton: React.FC<MenuButtonProps> = ({
       }}
     >
       <div 
-        className={`w-2 h-2 rounded-full mr-4 border border-black/50 transition-all duration-150 flex-shrink-0 ${
+        className={`w-2 h-2 rounded-full mr-3 border border-black/50 transition-all duration-150 flex-shrink-0 ${
           isFocused ? activeColorClass : "bg-[#1e2430]"
         }`}
       />
 
-      <div className="flex items-center gap-2.5 flex-grow overflow-hidden select-none">
-        <span className={`text-[12px] font-extrabold tracking-widest uppercase transition-colors duration-150 flex items-center gap-2.5 ${
+      <div className="flex items-center gap-2 flex-grow overflow-hidden select-none">
+        <span className={`text-[11px] font-black tracking-wider uppercase transition-colors duration-150 flex items-center gap-2 ${
           isFocused ? "text-white" : "text-zinc-400"
         }`}>
           {leftIcon}
