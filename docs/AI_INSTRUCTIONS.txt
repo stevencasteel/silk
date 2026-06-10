@@ -38,8 +38,8 @@
 
 1.8  Local Testing
      All verification must be supported by running the local Vite server 
-     development commands (`npm run dev`) and verifying build stability 
-     (`npm run build`).
+     development commands (`npm run dev`) and running the static check suite 
+     (`npm run check`) to verify both type-safety and lint rules.
 
 1.9  Line Diagnostics for Debugging
      When debugging or analyzing an error/crash stack trace where the exact 
@@ -148,7 +148,7 @@ protocol based on scope:
        ENDOFSCRIPT
        node ./patch.js && rm ./patch.js
 
-3.5  Build Verification
-     Validate all TypeScript compilations and bundler configurations after any 
+3.5  Static and Type Verification
+     Validate all TypeScript compilations and linter configurations after any 
      file updates before concluding:
-       npm run build
+       npm run check

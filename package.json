@@ -10,7 +10,8 @@
     "build": "eslint . && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "check": "tsc -b && eslint ."
   },
   "dependencies": {
     "@babylonjs/core": "^7.47.0",
